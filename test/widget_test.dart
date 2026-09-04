@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movera_rider/main.dart';
+import 'package:riding_app/main.dart';
 
 void main() {
   testWidgets('rider app boots', (WidgetTester tester) async {

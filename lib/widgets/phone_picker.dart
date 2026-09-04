@@ -2,10 +2,10 @@ import 'package:country_pickers/country.dart';
 import 'package:country_pickers/country_pickers.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/constants/appcolors.dart';
-import 'package:movera_rider/constants/appfontweight.dart';
-import 'package:movera_rider/widgets/custom_text_widget.dart';
-import 'package:movera_rider/widgets/responsive_size.dart';
+import 'package:riding_app/constants/appcolors.dart';
+import 'package:riding_app/constants/appfontweight.dart';
+import 'package:riding_app/widgets/custom_text_widget.dart';
+import 'package:riding_app/widgets/responsive_size.dart';
 
 class PhoneNumberPicker extends StatefulWidget {
   final Function(String, Country)?

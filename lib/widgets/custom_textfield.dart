@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/constants/appcolors.dart';
-import 'package:movera_rider/constants/appfontweight.dart';
-import 'package:movera_rider/widgets/responsive_size.dart';
+import 'package:riding_app/constants/appcolors.dart';
+import 'package:riding_app/constants/appfontweight.dart';
+import 'package:riding_app/widgets/responsive_size.dart';
 
 Widget customTextfield({
   TextEditingController? controller,

@@ -1,11 +1,11 @@
 {
-    "name": "Movera Rider",
-    "short_name": "Movera Rider",
+    "name": "riding_app",
+    "short_name": "riding_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Movera Rider taxi app.",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

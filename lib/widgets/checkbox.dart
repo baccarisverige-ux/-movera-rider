@@ -1,7 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:movera_rider/constants/appcolors.dart';
+import 'package:riding_app/constants/appcolors.dart';
 import 'responsive_size.dart';
 
 class CustomCheckBox extends StatelessWidget {

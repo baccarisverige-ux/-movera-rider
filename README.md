@@ -1,4 +1,4 @@
-# Movera Rider
+# Riding App
 
 Standalone Flutter application extracted from the original combined taxi project.
 

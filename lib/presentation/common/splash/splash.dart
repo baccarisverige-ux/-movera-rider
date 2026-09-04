@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/constants/appassets.dart';
-import 'package:movera_rider/presentation/passenger/auth/login/login.dart';
-import 'package:movera_rider/widgets/navigation_transition.dart';
-import 'package:movera_rider/widgets/responsive_size.dart';
+import 'package:riding_app/constants/appassets.dart';
+import 'package:riding_app/presentation/common/onboarding/onboarding.dart';
+import 'package:riding_app/widgets/navigation_transition.dart';
+import 'package:riding_app/widgets/responsive_size.dart';
 
 class Splash extends StatefulWidget {
   const Splash({super.key});
@@ -24,7 +24,7 @@ class _SplashState extends State<Splash> {
       Navigator.pushReplacement(
         // ignore: use_build_context_synchronously
         context,
-        RightToLeftTransition(const PassengerLogin()),
+        RightToLeftTransition(const OnboardingScreen(isDriver: false)),
       );
     });
   }

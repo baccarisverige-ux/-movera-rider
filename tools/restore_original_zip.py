@@ -22,13 +22,13 @@ for p in root.rglob('*'):
     if not p.is_file() or '.git' in p.parts or '.github' in p.parts: continue
     try: s=p.read_text(encoding='utf-8')
     except Exception: continue
-    s=s.replace('package:movera_rider/','package:riding_app/')
-    s=s.replace('package:movera_driver/','package:riding_app/')
-    s=s.replace('name: movera_rider','name: riding_app').replace('name: movera_driver','name: riding_app')
-    s=s.replace('description: "Movera Rider taxi app."','description: "A new Flutter project."')
-    s=s.replace('description: "Movera Driver taxi app."','description: "A new Flutter project."')
-    s=s.replace('Movera Rider','Riding App').replace('Movera Driver','Riding App')
-    s=s.replace('movera_rider','riding_app').replace('movera_driver','riding_app')
+    s=s.replace('package:riding_app/','package:riding_app/')
+    s=s.replace('package:riding_app/','package:riding_app/')
+    s=s.replace('name: riding_app','name: riding_app').replace('name: riding_app','name: riding_app')
+    s=s.replace('description: "A new Flutter project."','description: "A new Flutter project."')
+    s=s.replace('description: "A new Flutter project."','description: "A new Flutter project."')
+    s=s.replace('Riding App','Riding App').replace('Riding App','Riding App')
+    s=s.replace('riding_app','riding_app').replace('riding_app','riding_app')
     p.write_text(s,encoding='utf-8')
 
 # Restore original main app class.

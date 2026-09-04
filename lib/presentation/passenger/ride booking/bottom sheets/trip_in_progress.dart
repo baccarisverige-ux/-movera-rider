@@ -1,13 +1,13 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:movera_rider/constants/appassets.dart';
-import 'package:movera_rider/constants/appcolors.dart';
-import 'package:movera_rider/constants/appfontweight.dart';
-import 'package:movera_rider/widgets/custom_btn.dart';
-import 'package:movera_rider/widgets/custom_text_widget.dart';
-import 'package:movera_rider/widgets/responsive_size.dart';
-import 'package:movera_rider/widgets/sizedbox_extention.dart';
+import 'package:riding_app/constants/appassets.dart';
+import 'package:riding_app/constants/appcolors.dart';
+import 'package:riding_app/constants/appfontweight.dart';
+import 'package:riding_app/widgets/custom_btn.dart';
+import 'package:riding_app/widgets/custom_text_widget.dart';
+import 'package:riding_app/widgets/responsive_size.dart';
+import 'package:riding_app/widgets/sizedbox_extention.dart';
 
 class BookRideTripInProgress extends StatefulWidget {
   final VoidCallback onNext;
