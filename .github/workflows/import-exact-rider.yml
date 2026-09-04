@@ -1,10 +1,10 @@
-name: Import Exact Rider Source
+name: Import Exact Rider Files
 
 on:
   push:
     branches: [main]
     paths:
-      - 'rider_exact_source.tar.xz'
+      - 'rider_exact_full.part04'
 
 permissions:
   contents: write
@@ -23,26 +23,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify exact Rider bundle
+      - name: Verify all five exact transfer parts
         run: |
-          echo "87fc5f85a91ee3cc2c565ee7c49bbe3da6133d4e6b14d5e2dfc213c1776f0e02  rider_exact_source.tar.xz" | sha256sum -c -
+          echo "562734dc21215ce52ed46cb4e742aabf9ad6662d9474277701e5ddd4e654c2c6  rider_exact_full.part00" | sha256sum -c -
+          echo "ae0f5fa285c3819ce4fae9fddea43f070c6e1fdfb0f683b308a986c6a8d136b1  rider_exact_full.part01" | sha256sum -c -
+          echo "b2f4d9b3ca6148932b96bc253ec700c5e5cc1d05ee591c6a479dcfb6fcdd82e3  rider_exact_full.part02" | sha256sum -c -
+          echo "90242a93aeb34577e364ce483c2778c0b7b438b57340a0dd4996c9447950aad7  rider_exact_full.part03" | sha256sum -c -
+          echo "c2ede013b93592e9fa5284e2bc12c18baa89116e082c9d6929111a4b90ab8731  rider_exact_full.part04" | sha256sum -c -
+          cat rider_exact_full.part00 rider_exact_full.part01 rider_exact_full.part02 rider_exact_full.part03 rider_exact_full.part04 > /tmp/riding_app_rider_exact.zip
+          echo "86c4c49daf8bd7bb355826a2c61b3855ec151b68b53ddde0657b30d93867bf48  /tmp/riding_app_rider_exact.zip" | sha256sum -c -
+          unzip -t /tmp/riding_app_rider_exact.zip >/dev/null
 
-      - name: Replace repository with exact Rider source
+      - name: Replace repository with all 689 exact Rider files
         run: |
+          rm -rf /tmp/rider-exact
           mkdir -p /tmp/rider-exact
-          tar -xJf rider_exact_source.tar.xz -C /tmp/rider-exact
+          unzip -q /tmp/riding_app_rider_exact.zip -d /tmp/rider-exact
+          test -d /tmp/rider-exact/riding_app
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a /tmp/rider-exact/. .
-          git add -A
+          cp -a /tmp/rider-exact/riding_app/. .
+          git add -Af .
+          FILE_COUNT="$(git ls-files | wc -l)"
           ACTUAL_TREE="$(git write-tree)"
+          echo "Exact Rider file count: $FILE_COUNT"
           echo "Exact Rider tree: $ACTUAL_TREE"
-          test "$ACTUAL_TREE" = "26d2cad098f0abfcf02d84482be9124ee69b2e3d"
+          test "$FILE_COUNT" = "689"
+          test "$ACTUAL_TREE" = "583ab919ea9ccc55b899b3add30d546b79ea6f32"
 
-      - name: Commit exact Rider source
+      - name: Commit exact Rider tree
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Import exact Rider source from original riding_app.zip"
+          git config http.postBuffer 524288000
+          git commit -m "Import all 689 exact Rider files from original riding_app.zip"
           git push origin main
 
       - uses: subosito/flutter-action@v2
@@ -50,8 +63,9 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Prepare temporary Web build only
+      - name: Prepare temporary Web build without altering committed source
         run: |
+          rm -rf .dart_tool build android/.gradle
           python3 - <<'PY'
           from pathlib import Path
           p=Path('lib/widgets/responsive_size.dart')
@@ -64,7 +78,7 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build Rider Web from exact source
+      - name: Build Rider Web from exact committed source
         run: flutter build web --release --base-href "/-movera-rider/"
 
       - uses: actions/configure-pages@v5
