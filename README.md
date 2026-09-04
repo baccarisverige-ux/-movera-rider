@@ -1,24 +1,16 @@
-# Riding App
+# riding_app
 
-Standalone Flutter application extracted from the original combined taxi project.
+A new Flutter project.
 
-## Scope
+## Getting Started
 
-This repository contains only the **Rider** application flow plus shared widgets, assets, models, constants and services required by that flow.
+This project is a starting point for a Flutter application.
 
-- Opposite-side UI code has been removed.
-- App entry flow is locked to the Rider experience.
-- Flutter mobile and web project files are included.
+A few resources to get you started if this is your first Flutter project:
 
-## Run
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
 
-```bash
-flutter pub get
-flutter run
-```
-
-## Web build
-
-```bash
-flutter build web --release
-```
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.
