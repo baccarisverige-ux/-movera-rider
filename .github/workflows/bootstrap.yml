@@ -3,7 +3,6 @@ name: Restore Rider Source
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,22 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reassemble and validate source archive
+      - name: Restore verified source
         shell: bash
         run: |
           set -euo pipefail
-          ls -la .bootstrap
-          cat .bootstrap/project.part-* > /tmp/project.b64
-          base64 -d /tmp/project.b64 > /tmp/project.tar.xz
-          xz -t /tmp/project.tar.xz
-          tar -xJf /tmp/project.tar.xz
+          cat .restore2/part-* > /tmp/source.b64
+          base64 -d /tmp/source.b64 > /tmp/source.tar.xz
+          echo "c521137da4130f45939320da7c2ecdf99dd6380181574718a46957b0c3d91e53  /tmp/source.tar.xz" | sha256sum -c -
+          xz -t /tmp/source.tar.xz
+          tar -xJf /tmp/source.tar.xz
           test -f pubspec.yaml
           test -f lib/main.dart
       - name: Commit restored source
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf .bootstrap
+          rm -rf .bootstrap .restore2
           rm -f .github/workflows/bootstrap.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
