@@ -1,6 +1,6 @@
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-double screenHorizPadding = ScreenUtil().setWidth(16);
+double get screenHorizPadding => ScreenUtil().setWidth(16);
 
 class ResSize {
   static double get h => ScreenUtil().scaleHeight;
