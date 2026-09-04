@@ -1,0 +1,85 @@
+name: Import Exact Rider Source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rider_exact_source.tar.xz'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: exact-rider-import
+  cancel-in-progress: false
+
+jobs:
+  import-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify exact Rider bundle
+        run: |
+          echo "87fc5f85a91ee3cc2c565ee7c49bbe3da6133d4e6b14d5e2dfc213c1776f0e02  rider_exact_source.tar.xz" | sha256sum -c -
+
+      - name: Replace repository with exact Rider source
+        run: |
+          mkdir -p /tmp/rider-exact
+          tar -xJf rider_exact_source.tar.xz -C /tmp/rider-exact
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/rider-exact/. .
+          git add -A
+          ACTUAL_TREE="$(git write-tree)"
+          echo "Exact Rider tree: $ACTUAL_TREE"
+          test "$ACTUAL_TREE" = "26d2cad098f0abfcf02d84482be9124ee69b2e3d"
+
+      - name: Commit exact Rider source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Import exact Rider source from original riding_app.zip"
+          git push origin main
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepare temporary Web build only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('lib/widgets/responsive_size.dart')
+          b=p.read_bytes()
+          old=b'double screenHorizPadding = ScreenUtil().setWidth(16);'
+          new=b'double get screenHorizPadding => ScreenUtil().setWidth(16);'
+          if old in b:
+              p.write_bytes(b.replace(old,new,1))
+          PY
+
+      - run: flutter pub get
+
+      - name: Build Rider Web from exact source
+        run: flutter build web --release --base-href "/-movera-rider/"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: import-build
+    steps:
+      - name: Deploy exact Rider to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
