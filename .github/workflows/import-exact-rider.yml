@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'rider_exact_full.part04'
+      - 'rider_exact_full.part03'
 
 permissions:
   contents: write
@@ -23,14 +23,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify all five exact transfer parts
+      - name: Verify all four exact transfer parts
         run: |
-          echo "562734dc21215ce52ed46cb4e742aabf9ad6662d9474277701e5ddd4e654c2c6  rider_exact_full.part00" | sha256sum -c -
-          echo "ae0f5fa285c3819ce4fae9fddea43f070c6e1fdfb0f683b308a986c6a8d136b1  rider_exact_full.part01" | sha256sum -c -
-          echo "b2f4d9b3ca6148932b96bc253ec700c5e5cc1d05ee591c6a479dcfb6fcdd82e3  rider_exact_full.part02" | sha256sum -c -
-          echo "90242a93aeb34577e364ce483c2778c0b7b438b57340a0dd4996c9447950aad7  rider_exact_full.part03" | sha256sum -c -
-          echo "c2ede013b93592e9fa5284e2bc12c18baa89116e082c9d6929111a4b90ab8731  rider_exact_full.part04" | sha256sum -c -
-          cat rider_exact_full.part00 rider_exact_full.part01 rider_exact_full.part02 rider_exact_full.part03 rider_exact_full.part04 > /tmp/riding_app_rider_exact.zip
+          echo "f3e292dc7875c5400e6555b1510ab60890d3d1286d053b60589e491611efb302  rider_exact_full.part00" | sha256sum -c -
+          echo "b95d31590876e0101acc07dfce4fa1fd3baba8d7e0a63990c5b9715cd5166cd0  rider_exact_full.part01" | sha256sum -c -
+          echo "5056650bda8e877e8db0796fae9410af9e1cefcd4f7725767ca5a4754db05dc2  rider_exact_full.part02" | sha256sum -c -
+          echo "4368d0ac32e71a5879aeb8d0a3e83ad673b16af237dbe71b6a8bcef60a8b04ac  rider_exact_full.part03" | sha256sum -c -
+          cat rider_exact_full.part00 rider_exact_full.part01 rider_exact_full.part02 rider_exact_full.part03 > /tmp/riding_app_rider_exact.zip
           echo "86c4c49daf8bd7bb355826a2c61b3855ec151b68b53ddde0657b30d93867bf48  /tmp/riding_app_rider_exact.zip" | sha256sum -c -
           unzip -t /tmp/riding_app_rider_exact.zip >/dev/null
 
