@@ -26,3 +26,4 @@ jobs:
           git add -A
           git commit -m "Restore original riding_app ZIP for Rider"
           git push
+# retry-2
