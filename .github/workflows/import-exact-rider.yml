@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'rider_exact_full.part03'
+      - 'rider-upload-4.zip'
 
 permissions:
   contents: write
@@ -23,8 +23,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify all four exact transfer parts
+      - name: Extract and verify four downloadable ZIP parts
         run: |
+          unzip -q rider-upload-1.zip
+          unzip -q rider-upload-2.zip
+          unzip -q rider-upload-3.zip
+          unzip -q rider-upload-4.zip
           echo "f3e292dc7875c5400e6555b1510ab60890d3d1286d053b60589e491611efb302  rider_exact_full.part00" | sha256sum -c -
           echo "b95d31590876e0101acc07dfce4fa1fd3baba8d7e0a63990c5b9715cd5166cd0  rider_exact_full.part01" | sha256sum -c -
           echo "5056650bda8e877e8db0796fae9410af9e1cefcd4f7725767ca5a4754db05dc2  rider_exact_full.part02" | sha256sum -c -
