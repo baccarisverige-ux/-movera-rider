@@ -1,0 +1,52 @@
+name: Publish Rider Web Live
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build Flutter web
+        run: flutter build web --release --pwa-strategy=none
+
+      - name: Point compiled app assets to public CDN
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          s = s.replace('<base href="/">', '<base href="https://cdn.jsdelivr.net/gh/baccarisverige-ux/-movera-rider@web-live/">')
+          p.write_text(s)
+          PY
+
+      - name: Publish compiled output to web-live branch
+        run: |
+          rm -rf /tmp/movera-web
+          mkdir -p /tmp/movera-web
+          cp -a build/web/. /tmp/movera-web/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan web-live
+          git rm -rf . || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/movera-web/. .
+          touch .nojekyll
+          git add -A
+          git commit -m "Publish Movera Rider web build"
+          git push --force origin web-live
