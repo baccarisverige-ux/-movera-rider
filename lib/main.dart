@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:riding_app/constants/appcolors.dart';
-import 'package:riding_app/presentation/common/splash/splash.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/presentation/common/splash/splash.dart';
 
 void main() {
-  runApp(const RidingApp());
+  runApp(const MoveraApp());
 }
 
-class RidingApp extends StatelessWidget {
-  const RidingApp({super.key});
+class MoveraApp extends StatelessWidget {
+  const MoveraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class RidingApp extends StatelessWidget {
       ensureScreenSize: true,
       builder: (_, child) {
         return GetMaterialApp(
-          title: 'Riding App',
+          title: 'MoveraApp App',
           debugShowCheckedModeBanner: false,
           theme: ThemeData.light(
             useMaterial3: true,

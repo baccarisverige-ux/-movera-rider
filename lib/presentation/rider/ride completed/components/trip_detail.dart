@@ -1,0 +1,121 @@
+import 'package:flutter/material.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/constants/appfontweight.dart';
+import 'package:movera/widgets/custom_text_widget.dart';
+import 'package:movera/widgets/responsive_size.dart';
+import 'package:movera/widgets/sizedbox_extention.dart';
+
+class RideCompletedTripDetail extends StatelessWidget {
+  const RideCompletedTripDetail({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: ResSize.w * 20,
+              vertical: ResSize.h * 9,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Color(0xffFAFAFA),
+              border: Border.all(color: AppColor.border, width: 0.2),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextWidget(
+                  text: "Trip Details",
+                  color: AppColor.title,
+                  fontSize: 16,
+                  fontWeight: fwSemiBold,
+                ),
+                12.height,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextWidget(
+                      text: "Pickup location",
+                      color: AppColor.title,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                    TextWidget(
+                      text: "I11/Street 15 - h350",
+                      color: AppColor.subtitle,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                  ],
+                ),
+                8.height,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                  children: [
+                    TextWidget(
+                      text: "Destination",
+                      color: AppColor.title,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                    TextWidget(
+                      text: "Skypulse solution",
+                      color: AppColor.subtitle,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                  ],
+                ),
+                8.height,
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                  children: [
+                    TextWidget(
+                      text: "Total Payment",
+                      color: AppColor.title,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                    TextWidget(
+                      text: "\$10.12",
+                      color: AppColor.subtitle,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                  ],
+                ),
+                8.height,
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+                  children: [
+                    TextWidget(
+                      text: "Payment method",
+                      color: AppColor.title,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                    TextWidget(
+                      text: "Cash",
+                      color: AppColor.subtitle,
+                      fontSize: 14,
+                      fontWeight: fwMedium,
+                    ),
+                  ],
+                ),
+                8.height,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

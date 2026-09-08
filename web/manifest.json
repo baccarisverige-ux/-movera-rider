@@ -1,6 +1,6 @@
 {
-    "name": "riding_app",
-    "short_name": "riding_app",
+    "name": "movera",
+    "short_name": "movera",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

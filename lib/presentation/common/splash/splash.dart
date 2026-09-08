@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:riding_app/constants/appassets.dart';
-import 'package:riding_app/presentation/common/onboarding/onboarding.dart';
-import 'package:riding_app/widgets/navigation_transition.dart';
-import 'package:riding_app/widgets/responsive_size.dart';
+import 'package:movera/constants/appassets.dart';
+import 'package:movera/presentation/common/onboarding/onboarding.dart';
+import 'package:movera/widgets/navigation_transition.dart';
+import 'package:movera/widgets/responsive_size.dart';
 
 class Splash extends StatefulWidget {
   const Splash({super.key});
@@ -24,7 +24,7 @@ class _SplashState extends State<Splash> {
       Navigator.pushReplacement(
         // ignore: use_build_context_synchronously
         context,
-        RightToLeftTransition(const OnboardingScreen(isDriver: false)),
+        RightToLeftTransition(const OnboardingScreen()),
       );
     });
   }
@@ -51,7 +51,7 @@ class _SplashState extends State<Splash> {
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 1200),
                 opacity: animate ? 0 : 1,
-                child: Image.asset(AppAssets.logo, height: ResSize.h * 54),
+                child: Image.asset(AppAssets.logo, height: ResSize.h * 104),
               ),
             ),
           ],

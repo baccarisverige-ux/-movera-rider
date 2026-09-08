@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:riding_app/constants/appcolors.dart';
-import 'package:riding_app/constants/appfontweight.dart';
-import 'package:riding_app/widgets/responsive_size.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/constants/appfontweight.dart';
+import 'package:movera/widgets/responsive_size.dart';
 
 class CustomExpansionTile extends StatelessWidget {
   final String? iconAsset;

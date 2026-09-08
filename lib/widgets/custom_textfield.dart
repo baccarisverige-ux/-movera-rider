@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:riding_app/constants/appcolors.dart';
-import 'package:riding_app/constants/appfontweight.dart';
-import 'package:riding_app/widgets/responsive_size.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/constants/appfontweight.dart';
+import 'package:movera/widgets/responsive_size.dart';
 
 Widget customTextfield({
   TextEditingController? controller,
@@ -20,15 +20,15 @@ Widget customTextfield({
   TextInputType? keyboardType,
   int maxline = 1,
   Color fillColor = Colors.transparent,
-  double borderWidth = 0.6,
+  double borderWidth = 0.5,
   Color borderColor = AppColor.border,
-  double borderRadius = 12,
+  double borderRadius = 8,
   Color hintTextColor = AppColor.hintText,
   Color textColor = AppColor.title,
   double contentVertPadding = 16,
   double contentHorizPadding = 16,
   bool enabled = true,
-  double fontSize = 14,
+  double fontSize = 16,
   FocusNode? focusNode,
   bool readOnly = false,
   TextInputAction? textInputAction,

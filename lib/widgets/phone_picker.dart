@@ -2,10 +2,10 @@ import 'package:country_pickers/country.dart';
 import 'package:country_pickers/country_pickers.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:riding_app/constants/appcolors.dart';
-import 'package:riding_app/constants/appfontweight.dart';
-import 'package:riding_app/widgets/custom_text_widget.dart';
-import 'package:riding_app/widgets/responsive_size.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/constants/appfontweight.dart';
+import 'package:movera/widgets/custom_text_widget.dart';
+import 'package:movera/widgets/responsive_size.dart';
 
 class PhoneNumberPicker extends StatefulWidget {
   final Function(String, Country)?
@@ -51,7 +51,7 @@ class _PhoneNumberPickerState extends State<PhoneNumberPicker> {
                 text: widget.title,
                 fontSize: 16,
                 fontWeight: fwMedium,
-                color: AppColor.primary,
+                color: AppColor.black,
               ),
             ),
             searchInputDecoration: InputDecoration(
@@ -99,7 +99,7 @@ class _PhoneNumberPickerState extends State<PhoneNumberPicker> {
                       text: '+${country.phoneCode}',
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: AppColor.primary,
+                      color: AppColor.black,
                     ),
                     const SizedBox(width: 8.0),
                   ],
@@ -109,7 +109,7 @@ class _PhoneNumberPickerState extends State<PhoneNumberPicker> {
                       text: country.name,
                       fontSize: 13,
                       fontWeight: fwMedium,
-                      color: AppColor.primary,
+                      color: AppColor.black,
                     ),
                   ),
                 ],

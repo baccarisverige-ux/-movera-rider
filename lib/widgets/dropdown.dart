@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:riding_app/constants/appcolors.dart';
-import 'package:riding_app/constants/appfontweight.dart';
-import 'package:riding_app/widgets/custom_text_widget.dart';
-import 'package:riding_app/widgets/responsive_size.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/constants/appfontweight.dart';
+import 'package:movera/widgets/custom_text_widget.dart';
+import 'package:movera/widgets/responsive_size.dart';
 
 class AppDropdownField extends StatelessWidget {
   final TextEditingController controller;
@@ -24,11 +24,11 @@ class AppDropdownField extends StatelessWidget {
     this.hint,
     required this.items,
     this.onChanged,
-    this.borderRadius = 12,
-    this.borderWidth = 1,
-    this.borderColor = AppColor.border,
-    this.fillColor = AppColor.secondary,
-    this.fontSize = 14,
+    this.borderRadius = 8,
+    this.borderWidth = 0,
+    this.borderColor = Colors.transparent,
+    this.fillColor = const Color(0xffF6F8FA),
+    this.fontSize = 16,
     this.contentVertPadding = 16,
     this.contentHorizPadding = 16,
   });
@@ -39,9 +39,10 @@ class AppDropdownField extends StatelessWidget {
         ? controller.text
         : null;
     return DropdownButtonFormField<String>(
-      elevation: 4,
-      borderRadius: BorderRadius.circular(borderRadius),
-      dropdownColor: AppColor.secondary,
+      elevation: 1,
+      borderRadius: BorderRadius.circular(12),
+      dropdownColor: AppColor.white,
+
       value: value,
       isExpanded: true,
       icon: Icon(

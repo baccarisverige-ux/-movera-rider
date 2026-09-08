@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:riding_app/constants/appcolors.dart';
-import 'package:riding_app/constants/appfontweight.dart';
+import 'package:movera/constants/appcolors.dart';
+import 'package:movera/constants/appfontweight.dart';
 import 'custom_text_widget.dart';
 import 'responsive_size.dart';
 
@@ -30,8 +30,8 @@ class CustomButton extends StatelessWidget {
     required this.centerContent,
     this.borderwidth = 0,
     this.borderColor = Colors.transparent,
-    this.textColor = AppColor.secondary,
-    this.fontSize = 18,
+    this.textColor = AppColor.whiteText,
+    this.fontSize = 16,
     this.icon = const SizedBox(),
     this.loader = const SizedBox(),
     this.isLoading = false,
