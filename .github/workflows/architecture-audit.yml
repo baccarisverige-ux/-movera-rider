@@ -1,0 +1,60 @@
+name: Architecture audit Rider
+
+on:
+  push:
+    paths:
+      - '.github/workflows/architecture-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Generate architecture report
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          root = Path('.')
+          darts = sorted(root.glob('lib/**/*.dart'))
+          rider_refs=[]; driver_refs=[]; passenger_refs=[]
+          for p in darts:
+              try: s=p.read_text(errors='ignore')
+              except: continue
+              for line in s.splitlines():
+                  if 'package:movera/presentation/rider/' in line: rider_refs.append((str(p),line.strip()))
+                  if 'package:movera/presentation/driver/' in line: driver_refs.append((str(p),line.strip()))
+                  if 'package:movera/presentation/passenger/' in line: passenger_refs.append((str(p),line.strip()))
+          tracked = subprocess.check_output(['git','ls-files'], text=True).splitlines()
+          generated = [x for x in tracked if x.startswith('.dart_tool/') or '/.gradle/' in x or x.startswith('build/') or '/ephemeral/' in x]
+          zips=[x for x in tracked if x.lower().endswith('.zip')]
+          workflows=[x for x in tracked if x.startswith('.github/workflows/')]
+          assets=[x for x in tracked if x.startswith('assets/')]
+          pres=[x for x in tracked if x.startswith('lib/presentation/')]
+          with open('architecture-audit.txt','w') as f:
+              def sec(title, rows):
+                  f.write(f'\n## {title} ({len(rows)})\n')
+                  for r in rows: f.write((r if isinstance(r,str) else ' :: '.join(r))+'\n')
+              f.write('REPO=RIDER\n')
+              f.write(f'DART_FILES={len(darts)}\nASSET_FILES={len(assets)}\nPRESENTATION_FILES={len(pres)}\n')
+              sec('DRIVER_IMPORTS', driver_refs)
+              sec('RIDER_IMPORTS', rider_refs)
+              sec('PASSENGER_IMPORTS', passenger_refs)
+              sec('TRACKED_GENERATED', generated)
+              sec('ZIP_FILES', zips)
+              sec('WORKFLOWS', workflows)
+              top=sorted({x.split('/')[2] for x in pres if len(x.split('/'))>2})
+              sec('PRESENTATION_TOP_FOLDERS', top)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rider-architecture-audit
+          path: architecture-audit.txt
+          retention-days: 1
