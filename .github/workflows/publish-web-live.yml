@@ -7,9 +7,14 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   publish:
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +29,33 @@ jobs:
 
       - name: Build Flutter web
         run: flutter build web --release --pwa-strategy=none
+
+      - name: Prepare GitHub Pages build
+        run: |
+          rm -rf /tmp/movera-pages
+          mkdir -p /tmp/movera-pages
+          cp -a build/web/. /tmp/movera-pages/
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('/tmp/movera-pages/index.html')
+          s = p.read_text()
+          s = s.replace('<base href="/">', '<base href="/-movera-rider/">')
+          p.write_text(s)
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload GitHub Pages site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: /tmp/movera-pages
+
+      - name: Deploy GitHub Pages
+        id: pages
+        uses: actions/deploy-pages@v4
 
       - name: Point compiled app assets to public CDN
         run: |
