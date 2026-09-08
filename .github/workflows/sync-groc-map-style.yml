@@ -1,0 +1,30 @@
+name: Sync exact groc map style
+
+on:
+  push:
+    paths:
+      - '.github/workflows/sync-groc-map-style.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Rider main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Apply authoritative groc map style
+        run: python3 tools/apply_groc_map_style.py
+
+      - name: Commit Rider map style
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "lib/features/rider/home/home.dart"
+          git diff --cached --quiet && exit 0
+          git commit -m "Match Rider map colors exactly to groc-movera"
+          git push origin HEAD:main
