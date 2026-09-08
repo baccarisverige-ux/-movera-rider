@@ -38,8 +38,8 @@ class _HomeState extends State<Home> {
   Set<Marker> _markers = {};
 
   static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479),
-    zoom: 14.0,
+    target: LatLng(59.3293, 18.0686),
+    zoom: 13.0,
   );
 
   static const Color _premiumInk = Color(0xFF1D252C);
@@ -138,7 +138,7 @@ class _HomeState extends State<Home> {
     _markers.add(
       Marker(
         markerId: const MarkerId('driver_location'),
-        position: const LatLng(33.6844, 73.0479),
+        position: const LatLng(59.3293, 18.0686),
         infoWindow: const InfoWindow(title: 'Your Location'),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
       ),
@@ -418,7 +418,7 @@ class _HomeState extends State<Home> {
                           BottomToTopTransition(ChooseRoute()),
                         );
                       },
-                      text: "Central Park, DHA",
+                      text: "Stockholm",
                     ),
                     12.height,
                     _routeField(
