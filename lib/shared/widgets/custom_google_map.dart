@@ -165,11 +165,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       indoorViewEnabled: widget.indoorViewEnabled,
       mapType: widget.mapType,
       padding: widget.padding,
+      style: widget.customMapStyle ?? moveraReferenceMapStyle,
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
-        final String styleToApply =
-            widget.customMapStyle ?? moveraReferenceMapStyle;
-        _mapController?.setMapStyle(styleToApply);
 
         if (widget.onMapCreated != null) {
           widget.onMapCreated!(controller);
