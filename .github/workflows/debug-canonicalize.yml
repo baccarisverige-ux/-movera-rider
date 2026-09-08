@@ -1,0 +1,25 @@
+name: Diagnose Rider Canonicalization
+on:
+  push:
+    branches:
+      - canonical-architecture-2026
+    paths:
+      - .github/workflows/debug-canonicalize.yml
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run migration diagnostic
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 tools/canonicalize.py 2>&1 | tee migration.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rider-canonicalize-debug
+          path: migration.log
+          retention-days: 1
