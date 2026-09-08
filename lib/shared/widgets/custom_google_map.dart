@@ -2,6 +2,90 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dart:math' as math;
 
+/// Exact Google Maps palette used by groc-movera.
+/// This is the Rider-wide fallback so every screen using CustomGoogleMap
+/// renders the same map base styling unless it explicitly supplies a style.
+const String moveraReferenceMapStyle = '''
+[
+  {
+    "elementType": "geometry",
+    "stylers": [{"color": "#eef1e8"}]
+  },
+  {
+    "elementType": "labels.icon",
+    "stylers": [{"visibility": "off"}]
+  },
+  {
+    "elementType": "labels.text.fill",
+    "stylers": [{"color": "#747974"}]
+  },
+  {
+    "elementType": "labels.text.stroke",
+    "stylers": [{"color": "#f7f8f3"}, {"weight": 2}]
+  },
+  {
+    "featureType": "administrative",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#d9dcd4"}]
+  },
+  {
+    "featureType": "landscape",
+    "elementType": "geometry",
+    "stylers": [{"color": "#d8edb5"}]
+  },
+  {
+    "featureType": "landscape.man_made",
+    "elementType": "geometry",
+    "stylers": [{"color": "#f2f2ef"}]
+  },
+  {
+    "featureType": "poi",
+    "elementType": "geometry",
+    "stylers": [{"color": "#c1e589"}]
+  },
+  {
+    "featureType": "poi.park",
+    "elementType": "geometry",
+    "stylers": [{"color": "#aedb6f"}]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry",
+    "stylers": [{"color": "#ffffff"}]
+  },
+  {
+    "featureType": "road",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#d9dcd5"}]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry",
+    "stylers": [{"color": "#fffdf5"}]
+  },
+  {
+    "featureType": "road.highway",
+    "elementType": "geometry.stroke",
+    "stylers": [{"color": "#d5d9cf"}]
+  },
+  {
+    "featureType": "transit",
+    "elementType": "geometry",
+    "stylers": [{"color": "#e6e8e3"}]
+  },
+  {
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [{"color": "#bfe5ef"}]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.fill",
+    "stylers": [{"color": "#66848a"}]
+  }
+]
+''';
+
 class CustomGoogleMap extends StatefulWidget {
   final CameraPosition? initialPosition;
   final Set<Marker>? markers;
@@ -57,202 +141,11 @@ class CustomGoogleMap extends StatefulWidget {
 class _CustomGoogleMapState extends State<CustomGoogleMap> {
   GoogleMapController? _mapController;
 
-  // Default location - Islamabad coordinates
+  // Default location retained for screens that provide no camera position.
   static const CameraPosition _defaultPosition = CameraPosition(
     target: LatLng(33.6844, 73.0479),
     zoom: 14.0,
   );
-
-  // Map style with custom client colors
-  static const String _defaultMapStyle = '''
-[
-  {
-    "featureType": "landscape",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#F7F7F7" }
-    ]
-  },
-  {
-    "featureType": "landscape.natural",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#D2F8E1" }
-    ]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#D2F8E1" },
-      { "visibility": "on" }
-    ]
-  },
-  {
-    "featureType": "poi.business",
-    "stylers": [
-      { "visibility": "simplified" }
-    ]
-  },
-  {
-    "featureType": "poi.medical",
-    "stylers": [
-      { "visibility": "off" }
-    ]
-  },
-  {
-    "featureType": "poi.school",
-    "stylers": [
-      { "visibility": "off" }
-    ]
-  },
-  {
-    "featureType": "poi.government",
-    "stylers": [
-      { "visibility": "off" }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#D3D3D3" }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      { "color": "#C0C0C0" },
-      { "weight": 0.5 }
-    ]
-  },
-  {
-    "featureType": "road.arterial",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#AEBBC5" }
-    ]
-  },
-  {
-    "featureType": "road.arterial",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      { "color": "#B8C7D0" },
-      { "weight": 1 }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#AEBBC5" }
-    ]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      { "color": "#B8C7D0" },
-      { "weight": 1.5 }
-    ]
-  },
-  {
-    "featureType": "road.local",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#D3D3D3" }
-    ]
-  },
-  {
-    "featureType": "road.local",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      { "color": "#C0C0C0" },
-      { "weight": 0.3 }
-    ]
-  },
-  {
-    "featureType": "transit.station",
-    "stylers": [
-      { "visibility": "simplified" }
-    ]
-  },
-  {
-    "featureType": "transit.line",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#AEBBC5" }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#8EDBF3" }
-    ]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry.fill",
-    "stylers": [
-      { "color": "#8EDBF3" }
-    ]
-  },
-  {
-    "featureType": "landscape.man_made",
-    "elementType": "geometry",
-    "stylers": [
-      { "color": "#F7F7F7" }
-    ]
-  },
-  {
-    "featureType": "administrative.locality",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      { "color": "#333333" }
-    ]
-  },
-  {
-    "featureType": "administrative.neighborhood",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      { "color": "#666666" }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      { "color": "#333333" }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      { "color": "#FFFFFF" },
-      { "weight": 2 }
-    ]
-  },
-  {
-    "featureType": "administrative.country",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      { "color": "#AEBBC5" },
-      { "weight": 1 }
-    ]
-  },
-  {
-    "featureType": "administrative.province",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      { "color": "#AEBBC5" },
-      { "weight": 0.8 }
-    ]
-  }
-]
-''';
 
   @override
   Widget build(BuildContext context) {
@@ -274,11 +167,10 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       padding: widget.padding,
       onMapCreated: (GoogleMapController controller) {
         _mapController = controller;
-        // Apply custom style or default style
-        String styleToApply = widget.customMapStyle ?? _defaultMapStyle;
+        final String styleToApply =
+            widget.customMapStyle ?? moveraReferenceMapStyle;
         _mapController?.setMapStyle(styleToApply);
 
-        // Call the provided onMapCreated callback
         if (widget.onMapCreated != null) {
           widget.onMapCreated!(controller);
         }
@@ -290,7 +182,6 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     );
   }
 
-  // Getter to access the map controller from outside
   GoogleMapController? get mapController => _mapController;
 
   @override
@@ -300,7 +191,6 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   }
 }
 
-// Extension class for common map operations
 extension CustomGoogleMapExtensions on _CustomGoogleMapState {
   Future<void> animateToPosition(LatLng position, {double zoom = 14.0}) async {
     await _mapController?.animateCamera(
@@ -322,9 +212,7 @@ extension CustomGoogleMapExtensions on _CustomGoogleMapState {
   }
 }
 
-// Helper class for creating common map elements
 class MapHelper {
-  // Create a custom marker
   static Future<Marker> createCustomMarker({
     required String markerId,
     required LatLng position,
@@ -341,7 +229,6 @@ class MapHelper {
     );
   }
 
-  // Create a polyline (route)
   static Polyline createRoute({
     required String polylineId,
     required List<LatLng> points,
@@ -356,7 +243,6 @@ class MapHelper {
     );
   }
 
-  // Create a circle
   static Circle createCircle({
     required String circleId,
     required LatLng center,
@@ -375,7 +261,6 @@ class MapHelper {
     );
   }
 
-  // Calculate bounds for multiple points
   static LatLngBounds boundsFromLatLngList(List<LatLng> list) {
     double minLat = list.first.latitude;
     double minLng = list.first.longitude;
@@ -395,5 +280,3 @@ class MapHelper {
     );
   }
 }
-
-// Import this for math operations
