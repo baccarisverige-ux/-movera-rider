@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -143,99 +142,55 @@ class CustomGoogleMap extends StatefulWidget {
 
 class _CustomGoogleMapState extends State<CustomGoogleMap> {
   GoogleMapController? _mapController;
-  Timer? _mapRevealTimer;
 
-  // On web, hide only the very first native platform-view frames. The map
-  // already receives the Movera style at creation time, so a long loading guard
-  // is unnecessary and makes navigation feel slow.
-  bool _mapFrameReady = !kIsWeb;
-
-  static const Color _mapBootColor = Color(0xFFEEF1E8);
-
-  // Default location retained for screens that provide no camera position.
+  // Stockholm is the Rider-wide fallback for screens that do not supply a
+  // camera position explicitly.
   static const CameraPosition _defaultPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479),
-    zoom: 14.0,
+    target: LatLng(59.3293, 18.0686),
+    zoom: 13.0,
   );
-
-  void _scheduleMapReveal(Duration delay) {
-    if (!kIsWeb || _mapFrameReady) {
-      return;
-    }
-
-    _mapRevealTimer?.cancel();
-    _mapRevealTimer = Timer(delay, () {
-      if (!mounted || _mapFrameReady) {
-        return;
-      }
-      setState(() {
-        _mapFrameReady = true;
-      });
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        GoogleMap(
-          initialCameraPosition: widget.initialPosition ?? _defaultPosition,
-          markers: widget.markers ?? {},
-          polylines: widget.polylines ?? {},
-          circles: widget.circles ?? {},
-          polygons: widget.polygons ?? {},
-          myLocationEnabled: widget.myLocationEnabled,
-          myLocationButtonEnabled: widget.myLocationButtonEnabled,
-          zoomControlsEnabled: widget.zoomControlsEnabled,
-          mapToolbarEnabled: widget.mapToolbarEnabled,
-          compassEnabled: widget.compassEnabled,
-          trafficEnabled: widget.trafficEnabled,
-          buildingsEnabled: widget.buildingsEnabled,
-          indoorViewEnabled: widget.indoorViewEnabled,
-          mapType: widget.mapType,
-          padding: widget.padding,
-          // Apply the Movera style as part of map creation, never afterward.
-          style: widget.customMapStyle ?? moveraReferenceMapStyle,
-          onMapCreated: (GoogleMapController controller) {
-            _mapController = controller;
+    // Render the real Google Map immediately. The exact Movera style is passed
+    // during creation, so there is no separate loading-color cover or reveal
+    // timer delaying the first visible map frame.
+    return GoogleMap(
+      initialCameraPosition: widget.initialPosition ?? _defaultPosition,
+      markers: widget.markers ?? {},
+      polylines: widget.polylines ?? {},
+      circles: widget.circles ?? {},
+      polygons: widget.polygons ?? {},
+      myLocationEnabled: widget.myLocationEnabled,
+      myLocationButtonEnabled: widget.myLocationButtonEnabled,
+      zoomControlsEnabled: widget.zoomControlsEnabled,
+      mapToolbarEnabled: widget.mapToolbarEnabled,
+      compassEnabled: widget.compassEnabled,
+      trafficEnabled: widget.trafficEnabled,
+      buildingsEnabled: widget.buildingsEnabled,
+      indoorViewEnabled: widget.indoorViewEnabled,
+      mapType: widget.mapType,
+      padding: widget.padding,
+      style: widget.customMapStyle ?? moveraReferenceMapStyle,
+      onMapCreated: (GoogleMapController controller) {
+        _mapController = controller;
 
-            // Do not block first paint waiting for a diagnostic API call.
-            // In debug builds only, check the style asynchronously.
-            if (kDebugMode) {
-              controller.getStyleError().then((String? styleError) {
-                if (styleError != null) {
-                  debugPrint('Movera Google Maps style error: $styleError');
-                }
-              });
+        if (kDebugMode) {
+          controller.getStyleError().then((String? styleError) {
+            if (styleError != null) {
+              debugPrint('Movera Google Maps style error: $styleError');
             }
+          });
+        }
 
-            if (widget.onMapCreated != null) {
-              widget.onMapCreated!(controller);
-            }
-
-            // Maximum guard: only a handful of frames on web.
-            _scheduleMapReveal(const Duration(milliseconds: 120));
-          },
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          onCameraMove: widget.onCameraMove,
-          onCameraIdle: () {
-            // If Google reports the initial camera idle first, reveal on the
-            // next frame instead of waiting hundreds of milliseconds.
-            _scheduleMapReveal(const Duration(milliseconds: 16));
-            if (widget.onCameraIdle != null) {
-              widget.onCameraIdle!();
-            }
-          },
-        ),
-        if (kIsWeb && !_mapFrameReady)
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: ColoredBox(color: _mapBootColor),
-            ),
-          ),
-      ],
+        if (widget.onMapCreated != null) {
+          widget.onMapCreated!(controller);
+        }
+      },
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      onCameraMove: widget.onCameraMove,
+      onCameraIdle: widget.onCameraIdle,
     );
   }
 
@@ -243,7 +198,6 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
 
   @override
   void dispose() {
-    _mapRevealTimer?.cancel();
     _mapController?.dispose();
     super.dispose();
   }
