@@ -1,0 +1,264 @@
+name: Canonicalize Movera Rider
+
+on:
+  push:
+    branches: [canonical-architecture-2026]
+    paths:
+      - '.github/workflows/canonicalize-architecture.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  canonicalize-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: canonical-architecture-2026
+          fetch-depth: 0
+
+      - name: Canonicalize Rider source tree
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil, re
+
+          pkg = 'movera_rider'
+          bundle = 'com.movera.rider'
+          root = Path('.')
+
+          def move(src, dst):
+              s, d = Path(src), Path(dst)
+              if not s.exists():
+                  return
+              d.parent.mkdir(parents=True, exist_ok=True)
+              if d.exists():
+                  raise SystemExit(f'Target already exists: {d}')
+              shutil.move(str(s), str(d))
+
+          # Stable architecture: app-specific features + explicit shared/core layers.
+          move('lib/constants', 'lib/core/constants')
+          move('lib/models', 'lib/shared/models')
+          move('lib/widgets', 'lib/shared/widgets')
+          move('lib/presentation/common', 'lib/shared/presentation')
+          move('lib/presentation/rider', 'lib/features/rider')
+          # Rider currently uses these two exact screens from the combined Driver tree.
+          move('lib/presentation/driver/my wallet', 'lib/features/rider/my wallet')
+          move('lib/presentation/driver/promotions', 'lib/features/rider/promotions')
+
+          # Everything else under the old combined presentation tree is not Rider source.
+          shutil.rmtree('lib/presentation', ignore_errors=True)
+
+          replacements = [
+              ('package:movera/constants/', f'package:{pkg}/core/constants/'),
+              ('package:movera/models/', f'package:{pkg}/shared/models/'),
+              ('package:movera/widgets/', f'package:{pkg}/shared/widgets/'),
+              ('package:movera/presentation/common/', f'package:{pkg}/shared/presentation/'),
+              ('package:movera/presentation/rider/', f'package:{pkg}/features/rider/'),
+              ('package:movera/presentation/driver/my%20wallet/', f'package:{pkg}/features/rider/my%20wallet/'),
+              ('package:movera/presentation/driver/promotions/', f'package:{pkg}/features/rider/promotions/'),
+              ('package:movera/', f'package:{pkg}/'),
+          ]
+          for p in list(Path('lib').rglob('*.dart')) + list(Path('test').rglob('*.dart')):
+              text = p.read_text(errors='ignore')
+              for a,b in replacements:
+                  text = text.replace(a,b)
+              p.write_text(text)
+
+          # Rider onboarding keeps its current behavior (goes to Rider Home), but loses Driver coupling.
+          onboarding = Path('lib/shared/presentation/onboarding/onboarding.dart')
+          text = onboarding.read_text()
+          text = '\n'.join(line for line in text.splitlines()
+                           if 'presentation/driver/' not in line
+                           and 'features/rider/auth/starter/starter.dart' not in line) + '\n'
+          onboarding.write_text(text)
+
+          # Give the Dart package and native apps independent identities.
+          pub = Path('pubspec.yaml')
+          text = pub.read_text()
+          text = re.sub(r'^name:\s*movera\s*$', 'name: movera_rider', text, flags=re.M)
+          text = re.sub(r'^description:.*$', 'description: "Movera Rider mobile application."', text, count=1, flags=re.M)
+          pub.write_text(text)
+
+          gradle = Path('android/app/build.gradle.kts')
+          if gradle.exists():
+              text = gradle.read_text().replace('com.example.movera', bundle)
+              gradle.write_text(text)
+
+          # Move MainActivity to the package matching the Android namespace.
+          candidates = list(Path('android/app/src/main').rglob('MainActivity.kt'))
+          if candidates:
+              src = candidates[0]
+              text = src.read_text()
+              text = re.sub(r'^package\s+[\w.]+', f'package {bundle}', text, count=1, flags=re.M)
+              dst = Path('android/app/src/main/kotlin/com/movera/rider/MainActivity.kt')
+              dst.parent.mkdir(parents=True, exist_ok=True)
+              dst.write_text(text)
+              if src.resolve() != dst.resolve(): src.unlink()
+
+          pbx = Path('ios/Runner.xcodeproj/project.pbxproj')
+          if pbx.exists(): pbx.write_text(pbx.read_text().replace('com.example.movera', bundle))
+
+          # Friendly platform display names without touching screen UI.
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          if manifest.exists():
+              t=manifest.read_text()
+              t=re.sub(r'android:label="[^"]*"', 'android:label="Movera Rider"', t, count=1)
+              manifest.write_text(t)
+          info = Path('ios/Runner/Info.plist')
+          if info.exists():
+              t=info.read_text().replace('<string>movera</string>', '<string>Movera Rider</string>')
+              info.write_text(t)
+          web = Path('web/index.html')
+          if web.exists():
+              t=web.read_text().replace('<title>movera</title>', '<title>Movera Rider</title>')
+              web.write_text(t)
+
+          # Remove transport-only files and temporary workflows.
+          for z in root.glob('rider-part-*.zip'): z.unlink()
+          for wf in [
+              '.github/workflows/extract-uploaded-parts.yml',
+              '.github/workflows/architecture-audit.yml',
+              '.github/workflows/canonicalize-architecture.yml',
+          ]:
+              Path(wf).unlink(missing_ok=True)
+
+          # Replace the invalid default counter test with a real app smoke test.
+          Path('test').mkdir(exist_ok=True)
+          Path('test/widget_test.dart').write_text("""import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/main.dart';
+
+void main() {
+  testWidgets('Movera Rider root app mounts', (tester) async {
+    await tester.pumpWidget(const MoveraApp());
+    expect(find.byType(MoveraApp), findsOneWidget);
+  });
+}
+""")
+
+          # Long-term repository documentation.
+          Path('README.md').write_text("""# Movera Rider
+
+This repository is the canonical source of truth for the **Movera Rider** Flutter application.
+
+## Architecture
+
+- `lib/features/rider/` — Rider-only product features and screens
+- `lib/core/` — app-wide constants and low-level configuration
+- `lib/shared/models/` — shared Rider data models
+- `lib/shared/widgets/` — reusable UI widgets
+- `lib/shared/presentation/` — shared presentation such as splash/onboarding
+- `assets/` — original app assets (kept intact)
+
+Driver application code belongs only in the separate Movera Driver repository.
+Generated Flutter/Gradle files, upload ZIPs, and build output are intentionally not source-controlled.
+
+## Validation
+
+Every push or pull request runs `flutter pub get`, static analysis, tests, a web release build, and an Android debug build.
+""")
+          PY
+
+          cat > .gitignore <<'EOF'
+          # Dart / Flutter generated
+          .dart_tool/
+          .packages
+          .pub/
+          build/
+          .flutter-plugins
+          .flutter-plugins-dependencies
+          **/doc/api/
+
+          # Android generated/local
+          android/.gradle/
+          android/local.properties
+          android/**/GeneratedPluginRegistrant.java
+
+          # iOS/macOS generated
+          ios/Flutter/ephemeral/
+          ios/Flutter/Generated.xcconfig
+          ios/Flutter/flutter_export_environment.sh
+          macos/Flutter/ephemeral/
+
+          # Desktop generated
+          linux/flutter/ephemeral/
+          linux/flutter/generated_plugin_registrant.cc
+          linux/flutter/generated_plugin_registrant.h
+          linux/flutter/generated_plugins.cmake
+          windows/flutter/ephemeral/
+          windows/flutter/generated_plugin_registrant.cc
+          windows/flutter/generated_plugin_registrant.h
+          windows/flutter/generated_plugins.cmake
+
+          # IDE / OS
+          .idea/
+          *.iml
+          .DS_Store
+          .vscode/
+          EOF
+
+          # Remove anything already tracked that the canonical ignore rules classify as generated.
+          git ls-files -ci --exclude-standard -z | xargs -0 -r rm -rf
+
+          mkdir -p .github/workflows
+          cat > .github/workflows/ci.yml <<'EOF'
+          name: Movera Rider CI
+          on:
+            push:
+              branches: [main]
+            pull_request:
+              branches: [main]
+          permissions:
+            contents: read
+          jobs:
+            validate:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - uses: subosito/flutter-action@v2
+                  with:
+                    channel: stable
+                    cache: true
+                - run: flutter pub get
+                - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+                - run: flutter test
+                - run: flutter build web --release
+                - run: flutter build apk --debug
+          EOF
+
+      - name: Verify no Driver coupling remains
+        shell: bash
+        run: |
+          if grep -R "package:movera_rider/presentation/driver\|package:movera_rider/features/driver\|package:movera/presentation/driver" lib --include='*.dart'; then
+            echo 'Driver coupling remains in Rider' >&2
+            exit 1
+          fi
+          test ! -d lib/presentation
+          test ! -d lib/features/driver
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Static analysis
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - name: Tests
+        run: flutter test
+      - name: Build web release
+        run: flutter build web --release
+      - name: Build Android debug APK
+        run: flutter build apk --debug
+
+      - name: Commit validated canonical Rider architecture
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Canonicalize Movera Rider architecture"
+          git push origin canonical-architecture-2026
