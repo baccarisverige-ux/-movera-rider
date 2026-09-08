@@ -1,0 +1,53 @@
+name: Set Rider map default to Stockholm
+
+on:
+  push:
+    paths:
+      - '.github/workflows/set-stockholm-map.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Rider main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Apply Stockholm map defaults
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('lib/features/rider/home/home.dart')
+          text = p.read_text()
+
+          old_coords = 'LatLng(33.6844, 73.0479)'
+          if text.count(old_coords) != 2:
+              raise SystemExit(f'Expected 2 old coordinate occurrences, found {text.count(old_coords)}')
+          text = text.replace(old_coords, 'LatLng(59.3293, 18.0686)')
+
+          old_zoom = '    zoom: 14.0,'
+          if old_zoom not in text:
+              raise SystemExit('Expected initial zoom not found')
+          text = text.replace(old_zoom, '    zoom: 13.0,', 1)
+
+          old_place = '                      text: "Central Park, DHA",'
+          if old_place not in text:
+              raise SystemExit('Expected old pickup placeholder not found')
+          text = text.replace(old_place, '                      text: "Stockholm",', 1)
+
+          p.write_text(text)
+          PY
+
+      - name: Remove one-time workflow and commit
+        run: |
+          git rm .github/workflows/set-stockholm-map.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/features/rider/home/home.dart
+          git commit -m "Start Rider map in Stockholm"
+          git push origin HEAD:main
