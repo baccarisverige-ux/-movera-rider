@@ -31,8 +31,8 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Add missing location dependencies
-        run: flutter pub add geolocator geocoding
+      - name: Add required runtime dependencies
+        run: flutter pub add geolocator geocoding 'google_fonts:^8.2.1'
       - name: Resolve dependencies
         run: flutter pub get
       - name: Static analysis
