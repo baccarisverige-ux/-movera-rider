@@ -21,6 +21,8 @@ class MoveraApp extends StatelessWidget {
       builder: (_, child) {
         return GetMaterialApp(
           title: 'MoveraApp App',
+          locale: const Locale('en'),
+          fallbackLocale: const Locale('en'),
           debugShowCheckedModeBanner: false,
           theme: ThemeData.light(
             useMaterial3: true,
