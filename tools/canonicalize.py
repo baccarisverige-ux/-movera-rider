@@ -21,6 +21,7 @@ def move(src: str, dst: str) -> None:
 
 # Feature-first architecture while preserving screen implementation and assets.
 move("lib/constants", "lib/core/constants")
+move("lib/services", "lib/core/services")
 move("lib/models", "lib/shared/models")
 move("lib/widgets", "lib/shared/widgets")
 move("lib/presentation/common", "lib/shared/presentation")
@@ -35,6 +36,7 @@ shutil.rmtree("lib/presentation", ignore_errors=True)
 
 replacements = [
     ("package:movera/constants/", f"package:{PKG}/core/constants/"),
+    ("package:movera/services/", f"package:{PKG}/core/services/"),
     ("package:movera/models/", f"package:{PKG}/shared/models/"),
     ("package:movera/widgets/", f"package:{PKG}/shared/widgets/"),
     ("package:movera/presentation/common/", f"package:{PKG}/shared/presentation/"),
@@ -44,7 +46,10 @@ replacements = [
     ("package:movera/", f"package:{PKG}/"),
 ]
 
-for dart in list(Path("lib").rglob("*.dart")) + list(Path("test").rglob("*.dart")):
+candidates = list(Path("lib").rglob("*.dart")) + list(Path("test").rglob("*.dart"))
+for dart in candidates:
+    if not dart.is_file():
+        continue
     text = dart.read_text(errors="ignore")
     for old, new in replacements:
         text = text.replace(old, new)
@@ -78,7 +83,7 @@ gradle = Path("android/app/build.gradle.kts")
 if gradle.exists():
     gradle.write_text(gradle.read_text().replace("com.example.movera", BUNDLE))
 
-activities = list(Path("android/app/src/main").rglob("MainActivity.kt"))
+activities = [p for p in Path("android/app/src/main").rglob("MainActivity.kt") if p.is_file()]
 if activities:
     source = activities[0]
     content = re.sub(
@@ -118,12 +123,14 @@ if web.exists():
 
 # Transport-only files are not part of the future source tree.
 for zip_file in ROOT.glob("rider-part-*.zip"):
-    zip_file.unlink()
+    if zip_file.is_file():
+        zip_file.unlink()
 
 for workflow in [
     ".github/workflows/extract-uploaded-parts.yml",
     ".github/workflows/architecture-audit.yml",
     ".github/workflows/canonicalize-architecture.yml",
+    ".github/workflows/debug-canonicalize.yml",
 ]:
     Path(workflow).unlink(missing_ok=True)
 
@@ -150,7 +157,8 @@ This repository is the canonical source of truth for the **Movera Rider** Flutte
 ## Architecture
 
 - `lib/features/rider/` — Rider-only product features and screens
-- `lib/core/` — app-wide constants and low-level configuration
+- `lib/core/constants/` — app-wide constants, colors, assets and typography configuration
+- `lib/core/services/` — Rider app services
 - `lib/shared/models/` — Rider data models used across features
 - `lib/shared/widgets/` — reusable UI widgets
 - `lib/shared/presentation/` — shared presentation such as splash/onboarding
@@ -241,6 +249,8 @@ for name in ignored:
 # Final architecture invariants.
 remaining_driver_imports = []
 for dart in Path("lib").rglob("*.dart"):
+    if not dart.is_file():
+        continue
     content = dart.read_text(errors="ignore")
     if "/presentation/driver/" in content or "/features/driver/" in content:
         remaining_driver_imports.append(str(dart))
