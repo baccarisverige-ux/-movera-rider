@@ -20,7 +20,17 @@ jobs:
           ref: canonical-architecture-2026
           fetch-depth: 0
       - name: Apply architecture migration
-        run: python3 tools/canonicalize.py
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 tools/canonicalize.py 2>&1 | tee migration.log
+      - name: Upload migration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rider-migration-diagnostics
+          path: migration.log
+          retention-days: 1
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
