@@ -6,7 +6,6 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/models/onboarding.dart';
 import 'package:movera_rider/features/rider/home/home.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -22,6 +21,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   String currentTitle = '';
   String currentSubtitle = '';
   int currentPageIndex = 0;
+  bool _showHome = false;
 
   List<OnBoardingModel> onBoardingList = [
     OnBoardingModel(
@@ -37,12 +37,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           "We value your time and trust. That’s why we ensure fast, secure and seamless car bookings alwasy centered around you",
     ),
   ];
+
   @override
   void initState() {
     super.initState();
     currentTitle = onBoardingList[currentPageIndex].title;
     currentSubtitle = onBoardingList[currentPageIndex].subTitle;
     Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       setState(() {
         isImageAnimate = true;
       });
@@ -52,182 +54,191 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Preload images
     for (var item in onBoardingList) {
       precacheImage(AssetImage(item.image), context);
     }
   }
 
   bool isImageAnimate = false;
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SizedBox(
-        width: double.infinity,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            60.height,
-
-            Expanded(
-              child: PageView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                scrollDirection: Axis.horizontal,
-                controller: controller,
-                itemCount: onBoardingList.length,
-                clipBehavior: Clip.none,
-                onPageChanged: (int index) {
-                  setState(() {
-                    currentPageIndex = index;
-                    currentTitle = onBoardingList[index].title;
-                    currentSubtitle = onBoardingList[index].subTitle;
-                    isImageAnimate = true;
-                  });
-                  // Preload next image
-                  if (index < onBoardingList.length - 1) {
-                    precacheImage(
-                      AssetImage(onBoardingList[index + 1].image),
-                      context,
-                    );
-                  }
-                },
-                itemBuilder: (_, index) {
-                  return SizedBox(
-                    width: double.infinity,
-                    child: Stack(
-                      children: [
-                        Align(
-                          alignment: Alignment.center,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              top: ResSize.h * 50,
-                              // left: ResSize.w * 30,
-                              // right: ResSize.w * 30,
-                              bottom: ResSize.h * 30,
-                            ),
-                            child: SizedBox(
-                              child: Transform.scale(
-                                scale: 1.2,
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 1500),
-                                  opacity: isImageAnimate ? 1.0 : 0.0,
-                                  child: Image.asset(
-                                    onBoardingList[index].image,
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                        0.40,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // This is the exact Home instance the rider will use. Keeping it alive
+        // behind onboarding lets the Google Maps web platform view and the
+        // Stockholm/Movera tiles initialize before Home becomes visible.
+        IgnorePointer(
+          ignoring: !_showHome,
+          child: const Home(),
+        ),
+        if (!_showHome)
+          Scaffold(
+            body: SizedBox(
+              width: double.infinity,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  60.height,
+                  Expanded(
+                    child: PageView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      scrollDirection: Axis.horizontal,
+                      controller: controller,
+                      itemCount: onBoardingList.length,
+                      clipBehavior: Clip.none,
+                      onPageChanged: (int index) {
+                        setState(() {
+                          currentPageIndex = index;
+                          currentTitle = onBoardingList[index].title;
+                          currentSubtitle = onBoardingList[index].subTitle;
+                          isImageAnimate = true;
+                        });
+                        if (index < onBoardingList.length - 1) {
+                          precacheImage(
+                            AssetImage(onBoardingList[index + 1].image),
+                            context,
+                          );
+                        }
+                      },
+                      itemBuilder: (_, index) {
+                        return SizedBox(
+                          width: double.infinity,
+                          child: Stack(
+                            children: [
+                              Align(
+                                alignment: Alignment.center,
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    top: ResSize.h * 50,
+                                    bottom: ResSize.h * 30,
                                   ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColor.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    // ignore: deprecated_member_use
-                    color: AppColor.black.withOpacity(0.12),
-                    blurRadius: 20,
-                    spreadRadius: 0,
-                    offset: const Offset(0, 0),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResSize.w * 20,
-                  vertical: ResSize.h * 35,
-                ),
-                child: Column(
-                  children: [
-                    TextWidget(
-                      text: currentTitle,
-                      color: AppColor.title,
-                      fontSize: ResSize.setSp(24),
-                      fontWeight: fwBold,
-                    ),
-                    22.height,
-                    TextWidget(
-                      text: currentSubtitle,
-                      color: AppColor.darkTitle,
-                      fontSize: ResSize.setSp(14),
-                      fontWeight: fwNormal,
-                      textAlign: TextAlign.center,
-                    ),
-
-                    29.height,
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: currentPageIndex == 1
-                              ? () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    BottomToTopTransition(Home()),
-                                  );
-                                }
-                              : () {
-                                  controller.animateToPage(
-                                    currentPageIndex + 1,
-                                    duration: const Duration(milliseconds: 800),
-                                    curve: Curves.linearToEaseOut,
-                                  );
-                                  isImageAnimate = false;
-                                },
-                          child: SizedBox(
-                            height: ResSize.h * 60,
-                            width: ResSize.w * 60,
-                            child: CircleProgressBar(
-                              strokeWidth: 3,
-                              backgroundColor: Colors.transparent,
-                              foregroundColor: Color(0xff98B1A7),
-                              value:
-                                  ((currentPageIndex + 1) *
-                                  1.0 /
-                                  onBoardingList.length),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    color: AppColor.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: Icon(
-                                        Icons.arrow_forward_rounded,
-                                        color: AppColor.white,
+                                  child: SizedBox(
+                                    child: Transform.scale(
+                                      scale: 1.2,
+                                      child: AnimatedOpacity(
+                                        duration:
+                                            const Duration(milliseconds: 1500),
+                                        opacity: isImageAnimate ? 1.0 : 0.0,
+                                        child: Image.asset(
+                                          onBoardingList[index].image,
+                                          height: MediaQuery.of(context)
+                                                  .size
+                                                  .height *
+                                              0.40,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
+                        );
+                      },
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColor.white,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          // ignore: deprecated_member_use
+                          color: AppColor.black.withOpacity(0.12),
+                          blurRadius: 20,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 0),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResSize.w * 20,
+                        vertical: ResSize.h * 35,
+                      ),
+                      child: Column(
+                        children: [
+                          TextWidget(
+                            text: currentTitle,
+                            color: AppColor.title,
+                            fontSize: ResSize.setSp(24),
+                            fontWeight: fwBold,
+                          ),
+                          22.height,
+                          TextWidget(
+                            text: currentSubtitle,
+                            color: AppColor.darkTitle,
+                            fontSize: ResSize.setSp(14),
+                            fontWeight: fwNormal,
+                            textAlign: TextAlign.center,
+                          ),
+                          29.height,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              GestureDetector(
+                                onTap: currentPageIndex == 1
+                                    ? () {
+                                        setState(() {
+                                          _showHome = true;
+                                        });
+                                      }
+                                    : () {
+                                        controller.animateToPage(
+                                          currentPageIndex + 1,
+                                          duration:
+                                              const Duration(milliseconds: 800),
+                                          curve: Curves.linearToEaseOut,
+                                        );
+                                        isImageAnimate = false;
+                                      },
+                                child: SizedBox(
+                                  height: ResSize.h * 60,
+                                  width: ResSize.w * 60,
+                                  child: CircleProgressBar(
+                                    strokeWidth: 3,
+                                    backgroundColor: Colors.transparent,
+                                    foregroundColor: const Color(0xff98B1A7),
+                                    value: ((currentPageIndex + 1) *
+                                        1.0 /
+                                        onBoardingList.length),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Container(
+                                        decoration: const BoxDecoration(
+                                          color: AppColor.primary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(12.0),
+                                            child: Icon(
+                                              Icons.arrow_forward_rounded,
+                                              color: AppColor.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
 }
