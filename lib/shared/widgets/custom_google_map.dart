@@ -145,9 +145,9 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   GoogleMapController? _mapController;
   Timer? _mapRevealTimer;
 
-  // Web Google Maps is rendered as a platform view. Even with the style passed
-  // during construction, its native first paint can briefly expose Google's
-  // default palette. Keep that frame hidden until the styled map has settled.
+  // On web, hide only the very first native platform-view frames. The map
+  // already receives the Movera style at creation time, so a long loading guard
+  // is unnecessary and makes navigation feel slow.
   bool _mapFrameReady = !kIsWeb;
 
   static const Color _mapBootColor = Color(0xFFEEF1E8);
@@ -197,32 +197,33 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
           padding: widget.padding,
           // Apply the Movera style as part of map creation, never afterward.
           style: widget.customMapStyle ?? moveraReferenceMapStyle,
-          onMapCreated: (GoogleMapController controller) async {
+          onMapCreated: (GoogleMapController controller) {
             _mapController = controller;
 
-            // This should stay null. Logging it gives us a precise signal if a
-            // future Google Maps/API change rejects the JSON style.
-            final String? styleError = await controller.getStyleError();
-            if (styleError != null && kDebugMode) {
-              debugPrint('Movera Google Maps style error: $styleError');
+            // Do not block first paint waiting for a diagnostic API call.
+            // In debug builds only, check the style asynchronously.
+            if (kDebugMode) {
+              controller.getStyleError().then((String? styleError) {
+                if (styleError != null) {
+                  debugPrint('Movera Google Maps style error: $styleError');
+                }
+              });
             }
 
             if (widget.onMapCreated != null) {
               widget.onMapCreated!(controller);
             }
 
-            // Fallback in case the web implementation does not emit an initial
-            // camera-idle event on a particular browser/device.
-            _scheduleMapReveal(const Duration(milliseconds: 900));
+            // Maximum guard: only a handful of frames on web.
+            _scheduleMapReveal(const Duration(milliseconds: 120));
           },
           onTap: widget.onTap,
           onLongPress: widget.onLongPress,
           onCameraMove: widget.onCameraMove,
           onCameraIdle: () {
-            // The initial camera settling is the earliest reliable point where
-            // the styled tiles are ready. A small guard window prevents the
-            // browser's native platform-view first paint from leaking through.
-            _scheduleMapReveal(const Duration(milliseconds: 320));
+            // If Google reports the initial camera idle first, reveal on the
+            // next frame instead of waiting hundreds of milliseconds.
+            _scheduleMapReveal(const Duration(milliseconds: 16));
             if (widget.onCameraIdle != null) {
               widget.onCameraIdle!();
             }
