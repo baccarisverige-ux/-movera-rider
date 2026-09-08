@@ -6,6 +6,7 @@ on:
       - canonical-architecture-2026
     paths:
       - tools/canonicalize.py
+      - tools/normalize_legacy_imports.py
       - .github/workflows/canonicalize-architecture.yml
 
 permissions:
@@ -20,17 +21,9 @@ jobs:
           ref: canonical-architecture-2026
           fetch-depth: 0
       - name: Apply architecture migration
-        shell: bash
-        run: |
-          set -o pipefail
-          python3 tools/canonicalize.py 2>&1 | tee migration.log
-      - name: Upload migration diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rider-migration-diagnostics
-          path: migration.log
-          retention-days: 1
+        run: python3 tools/canonicalize.py
+      - name: Normalize legacy package imports
+        run: python3 tools/normalize_legacy_imports.py
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
