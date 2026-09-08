@@ -1,16 +1,20 @@
-# movera
+# Movera Rider
 
-A new Flutter project.
+This repository is the canonical source of truth for the **Movera Rider** Flutter application.
 
-## Getting Started
+## Architecture
 
-This project is a starting point for a Flutter application.
+- `lib/features/rider/` — Rider-only product features and screens
+- `lib/core/constants/` — app-wide constants, colors, assets and typography configuration
+- `lib/core/services/` — Rider app services
+- `lib/shared/models/` — Rider data models used across features
+- `lib/shared/widgets/` — reusable UI widgets
+- `lib/shared/presentation/` — shared presentation such as splash/onboarding
+- `assets/` — original app assets, kept intact
 
-A few resources to get you started if this is your first Flutter project:
+Driver application code belongs only in the separate Movera Driver repository.
+Generated Flutter/Gradle files, temporary upload ZIPs, and build output are intentionally not source-controlled.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Google Maps configuration
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Never commit Maps API keys. Android reads `MAPS_API_KEY` from a Gradle property or environment variable. iOS reads `GOOGLE_MAPS_API_KEY` from the Xcode build setting exposed through `Info.plist`.
