@@ -31,6 +31,27 @@
 
   <title>Movera Rider</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    window.moveraReverseGeocode = function(latitude, longitude) {
+      return new Promise(function(resolve) {
+        if (!window.google || !google.maps || !google.maps.Geocoder) {
+          resolve(null);
+          return;
+        }
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode(
+          { location: { lat: Number(latitude), lng: Number(longitude) } },
+          function(results, status) {
+            resolve(
+              status === 'OK' && results && results.length
+                ? results[0].formatted_address
+                : null
+            );
+          }
+        );
+      });
+    };
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" defer></script>

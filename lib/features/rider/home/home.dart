@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -13,6 +14,7 @@ import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
 import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
+import 'package:movera_rider/shared/services/current_address_lookup.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -33,12 +35,12 @@ class _HomeState extends State<Home> {
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
-  double _sheetHeight = _sheetMaxHeight;
+  double _sheetHeight = _sheetMinHeight;
   bool _isSheetDragging = false;
+  String _currentAddress = 'Current location';
+  LatLng? _currentLatLng;
 
-  // ignore: unused_field
   GoogleMapController? _mapController;
-  // ignore: prefer_final_fields
   Set<Marker> _markers = {};
 
   static const CameraPosition _initialPosition = CameraPosition(
@@ -138,24 +140,69 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    _loadMarkers();
+    _loadCurrentLocation();
   }
 
-  void _loadMarkers() {
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('driver_location'),
-        position: const LatLng(59.3293, 18.0686),
-        infoWindow: const InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-      ),
-    );
+  Future<void> _loadCurrentLocation() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      final point = LatLng(position.latitude, position.longitude);
+      String? address;
+      try {
+        address = await reverseGeocodeCurrentPosition(
+          position.latitude,
+          position.longitude,
+        );
+      } catch (_) {
+        address = null;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _currentLatLng = point;
+        _currentAddress =
+            address?.trim().isNotEmpty == true ? address!.trim() : 'Current location';
+        _markers = {
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: point,
+            infoWindow: InfoWindow(title: _currentAddress),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueBlue,
+            ),
+          ),
+        };
+      });
+      await _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: point, zoom: 17),
+        ),
+      );
+    } catch (_) {
+      // Keep the safe fallback until location permission or GPS is available.
+    }
   }
 
   void _openRoute() {
     Navigator.push(
       context,
-      BottomToTopTransition(ChooseRoute()),
+      BottomToTopTransition(ChooseRoute(initialPickup: _currentAddress)),
     );
   }
 
@@ -296,6 +343,14 @@ class _HomeState extends State<Home> {
                     customMapStyle: _premiumMapStyle,
                     onMapCreated: (GoogleMapController controller) {
                       _mapController = controller;
+                      final current = _currentLatLng;
+                      if (current != null) {
+                        controller.animateCamera(
+                          CameraUpdate.newCameraPosition(
+                            CameraPosition(target: current, zoom: 17),
+                          ),
+                        );
+                      }
                     },
                     onTap: (LatLng position) {},
                   ),
