@@ -664,9 +664,7 @@ class _HomeState extends State<Home> {
                 height: ResSize.h * 30,
                 width: ResSize.w * 30,
                 decoration: BoxDecoration(
-                  color: active
-                      ? const Color(0xFFE8F4F5)
-                      : Colors.transparent,
+                  color: Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
