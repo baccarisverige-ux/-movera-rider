@@ -283,18 +283,20 @@ class _HomeState extends State<Home> {
                           (_sheetMaxHeight - _sheetMinHeight))
                       .clamp(0.0, 1.0);
               return SlidingUpPanel(
-            color: AppColor.white,
+            color: _destinationMode ? Colors.transparent : AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
             minHeight: ResSize.h * sheetHeight,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.11),
-                blurRadius: 34,
-                spreadRadius: 0,
-                offset: const Offset(0, -10),
-              ),
-            ],
+            boxShadow: _destinationMode
+                ? const []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.11),
+                      blurRadius: 34,
+                      spreadRadius: 0,
+                      offset: const Offset(0, -10),
+                    ),
+                  ],
             isDraggable: false,
             controller: _panelController,
             defaultPanelState: PanelState.CLOSED,
@@ -480,17 +482,19 @@ class _HomeState extends State<Home> {
 
   Widget _premiumCollapsedSheet(double sheetProgress) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFFCFDFD)],
-        ),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(34),
-          topRight: Radius.circular(34),
-        ),
-      ),
+      decoration: _destinationMode
+          ? const BoxDecoration(color: Colors.transparent)
+          : const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFFFFFFF), Color(0xFFFCFDFD)],
+              ),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(34),
+                topRight: Radius.circular(34),
+              ),
+            ),
       child: SafeArea(
         top: false,
         child: Stack(
@@ -534,7 +538,8 @@ class _HomeState extends State<Home> {
                     11.height,
                   ],
                   _whereToCard(),
-                  IgnorePointer(
+                  if (!_destinationMode)
+                    IgnorePointer(
                     ignoring: sheetProgress < 0.92,
                     child: ClipRect(
                       child: Align(
@@ -585,7 +590,8 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
-            Positioned(
+            if (!_destinationMode)
+              Positioned(
               left: ResSize.w * 18,
               right: ResSize.w * 18,
               bottom: 0,
