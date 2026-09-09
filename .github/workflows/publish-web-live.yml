@@ -32,7 +32,7 @@ jobs:
 
       - name: Configure Google Maps for web
         env:
-          MAPS_WEB_API_KEY: ${{ secrets.maps || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
         run: |
           if [ -z "$MAPS_WEB_API_KEY" ]; then
             echo "::error::Missing Google Maps API key. Add the maps repository secret."
