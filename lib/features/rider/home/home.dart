@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -37,6 +39,7 @@ class _HomeState extends State<Home> {
   static const double _sheetMaxHeight = 294;
   double _sheetHeight = _sheetMinHeight;
   bool _isSheetDragging = false;
+  bool _destinationMode = false;
   String _currentAddress = 'Current location';
   LatLng? _currentLatLng;
 
@@ -199,6 +202,26 @@ class _HomeState extends State<Home> {
     }
   }
 
+  void _openDestinationSheet() {
+    final viewportHeight = MediaQuery.of(context).size.height;
+    final topGap = MediaQuery.of(context).padding.top + 54;
+    final targetHeight =
+        ((viewportHeight - topGap) / ResSize.h).clamp(520.0, 900.0);
+    setState(() {
+      _destinationMode = true;
+      _isSheetDragging = false;
+      _sheetHeight = targetHeight;
+    });
+  }
+
+  void _closeDestinationSheet() {
+    setState(() {
+      _destinationMode = false;
+      _isSheetDragging = false;
+      _sheetHeight = _sheetMinHeight;
+    });
+  }
+
   void _openRoute() {
     Navigator.push(
       context,
@@ -286,9 +309,11 @@ class _HomeState extends State<Home> {
               child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onVerticalDragStart: (_) {
+                if (_destinationMode) return;
                 setState(() => _isSheetDragging = true);
               },
               onVerticalDragUpdate: (details) {
+                if (_destinationMode) return;
                 final delta = details.primaryDelta ?? 0;
                 setState(() {
                   _sheetHeight =
@@ -299,6 +324,7 @@ class _HomeState extends State<Home> {
                 });
               },
               onVerticalDragEnd: (details) {
+                if (_destinationMode) return;
                 final velocity = details.primaryVelocity ?? 0;
                 final shouldExpand = velocity < -260 ||
                     (velocity.abs() <= 260 &&
@@ -311,6 +337,7 @@ class _HomeState extends State<Home> {
                 });
               },
               onVerticalDragCancel: () {
+                if (_destinationMode) return;
                 setState(() {
                   _isSheetDragging = false;
                   _sheetHeight =
@@ -354,6 +381,17 @@ class _HomeState extends State<Home> {
                     },
                     onTap: (LatLng position) {},
                   ),
+                  if (_destinationMode)
+                    Positioned.fill(
+                      child: PointerInterceptor(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
+                          child: Container(
+                            color: AppColor.white.withOpacity(0.05),
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -469,6 +507,10 @@ class _HomeState extends State<Home> {
                 children: [
                   GestureDetector(
                     onTap: () {
+                      if (_destinationMode) {
+                        _closeDestinationSheet();
+                        return;
+                      }
                       setState(() {
                         _isSheetDragging = false;
                         _sheetHeight = _sheetHeight >
@@ -487,6 +529,10 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   15.height,
+                  if (_destinationMode) ...[
+                    _currentLocationCard(),
+                    11.height,
+                  ],
                   _whereToCard(),
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
@@ -597,6 +643,76 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Widget _currentLocationCard() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openRoute,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          height: ResSize.h * 66,
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF2F7F5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFDCE8E3),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: ResSize.h * 36,
+                width: ResSize.w * 36,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE3F0EB),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.my_location_rounded,
+                  size: ResSize.h * 19,
+                  color: const Color(0xFF356F62),
+                ),
+              ),
+              12.width,
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextWidget(
+                      text: 'Current location',
+                      color: _premiumMuted,
+                      fontSize: 9.5,
+                      fontWeight: fwMedium,
+                    ),
+                    3.height,
+                    TextWidget(
+                      text: _currentAddress,
+                      color: _premiumInk,
+                      fontSize: 12.5,
+                      fontWeight: fwSemiBold,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+              10.width,
+              Icon(
+                Icons.edit_location_alt_outlined,
+                size: ResSize.h * 20,
+                color: const Color(0xFF356F62),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _whereToCard() {
     return Container(
       height: ResSize.h * 58,
@@ -625,7 +741,9 @@ class _HomeState extends State<Home> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: _openRoute,
+                onTap: _destinationMode
+                    ? _openRoute
+                    : _openDestinationSheet,
                 borderRadius: BorderRadius.circular(18),
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
