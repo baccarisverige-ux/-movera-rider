@@ -38,7 +38,7 @@ class _HomeState extends State<Home> {
 
   static const double _sheetMinHeight = 214;
   static const double _sheetMaxHeight = 294;
-  double _sheetHeight = _sheetMinHeight;
+  double _sheetHeight = _sheetMaxHeight;
   bool _isSheetDragging = false;
   bool _destinationMode = false;
   String _currentAddress = 'Current location';
