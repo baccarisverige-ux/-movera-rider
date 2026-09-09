@@ -333,18 +333,53 @@ class _HomeState extends State<Home> {
           ),
           child: Column(
             children: [
-              GestureDetector(
-                onTap: () => _panelController.open(),
-                child: Container(
-                  width: ResSize.w * 42,
-                  height: ResSize.h * 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCED4D8),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+              SizedBox(
+                height: ResSize.h * 22,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _panelController.open(),
+                      child: Container(
+                        width: ResSize.w * 42,
+                        height: ResSize.h * 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCED4D8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        height: ResSize.h * 22,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: ResSize.w * 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _premiumInk,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _premiumInk.withOpacity(0.16),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: TextWidget(
+                          text: 'MOVERA',
+                          color: AppColor.white,
+                          fontSize: 9,
+                          fontWeight: fwSemiBold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              11.height,
+              7.height,
               _whereToCard(),
               12.height,
               Row(
