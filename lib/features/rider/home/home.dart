@@ -7,6 +7,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
+import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
@@ -168,6 +169,13 @@ class _HomeState extends State<Home> {
     );
   }
 
+  void _openPayment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const WalletScreen()),
+    );
+  }
+
   void _openAccount() {
     if (_panelController.isPanelOpen) {
       _panelController.close();
@@ -186,7 +194,7 @@ class _HomeState extends State<Home> {
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
-            minHeight: ResSize.h * 218,
+            minHeight: ResSize.h * 276,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.11),
@@ -381,6 +389,46 @@ class _HomeState extends State<Home> {
                       ),
                     ],
                   ),
+                  10.height,
+                  const Divider(
+                    color: Color(0xFFE7EBEE),
+                    thickness: 0.8,
+                    height: 1,
+                  ),
+                  7.height,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _premiumBottomNavItem(
+                          icon: Icons.map_rounded,
+                          label: 'Map',
+                          active: true,
+                          onTap: () {},
+                        ),
+                      ),
+                      Expanded(
+                        child: _premiumBottomNavItem(
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: 'Payment',
+                          onTap: _openPayment,
+                        ),
+                      ),
+                      Expanded(
+                        child: _premiumBottomNavItem(
+                          icon: Icons.calendar_month_outlined,
+                          label: 'Schedule ride',
+                          onTap: _openSchedule,
+                        ),
+                      ),
+                      Expanded(
+                        child: _premiumBottomNavItem(
+                          icon: Icons.person_outline_rounded,
+                          label: 'Account',
+                          onTap: _openAccount,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -563,57 +611,50 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _bottomNavItem({
+  Widget _premiumBottomNavItem({
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     bool active = false,
   }) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: ResSize.w * 4),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(15),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            height: ResSize.h * 44,
-            padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
-            decoration: BoxDecoration(
-              color: active ? _premiumInk : AppColor.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: active ? _premiumInk : const Color(0xFFE1E5E7),
-                width: 0.9,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(active ? 0.14 : 0.055),
-                  blurRadius: active ? 12 : 9,
-                  offset: const Offset(0, 4),
+    final color =
+        active ? const Color(0xFF2A7A84) : const Color(0xFF899197);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          height: ResSize.h * 49,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: ResSize.h * 28,
+                width: ResSize.w * 38,
+                decoration: BoxDecoration(
+                  color: active
+                      ? const Color(0xFFE8F4F5)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
+                alignment: Alignment.center,
+                child: Icon(
                   icon,
-                  size: ResSize.h * 18,
-                  color: active ? AppColor.white : const Color(0xFF4D575E),
+                  size: ResSize.h * 20,
+                  color: color,
                 ),
-                6.width,
-                Flexible(
-                  child: TextWidget(
-                    text: label,
-                    color: active ? AppColor.white : const Color(0xFF4D575E),
-                    fontSize: 11,
-                    fontWeight: fwSemiBold,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              2.height,
+              TextWidget(
+                text: label,
+                color: color,
+                fontSize: 9.5,
+                fontWeight: active ? fwSemiBold : fwMedium,
+              ),
+            ],
           ),
         ),
       ),
