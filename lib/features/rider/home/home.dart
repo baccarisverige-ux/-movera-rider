@@ -11,7 +11,6 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
 import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
@@ -37,7 +36,7 @@ class _HomeState extends State<Home> {
   final PanelController _panelController = PanelController();
   final PanelController _profilePanelController = PanelController();
 
-  static const double _sheetMinHeight = 184;
+  static const double _sheetMinHeight = 214;
   static const double _sheetMaxHeight = 294;
   double _sheetHeight = _sheetMinHeight;
   bool _isSheetDragging = false;
@@ -298,10 +297,7 @@ class _HomeState extends State<Home> {
   }
 
   void _openRoute() {
-    Navigator.push(
-      context,
-      BottomToTopTransition(ChooseRoute(initialPickup: _currentAddress)),
-    );
+    _openDestinationSheet();
   }
 
   void _openSchedule() {
@@ -735,7 +731,7 @@ class _HomeState extends State<Home> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: _openRoute,
+        onTap: _loadCurrentLocation,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           height: ResSize.h * 66,
@@ -829,9 +825,7 @@ class _HomeState extends State<Home> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: _destinationMode
-                    ? _openRoute
-                    : _openDestinationSheet,
+                onTap: _openDestinationSheet,
                 borderRadius: BorderRadius.circular(18),
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
