@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
@@ -42,6 +44,9 @@ class _HomeState extends State<Home> {
   bool _destinationMode = false;
   String _currentAddress = 'Current location';
   LatLng? _currentLatLng;
+  BitmapDescriptor? _driverCarIcon;
+  Timer? _driverMotionTimer;
+  double _driverMotionPhase = 0;
 
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
@@ -144,6 +149,85 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     _loadCurrentLocation();
+    _loadDriverCarIcon();
+    _driverMotionTimer = Timer.periodic(
+      const Duration(milliseconds: 450),
+      (_) => _animateNearbyDrivers(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _driverMotionTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadDriverCarIcon() async {
+    final icon = await BitmapDescriptor.fromAssetImage(
+      const ImageConfiguration(size: Size(38, 32)),
+      AppAssets.driverCar,
+    );
+    if (!mounted) return;
+    setState(() {
+      _driverCarIcon = icon;
+      _markers = _buildMapMarkers(
+        _currentLatLng ?? _initialPosition.target,
+      );
+    });
+  }
+
+  void _animateNearbyDrivers() {
+    if (!mounted || _driverCarIcon == null) return;
+    _driverMotionPhase += 0.055;
+    setState(() {
+      _markers = _buildMapMarkers(
+        _currentLatLng ?? _initialPosition.target,
+      );
+    });
+  }
+
+  Set<Marker> _buildMapMarkers(LatLng center) {
+    final markers = <Marker>{};
+    if (_currentLatLng != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('current_location'),
+          position: center,
+          infoWindow: InfoWindow(title: _currentAddress),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueBlue,
+          ),
+        ),
+      );
+    }
+
+    final carIcon = _driverCarIcon;
+    if (carIcon == null) return markers;
+
+    for (var index = 0; index < 6; index++) {
+      final angle =
+          _driverMotionPhase * (0.72 + index * 0.045) +
+          index * (math.pi * 2 / 6);
+      final radius = 0.0024 + (index % 3) * 0.00075;
+      final latitude = center.latitude + math.sin(angle) * radius;
+      final longitudeScale =
+          math.cos(center.latitude * math.pi / 180).abs().clamp(0.35, 1.0);
+      final longitude =
+          center.longitude + math.cos(angle) * radius / longitudeScale;
+      markers.add(
+        Marker(
+          markerId: MarkerId('nearby_driver_$index'),
+          position: LatLng(latitude, longitude),
+          icon: carIcon,
+          anchor: const Offset(0.5, 0.5),
+          flat: true,
+          rotation: (angle * 180 / math.pi + 90) % 360,
+          zIndex: 2,
+          infoWindow: const InfoWindow(title: 'Nearby Movera driver'),
+        ),
+      );
+    }
+    return markers;
   }
 
   Future<void> _loadCurrentLocation() async {
@@ -181,16 +265,7 @@ class _HomeState extends State<Home> {
         _currentLatLng = point;
         _currentAddress =
             address?.trim().isNotEmpty == true ? address!.trim() : 'Current location';
-        _markers = {
-          Marker(
-            markerId: const MarkerId('current_location'),
-            position: point,
-            infoWindow: InfoWindow(title: _currentAddress),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueBlue,
-            ),
-          ),
-        };
+        _markers = _buildMapMarkers(point);
       });
       await _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
@@ -308,8 +383,11 @@ class _HomeState extends State<Home> {
             ),
             panelBuilder: (_) => const SizedBox.shrink(),
             collapsed: PointerInterceptor(
+              intercepting: !_destinationMode,
               child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+              behavior: _destinationMode
+                  ? HitTestBehavior.deferToChild
+                  : HitTestBehavior.opaque,
               onVerticalDragStart: (_) {
                 if (_destinationMode) return;
                 setState(() => _isSheetDragging = true);
@@ -385,7 +463,7 @@ class _HomeState extends State<Home> {
                   ),
                   if (_destinationMode)
                     Positioned.fill(
-                      child: PointerInterceptor(
+                      child: IgnorePointer(
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
                           child: Container(
@@ -500,7 +578,9 @@ class _HomeState extends State<Home> {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Padding(
+            PointerInterceptor(
+              intercepting: _destinationMode,
+              child: Padding(
               padding: EdgeInsets.fromLTRB(
                 ResSize.w * 18,
                 ResSize.h * 11,
@@ -508,6 +588,7 @@ class _HomeState extends State<Home> {
                 ResSize.h * 7,
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   GestureDetector(
                     onTap: () {
@@ -589,6 +670,7 @@ class _HomeState extends State<Home> {
 
                 ],
               ),
+            ),
             ),
             if (!_destinationMode)
               Positioned(
