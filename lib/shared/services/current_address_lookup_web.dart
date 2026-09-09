@@ -1,6 +1,3 @@
-@JS()
-library;
-
 import 'dart:js' as js;
 import 'dart:js_util' as js_util;
 
