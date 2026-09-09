@@ -794,8 +794,8 @@ class _HomeState extends State<Home> {
                   opacity: active ? 1 : 0.86,
                   child: Image.asset(
                     iconAsset,
-                    height: ResSize.h * 20.75,
-                    width: ResSize.w * 20.75,
+                    height: ResSize.h * 18.68,
+                    width: ResSize.w * 18.68,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),
