@@ -5,7 +5,7 @@ Future<String?> reverseGeocodeCurrentPosition(
   double latitude,
   double longitude,
 ) async {
-  final promise = js.context.callMethod<Object>(
+  final promise = js.context.callMethod(
     'moveraReverseGeocode',
     [latitude, longitude],
   );
