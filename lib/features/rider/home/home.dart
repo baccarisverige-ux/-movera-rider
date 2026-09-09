@@ -32,6 +32,7 @@ class _HomeState extends State<Home> {
   final PanelController _profilePanelController = PanelController();
 
   List<bool> trips = List.generate(3, (index) => false);
+  bool _compactSheet = false;
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -202,7 +203,7 @@ class _HomeState extends State<Home> {
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
-            minHeight: ResSize.h * 294,
+            minHeight: ResSize.h * (_compactSheet ? 184 : 294),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.11),
@@ -221,7 +222,17 @@ class _HomeState extends State<Home> {
               topRight: Radius.circular(34),
             ),
             panelBuilder: (ScrollController sc) => panelColumn(sc),
-            collapsed: _premiumCollapsedSheet(),
+            collapsed: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerMove: (event) {
+                if (event.delta.dy > 1.5 && !_compactSheet) {
+                  setState(() => _compactSheet = true);
+                } else if (event.delta.dy < -1.5 && _compactSheet) {
+                  setState(() => _compactSheet = false);
+                }
+              },
+              child: _premiumCollapsedSheet(),
+            ),
             body: SizedBox(
               height: MediaQuery.of(context).size.height,
               width: double.infinity,
@@ -369,36 +380,48 @@ class _HomeState extends State<Home> {
                   ),
                   15.height,
                   _whereToCard(),
-                  15.height,
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _quickPlaceCard(
-                          iconAsset: AppAssets.quickHome,
-                          title: 'Home',
-                          subtitle: 'Set location',
-                          onTap: _openRoute,
-                        ),
-                      ),
-                      8.width,
-                      Expanded(
-                        child: _quickPlaceCard(
-                          iconAsset: AppAssets.quickWork,
-                          title: 'Work',
-                          subtitle: 'Set location',
-                          onTap: _openRoute,
-                        ),
-                      ),
-                      8.width,
-                      Expanded(
-                        child: _quickPlaceCard(
-                          iconAsset: AppAssets.quickAdd,
-                          title: 'Add',
-                          subtitle: 'New place',
-                          onTap: _openAddPlace,
-                        ),
-                      ),
-                    ],
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 180),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    child: _compactSheet
+                        ? const SizedBox.shrink()
+                        : Column(
+                            key: const ValueKey('quick-places'),
+                            children: [
+                              15.height,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _quickPlaceCard(
+                                      iconAsset: AppAssets.quickHome,
+                                      title: 'Home',
+                                      subtitle: 'Set location',
+                                      onTap: _openRoute,
+                                    ),
+                                  ),
+                                  8.width,
+                                  Expanded(
+                                    child: _quickPlaceCard(
+                                      iconAsset: AppAssets.quickWork,
+                                      title: 'Work',
+                                      subtitle: 'Set location',
+                                      onTap: _openRoute,
+                                    ),
+                                  ),
+                                  8.width,
+                                  Expanded(
+                                    child: _quickPlaceCard(
+                                      iconAsset: AppAssets.quickAdd,
+                                      title: 'Add',
+                                      subtitle: 'New place',
+                                      onTap: _openAddPlace,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                   ),
 
                 ],
