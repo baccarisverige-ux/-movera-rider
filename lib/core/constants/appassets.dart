@@ -30,7 +30,7 @@ class AppAssets {
   static const String about = 'assets/icons/about.png';
   static const String driverIcon = 'assets/icons/driver_icon.png';
   static const String calendar2 = 'assets/icons/calendar2.png';
-  static const String scheduleCalendar = 'assets/icons/schedule_calendar.png';
+  static const String scheduleCalendar = 'assets/icons/schedule_calendar_v3.png';
   static const String time = 'assets/icons/time.png';
   static const String stop = 'assets/icons/stop.png';
   static const String removeStop = 'assets/icons/remove_stop.png';
