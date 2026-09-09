@@ -8,6 +8,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
+import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -28,9 +29,7 @@ class _HomeState extends State<Home> {
   final PanelController _panelController = PanelController();
   final PanelController _profilePanelController = PanelController();
 
-  List<bool> trips = List.generate(3, (index) {
-    return false;
-  });
+  List<bool> trips = List.generate(3, (index) => false);
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -46,6 +45,9 @@ class _HomeState extends State<Home> {
   static const Color _premiumMuted = Color(0xFF778189);
   static const Color _premiumLine = Color(0xFFE7EBEE);
   static const Color _premiumField = Color(0xFFF6F5F1);
+  static const Color _premiumAccent = Color(0xFF2D5878);
+  static const Color _premiumAccentSoft = Color(0xFFEAF2F8);
+  static const Color _premiumSurface = Color(0xFFF7F8F6);
 
   static const String _premiumMapStyle = '''
 [
@@ -145,6 +147,34 @@ class _HomeState extends State<Home> {
     );
   }
 
+  void _openRoute() {
+    Navigator.push(
+      context,
+      BottomToTopTransition(ChooseRoute()),
+    );
+  }
+
+  void _openSchedule() {
+    Navigator.push(
+      context,
+      BottomToTopTransition(const ScheduleRide()),
+    );
+  }
+
+  void _openRideHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RideHistory()),
+    );
+  }
+
+  void _openAccount() {
+    if (_panelController.isPanelOpen) {
+      _panelController.close();
+    }
+    _profilePanelController.open();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -156,31 +186,26 @@ class _HomeState extends State<Home> {
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
-            minHeight: ResSize.h * 215,
+            minHeight: ResSize.h * 286,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 28,
+                color: Colors.black.withOpacity(0.11),
+                blurRadius: 34,
                 spreadRadius: 0,
-                offset: const Offset(0, -8),
+                offset: const Offset(0, -10),
               ),
             ],
             isDraggable: true,
             controller: _panelController,
             defaultPanelState: PanelState.CLOSED,
-            maxHeight: ResSize.h * 480,
+            maxHeight: ResSize.h * 500,
             parallaxEnabled: false,
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(28),
-              topRight: Radius.circular(28),
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
             ),
             panelBuilder: (ScrollController sc) => panelColumn(sc),
-            collapsed: InkWell(
-              onTap: () {
-                _panelController.open();
-              },
-              child: const SizedBox(height: 50, width: double.infinity),
-            ),
+            collapsed: _premiumCollapsedSheet(),
             body: SizedBox(
               height: MediaQuery.of(context).size.height,
               width: double.infinity,
@@ -230,12 +255,7 @@ class _HomeState extends State<Home> {
                               ),
                             ),
                             _premiumFloatingButton(
-                              onTap: () {
-                                if (_panelController.isPanelOpen) {
-                                  _panelController.close();
-                                }
-                                _profilePanelController.open();
-                              },
+                              onTap: _openAccount,
                               child: Icon(
                                 Icons.person_outline_rounded,
                                 size: ResSize.h * 22,
@@ -293,6 +313,328 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Widget _premiumCollapsedSheet() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColor.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(30),
+          topRight: Radius.circular(30),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            ResSize.w * 14,
+            ResSize.h * 8,
+            ResSize.w * 14,
+            ResSize.h * 7,
+          ),
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: () => _panelController.open(),
+                child: Container(
+                  width: ResSize.w * 42,
+                  height: ResSize.h * 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCED4D8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              11.height,
+              _whereToCard(),
+              12.height,
+              Row(
+                children: [
+                  Expanded(
+                    child: _quickPlaceCard(
+                      icon: Icons.home_rounded,
+                      title: 'Home',
+                      subtitle: 'Set location',
+                      accent: true,
+                      onTap: _openRoute,
+                    ),
+                  ),
+                  8.width,
+                  Expanded(
+                    child: _quickPlaceCard(
+                      icon: Icons.work_rounded,
+                      title: 'Work',
+                      subtitle: 'Set location',
+                      onTap: _openRoute,
+                    ),
+                  ),
+                  8.width,
+                  Expanded(
+                    child: _quickPlaceCard(
+                      icon: Icons.star_rounded,
+                      title: 'Saved',
+                      subtitle: 'See places',
+                      onTap: () => _panelController.open(),
+                    ),
+                  ),
+                ],
+              ),
+              12.height,
+              const Divider(
+                color: _premiumLine,
+                thickness: 0.8,
+                height: 1,
+              ),
+              6.height,
+              Row(
+                children: [
+                  Expanded(
+                    child: _bottomNavItem(
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      active: true,
+                      onTap: () {},
+                    ),
+                  ),
+                  Expanded(
+                    child: _bottomNavItem(
+                      icon: Icons.history_rounded,
+                      label: 'Rides',
+                      onTap: _openRideHistory,
+                    ),
+                  ),
+                  Expanded(
+                    child: _bottomNavItem(
+                      icon: Icons.account_circle_outlined,
+                      label: 'Account',
+                      onTap: _openAccount,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _whereToCard() {
+    return Container(
+      height: ResSize.h * 62,
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        ResSize.w * 4,
+        0,
+        ResSize.w * 7,
+        0,
+      ),
+      decoration: BoxDecoration(
+        color: _premiumSurface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE9ECE9), width: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _openRoute,
+                borderRadius: BorderRadius.circular(18),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        size: ResSize.h * 26,
+                        color: _premiumInk,
+                      ),
+                      12.width,
+                      Expanded(
+                        child: TextWidget(
+                          text: 'Where to?',
+                          color: _premiumInk,
+                          fontSize: 19,
+                          fontWeight: fwVeryExtraBold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _openSchedule,
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                height: ResSize.h * 46,
+                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
+                decoration: BoxDecoration(
+                  color: AppColor.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _premiumLine, width: 0.8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.045),
+                      blurRadius: 12,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calendar_month_rounded,
+                      size: ResSize.h * 19,
+                      color: _premiumInk,
+                    ),
+                    7.width,
+                    TextWidget(
+                      text: 'Later',
+                      color: _premiumInk,
+                      fontSize: 13,
+                      fontWeight: fwSemiBold,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _quickPlaceCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool accent = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: ResSize.h * 64,
+          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
+          decoration: BoxDecoration(
+            color: AppColor.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _premiumLine, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: ResSize.h * 34,
+                width: ResSize.w * 34,
+                decoration: BoxDecoration(
+                  color: accent ? _premiumAccentSoft : const Color(0xFFF3F5F5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  icon,
+                  size: ResSize.h * 19,
+                  color: accent ? _premiumAccent : _premiumInk,
+                ),
+              ),
+              8.width,
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextWidget(
+                      text: title,
+                      color: _premiumInk,
+                      fontSize: 12.5,
+                      fontWeight: fwSemiBold,
+                    ),
+                    2.height,
+                    TextWidget(
+                      text: subtitle,
+                      color: _premiumMuted,
+                      fontSize: 9.5,
+                      fontWeight: fwNormal,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bottomNavItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: ResSize.h * 5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: ResSize.h * 31,
+                width: ResSize.w * 52,
+                decoration: BoxDecoration(
+                  color: active ? _premiumAccentSoft : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  icon,
+                  size: ResSize.h * 22,
+                  color: active ? _premiumInk : const Color(0xFF667078),
+                ),
+              ),
+              2.height,
+              TextWidget(
+                text: label,
+                color: active ? _premiumInk : const Color(0xFF687078),
+                fontSize: 11.5,
+                fontWeight: active ? fwSemiBold : fwMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget panelColumn(ScrollController sc) {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
@@ -336,12 +678,7 @@ class _HomeState extends State<Home> {
                 ),
               ),
               InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    BottomToTopTransition(const ScheduleRide()),
-                  );
-                },
+                onTap: _openSchedule,
                 borderRadius: BorderRadius.circular(22),
                 child: Container(
                   height: ResSize.h * 38,
@@ -412,22 +749,12 @@ class _HomeState extends State<Home> {
                 child: Column(
                   children: [
                     _routeField(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          BottomToTopTransition(ChooseRoute()),
-                        );
-                      },
+                      onTap: _openRoute,
                       text: "Stockholm",
                     ),
                     12.height,
                     _routeField(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          BottomToTopTransition(ChooseRoute()),
-                        );
-                      },
+                      onTap: _openRoute,
                       text: "Your destination",
                       trailing: Image.asset(
                         AppAssets.mic,
