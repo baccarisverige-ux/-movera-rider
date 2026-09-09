@@ -324,97 +324,97 @@ class _HomeState extends State<Home> {
       ),
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            ResSize.w * 14,
-            ResSize.h * 8,
-            ResSize.w * 14,
-            ResSize.h * 7,
-          ),
-          child: Column(
-            children: [
-              SizedBox(
-                height: ResSize.h * 22,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () => _panelController.open(),
-                      child: Container(
-                        width: ResSize.w * 42,
-                        height: ResSize.h * 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFCED4D8),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        height: ResSize.h * 22,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: ResSize.w * 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _premiumInk,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _premiumInk.withOpacity(0.16),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: TextWidget(
-                          text: 'MOVERA',
-                          color: AppColor.white,
-                          fontSize: 9,
-                          fontWeight: fwSemiBold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                ResSize.w * 14,
+                ResSize.h * 8,
+                ResSize.w * 14,
+                ResSize.h * 7,
               ),
-              7.height,
-              _whereToCard(),
-              12.height,
-              Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _quickPlaceCard(
-                      icon: Icons.home_rounded,
-                      title: 'Home',
-                      subtitle: 'Set location',
-                      accent: true,
-                      onTap: _openRoute,
+                  GestureDetector(
+                    onTap: () => _panelController.open(),
+                    child: Container(
+                      width: ResSize.w * 42,
+                      height: ResSize.h * 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCED4D8),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
-                  8.width,
-                  Expanded(
-                    child: _quickPlaceCard(
-                      icon: Icons.business_center_rounded,
-                      title: 'Work',
-                      subtitle: 'Set location',
-                      onTap: _openRoute,
-                    ),
-                  ),
-                  8.width,
-                  Expanded(
-                    child: _quickPlaceCard(
-                      icon: Icons.bookmark_rounded,
-                      title: 'Saved',
-                      subtitle: 'See places',
-                      onTap: () => _panelController.open(),
-                    ),
+                  11.height,
+                  _whereToCard(),
+                  12.height,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _quickPlaceCard(
+                          icon: Icons.home_rounded,
+                          title: 'Home',
+                          subtitle: 'Set location',
+                          accent: true,
+                          onTap: _openRoute,
+                        ),
+                      ),
+                      8.width,
+                      Expanded(
+                        child: _quickPlaceCard(
+                          icon: Icons.business_center_rounded,
+                          title: 'Work',
+                          subtitle: 'Set location',
+                          onTap: _openRoute,
+                        ),
+                      ),
+                      8.width,
+                      Expanded(
+                        child: _quickPlaceCard(
+                          icon: Icons.bookmark_rounded,
+                          title: 'Saved',
+                          subtitle: 'See places',
+                          onTap: () => _panelController.open(),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              top: ResSize.h * 5,
+              right: ResSize.w * 7,
+              child: Container(
+                height: ResSize.h * 20,
+                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F2F5),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: const Color(0xFFD2E4E9),
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _premiumAccent.withOpacity(0.09),
+                      blurRadius: 7,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: TextWidget(
+                  text: 'MOVERA',
+                  color: _premiumAccent,
+                  fontSize: 8.5,
+                  fontWeight: fwSemiBold,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
