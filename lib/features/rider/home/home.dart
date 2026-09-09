@@ -522,6 +522,20 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                   ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: _destinationSheetOpen
+                        ? Padding(
+                            key: const ValueKey('advance-booking-card'),
+                            padding: EdgeInsets.only(top: ResSize.h * 24),
+                            child: _advanceBookingCard(),
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey('advance-booking-empty'),
+                          ),
+                  ),
 
                 ],
               ),
@@ -576,6 +590,86 @@ class _HomeState extends State<Home> {
                     ),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _advanceBookingCard() {
+    return InkWell(
+      onTap: _openSchedule,
+      borderRadius: BorderRadius.circular(26),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+          ResSize.w * 12,
+          ResSize.h * 12,
+          ResSize.w * 12,
+          ResSize.h * 15,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFA),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: _premiumLine, width: 0.8),
+          boxShadow: [
+            BoxShadow(
+              color: _premiumAccent.withOpacity(0.06),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                width: double.infinity,
+                height: ResSize.h * 142,
+                child: Image.asset(
+                  'assets/images/advance_booking_driver.png',
+                  fit: BoxFit.cover,
+                  alignment: const Alignment(0, -0.28),
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+            ),
+            15.height,
+            TextWidget(
+              text: 'Plan ahead. Ride on time.',
+              color: _premiumInk,
+              fontSize: 17,
+              fontWeight: fwBold,
+            ),
+            7.height,
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
+              child: TextWidget(
+                text:
+                    'Book your ride in advance and we’ll help arrange a driver for the time you choose.',
+                color: _premiumMuted,
+                fontSize: 11.5,
+                fontWeight: fwNormal,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            14.height,
+            Container(
+              height: ResSize.h * 42,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _premiumAccent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: TextWidget(
+                text: 'Schedule a ride',
+                color: AppColor.white,
+                fontSize: 12.5,
+                fontWeight: fwSemiBold,
               ),
             ),
           ],
