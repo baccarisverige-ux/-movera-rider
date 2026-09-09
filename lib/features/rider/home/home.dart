@@ -33,7 +33,7 @@ class _HomeState extends State<Home> {
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
-  double _sheetHeight = _sheetMaxHeight;
+  double _sheetHeight = _sheetMinHeight;
   bool _isSheetDragging = false;
 
   // ignore: unused_field
