@@ -186,7 +186,7 @@ class _HomeState extends State<Home> {
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
-            minHeight: ResSize.h * 286,
+            minHeight: ResSize.h * 218,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.11),
@@ -378,39 +378,6 @@ class _HomeState extends State<Home> {
                   ),
                 ],
               ),
-              12.height,
-              const Divider(
-                color: _premiumLine,
-                thickness: 0.8,
-                height: 1,
-              ),
-              6.height,
-              Row(
-                children: [
-                  Expanded(
-                    child: _bottomNavItem(
-                      icon: Icons.home_rounded,
-                      label: 'Home',
-                      active: true,
-                      onTap: () {},
-                    ),
-                  ),
-                  Expanded(
-                    child: _bottomNavItem(
-                      icon: Icons.local_taxi_rounded,
-                      label: 'Rides',
-                      onTap: _openRideHistory,
-                    ),
-                  ),
-                  Expanded(
-                    child: _bottomNavItem(
-                      icon: Icons.person_rounded,
-                      label: 'Account',
-                      onTap: _openAccount,
-                    ),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -461,9 +428,9 @@ class _HomeState extends State<Home> {
                       Expanded(
                         child: TextWidget(
                           text: 'Where to?',
-                          color: _premiumInk,
-                          fontSize: 19,
-                          fontWeight: fwVeryExtraBold,
+                          color: _premiumInk.withOpacity(0.72),
+                          fontSize: 16.5,
+                          fontWeight: fwMedium,
                         ),
                       ),
                     ],
