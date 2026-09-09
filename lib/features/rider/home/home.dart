@@ -574,9 +574,7 @@ class _HomeState extends State<Home> {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            PointerInterceptor(
-              intercepting: _destinationMode,
-              child: Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(
                 ResSize.w * 18,
                 ResSize.h * 11,
@@ -666,7 +664,6 @@ class _HomeState extends State<Home> {
 
                 ],
               ),
-            ),
             ),
             if (!_destinationMode)
               Positioned(
