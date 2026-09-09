@@ -389,47 +389,60 @@ class _HomeState extends State<Home> {
                       ),
                     ],
                   ),
-                  10.height,
-                  const Divider(
-                    color: Color(0xFFE7EBEE),
-                    thickness: 0.8,
-                    height: 1,
-                  ),
-                  7.height,
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _premiumBottomNavItem(
-                          icon: Icons.map_rounded,
-                          label: 'Map',
-                          active: true,
-                          onTap: () {},
-                        ),
-                      ),
-                      Expanded(
-                        child: _premiumBottomNavItem(
-                          icon: Icons.account_balance_wallet_outlined,
-                          label: 'Payment',
-                          onTap: _openPayment,
-                        ),
-                      ),
-                      Expanded(
-                        child: _premiumBottomNavItem(
-                          icon: Icons.calendar_month_outlined,
-                          label: 'Schedule ride',
-                          onTap: _openSchedule,
-                        ),
-                      ),
-                      Expanded(
-                        child: _premiumBottomNavItem(
-                          icon: Icons.person_outline_rounded,
-                          label: 'Account',
-                          onTap: _openAccount,
-                        ),
-                      ),
-                    ],
-                  ),
+
                 ],
+              ),
+            ),
+            Positioned(
+              left: ResSize.w * 14,
+              right: ResSize.w * 14,
+              bottom: 0,
+              child: Container(
+                color: AppColor.white,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Divider(
+                      color: Color(0xFFE7EBEE),
+                      thickness: 0.8,
+                      height: 1,
+                    ),
+                    7.height,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _premiumBottomNavItem(
+                            icon: Icons.map_rounded,
+                            label: 'Map',
+                            active: true,
+                            onTap: () {},
+                          ),
+                        ),
+                        Expanded(
+                          child: _premiumBottomNavItem(
+                            icon: Icons.account_balance_wallet_outlined,
+                            label: 'Payment',
+                            onTap: _openPayment,
+                          ),
+                        ),
+                        Expanded(
+                          child: _premiumBottomNavItem(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Schedule ride',
+                            onTap: _openSchedule,
+                          ),
+                        ),
+                        Expanded(
+                          child: _premiumBottomNavItem(
+                            icon: Icons.person_outline_rounded,
+                            label: 'Account',
+                            onTap: _openAccount,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
