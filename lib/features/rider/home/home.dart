@@ -495,10 +495,12 @@ class _HomeState extends State<Home> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.calendar_month_rounded,
-                      size: ResSize.h * 19,
-                      color: _premiumInk,
+                    Image.asset(
+                      AppAssets.scheduleCalendar,
+                      height: ResSize.h * 29,
+                      width: ResSize.w * 29,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
                     7.width,
                     TextWidget(
@@ -703,9 +705,11 @@ class _HomeState extends State<Home> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Image.asset(
-                        AppAssets.calendar,
-                        height: ResSize.h * 17,
-                        color: _premiumInk,
+                        AppAssets.scheduleCalendar,
+                        height: ResSize.h * 27,
+                        width: ResSize.w * 27,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
                       ),
                       7.width,
                       TextWidget(
