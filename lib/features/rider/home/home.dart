@@ -385,30 +385,35 @@ class _HomeState extends State<Home> {
               ),
             ),
             Positioned(
-              top: ResSize.h * 5,
-              right: ResSize.w * 7,
+              top: 0,
+              left: ResSize.w * 20,
               child: Container(
-                height: ResSize.h * 20,
-                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
+                height: ResSize.h * 22,
+                width: ResSize.w * 94,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F2F5),
-                  borderRadius: BorderRadius.circular(11),
+                  color: const Color(0xFFF4FAFC),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(13),
+                    topRight: Radius.circular(13),
+                    bottomLeft: Radius.circular(5),
+                    bottomRight: Radius.circular(15),
+                  ),
                   border: Border.all(
-                    color: const Color(0xFFD2E4E9),
+                    color: const Color(0xFFBDD7E2),
                     width: 0.8,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _premiumAccent.withOpacity(0.09),
-                      blurRadius: 7,
-                      offset: const Offset(0, 2),
+                      color: _premiumAccent.withOpacity(0.10),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 alignment: Alignment.center,
                 child: TextWidget(
                   text: 'MOVERA',
-                  color: _premiumAccent,
+                  color: const Color(0xFF246B79),
                   fontSize: 8.5,
                   fontWeight: fwSemiBold,
                 ),
