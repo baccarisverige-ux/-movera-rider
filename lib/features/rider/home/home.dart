@@ -576,7 +576,7 @@ class _HomeState extends State<Home> {
         borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          height: ResSize.h * 53,
+          height: ResSize.h * 44,
           padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
