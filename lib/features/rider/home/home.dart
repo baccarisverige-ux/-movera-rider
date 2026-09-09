@@ -1,5 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -35,6 +37,7 @@ class _HomeState extends State<Home> {
   static const double _sheetMaxHeight = 294;
   double _sheetHeight = _sheetMinHeight;
   bool _isSheetDragging = false;
+  bool _destinationSheetOpen = false;
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -152,6 +155,26 @@ class _HomeState extends State<Home> {
     );
   }
 
+  void _openDestinationSheet() {
+    final viewportHeight = MediaQuery.of(context).size.height;
+    final topInset = MediaQuery.of(context).padding.top + 8;
+    final targetHeight =
+        ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
+    setState(() {
+      _destinationSheetOpen = true;
+      _isSheetDragging = false;
+      _sheetHeight = targetHeight;
+    });
+  }
+
+  void _closeDestinationSheet() {
+    setState(() {
+      _destinationSheetOpen = false;
+      _isSheetDragging = false;
+      _sheetHeight = _sheetMinHeight;
+    });
+  }
+
   void _openRoute() {
     Navigator.push(
       context,
@@ -239,9 +262,11 @@ class _HomeState extends State<Home> {
               child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onVerticalDragStart: (_) {
+                if (_destinationSheetOpen) return;
                 setState(() => _isSheetDragging = true);
               },
               onVerticalDragUpdate: (details) {
+                if (_destinationSheetOpen) return;
                 final delta = details.primaryDelta ?? 0;
                 setState(() {
                   _sheetHeight =
@@ -252,6 +277,7 @@ class _HomeState extends State<Home> {
                 });
               },
               onVerticalDragEnd: (details) {
+                if (_destinationSheetOpen) return;
                 final velocity = details.primaryVelocity ?? 0;
                 final shouldExpand = velocity < -260 ||
                     (velocity.abs() <= 260 &&
@@ -264,6 +290,7 @@ class _HomeState extends State<Home> {
                 });
               },
               onVerticalDragCancel: () {
+                if (_destinationSheetOpen) return;
                 setState(() {
                   _isSheetDragging = false;
                   _sheetHeight =
@@ -299,6 +326,17 @@ class _HomeState extends State<Home> {
                     },
                     onTap: (LatLng position) {},
                   ),
+                  if (_destinationSheetOpen)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
+                          child: Container(
+                            color: AppColor.white.withOpacity(0.05),
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -414,6 +452,10 @@ class _HomeState extends State<Home> {
                 children: [
                   GestureDetector(
                     onTap: () {
+                      if (_destinationSheetOpen) {
+                        _closeDestinationSheet();
+                        return;
+                      }
                       setState(() {
                         _isSheetDragging = false;
                         _sheetHeight = _sheetHeight >
@@ -570,7 +612,7 @@ class _HomeState extends State<Home> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: _openRoute,
+                onTap: _openDestinationSheet,
                 borderRadius: BorderRadius.circular(18),
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
