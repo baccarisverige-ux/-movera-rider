@@ -59,6 +59,7 @@ dependencies:
   riff_switch: ^0.0.4
   lottie: ^3.3.1
   google_maps_flutter: ^2.13.1
+  pointer_interceptor: ^0.10.1+2
   geolocator: ^14.0.2
   geocoding: ^5.0.0
 

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -234,7 +235,8 @@ class _HomeState extends State<Home> {
               topRight: Radius.circular(34),
             ),
             panelBuilder: (_) => const SizedBox.shrink(),
-            collapsed: GestureDetector(
+            collapsed: PointerInterceptor(
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onVerticalDragStart: (_) {
                 setState(() => _isSheetDragging = true);
@@ -272,6 +274,7 @@ class _HomeState extends State<Home> {
                 });
               },
               child: _premiumCollapsedSheet(sheetProgress),
+            ),
             ),
             body: SizedBox(
               height: MediaQuery.of(context).size.height,
