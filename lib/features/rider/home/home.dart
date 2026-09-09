@@ -416,7 +416,7 @@ class _HomeState extends State<Home> {
                       children: [
                         Expanded(
                           child: _premiumBottomNavItem(
-                            icon: Icons.map_rounded,
+                            iconAsset: AppAssets.navMap,
                             label: 'Map',
                             active: true,
                             onTap: () {},
@@ -424,21 +424,21 @@ class _HomeState extends State<Home> {
                         ),
                         Expanded(
                           child: _premiumBottomNavItem(
-                            icon: Icons.account_balance_wallet_outlined,
+                            iconAsset: AppAssets.navPayment,
                             label: 'Payment',
                             onTap: _openPayment,
                           ),
                         ),
                         Expanded(
                           child: _premiumBottomNavItem(
-                            icon: Icons.calendar_month_outlined,
+                            iconAsset: AppAssets.navSchedule,
                             label: 'Schedule ride',
                             onTap: _openSchedule,
                           ),
                         ),
                         Expanded(
                           child: _premiumBottomNavItem(
-                            icon: Icons.person_outline_rounded,
+                            iconAsset: AppAssets.navAccount,
                             label: 'Account',
                             onTap: _openAccount,
                           ),
@@ -629,7 +629,7 @@ class _HomeState extends State<Home> {
   }
 
   Widget _premiumBottomNavItem({
-    required IconData icon,
+    required String iconAsset,
     required String label,
     required VoidCallback onTap,
     bool active = false,
@@ -658,10 +658,15 @@ class _HomeState extends State<Home> {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  icon,
-                  size: ResSize.h * 19,
-                  color: color,
+                child: Opacity(
+                  opacity: active ? 1 : 0.86,
+                  child: Image.asset(
+                    iconAsset,
+                    height: ResSize.h * 25,
+                    width: ResSize.w * 25,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
                 ),
               ),
               3.height,

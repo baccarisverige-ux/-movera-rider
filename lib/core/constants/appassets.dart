@@ -31,6 +31,10 @@ class AppAssets {
   static const String driverIcon = 'assets/icons/driver_icon.png';
   static const String calendar2 = 'assets/icons/calendar2.png';
   static const String scheduleCalendar = 'assets/icons/schedule_calendar_v3.png';
+  static const String navMap = 'assets/images/nav_map.png';
+  static const String navPayment = 'assets/images/nav_payment.png';
+  static const String navSchedule = 'assets/images/nav_schedule.png';
+  static const String navAccount = 'assets/images/nav_account.png';
   static const String time = 'assets/icons/time.png';
   static const String stop = 'assets/icons/stop.png';
   static const String removeStop = 'assets/icons/remove_stop.png';
