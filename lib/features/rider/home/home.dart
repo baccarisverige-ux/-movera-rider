@@ -30,8 +30,10 @@ class _HomeState extends State<Home> {
   final PanelController _panelController = PanelController();
   final PanelController _profilePanelController = PanelController();
 
-  bool _compactSheet = false;
-  double _sheetDragDelta = 0;
+  static const double _sheetMinHeight = 184;
+  static const double _sheetMaxHeight = 294;
+  double _sheetHeight = _sheetMaxHeight;
+  bool _isSheetDragging = false;
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -199,10 +201,17 @@ class _HomeState extends State<Home> {
       body: Stack(
         children: [
           TweenAnimationBuilder<double>(
-            tween: Tween<double>(end: _compactSheet ? 184 : 294),
-            duration: const Duration(milliseconds: 320),
+            tween: Tween<double>(end: _sheetHeight),
+            duration: _isSheetDragging
+                ? Duration.zero
+                : const Duration(milliseconds: 340),
             curve: Curves.easeOutCubic,
-            builder: (context, sheetHeight, child) => SlidingUpPanel(
+            builder: (context, sheetHeight, child) {
+              final sheetProgress =
+                  ((sheetHeight - _sheetMinHeight) /
+                          (_sheetMaxHeight - _sheetMinHeight))
+                      .clamp(0.0, 1.0);
+              return SlidingUpPanel(
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
@@ -225,22 +234,44 @@ class _HomeState extends State<Home> {
               topRight: Radius.circular(34),
             ),
             panelBuilder: (_) => const SizedBox.shrink(),
-            collapsed: Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) => _sheetDragDelta = 0,
-              onPointerMove: (event) {
-                _sheetDragDelta += event.delta.dy;
-                if (_sheetDragDelta > 12 && !_compactSheet) {
-                  _sheetDragDelta = 0;
-                  setState(() => _compactSheet = true);
-                } else if (_sheetDragDelta < -12 && _compactSheet) {
-                  _sheetDragDelta = 0;
-                  setState(() => _compactSheet = false);
-                }
+            collapsed: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragStart: (_) {
+                setState(() => _isSheetDragging = true);
               },
-              onPointerUp: (_) => _sheetDragDelta = 0,
-              onPointerCancel: (_) => _sheetDragDelta = 0,
-              child: _premiumCollapsedSheet(),
+              onVerticalDragUpdate: (details) {
+                final delta = details.primaryDelta ?? 0;
+                setState(() {
+                  _sheetHeight =
+                      (_sheetHeight - delta).clamp(
+                        _sheetMinHeight,
+                        _sheetMaxHeight,
+                      );
+                });
+              },
+              onVerticalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                final shouldExpand = velocity < -260 ||
+                    (velocity.abs() <= 260 &&
+                        _sheetHeight >
+                            (_sheetMinHeight + _sheetMaxHeight) / 2);
+                setState(() {
+                  _isSheetDragging = false;
+                  _sheetHeight =
+                      shouldExpand ? _sheetMaxHeight : _sheetMinHeight;
+                });
+              },
+              onVerticalDragCancel: () {
+                setState(() {
+                  _isSheetDragging = false;
+                  _sheetHeight =
+                      _sheetHeight >
+                              (_sheetMinHeight + _sheetMaxHeight) / 2
+                          ? _sheetMaxHeight
+                          : _sheetMinHeight;
+                });
+              },
+              child: _premiumCollapsedSheet(sheetProgress),
             ),
             body: SizedBox(
               height: MediaQuery.of(context).size.height,
@@ -306,7 +337,8 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
-          ),
+          );
+            },
           ),
           RiderProfile(
             controller: _profilePanelController,
@@ -350,7 +382,7 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _premiumCollapsedSheet() {
+  Widget _premiumCollapsedSheet(double sheetProgress) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -378,7 +410,15 @@ class _HomeState extends State<Home> {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: () => setState(() => _compactSheet = !_compactSheet),
+                    onTap: () {
+                      setState(() {
+                        _isSheetDragging = false;
+                        _sheetHeight = _sheetHeight >
+                                (_sheetMinHeight + _sheetMaxHeight) / 2
+                            ? _sheetMinHeight
+                            : _sheetMaxHeight;
+                      });
+                    },
                     child: Container(
                       width: ResSize.w * 42,
                       height: ResSize.h * 4,
@@ -390,22 +430,15 @@ class _HomeState extends State<Home> {
                   ),
                   15.height,
                   _whereToCard(),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 240),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SizeTransition(
-                        sizeFactor: animation,
-                        axisAlignment: -1,
-                        child: child,
-                      ),
-                    ),
-                    child: _compactSheet
-                        ? const SizedBox.shrink()
-                        : Column(
-                            key: const ValueKey('quick-places'),
+                  IgnorePointer(
+                    ignoring: sheetProgress < 0.92,
+                    child: ClipRect(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        heightFactor: sheetProgress,
+                        child: Opacity(
+                          opacity: sheetProgress,
+                          child: Column(
                             children: [
                               15.height,
                               Row(
@@ -440,6 +473,9 @@ class _HomeState extends State<Home> {
                               ),
                             ],
                           ),
+                        ),
+                      ),
+                    ),
                   ),
 
                 ],
