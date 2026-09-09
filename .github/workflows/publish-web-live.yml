@@ -30,6 +30,29 @@ jobs:
       - name: Build Flutter web
         run: flutter build web --release --pwa-strategy=none
 
+      - name: Configure Google Maps for web
+        env:
+          MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          if [ -z "$MAPS_WEB_API_KEY" ]; then
+            echo "::error::Missing Google Maps API key. Add GOOGLE_MAPS_WEB_API_KEY, GOOGLE_MAPS_API_KEY, or MAPS_API_KEY as a repository secret."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
+          maps = f'  <script src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}"></script>'
+          if bootstrap not in s:
+              raise SystemExit('Flutter bootstrap tag not found')
+          if 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, maps + '\n' + bootstrap)
+          p.write_text(s)
+          PY
+
       - name: Prepare GitHub Pages build
         run: |
           rm -rf /tmp/movera-pages
