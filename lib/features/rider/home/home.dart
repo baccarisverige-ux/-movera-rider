@@ -31,6 +31,7 @@ class _HomeState extends State<Home> {
   final PanelController _profilePanelController = PanelController();
 
   bool _compactSheet = false;
+  double _sheetDragDelta = 0;
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -197,11 +198,15 @@ class _HomeState extends State<Home> {
       drawerScrimColor: Colors.black.withOpacity(0.38),
       body: Stack(
         children: [
-          SlidingUpPanel(
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: _compactSheet ? 184 : 294),
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+            builder: (context, sheetHeight, child) => SlidingUpPanel(
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
-            minHeight: ResSize.h * (_compactSheet ? 184 : 294),
+            minHeight: ResSize.h * sheetHeight,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.11),
@@ -213,7 +218,7 @@ class _HomeState extends State<Home> {
             isDraggable: false,
             controller: _panelController,
             defaultPanelState: PanelState.CLOSED,
-            maxHeight: ResSize.h * (_compactSheet ? 184 : 294),
+            maxHeight: ResSize.h * sheetHeight,
             parallaxEnabled: false,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(34),
@@ -222,13 +227,19 @@ class _HomeState extends State<Home> {
             panelBuilder: (_) => const SizedBox.shrink(),
             collapsed: Listener(
               behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => _sheetDragDelta = 0,
               onPointerMove: (event) {
-                if (event.delta.dy > 1.5 && !_compactSheet) {
+                _sheetDragDelta += event.delta.dy;
+                if (_sheetDragDelta > 12 && !_compactSheet) {
+                  _sheetDragDelta = 0;
                   setState(() => _compactSheet = true);
-                } else if (event.delta.dy < -1.5 && _compactSheet) {
+                } else if (_sheetDragDelta < -12 && _compactSheet) {
+                  _sheetDragDelta = 0;
                   setState(() => _compactSheet = false);
                 }
               },
+              onPointerUp: (_) => _sheetDragDelta = 0,
+              onPointerCancel: (_) => _sheetDragDelta = 0,
               child: _premiumCollapsedSheet(),
             ),
             body: SizedBox(
@@ -295,6 +306,7 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
+          ),
           ),
           RiderProfile(
             controller: _profilePanelController,
@@ -379,9 +391,17 @@ class _HomeState extends State<Home> {
                   15.height,
                   _whereToCard(),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    switchInCurve: Curves.easeOut,
-                    switchOutCurve: Curves.easeIn,
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1,
+                        child: child,
+                      ),
+                    ),
                     child: _compactSheet
                         ? const SizedBox.shrink()
                         : Column(
