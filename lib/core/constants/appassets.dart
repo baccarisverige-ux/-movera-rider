@@ -35,6 +35,9 @@ class AppAssets {
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';
   static const String navAccount = 'assets/images/nav_account.png';
+  static const String quickHome = 'assets/images/quick_home.png';
+  static const String quickWork = 'assets/images/quick_work.png';
+  static const String quickAdd = 'assets/images/quick_add.png';
   static const String time = 'assets/icons/time.png';
   static const String stop = 'assets/icons/stop.png';
   static const String removeStop = 'assets/icons/remove_stop.png';

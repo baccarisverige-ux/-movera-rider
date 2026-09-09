@@ -10,6 +10,7 @@ import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
 import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
+import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -173,6 +174,13 @@ class _HomeState extends State<Home> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const WalletScreen()),
+    );
+  }
+
+  void _openAddPlace() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AddPlace()),
     );
   }
 
@@ -366,17 +374,16 @@ class _HomeState extends State<Home> {
                     children: [
                       Expanded(
                         child: _quickPlaceCard(
-                          icon: Icons.home_rounded,
+                          iconAsset: AppAssets.quickHome,
                           title: 'Home',
                           subtitle: 'Set location',
-                          accent: true,
                           onTap: _openRoute,
                         ),
                       ),
                       8.width,
                       Expanded(
                         child: _quickPlaceCard(
-                          icon: Icons.business_center_rounded,
+                          iconAsset: AppAssets.quickWork,
                           title: 'Work',
                           subtitle: 'Set location',
                           onTap: _openRoute,
@@ -385,10 +392,10 @@ class _HomeState extends State<Home> {
                       8.width,
                       Expanded(
                         child: _quickPlaceCard(
-                          icon: Icons.bookmark_rounded,
-                          title: 'Saved',
-                          subtitle: 'See places',
-                          onTap: () => _panelController.open(),
+                          iconAsset: AppAssets.quickAdd,
+                          title: 'Add',
+                          subtitle: 'New place',
+                          onTap: _openAddPlace,
                         ),
                       ),
                     ],
@@ -533,7 +540,7 @@ class _HomeState extends State<Home> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Image.asset(
-                      AppAssets.scheduleCalendar,
+                      AppAssets.navSchedule,
                       height: ResSize.h * 25.5,
                       width: ResSize.w * 25.5,
                       fit: BoxFit.contain,
@@ -557,49 +564,54 @@ class _HomeState extends State<Home> {
   }
 
   Widget _quickPlaceCard({
-    required IconData icon,
+    required String iconAsset,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    bool accent = false,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          height: ResSize.h * 50,
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: ResSize.h * 53,
+          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
           decoration: BoxDecoration(
-            color: AppColor.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE6EBED), width: 0.75),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFFFFFFF), Color(0xFFF5F9F9)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFFDDE7E9),
+              width: 0.8,
+            ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF173B4D).withOpacity(0.035),
-                blurRadius: 13,
-                offset: const Offset(0, 5),
+                color: const Color(0xFF174E55).withOpacity(0.055),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: AppColor.white.withOpacity(0.9),
+                blurRadius: 2,
+                offset: const Offset(0, -1),
               ),
             ],
           ),
           child: Row(
             children: [
-              Container(
-                height: ResSize.h * 28,
-                width: ResSize.w * 28,
-                decoration: BoxDecoration(
-                  color: accent ? _premiumAccentSoft : const Color(0xFFF2F4F4),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  icon,
-                  size: ResSize.h * 16,
-                  color: accent ? _premiumAccent : const Color(0xFF3D474E),
-                ),
+              Image.asset(
+                iconAsset,
+                height: ResSize.h * 30,
+                width: ResSize.w * 30,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
               ),
-              7.width,
+              8.width,
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -611,11 +623,11 @@ class _HomeState extends State<Home> {
                       fontSize: 11.5,
                       fontWeight: fwSemiBold,
                     ),
-                    1.height,
+                    2.height,
                     TextWidget(
                       text: subtitle,
-                      color: _premiumMuted,
-                      fontSize: 8.5,
+                      color: _premiumMuted.withOpacity(0.82),
+                      fontSize: 8.25,
                       fontWeight: fwNormal,
                     ),
                   ],
@@ -740,7 +752,7 @@ class _HomeState extends State<Home> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Image.asset(
-                        AppAssets.scheduleCalendar,
+                        AppAssets.navSchedule,
                         height: ResSize.h * 27,
                         width: ResSize.w * 27,
                         fit: BoxFit.contain,
