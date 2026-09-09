@@ -95,7 +95,7 @@ class _HomeState extends State<Home> {
   {
     "featureType": "poi.park",
     "elementType": "geometry",
-    "stylers": [{"color": "#cfe9ad"}]
+    "stylers": [{"color": "#d8edb5"}]
   },
   {
     "featureType": "road",
@@ -125,12 +125,12 @@ class _HomeState extends State<Home> {
   {
     "featureType": "water",
     "elementType": "geometry",
-    "stylers": [{"color": "#bfe5ef"}]
+    "stylers": [{"color": "#8fcfe0"}]
   },
   {
     "featureType": "water",
     "elementType": "labels.text.fill",
-    "stylers": [{"color": "#66848a"}]
+    "stylers": [{"color": "#3f8294"}]
   }
 ]
 ''';
