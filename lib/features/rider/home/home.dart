@@ -194,7 +194,7 @@ class _HomeState extends State<Home> {
             color: AppColor.white,
             backdropColor: Colors.transparent,
             margin: EdgeInsets.zero,
-            minHeight: ResSize.h * 276,
+            minHeight: ResSize.h * 294,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.11),
@@ -209,8 +209,8 @@ class _HomeState extends State<Home> {
             maxHeight: ResSize.h * 500,
             parallaxEnabled: false,
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(30),
-              topRight: Radius.circular(30),
+              topLeft: Radius.circular(34),
+              topRight: Radius.circular(34),
             ),
             panelBuilder: (ScrollController sc) => panelColumn(sc),
             collapsed: _premiumCollapsedSheet(),
@@ -324,10 +324,14 @@ class _HomeState extends State<Home> {
   Widget _premiumCollapsedSheet() {
     return Container(
       decoration: const BoxDecoration(
-        color: AppColor.white,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFFFFF), Color(0xFFFCFDFD)],
+        ),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
+          topLeft: Radius.circular(34),
+          topRight: Radius.circular(34),
         ),
       ),
       child: SafeArea(
@@ -337,9 +341,9 @@ class _HomeState extends State<Home> {
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                ResSize.w * 14,
-                ResSize.h * 8,
-                ResSize.w * 14,
+                ResSize.w * 18,
+                ResSize.h * 11,
+                ResSize.w * 18,
                 ResSize.h * 7,
               ),
               child: Column(
@@ -351,13 +355,13 @@ class _HomeState extends State<Home> {
                       height: ResSize.h * 4,
                       decoration: BoxDecoration(
                         color: const Color(0xFFCED4D8),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(11),
                       ),
                     ),
                   ),
-                  11.height,
+                  15.height,
                   _whereToCard(),
-                  12.height,
+                  15.height,
                   Row(
                     children: [
                       Expanded(
@@ -394,8 +398,8 @@ class _HomeState extends State<Home> {
               ),
             ),
             Positioned(
-              left: ResSize.w * 14,
-              right: ResSize.w * 14,
+              left: ResSize.w * 18,
+              right: ResSize.w * 18,
               bottom: 0,
               child: Container(
                 color: AppColor.white,
@@ -407,7 +411,7 @@ class _HomeState extends State<Home> {
                       thickness: 0.8,
                       height: 1,
                     ),
-                    7.height,
+                    9.height,
                     Row(
                       children: [
                         Expanded(
@@ -453,7 +457,7 @@ class _HomeState extends State<Home> {
 
   Widget _whereToCard() {
     return Container(
-      height: ResSize.h * 62,
+      height: ResSize.h * 58,
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         ResSize.w * 4,
@@ -462,14 +466,14 @@ class _HomeState extends State<Home> {
         0,
       ),
       decoration: BoxDecoration(
-        color: _premiumSurface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE9ECE9), width: 0.9),
+        color: const Color(0xFFF7F9F9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EDEF), width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
+            color: const Color(0xFF173B4D).withOpacity(0.035),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -515,7 +519,7 @@ class _HomeState extends State<Home> {
                 padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
                 decoration: BoxDecoration(
                   color: AppColor.white,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(15),
                   border: Border.all(color: _premiumLine, width: 0.8),
                   boxShadow: [
                     BoxShadow(
@@ -565,25 +569,25 @@ class _HomeState extends State<Home> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(15),
         child: Container(
-          height: ResSize.h * 53,
+          height: ResSize.h * 50,
           padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
           decoration: BoxDecoration(
             color: AppColor.white,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: const Color(0xFFE3E7E9), width: 0.9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE6EBED), width: 0.75),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.055),
-                blurRadius: 11,
-                offset: const Offset(0, 4),
+                color: const Color(0xFF173B4D).withOpacity(0.035),
+                blurRadius: 13,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                height: ResSize.h * 29,
-                width: ResSize.w * 29,
+                height: ResSize.h * 28,
+                width: ResSize.w * 28,
                 decoration: BoxDecoration(
                   color: accent ? _premiumAccentSoft : const Color(0xFFF2F4F4),
                   borderRadius: BorderRadius.circular(10),
@@ -591,7 +595,7 @@ class _HomeState extends State<Home> {
                 alignment: Alignment.center,
                 child: Icon(
                   icon,
-                  size: ResSize.h * 17,
+                  size: ResSize.h * 16,
                   color: accent ? _premiumAccent : const Color(0xFF3D474E),
                 ),
               ),
@@ -639,14 +643,14 @@ class _HomeState extends State<Home> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: SizedBox(
-          height: ResSize.h * 49,
+          height: ResSize.h * 52,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                height: ResSize.h * 28,
-                width: ResSize.w * 38,
+                height: ResSize.h * 30,
+                width: ResSize.w * 30,
                 decoration: BoxDecoration(
                   color: active
                       ? const Color(0xFFE8F4F5)
@@ -656,11 +660,11 @@ class _HomeState extends State<Home> {
                 alignment: Alignment.center,
                 child: Icon(
                   icon,
-                  size: ResSize.h * 20,
+                  size: ResSize.h * 19,
                   color: color,
                 ),
               ),
-              2.height,
+              3.height,
               TextWidget(
                 text: label,
                 color: color,
