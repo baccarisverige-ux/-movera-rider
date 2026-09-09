@@ -13,12 +13,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class ChooseRoute extends StatefulWidget {
-  final String initialPickup;
-
-  const ChooseRoute({
-    super.key,
-    this.initialPickup = 'Current location',
-  });
+  const ChooseRoute({super.key});
 
   @override
   State<ChooseRoute> createState() => _ChooseRouteState();
@@ -117,7 +112,7 @@ class _ChooseRouteState extends State<ChooseRoute> {
                     ),
                   ),
                   fillColor: AppColor.liteBlue,
-                  hint: widget.initialPickup,
+                  hint: "Add pickup",
                 ),
                 8.height,
                 Column(
