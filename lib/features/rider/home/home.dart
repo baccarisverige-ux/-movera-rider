@@ -578,7 +578,6 @@ class _HomeState extends State<Home> {
                       color: _premiumMuted,
                       fontSize: 9.5,
                       fontWeight: fwNormal,
-                      maxLines: 1,
                     ),
                   ],
                 ),
