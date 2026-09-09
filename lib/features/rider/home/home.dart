@@ -361,7 +361,7 @@ class _HomeState extends State<Home> {
                   8.width,
                   Expanded(
                     child: _quickPlaceCard(
-                      icon: Icons.work_rounded,
+                      icon: Icons.business_center_rounded,
                       title: 'Work',
                       subtitle: 'Set location',
                       onTap: _openRoute,
@@ -370,7 +370,7 @@ class _HomeState extends State<Home> {
                   8.width,
                   Expanded(
                     child: _quickPlaceCard(
-                      icon: Icons.star_rounded,
+                      icon: Icons.bookmark_rounded,
                       title: 'Saved',
                       subtitle: 'See places',
                       onTap: () => _panelController.open(),
@@ -397,14 +397,14 @@ class _HomeState extends State<Home> {
                   ),
                   Expanded(
                     child: _bottomNavItem(
-                      icon: Icons.history_rounded,
+                      icon: Icons.local_taxi_rounded,
                       label: 'Rides',
                       onTap: _openRideHistory,
                     ),
                   ),
                   Expanded(
                     child: _bottomNavItem(
-                      icon: Icons.account_circle_outlined,
+                      icon: Icons.person_rounded,
                       label: 'Account',
                       onTap: _openAccount,
                     ),
@@ -528,18 +528,18 @@ class _HomeState extends State<Home> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(15),
         child: Container(
-          height: ResSize.h * 64,
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
+          height: ResSize.h * 53,
+          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
           decoration: BoxDecoration(
             color: AppColor.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _premiumLine, width: 0.8),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color(0xFFE3E7E9), width: 0.9),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 12,
+                color: Colors.black.withOpacity(0.055),
+                blurRadius: 11,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -547,20 +547,20 @@ class _HomeState extends State<Home> {
           child: Row(
             children: [
               Container(
-                height: ResSize.h * 34,
-                width: ResSize.w * 34,
+                height: ResSize.h * 29,
+                width: ResSize.w * 29,
                 decoration: BoxDecoration(
-                  color: accent ? _premiumAccentSoft : const Color(0xFFF3F5F5),
-                  borderRadius: BorderRadius.circular(12),
+                  color: accent ? _premiumAccentSoft : const Color(0xFFF2F4F4),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
                 child: Icon(
                   icon,
-                  size: ResSize.h * 19,
-                  color: accent ? _premiumAccent : _premiumInk,
+                  size: ResSize.h * 17,
+                  color: accent ? _premiumAccent : const Color(0xFF3D474E),
                 ),
               ),
-              8.width,
+              7.width,
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -569,14 +569,14 @@ class _HomeState extends State<Home> {
                     TextWidget(
                       text: title,
                       color: _premiumInk,
-                      fontSize: 12.5,
+                      fontSize: 11.5,
                       fontWeight: fwSemiBold,
                     ),
-                    2.height,
+                    1.height,
                     TextWidget(
                       text: subtitle,
                       color: _premiumMuted,
-                      fontSize: 9.5,
+                      fontSize: 8.5,
                       fontWeight: fwNormal,
                     ),
                   ],
@@ -595,39 +595,51 @@ class _HomeState extends State<Home> {
     required VoidCallback onTap,
     bool active = false,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: ResSize.h * 5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                height: ResSize.h * 31,
-                width: ResSize.w * 52,
-                decoration: BoxDecoration(
-                  color: active ? _premiumAccentSoft : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: ResSize.w * 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(15),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: ResSize.h * 44,
+            padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
+            decoration: BoxDecoration(
+              color: active ? _premiumInk : AppColor.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: active ? _premiumInk : const Color(0xFFE1E5E7),
+                width: 0.9,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(active ? 0.14 : 0.055),
+                  blurRadius: active ? 12 : 9,
+                  offset: const Offset(0, 4),
                 ),
-                alignment: Alignment.center,
-                child: Icon(
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
                   icon,
-                  size: ResSize.h * 22,
-                  color: active ? _premiumInk : const Color(0xFF667078),
+                  size: ResSize.h * 18,
+                  color: active ? AppColor.white : const Color(0xFF4D575E),
                 ),
-              ),
-              2.height,
-              TextWidget(
-                text: label,
-                color: active ? _premiumInk : const Color(0xFF687078),
-                fontSize: 11.5,
-                fontWeight: active ? fwSemiBold : fwMedium,
-              ),
-            ],
+                6.width,
+                Flexible(
+                  child: TextWidget(
+                    text: label,
+                    color: active ? AppColor.white : const Color(0xFF4D575E),
+                    fontSize: 11,
+                    fontWeight: fwSemiBold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
