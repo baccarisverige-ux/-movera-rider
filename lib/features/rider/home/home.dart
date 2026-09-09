@@ -606,8 +606,8 @@ class _HomeState extends State<Home> {
             children: [
               Image.asset(
                 iconAsset,
-                height: ResSize.h * 19.5,
-                width: ResSize.w * 19.5,
+                height: ResSize.h * 12.3,
+                width: ResSize.w * 12.3,
                 fit: BoxFit.contain,
                 filterQuality: FilterQuality.high,
               ),
