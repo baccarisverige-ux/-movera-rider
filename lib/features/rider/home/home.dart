@@ -602,11 +602,11 @@ class _HomeState extends State<Home> {
               onTap: _openSchedule,
               borderRadius: BorderRadius.circular(18),
               child: Container(
-                height: ResSize.h * 35.5,
-                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
+                height: ResSize.h * 28.4,
+                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
                 decoration: BoxDecoration(
                   color: AppColor.white,
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: _premiumLine, width: 0.8),
                   boxShadow: [
                     BoxShadow(
@@ -621,16 +621,16 @@ class _HomeState extends State<Home> {
                   children: [
                     Image.asset(
                       AppAssets.navSchedule,
-                      height: ResSize.h * 25.5,
-                      width: ResSize.w * 25.5,
+                      height: ResSize.h * 20.4,
+                      width: ResSize.w * 20.4,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
                     ),
-                    5.width,
+                    4.width,
                     TextWidget(
                       text: 'Later',
                       color: _premiumInk,
-                      fontSize: 11.5,
+                      fontSize: 9.2,
                       fontWeight: fwSemiBold,
                     ),
                   ],
@@ -752,8 +752,8 @@ class _HomeState extends State<Home> {
                   opacity: active ? 1 : 0.86,
                   child: Image.asset(
                     iconAsset,
-                    height: ResSize.h * 25,
-                    width: ResSize.w * 25,
+                    height: ResSize.h * 20.75,
+                    width: ResSize.w * 20.75,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),
