@@ -95,7 +95,7 @@ class _HomeState extends State<Home> {
   {
     "featureType": "poi.park",
     "elementType": "geometry",
-    "stylers": [{"color": "#aedb6f"}]
+    "stylers": [{"color": "#cfe9ad"}]
   },
   {
     "featureType": "road",
