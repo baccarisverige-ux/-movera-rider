@@ -384,41 +384,6 @@ class _HomeState extends State<Home> {
                 ],
               ),
             ),
-            Positioned(
-              top: 0,
-              left: ResSize.w * 20,
-              child: Container(
-                height: ResSize.h * 22,
-                width: ResSize.w * 94,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF4FAFC),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(13),
-                    topRight: Radius.circular(13),
-                    bottomLeft: Radius.circular(5),
-                    bottomRight: Radius.circular(15),
-                  ),
-                  border: Border.all(
-                    color: const Color(0xFFBDD7E2),
-                    width: 0.8,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _premiumAccent.withOpacity(0.10),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: TextWidget(
-                  text: 'MOVERA',
-                  color: const Color(0xFF246B79),
-                  fontSize: 8.5,
-                  fontWeight: fwSemiBold,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -485,16 +450,16 @@ class _HomeState extends State<Home> {
               onTap: _openSchedule,
               borderRadius: BorderRadius.circular(18),
               child: Container(
-                height: ResSize.h * 46,
-                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
+                height: ResSize.h * 35.5,
+                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
                 decoration: BoxDecoration(
                   color: AppColor.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: _premiumLine, width: 0.8),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.045),
-                      blurRadius: 12,
+                      blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
                   ],
@@ -504,16 +469,16 @@ class _HomeState extends State<Home> {
                   children: [
                     Image.asset(
                       AppAssets.scheduleCalendar,
-                      height: ResSize.h * 29,
-                      width: ResSize.w * 29,
+                      height: ResSize.h * 25.5,
+                      width: ResSize.w * 25.5,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
                     ),
-                    7.width,
+                    5.width,
                     TextWidget(
                       text: 'Later',
                       color: _premiumInk,
-                      fontSize: 13,
+                      fontSize: 11.5,
                       fontWeight: fwSemiBold,
                     ),
                   ],
