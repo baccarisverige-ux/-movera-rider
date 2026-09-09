@@ -1,6 +1,5 @@
 // ignore_for_file: deprecated_member_use
 
-import 'package:dotted_line/dotted_line.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -31,7 +30,6 @@ class _HomeState extends State<Home> {
   final PanelController _panelController = PanelController();
   final PanelController _profilePanelController = PanelController();
 
-  List<bool> trips = List.generate(3, (index) => false);
   bool _compactSheet = false;
 
   // ignore: unused_field
@@ -212,16 +210,16 @@ class _HomeState extends State<Home> {
                 offset: const Offset(0, -10),
               ),
             ],
-            isDraggable: true,
+            isDraggable: false,
             controller: _panelController,
             defaultPanelState: PanelState.CLOSED,
-            maxHeight: ResSize.h * 500,
+            maxHeight: ResSize.h * (_compactSheet ? 184 : 294),
             parallaxEnabled: false,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(34),
               topRight: Radius.circular(34),
             ),
-            panelBuilder: (ScrollController sc) => panelColumn(sc),
+            panelBuilder: (_) => const SizedBox.shrink(),
             collapsed: Listener(
               behavior: HitTestBehavior.translucent,
               onPointerMove: (event) {
@@ -368,7 +366,7 @@ class _HomeState extends State<Home> {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: () => _panelController.open(),
+                    onTap: () => setState(() => _compactSheet = !_compactSheet),
                     child: Container(
                       width: ResSize.w * 42,
                       height: ResSize.h * 4,
@@ -709,301 +707,6 @@ class _HomeState extends State<Home> {
                 fontSize: 9.5,
                 fontWeight: active ? fwSemiBold : fwMedium,
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget panelColumn(ScrollController sc) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        screenHorizPadding,
-        ResSize.h * 10,
-        screenHorizPadding,
-        ResSize.h * 20,
-      ),
-      controller: sc,
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        children: [
-          Container(
-            width: ResSize.w * 38,
-            height: ResSize.h * 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFD6DBDE),
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          10.height,
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    TextWidget(
-                      text: "Plan now with ",
-                      fontSize: 17,
-                      fontWeight: fwVeryExtraBold,
-                      color: _premiumInk,
-                    ),
-                    Flexible(
-                      child: Image.asset(
-                        AppAssets.logo,
-                        height: ResSize.h * 21,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              InkWell(
-                onTap: _openSchedule,
-                borderRadius: BorderRadius.circular(22),
-                child: Container(
-                  height: ResSize.h * 38,
-                  padding: EdgeInsets.symmetric(horizontal: ResSize.w * 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    color: const Color(0xFFF3F4F5),
-                    border: Border.all(color: _premiumLine, width: 0.8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset(
-                        AppAssets.navSchedule,
-                        height: ResSize.h * 27,
-                        width: ResSize.w * 27,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                      ),
-                      7.width,
-                      TextWidget(
-                        text: "Later",
-                        fontSize: 12.5,
-                        fontWeight: fwMedium,
-                        color: _premiumInk,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          12.height,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                height: ResSize.h * 126,
-                child: Column(
-                  children: [
-                    _routePoint(
-                      child: Image.asset(
-                        AppAssets.gps,
-                        height: ResSize.h * 19,
-                        color: const Color(0xFF365F57),
-                      ),
-                    ),
-                    Expanded(
-                      child: DottedLine(
-                        dashLength: 3,
-                        dashGapLength: 4,
-                        lineThickness: 1.25,
-                        dashRadius: 2,
-                        dashColor: const Color(0xFF394248),
-                        direction: Axis.vertical,
-                      ),
-                    ),
-                    _routePoint(
-                      child: Image.asset(
-                        AppAssets.location,
-                        height: ResSize.h * 19,
-                        color: const Color(0xFF365F57),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              12.width,
-              Expanded(
-                child: Column(
-                  children: [
-                    _routeField(
-                      onTap: _openRoute,
-                      text: "Stockholm",
-                    ),
-                    12.height,
-                    _routeField(
-                      onTap: _openRoute,
-                      text: "Your destination",
-                      trailing: Image.asset(
-                        AppAssets.mic,
-                        color: _premiumMuted,
-                        height: ResSize.h * 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          18.height,
-          const Divider(color: _premiumLine, thickness: 0.8, height: 0),
-          16.height,
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: ResSize.w * 12,
-              vertical: ResSize.h * 14,
-            ),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              color: const Color(0xFFF7F9FA),
-              border: Border.all(color: _premiumLine, width: 0.8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextWidget(
-                  text: "Your Last Trip",
-                  color: _premiumInk,
-                  fontSize: 16,
-                  fontWeight: fwSemiBold,
-                ),
-                10.height,
-                ...List.generate(trips.length, (index) {
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      top: index == 0 ? 0 : ResSize.h * 7,
-                    ),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ResSize.w * 11,
-                        vertical: ResSize.h * 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColor.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _premiumLine, width: 0.8),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            height: ResSize.h * 36,
-                            width: ResSize.w * 36,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF3F6F5),
-                              borderRadius: BorderRadius.circular(11),
-                            ),
-                            alignment: Alignment.center,
-                            child: Image.asset(
-                              AppAssets.location,
-                              color: const Color(0xFF365F57),
-                              height: ResSize.h * 20,
-                            ),
-                          ),
-                          11.width,
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextWidget(
-                                  text: "30 Main Street",
-                                  color: _premiumInk,
-                                  fontSize: 12,
-                                  fontWeight: fwSemiBold,
-                                ),
-                                3.height,
-                                TextWidget(
-                                  text: "5.9km|30 Main Street, London",
-                                  color: _premiumMuted,
-                                  fontSize: 10,
-                                  fontWeight: fwNormal,
-                                ),
-                              ],
-                            ),
-                          ),
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                trips[index] = !trips[index];
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: trips[index]
-                                  ? Image.asset(
-                                      AppAssets.starFill,
-                                      height: ResSize.h * 21,
-                                    )
-                                  : Image.asset(
-                                      AppAssets.star,
-                                      color: const Color(0xFF365F57),
-                                      height: ResSize.h * 21,
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _routePoint({required Widget child}) {
-    return Container(
-      height: ResSize.h * 38,
-      width: ResSize.w * 38,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: const Color(0xFFF6F8F8),
-        border: Border.all(color: _premiumLine, width: 0.8),
-      ),
-      alignment: Alignment.center,
-      child: child,
-    );
-  }
-
-  Widget _routeField({
-    required VoidCallback onTap,
-    required String text,
-    Widget? trailing,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          height: ResSize.h * 57,
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            color: _premiumField,
-            border: Border.all(color: const Color(0xFFECEAE5), width: 0.8),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextWidget(
-                  fontSize: 16,
-                  fontWeight: fwNormal,
-                  text: text,
-                  color: _premiumMuted,
-                ),
-              ),
-              if (trailing != null) trailing,
             ],
           ),
         ),
