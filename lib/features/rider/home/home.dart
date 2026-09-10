@@ -1601,31 +1601,14 @@ class _HomeState extends State<Home> {
                       0,
                     ),
                     child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Builder(
-                            builder: (drawerContext) => _premiumFloatingButton(
-                              onTap: () {
-                                Scaffold.of(drawerContext).openDrawer();
-                              },
-                              child: Icon(
-                                Icons.menu_rounded,
-                                size: ResSize.h * 21,
-                                color: _premiumInk,
-                              ),
-                            ),
-                          ),
-                          _premiumFloatingButton(
-                            onTap: _openAccount,
-                            child: Icon(
-                              Icons.person_outline_rounded,
-                              size: ResSize.h * 22,
-                              color: _premiumInk,
-                            ),
-                          ),
-                        ],
+                      alignment: Alignment.topRight,
+                      child: Builder(
+                        builder: (drawerContext) => _premiumTopActions(
+                          onMenuTap: () {
+                            Scaffold.of(drawerContext).openDrawer();
+                          },
+                          onAccountTap: _openAccount,
+                        ),
                       ),
                     ),
                   ),
@@ -1687,32 +1670,82 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _premiumFloatingButton({
-    required Widget child,
+  Widget _premiumTopActions({
+    required VoidCallback onMenuTap,
+    required VoidCallback onAccountTap,
+  }) {
+    return Container(
+      height: ResSize.h * 46,
+      padding: EdgeInsets.all(ResSize.h * 3),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColor.white.withOpacity(0.99),
+            const Color(0xFFF8FAFA).withOpacity(0.98),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _premiumLine, width: 0.8),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF162C36).withOpacity(0.13),
+            blurRadius: 22,
+            offset: const Offset(0, 7),
+          ),
+          BoxShadow(
+            color: AppColor.white.withOpacity(0.88),
+            blurRadius: 2,
+            offset: const Offset(0, -1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _premiumTopAction(
+            icon: Icons.menu_open_rounded,
+            semanticLabel: 'Menu',
+            onTap: onMenuTap,
+          ),
+          Container(
+            height: ResSize.h * 23,
+            width: 0.8,
+            color: _premiumLine,
+          ),
+          _premiumTopAction(
+            icon: Icons.person_rounded,
+            semanticLabel: 'Account',
+            onTap: onAccountTap,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _premiumTopAction({
+    required IconData icon,
+    required String semanticLabel,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          height: ResSize.h * 44,
-          width: ResSize.w * 44,
-          decoration: BoxDecoration(
-            color: AppColor.white.withOpacity(0.96),
-            shape: BoxShape.circle,
-            border: Border.all(color: _premiumLine, width: 0.8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 18,
-                offset: const Offset(0, 5),
-              ),
-            ],
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(19),
+          child: SizedBox(
+            height: ResSize.h * 40,
+            width: ResSize.w * 43,
+            child: Icon(
+              icon,
+              size: ResSize.h * 21.5,
+              color: _premiumInk,
+            ),
           ),
-          alignment: Alignment.center,
-          child: child,
         ),
       ),
     );
