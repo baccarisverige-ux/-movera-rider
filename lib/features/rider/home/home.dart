@@ -1468,7 +1468,8 @@ class _HomeState extends State<Home> {
       if (!mounted || !_isSheetAtMiddle) return;
       _animateHomeSheetTo(
         SheetOffset.absolute(_sheetMinPixels),
-        duration: const Duration(milliseconds: 430),
+        duration: const Duration(milliseconds: 680),
+        curve: const Cubic(0.45, 0.0, 0.20, 1.0),
       );
     });
   }
@@ -1492,12 +1493,13 @@ class _HomeState extends State<Home> {
   Future<void> _animateHomeSheetTo(
     SheetOffset target, {
     Duration duration = const Duration(milliseconds: 440),
+    Curve curve = const Cubic(0.16, 1.0, 0.30, 1.0),
   }) async {
     if (!_homeSheetController.hasClient) return;
     await _homeSheetController.animateTo(
       target,
       duration: duration,
-      curve: const Cubic(0.16, 1.0, 0.30, 1.0),
+      curve: curve,
     );
   }
 
