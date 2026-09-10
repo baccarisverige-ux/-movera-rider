@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'dart:ui' show ImageFilter;
@@ -54,6 +55,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final SheetController _homeSheetController = SheetController();
   final PanelController _profilePanelController = PanelController();
+  Timer? _sheetIdleTimer;
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
@@ -180,6 +182,7 @@ class _HomeState extends State<Home> {
 
   @override
   void dispose() {
+    _sheetIdleTimer?.cancel();
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
       ..dispose();
@@ -1447,9 +1450,39 @@ class _HomeState extends State<Home> {
 
   double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
 
+  bool get _isSheetAtMiddle {
+    final offset = _homeSheetController.value;
+    if (offset == null) return false;
+    return (offset - _sheetMidPixels).abs() <= ResSize.h * 1.5;
+  }
+
+  void _cancelSheetIdleTimer() {
+    _sheetIdleTimer?.cancel();
+    _sheetIdleTimer = null;
+  }
+
+  void _scheduleSheetIdleClose() {
+    if (!_isSheetAtMiddle || _sheetIdleTimer?.isActive == true) return;
+    _sheetIdleTimer = Timer(const Duration(seconds: 3), () {
+      _sheetIdleTimer = null;
+      if (!mounted || !_isSheetAtMiddle) return;
+      _animateHomeSheetTo(
+        SheetOffset.absolute(_sheetMinPixels),
+        duration: const Duration(milliseconds: 430),
+      );
+    });
+  }
+
   void _syncHomeSheetState() {
     final offset = _homeSheetController.value;
     if (!mounted || offset == null) return;
+
+    if (_isSheetAtMiddle) {
+      _scheduleSheetIdleClose();
+    } else {
+      _cancelSheetIdleTimer();
+    }
+
     final expanded = offset > _sheetMidPixels + ResSize.h * 8;
     if (expanded != _destinationSheetOpen) {
       setState(() => _destinationSheetOpen = expanded);
@@ -1548,8 +1581,13 @@ class _HomeState extends State<Home> {
     return Scaffold(
       drawer: const RiderSideMenu(),
       drawerScrimColor: Colors.black.withOpacity(0.38),
-      body: Stack(
-        children: [
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _cancelSheetIdleTimer(),
+        onPointerUp: (_) => _scheduleSheetIdleClose(),
+        onPointerCancel: (_) => _scheduleSheetIdleClose(),
+        child: Stack(
+          children: [
           SizedBox(
             height: viewportHeight,
             width: double.infinity,
@@ -1666,7 +1704,8 @@ class _HomeState extends State<Home> {
               _profilePanelController.close();
             },
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
