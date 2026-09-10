@@ -16,6 +16,7 @@ import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
 import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
+import 'package:movera_rider/features/rider/select%20ride/select_ride.dart';
 import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
@@ -931,28 +932,32 @@ class _HomeState extends State<Home> {
                       ),
                       10.height,
                       Material(
-                        color: _premiumAccent,
+                        color: destinationController.text.trim().isEmpty
+                            ? _premiumAccent.withOpacity(0.42)
+                            : _premiumAccent,
                         borderRadius: BorderRadius.circular(18),
                         child: InkWell(
-                          onTap: () {
-                            Navigator.pop(sheetContext, {
-                              'pickup': pickupController.text.trim(),
-                              'destination':
-                                  destinationController.text.trim(),
-                              'stops': stopControllers
-                                  .map((controller) =>
-                                      controller.text.trim())
-                                  .where((address) => address.isNotEmpty)
-                                  .toList(),
-                            });
-                          },
+                          onTap: destinationController.text.trim().isEmpty
+                              ? null
+                              : () {
+                                  Navigator.pop(sheetContext, {
+                                    'pickup': pickupController.text.trim(),
+                                    'destination':
+                                        destinationController.text.trim(),
+                                    'stops': stopControllers
+                                        .map((controller) =>
+                                            controller.text.trim())
+                                        .where((address) => address.isNotEmpty)
+                                        .toList(),
+                                  });
+                                },
                           borderRadius: BorderRadius.circular(18),
                           child: SizedBox(
                             width: double.infinity,
                             height: ResSize.h * 48,
                             child: Center(
                               child: TextWidget(
-                                text: 'Confirm route',
+                                text: 'Next',
                                 color: AppColor.white,
                                 fontSize: 12.5,
                                 fontWeight: fwSemiBold,
@@ -1012,6 +1017,11 @@ class _HomeState extends State<Home> {
     await _persistAddressData();
     if (destination.isNotEmpty) {
       await _moveMapToAddress(destination);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        BottomToTopTransition(const SelectRide()),
+      );
     }
   }
 
