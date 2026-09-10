@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -53,25 +54,108 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Future<void> _chooseDate() async {
-    final result = await showDatePicker(
+    var draftDate = _selectedDateTime;
+    final result = await showModalBottomSheet<DateTime>(
       context: context,
-      initialDate: _selectedDateTime,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: _ink,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: _ink,
-            ),
-            dialogTheme: const DialogThemeData(
-              backgroundColor: Colors.white,
-            ),
-          ),
-          child: child!,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.28),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              top: false,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _line,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    Row(
+                      children: [
+                        Text(
+                          'Select date',
+                          style: _style(16, weight: FontWeight.w600),
+                        ),
+                        const Spacer(),
+                        Text(
+                          DateFormat('d MMM yyyy').format(draftDate),
+                          style: _style(
+                            11,
+                            weight: FontWeight.w500,
+                            color: _muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    SizedBox(
+                      height: 305,
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.light(
+                            primary: _ink,
+                            onPrimary: Colors.white,
+                            surface: Colors.white,
+                            onSurface: _ink,
+                          ),
+                          datePickerTheme: const DatePickerThemeData(
+                            backgroundColor: Colors.white,
+                            headerBackgroundColor: Colors.white,
+                            headerForegroundColor: _ink,
+                            surfaceTintColor: Colors.transparent,
+                          ),
+                        ),
+                        child: CalendarDatePicker(
+                          initialDate: draftDate,
+                          firstDate: DateTime.now(),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
+                          onDateChanged: (date) {
+                            setSheetState(() => draftDate = date);
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _sheetAction(
+                            label: 'Cancel',
+                            filled: false,
+                            onTap: () => Navigator.pop(sheetContext),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _sheetAction(
+                            label: 'Done',
+                            filled: true,
+                            onTap: () =>
+                                Navigator.pop(sheetContext, draftDate),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -88,28 +172,161 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Future<void> _chooseTime() async {
-    final result = await showTimePicker(
+    var draftHour = _selectedDateTime.hour;
+    var draftMinute = (_selectedDateTime.minute ~/ 5) * 5;
+    final hourController = FixedExtentScrollController(
+      initialItem: draftHour,
+    );
+    final minuteController = FixedExtentScrollController(
+      initialItem: draftMinute ~/ 5,
+    );
+
+    final result = await showModalBottomSheet<TimeOfDay>(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_selectedDateTime),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: _ink,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: _ink,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.28),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            height: 300,
+            margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
             ),
-            timePickerTheme: const TimePickerThemeData(
-              backgroundColor: Colors.white,
-              dialBackgroundColor: _surface,
-              hourMinuteColor: _surface,
+            child: Column(
+              children: [
+                Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _line,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(height: 13),
+                Row(
+                  children: [
+                    Text(
+                      'Select time',
+                      style: _style(16, weight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '24-hour',
+                      style: _style(
+                        10.5,
+                        weight: FontWeight.w500,
+                        color: _muted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 9),
+                Expanded(
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: _surface,
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CupertinoPicker.builder(
+                              scrollController: hourController,
+                              itemExtent: 40,
+                              useMagnifier: true,
+                              magnification: 1.04,
+                              selectionOverlay: const SizedBox.shrink(),
+                              childCount: 24,
+                              onSelectedItemChanged: (value) {
+                                draftHour = value;
+                              },
+                              itemBuilder: (_, index) => Center(
+                                child: Text(
+                                  index.toString().padLeft(2, '0'),
+                                  style: _style(
+                                    20,
+                                    weight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            ':',
+                            style: _style(20, weight: FontWeight.w700),
+                          ),
+                          Expanded(
+                            child: CupertinoPicker.builder(
+                              scrollController: minuteController,
+                              itemExtent: 40,
+                              useMagnifier: true,
+                              magnification: 1.04,
+                              selectionOverlay: const SizedBox.shrink(),
+                              childCount: 12,
+                              onSelectedItemChanged: (value) {
+                                draftMinute = value * 5;
+                              },
+                              itemBuilder: (_, index) => Center(
+                                child: Text(
+                                  (index * 5).toString().padLeft(2, '0'),
+                                  style: _style(
+                                    20,
+                                    weight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 9),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sheetAction(
+                        label: 'Cancel',
+                        filled: false,
+                        onTap: () => Navigator.pop(sheetContext),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _sheetAction(
+                        label: 'Done',
+                        filled: true,
+                        onTap: () => Navigator.pop(
+                          sheetContext,
+                          TimeOfDay(
+                            hour: draftHour,
+                            minute: draftMinute,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          child: child!,
         );
       },
     );
+
+    hourController.dispose();
+    minuteController.dispose();
     if (result == null || !mounted) return;
     setState(() {
       _selectedDateTime = DateTime(
@@ -120,6 +337,34 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         result.minute,
       );
     });
+  }
+
+  Widget _sheetAction({
+    required String label,
+    required bool filled,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      height: 44,
+      child: Material(
+        color: filled ? _ink : _surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Center(
+            child: Text(
+              label,
+              style: _style(
+                12,
+                weight: FontWeight.w600,
+                color: filled ? Colors.white : _ink,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
