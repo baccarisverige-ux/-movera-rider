@@ -1,8 +1,12 @@
 // ignore_for_file: deprecated_member_use
 
+import 'dart:convert';
+
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -20,7 +24,24 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+
+class _SavedPlaceData {
+  const _SavedPlaceData({required this.type, required this.address});
+
+  final String type;
+  final String address;
+
+  Map<String, String> toJson() => {'type': type, 'address': address};
+
+  factory _SavedPlaceData.fromJson(Map<String, dynamic> json) {
+    return _SavedPlaceData(
+      type: json['type'] as String? ?? 'other',
+      address: json['address'] as String? ?? '',
+    );
+  }
+}
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -38,6 +59,17 @@ class _HomeState extends State<Home> {
   double _sheetHeight = _sheetMinHeight;
   bool _isSheetDragging = false;
   bool _destinationSheetOpen = false;
+  bool _findingLocation = true;
+  String? _pickupAddress;
+  String? _destinationAddress;
+  String? _homeAddress;
+  String? _workAddress;
+  LatLng? _currentLatLng;
+  List<String> _recentAddresses = [];
+  List<_SavedPlaceData> _savedPlaces = [];
+
+  static const int _maxRecentAddresses = 8;
+  static const int _maxCustomPlaces = 8;
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -142,6 +174,682 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
     _loadMarkers();
+    _restoreAddressData();
+  }
+
+  Future<void> _restoreAddressData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPlaces = <_SavedPlaceData>[];
+    final rawSavedPlaces = prefs.getString('movera_saved_places');
+    if (rawSavedPlaces != null) {
+      try {
+        final decoded = jsonDecode(rawSavedPlaces) as List<dynamic>;
+        for (final item in decoded) {
+          if (item is Map) {
+            final place = _SavedPlaceData.fromJson(
+              Map<String, dynamic>.from(item),
+            );
+            if (place.address.trim().isNotEmpty) savedPlaces.add(place);
+          }
+        }
+      } catch (_) {
+        // Ignore damaged local data.
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _homeAddress = prefs.getString('movera_home_address');
+        _workAddress = prefs.getString('movera_work_address');
+        _recentAddresses =
+            prefs.getStringList('movera_recent_addresses') ?? <String>[];
+        _savedPlaces = savedPlaces.take(_maxCustomPlaces).toList();
+      });
+    }
+    await _detectCurrentAddress();
+  }
+
+  Future<void> _persistAddressData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_homeAddress == null) {
+      await prefs.remove('movera_home_address');
+    } else {
+      await prefs.setString('movera_home_address', _homeAddress!);
+    }
+    if (_workAddress == null) {
+      await prefs.remove('movera_work_address');
+    } else {
+      await prefs.setString('movera_work_address', _workAddress!);
+    }
+    await prefs.setStringList('movera_recent_addresses', _recentAddresses);
+    await prefs.setString(
+      'movera_saved_places',
+      jsonEncode(_savedPlaces.map((place) => place.toJson()).toList()),
+    );
+  }
+
+  Future<void> _detectCurrentAddress() async {
+    if (mounted) setState(() => _findingLocation = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _findingLocation = false;
+            _pickupAddress ??= 'Current location';
+          });
+        }
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+      final address = placemarks.isEmpty
+          ? 'Current location'
+          : _formatPlacemark(placemarks.first);
+      final target = LatLng(position.latitude, position.longitude);
+      if (!mounted) return;
+      setState(() {
+        _pickupAddress = address;
+        _currentLatLng = target;
+        _findingLocation = false;
+        _markers = {
+          Marker(
+            markerId: const MarkerId('current_location'),
+            position: target,
+            infoWindow: InfoWindow(title: address),
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueBlue,
+            ),
+          ),
+        };
+      });
+      await _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: 15),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _findingLocation = false;
+        _pickupAddress ??= 'Current location';
+      });
+    }
+  }
+
+  String _formatPlacemark(Placemark place) {
+    final parts = <String>[
+      if ((place.street ?? '').trim().isNotEmpty) place.street!.trim(),
+      if ((place.postalCode ?? '').trim().isNotEmpty) place.postalCode!.trim(),
+      if ((place.locality ?? '').trim().isNotEmpty) place.locality!.trim(),
+      if ((place.country ?? '').trim().isNotEmpty) place.country!.trim(),
+    ];
+    return parts.toSet().join(', ');
+  }
+
+  String _shortAddress(String? address, {int maxLength = 24}) {
+    final value = address?.trim() ?? '';
+    if (value.isEmpty) return 'Set location';
+    return value.length <= maxLength
+        ? value
+        : '${value.substring(0, maxLength - 1)}…';
+  }
+
+  String _targetTitle(String target, String? customType) {
+    switch (target) {
+      case 'pickup':
+        return 'Choose pickup';
+      case 'home':
+        return 'Set Home address';
+      case 'work':
+        return 'Set Work address';
+      case 'custom':
+        return 'Set ${_placeLabel(customType ?? 'other')} address';
+      default:
+        return 'Where to?';
+    }
+  }
+
+  String? _existingAddressFor(String target) {
+    switch (target) {
+      case 'pickup':
+        return _pickupAddress;
+      case 'home':
+        return _homeAddress;
+      case 'work':
+        return _workAddress;
+      case 'destination':
+        return _destinationAddress;
+      default:
+        return null;
+    }
+  }
+
+  Future<String> _normaliseAddress(String input) async {
+    final clean = input.trim();
+    if (clean.isEmpty || clean == 'Current location') return clean;
+    try {
+      final locations = await locationFromAddress(clean);
+      if (locations.isEmpty) return clean;
+      final location = locations.first;
+      final placemarks = await placemarkFromCoordinates(
+        location.latitude,
+        location.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        final formatted = _formatPlacemark(placemarks.first);
+        if (formatted.isNotEmpty) return formatted;
+      }
+    } catch (_) {
+      // Keep the user's exact text when geocoding is unavailable.
+    }
+    return clean;
+  }
+
+  Future<void> _moveMapToAddress(String address) async {
+    try {
+      final locations = await locationFromAddress(address);
+      if (locations.isEmpty) return;
+      final target = LatLng(
+        locations.first.latitude,
+        locations.first.longitude,
+      );
+      await _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: 15),
+        ),
+      );
+    } catch (_) {
+      // Address remains usable even if map positioning is unavailable.
+    }
+  }
+
+  void _rememberAddress(String address) {
+    final clean = address.trim();
+    if (clean.isEmpty || clean == 'Current location') return;
+    _recentAddresses.removeWhere(
+      (saved) => saved.toLowerCase() == clean.toLowerCase(),
+    );
+    _recentAddresses.insert(0, clean);
+    if (_recentAddresses.length > _maxRecentAddresses) {
+      _recentAddresses = _recentAddresses.take(_maxRecentAddresses).toList();
+    }
+  }
+
+  Future<void> _saveAddressFor(
+    String target,
+    String address, {
+    String? customType,
+  }) async {
+    final resolved = await _normaliseAddress(address);
+    if (resolved.isEmpty || !mounted) return;
+    setState(() {
+      switch (target) {
+        case 'pickup':
+          _pickupAddress = resolved;
+          break;
+        case 'destination':
+          _destinationAddress = resolved;
+          break;
+        case 'home':
+          _homeAddress = resolved;
+          break;
+        case 'work':
+          _workAddress = resolved;
+          break;
+        case 'custom':
+          final type = customType ?? 'other';
+          final existingIndex = _savedPlaces.indexWhere(
+            (place) => place.type == type,
+          );
+          final place = _SavedPlaceData(type: type, address: resolved);
+          if (existingIndex >= 0) {
+            _savedPlaces[existingIndex] = place;
+          } else if (_savedPlaces.length < _maxCustomPlaces) {
+            _savedPlaces.add(place);
+          }
+          break;
+      }
+      _rememberAddress(resolved);
+    });
+    await _persistAddressData();
+    if (target == 'pickup' || target == 'destination') {
+      await _moveMapToAddress(resolved);
+    }
+  }
+
+  Future<void> _handleDestinationTap() async {
+    if (!_destinationSheetOpen) {
+      _openDestinationSheet();
+      await Future<void>.delayed(const Duration(milliseconds: 360));
+      if (!mounted) return;
+    }
+    await _showAddressPicker(target: 'destination');
+  }
+
+  Future<void> _showAddressPicker({
+    required String target,
+    String? customType,
+  }) async {
+    final initialAddress = _existingAddressFor(target);
+    final controller = TextEditingController(
+      text: initialAddress == 'Current location' ? '' : initialAddress ?? '',
+    );
+    var query = controller.text;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.24),
+      builder: (sheetContext) {
+        return PointerInterceptor(
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              final filteredRecent = _recentAddresses
+                  .where(
+                    (address) =>
+                        query.trim().isEmpty ||
+                        address.toLowerCase().contains(
+                              query.trim().toLowerCase(),
+                            ),
+                  )
+                  .take(6)
+                  .toList();
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.78,
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    ResSize.w * 18,
+                    ResSize.h * 11,
+                    ResSize.w * 18,
+                    ResSize.h * 20,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: ResSize.w * 42,
+                        height: ResSize.h * 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCED4D8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      16.height,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextWidget(
+                              text: _targetTitle(target, customType),
+                              color: _premiumInk,
+                              fontSize: 18,
+                              fontWeight: fwBold,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(Icons.close_rounded),
+                            color: _premiumInk,
+                          ),
+                        ],
+                      ),
+                      10.height,
+                      TextField(
+                        controller: controller,
+                        autofocus: true,
+                        textInputAction: TextInputAction.search,
+                        onChanged: (value) {
+                          setModalState(() => query = value);
+                        },
+                        onSubmitted: (value) {
+                          if (value.trim().isNotEmpty) {
+                            Navigator.pop(sheetContext, value.trim());
+                          }
+                        },
+                        style: TextStyle(
+                          color: _premiumInk,
+                          fontSize: ResSize.setSp(15),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Search or enter an address',
+                          hintStyle: TextStyle(
+                            color: _premiumMuted.withOpacity(0.72),
+                            fontSize: ResSize.setSp(14),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: _premiumInk.withOpacity(0.72),
+                          ),
+                          suffixIcon: query.isEmpty
+                              ? null
+                              : IconButton(
+                                  onPressed: () {
+                                    controller.clear();
+                                    setModalState(() => query = '');
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                          filled: true,
+                          fillColor: const Color(0xFFF5F7F7),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: ResSize.w * 15,
+                            vertical: ResSize.h * 15,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      12.height,
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.pop(
+                              sheetContext,
+                              _pickupAddress ?? 'Current location',
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: ResSize.w * 13,
+                              vertical: ResSize.h * 11,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _premiumAccentSoft.withOpacity(0.62),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.my_location_rounded,
+                                  color: _premiumAccent,
+                                  size: ResSize.h * 20,
+                                ),
+                                11.width,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      TextWidget(
+                                        text: 'Use current location',
+                                        color: _premiumInk,
+                                        fontSize: 12.5,
+                                        fontWeight: fwSemiBold,
+                                      ),
+                                      2.height,
+                                      TextWidget(
+                                        text: _shortAddress(
+                                          _pickupAddress,
+                                          maxLength: 38,
+                                        ),
+                                        color: _premiumMuted,
+                                        fontSize: 9,
+                                        fontWeight: fwNormal,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (filteredRecent.isNotEmpty) ...[
+                        16.height,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextWidget(
+                            text: 'Recent addresses',
+                            color: _premiumMuted,
+                            fontSize: 10.5,
+                            fontWeight: fwSemiBold,
+                          ),
+                        ),
+                        6.height,
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: filteredRecent.length,
+                            separatorBuilder: (_, __) => const Divider(
+                              color: Color(0xFFE7EBEE),
+                              height: 1,
+                            ),
+                            itemBuilder: (context, index) {
+                              final address = filteredRecent[index];
+                              return ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: ResSize.w * 4,
+                                ),
+                                leading: Icon(
+                                  Icons.history_rounded,
+                                  color: _premiumMuted,
+                                  size: ResSize.h * 20,
+                                ),
+                                title: TextWidget(
+                                  text: address,
+                                  color: _premiumInk,
+                                  fontSize: 11,
+                                  fontWeight: fwMedium,
+                                ),
+                                onTap: () =>
+                                    Navigator.pop(sheetContext, address),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                      if (query.trim().isNotEmpty) ...[
+                        14.height,
+                        Material(
+                          color: _premiumAccent,
+                          borderRadius: BorderRadius.circular(17),
+                          child: InkWell(
+                            onTap: () => Navigator.pop(
+                              sheetContext,
+                              controller.text.trim(),
+                            ),
+                            borderRadius: BorderRadius.circular(17),
+                            child: SizedBox(
+                              height: ResSize.h * 46,
+                              width: double.infinity,
+                              child: Center(
+                                child: TextWidget(
+                                  text: 'Use this address',
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: fwSemiBold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    if (selected == null || selected.trim().isEmpty || !mounted) return;
+    await _saveAddressFor(target, selected, customType: customType);
+  }
+
+  Future<void> _openAddPlacePicker() async {
+    if (_savedPlaces.length >= _maxCustomPlaces) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You can save up to 8 custom places.')),
+      );
+      return;
+    }
+    const placeTypes = <String>[
+      'gym',
+      'mall',
+      'school',
+      'airport',
+      'family',
+      'restaurant',
+      'other',
+    ];
+    final type = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.24),
+      builder: (sheetContext) {
+        return PointerInterceptor(
+          child: Container(
+            padding: EdgeInsets.fromLTRB(
+              ResSize.w * 18,
+              ResSize.h * 12,
+              ResSize.w * 18,
+              ResSize.h * 24,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(30),
+                topRight: Radius.circular(30),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: ResSize.w * 42,
+                  height: ResSize.h * 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCED4D8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                18.height,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextWidget(
+                    text: 'What place do you want to save?',
+                    color: _premiumInk,
+                    fontSize: 17,
+                    fontWeight: fwBold,
+                  ),
+                ),
+                16.height,
+                Wrap(
+                  spacing: ResSize.w * 9,
+                  runSpacing: ResSize.h * 9,
+                  children: placeTypes.map((placeType) {
+                    return Material(
+                      color: const Color(0xFFF5F7F7),
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(sheetContext, placeType),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: ResSize.w * 13,
+                            vertical: ResSize.h * 11,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _placeIcon(placeType),
+                                size: ResSize.h * 18,
+                                color: _premiumAccent,
+                              ),
+                              7.width,
+                              TextWidget(
+                                text: _placeLabel(placeType),
+                                color: _premiumInk,
+                                fontSize: 11,
+                                fontWeight: fwSemiBold,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (type == null || !mounted) return;
+    await _showAddressPicker(target: 'custom', customType: type);
+  }
+
+  String _placeLabel(String type) {
+    switch (type) {
+      case 'gym':
+        return 'Gym';
+      case 'mall':
+        return 'Mall';
+      case 'school':
+        return 'School';
+      case 'airport':
+        return 'Airport';
+      case 'family':
+        return 'Family';
+      case 'restaurant':
+        return 'Restaurant';
+      default:
+        return 'Other';
+    }
+  }
+
+  IconData _placeIcon(String type) {
+    switch (type) {
+      case 'gym':
+        return Icons.fitness_center_rounded;
+      case 'mall':
+        return Icons.local_mall_outlined;
+      case 'school':
+        return Icons.school_outlined;
+      case 'airport':
+        return Icons.flight_takeoff_rounded;
+      case 'family':
+        return Icons.family_restroom_rounded;
+      case 'restaurant':
+        return Icons.restaurant_rounded;
+      default:
+        return Icons.place_outlined;
+    }
   }
 
   void _loadMarkers() {
@@ -323,6 +1031,14 @@ class _HomeState extends State<Home> {
                     customMapStyle: _premiumMapStyle,
                     onMapCreated: (GoogleMapController controller) {
                       _mapController = controller;
+                      final target = _currentLatLng;
+                      if (target != null) {
+                        controller.animateCamera(
+                          CameraUpdate.newCameraPosition(
+                            CameraPosition(target: target, zoom: 15),
+                          ),
+                        );
+                      }
                     },
                     onTap: (LatLng position) {},
                   ),
@@ -474,6 +1190,10 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   15.height,
+                  if (_destinationSheetOpen) ...[
+                    _pickupAddressField(),
+                    10.height,
+                  ],
                   _whereToCard(),
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
@@ -486,36 +1206,7 @@ class _HomeState extends State<Home> {
                           child: Column(
                             children: [
                               15.height,
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _quickPlaceCard(
-                                      iconAsset: AppAssets.quickHome,
-                                      title: 'Home',
-                                      subtitle: 'Set location',
-                                      onTap: _openRoute,
-                                    ),
-                                  ),
-                                  8.width,
-                                  Expanded(
-                                    child: _quickPlaceCard(
-                                      iconAsset: AppAssets.quickWork,
-                                      title: 'Work',
-                                      subtitle: 'Set location',
-                                      onTap: _openRoute,
-                                    ),
-                                  ),
-                                  8.width,
-                                  Expanded(
-                                    child: _quickPlaceCard(
-                                      iconAsset: AppAssets.quickAdd,
-                                      title: 'Add',
-                                      subtitle: 'New place',
-                                      onTap: _openAddPlace,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              _savedPlacesRow(),
                             ],
                           ),
                         ),
@@ -593,6 +1284,181 @@ class _HomeState extends State<Home> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pickupAddressField() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showAddressPicker(target: 'pickup'),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: ResSize.h * 52,
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F9F9),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE8EDEF), width: 0.8),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: ResSize.w * 32,
+                height: ResSize.h * 32,
+                decoration: BoxDecoration(
+                  color: _premiumAccentSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.my_location_rounded,
+                  color: _premiumAccent,
+                  size: ResSize.h * 17,
+                ),
+              ),
+              11.width,
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextWidget(
+                      text: 'Pickup',
+                      color: _premiumMuted,
+                      fontSize: 8.5,
+                      fontWeight: fwMedium,
+                    ),
+                    2.height,
+                    TextWidget(
+                      text: _findingLocation
+                          ? 'Finding your current location…'
+                          : _shortAddress(_pickupAddress, maxLength: 35),
+                      color: _premiumInk,
+                      fontSize: 11.5,
+                      fontWeight: fwSemiBold,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.edit_location_alt_outlined,
+                color: _premiumMuted,
+                size: ResSize.h * 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _savedPlacesRow() {
+    final cards = <Widget>[
+      SizedBox(
+        width: ResSize.w * 108,
+        child: _quickPlaceCard(
+          iconAsset: AppAssets.quickHome,
+          title: 'Home',
+          subtitle: _shortAddress(_homeAddress, maxLength: 15),
+          onTap: () => _showAddressPicker(target: 'home'),
+        ),
+      ),
+      8.width,
+      SizedBox(
+        width: ResSize.w * 108,
+        child: _quickPlaceCard(
+          iconAsset: AppAssets.quickWork,
+          title: 'Work',
+          subtitle: _shortAddress(_workAddress, maxLength: 15),
+          onTap: () => _showAddressPicker(target: 'work'),
+        ),
+      ),
+      8.width,
+      SizedBox(
+        width: ResSize.w * 108,
+        child: _quickPlaceCard(
+          iconAsset: AppAssets.quickAdd,
+          title: 'Add',
+          subtitle: 'New place',
+          onTap: _openAddPlacePicker,
+        ),
+      ),
+    ];
+    for (final place in _savedPlaces) {
+      cards
+        ..add(8.width)
+        ..add(
+          SizedBox(
+            width: ResSize.w * 108,
+            child: _customPlaceCard(place),
+          ),
+        );
+    }
+    return SizedBox(
+      height: ResSize.h * 46,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(children: cards),
+      ),
+    );
+  }
+
+  Widget _customPlaceCard(_SavedPlaceData place) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showAddressPicker(
+          target: 'custom',
+          customType: place.type,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: ResSize.h * 44,
+          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFFFFFFF), Color(0xFFF5F9F9)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFDDE7E9), width: 0.8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _placeIcon(place.type),
+                size: ResSize.h * 13,
+                color: _premiumAccent,
+              ),
+              7.width,
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextWidget(
+                      text: _placeLabel(place.type),
+                      color: _premiumInk,
+                      fontSize: 10.5,
+                      fontWeight: fwSemiBold,
+                    ),
+                    2.height,
+                    TextWidget(
+                      text: _shortAddress(place.address, maxLength: 15),
+                      color: _premiumMuted.withOpacity(0.82),
+                      fontSize: 7.8,
+                      fontWeight: fwNormal,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -706,7 +1572,7 @@ class _HomeState extends State<Home> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: _openDestinationSheet,
+                onTap: _handleDestinationTap,
                 borderRadius: BorderRadius.circular(18),
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
@@ -720,9 +1586,14 @@ class _HomeState extends State<Home> {
                       12.width,
                       Expanded(
                         child: TextWidget(
-                          text: 'Where to?',
+                          text: _destinationAddress == null
+                              ? 'Where to?'
+                              : _shortAddress(
+                                  _destinationAddress,
+                                  maxLength: 28,
+                                ),
                           color: _premiumInk.withOpacity(0.72),
-                          fontSize: 16.5,
+                          fontSize: _destinationAddress == null ? 16.5 : 12.5,
                           fontWeight: fwMedium,
                         ),
                       ),

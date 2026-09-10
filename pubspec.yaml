@@ -62,6 +62,7 @@ dependencies:
   pointer_interceptor: ^0.10.1+2
   geolocator: ^14.0.2
   geocoding: ^5.0.0
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
