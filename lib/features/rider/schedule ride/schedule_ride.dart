@@ -24,6 +24,17 @@ class ScheduleRide extends StatefulWidget {
 }
 
 class _ScheduleRideState extends State<ScheduleRide> {
+  static const Color _scheduleInk = Color(0xFF172127);
+  static const Color _scheduleMuted = Color(0xFF7B858B);
+  static const Color _scheduleSurface = Color(0xFFF5F6F6);
+  static const Color _scheduleLine = Color(0xFFE4E7E8);
+  static const Color _scheduleAccent = Color(0xFF356879);
+
+  final TextEditingController _pickupController =
+      TextEditingController(text: 'Current location');
+  final TextEditingController _dropoffController = TextEditingController();
+  final List<TextEditingController> _stopControllers = [];
+
   // ignore: unused_field
   GoogleMapController? _mapController;
   // ignore: prefer_final_fields
@@ -39,6 +50,17 @@ class _ScheduleRideState extends State<ScheduleRide> {
   void initState() {
     super.initState();
     _loadMarkers();
+  }
+
+  @override
+  void dispose() {
+    _pickupController.dispose();
+    _dropoffController.dispose();
+    for (final controller in _stopControllers) {
+      controller.dispose();
+    }
+    sc.dispose();
+    super.dispose();
   }
 
   void _loadMarkers() {
@@ -57,25 +79,308 @@ class _ScheduleRideState extends State<ScheduleRide> {
   int currentStep = 0;
 
   void goToNextStep() {
-    setState(() {
-      currentStep = currentStep + 1; // switch to ride selection
-    });
+    FocusScope.of(context).unfocus();
+    setState(() => currentStep += 1);
+  }
 
-    // expand panel after bounds update
+  void goToPreviousStep() {
+    FocusScope.of(context).unfocus();
+    if (currentStep == 0) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() => currentStep -= 1);
+  }
+
+  void _addStop() {
+    if (_stopControllers.length >= 3) return;
+    setState(() => _stopControllers.add(TextEditingController()));
+  }
+
+  void _removeStop(int index) {
+    final controller = _stopControllers.removeAt(index);
+    controller.dispose();
+    setState(() {});
   }
 
   ScrollController sc = ScrollController();
 
   Widget _buildPanelContent() {
     if (currentStep == 0) {
-      return ScheduleDateTimeSelector(onConfirm: goToNextStep, body: body());
+      return _buildAddressStep();
     } else if (currentStep == 1) {
-      return ScheduleSelectRide(onConfirm: goToNextStep, body: body());
+      return ScheduleDateTimeSelector(
+        onConfirm: goToNextStep,
+        onBack: goToPreviousStep,
+        body: body(),
+      );
     } else if (currentStep == 2) {
+      return ScheduleSelectRide(onConfirm: goToNextStep, body: body());
+    } else if (currentStep == 3) {
       return ScheduleAddNote(onConfirm: goToNextStep, body: body());
     } else {
       return ScheduleConfirmBooking(body: body());
     }
+  }
+
+  Widget _buildAddressStep() {
+    final canContinue = _dropoffController.text.trim().isNotEmpty;
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Material(
+                          color: _scheduleSurface,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            onTap: () => Navigator.pop(context),
+                            customBorder: const CircleBorder(),
+                            child: const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: Icon(
+                                Icons.arrow_back_rounded,
+                                size: 23,
+                                color: _scheduleInk,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          'SCHEDULE',
+                          style: GoogleFonts.poppins(
+                            color: _scheduleMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 26),
+                    Text(
+                      'Plan your ride',
+                      style: GoogleFonts.poppins(
+                        color: _scheduleInk,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Where should your Movera driver pick you up?',
+                      style: GoogleFonts.poppins(
+                        color: _scheduleMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: _scheduleLine),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.045),
+                            blurRadius: 22,
+                            offset: const Offset(0, 9),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _scheduleAddressField(
+                            controller: _pickupController,
+                            label: 'Pickup',
+                            hint: 'Enter pickup address',
+                            icon: Icons.my_location_rounded,
+                          ),
+                          const Divider(height: 1, indent: 42),
+                          for (var index = 0;
+                              index < _stopControllers.length;
+                              index++) ...[
+                            _scheduleAddressField(
+                              controller: _stopControllers[index],
+                              label: 'Stop ${index + 1}',
+                              hint: 'Enter stop address',
+                              icon: Icons.more_horiz_rounded,
+                              onRemove: () => _removeStop(index),
+                            ),
+                            const Divider(height: 1, indent: 42),
+                          ],
+                          _scheduleAddressField(
+                            controller: _dropoffController,
+                            label: 'Drop-off',
+                            hint: 'Where to?',
+                            icon: Icons.location_on_outlined,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    if (_stopControllers.length < 3)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _addStop,
+                          style: TextButton.styleFrom(
+                            foregroundColor: _scheduleInk,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_rounded, size: 19),
+                          label: Text(
+                            'Add a stop',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 25),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _scheduleSurface,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.schedule_rounded,
+                            color: _scheduleAccent,
+                            size: 21,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'You will choose the date and time on the next screen.',
+                              style: GoogleFonts.poppins(
+                                color: _scheduleMuted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: _scheduleLine),
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: canContinue ? goToNextStep : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _scheduleInk,
+                      disabledBackgroundColor: _scheduleInk.withOpacity(0.18),
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: Text(
+                      'Next',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _scheduleAddressField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    VoidCallback? onRemove,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 38,
+          child: Icon(icon, color: _scheduleAccent, size: 20),
+        ),
+        Expanded(
+          child: TextField(
+            controller: controller,
+            onChanged: (_) => setState(() {}),
+            textInputAction:
+                label == 'Drop-off' ? TextInputAction.done : TextInputAction.next,
+            style: GoogleFonts.poppins(
+              color: _scheduleInk,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              labelStyle: GoogleFonts.poppins(
+                color: _scheduleMuted,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+              ),
+              hintStyle: GoogleFonts.poppins(
+                color: _scheduleMuted.withOpacity(0.7),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+        if (onRemove != null)
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.close_rounded),
+            color: _scheduleMuted,
+            iconSize: 18,
+          ),
+      ],
+    );
   }
 
   @override

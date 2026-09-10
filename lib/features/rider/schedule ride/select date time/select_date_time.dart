@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback onConfirm;
+  final VoidCallback? onBack;
   final Widget body;
 
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
     required this.onConfirm,
+    this.onBack,
   });
 
   @override
@@ -21,8 +23,8 @@ class ScheduleDateTimeSelector extends StatefulWidget {
 class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   static const Color _ink = Color(0xFF17232B);
   static const Color _muted = Color(0xFF77848D);
-  static const Color _accent = Color(0xFF2D6688);
-  static const Color _accentSoft = Color(0xFFEAF3F7);
+  static const Color _accent = Color(0xFF344A53);
+  static const Color _accentSoft = Color(0xFFF0F3F4);
   static const Color _surface = Color(0xFFF6F8F9);
   static const Color _line = Color(0xFFE4E9EC);
 
@@ -139,12 +141,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     _topBar(context),
                     const SizedBox(height: 20),
                     Text(
-                      'Schedule your ride',
+                      'Choose date & time',
                       style: _text(28, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'Choose the time that works best for your journey.',
+                      'Select when your driver should be ready.',
                       style: _text(13, weight: FontWeight.w400, color: _muted),
                     ),
                     const SizedBox(height: 22),
@@ -180,7 +182,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           color: _surface,
           shape: const CircleBorder(),
           child: InkWell(
-            onTap: () => Navigator.maybePop(context),
+            onTap: widget.onBack ?? () => Navigator.maybePop(context),
             customBorder: const CircleBorder(),
             child: const SizedBox(
               width: 44,
@@ -190,22 +192,13 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           ),
         ),
         const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
-          decoration: BoxDecoration(
-            color: _accentSoft,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.calendar_month_rounded, color: _accent, size: 17),
-              const SizedBox(width: 7),
-              Text(
-                'Movera Reserve',
-                style: _text(10.5, weight: FontWeight.w600, color: _accent),
-              ),
-            ],
-          ),
+        Text(
+          'DATE & TIME',
+          style: _text(
+            10,
+            weight: FontWeight.w600,
+            color: _muted,
+          ).copyWith(letterSpacing: 1.4),
         ),
       ],
     );
@@ -317,7 +310,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: _accent.withOpacity(0.22),
+                            color: _ink.withOpacity(0.14),
                             blurRadius: 16,
                             offset: const Offset(0, 7),
                           ),
@@ -511,7 +504,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           child: ElevatedButton(
             onPressed: widget.onConfirm,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _accent,
+              backgroundColor: _ink,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
