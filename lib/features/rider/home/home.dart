@@ -26,6 +26,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 
 class _SavedPlaceData {
   const _SavedPlaceData({required this.type, required this.address});
@@ -51,13 +52,11 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final PanelController _panelController = PanelController();
+  final SheetController _homeSheetController = SheetController();
   final PanelController _profilePanelController = PanelController();
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
-  double _sheetHeight = _sheetMinHeight;
-  bool _isSheetDragging = false;
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
   String? _pickupAddress;
@@ -174,8 +173,17 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
+  }
+
+  @override
+  void dispose() {
+    _homeSheetController
+      ..removeListener(_syncHomeSheetState)
+      ..dispose();
+    super.dispose();
   }
 
   Future<void> _restoreAddressData() async {
@@ -1435,20 +1443,57 @@ class _HomeState extends State<Home> {
     return ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
   }
 
+  double get _sheetMinPixels => ResSize.h * _sheetMinHeight;
+
+  double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
+
+  void _syncHomeSheetState() {
+    final offset = _homeSheetController.value;
+    if (!mounted || offset == null) return;
+    final expanded = offset > _sheetMidPixels + ResSize.h * 8;
+    if (expanded != _destinationSheetOpen) {
+      setState(() => _destinationSheetOpen = expanded);
+    }
+  }
+
+  Future<void> _animateHomeSheetTo(
+    SheetOffset target, {
+    Duration duration = const Duration(milliseconds: 440),
+  }) async {
+    if (!_homeSheetController.hasClient) return;
+    await _homeSheetController.animateTo(
+      target,
+      duration: duration,
+      curve: const Cubic(0.16, 1.0, 0.30, 1.0),
+    );
+  }
+
   void _openDestinationSheet() {
-    setState(() {
-      _destinationSheetOpen = true;
-      _isSheetDragging = false;
-      _sheetHeight = _fullSheetHeight();
-    });
+    if (!_destinationSheetOpen) {
+      setState(() => _destinationSheetOpen = true);
+    }
+    _animateHomeSheetTo(const SheetOffset(1));
   }
 
   void _closeDestinationSheet() {
-    setState(() {
-      _destinationSheetOpen = false;
-      _isSheetDragging = false;
-      _sheetHeight = _sheetMinHeight;
-    });
+    if (_destinationSheetOpen) {
+      setState(() => _destinationSheetOpen = false);
+    }
+    _animateHomeSheetTo(SheetOffset.absolute(_sheetMinPixels));
+  }
+
+  void _toggleHomeSheet() {
+    final offset = _homeSheetController.value ?? _sheetMinPixels;
+    final midpoint = (_sheetMinPixels + _sheetMidPixels) / 2;
+    final SheetOffset target;
+    if (offset > _sheetMidPixels + ResSize.h * 8) {
+      target = SheetOffset.absolute(_sheetMidPixels);
+    } else if (offset > midpoint) {
+      target = SheetOffset.absolute(_sheetMinPixels);
+    } else {
+      target = SheetOffset.absolute(_sheetMidPixels);
+    }
+    _animateHomeSheetTo(target, duration: const Duration(milliseconds: 390));
   }
 
   void _openRoute() {
@@ -1487,218 +1532,149 @@ class _HomeState extends State<Home> {
   }
 
   void _openAccount() {
-    if (_panelController.isPanelOpen) {
-      _panelController.close();
-    }
+    _animateHomeSheetTo(
+      SheetOffset.absolute(_sheetMinPixels),
+      duration: const Duration(milliseconds: 320),
+    );
     _profilePanelController.open();
   }
 
   @override
   Widget build(BuildContext context) {
+    final viewportHeight = MediaQuery.of(context).size.height;
+    final topInset = MediaQuery.of(context).padding.top + ResSize.h * 8;
+    final fullSheetPixels = viewportHeight - topInset;
+
     return Scaffold(
       drawer: const RiderSideMenu(),
       drawerScrimColor: Colors.black.withOpacity(0.38),
       body: Stack(
         children: [
-          TweenAnimationBuilder<double>(
-            tween: Tween<double>(end: _sheetHeight),
-            duration: _isSheetDragging
-                ? Duration.zero
-                : const Duration(milliseconds: 340),
-            curve: Curves.easeOutCubic,
-            builder: (context, sheetHeight, child) {
-              final sheetProgress =
-                  ((sheetHeight - _sheetMinHeight) /
-                          (_sheetMaxHeight - _sheetMinHeight))
-                      .clamp(0.0, 1.0);
-              final fullSheetHeight = _fullSheetHeight();
-              final rawDetailProgress =
-                  ((sheetHeight - _sheetMaxHeight) /
-                          (fullSheetHeight - _sheetMaxHeight))
-                      .clamp(0.0, 1.0);
-              final detailProgress =
-                  Curves.easeInCubic.transform(rawDetailProgress);
-              return SlidingUpPanel(
-            color: AppColor.white,
-            backdropColor: Colors.transparent,
-            margin: EdgeInsets.zero,
-            minHeight: ResSize.h * sheetHeight,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.11),
-                blurRadius: 34,
-                spreadRadius: 0,
-                offset: const Offset(0, -10),
-              ),
-            ],
-            isDraggable: false,
-            controller: _panelController,
-            defaultPanelState: PanelState.CLOSED,
-            maxHeight: ResSize.h * sheetHeight,
-            parallaxEnabled: false,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(34),
-              topRight: Radius.circular(34),
-            ),
-            panelBuilder: (_) => const SizedBox.shrink(),
-            collapsed: PointerInterceptor(
-              child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onVerticalDragStart: (_) {
-                setState(() => _isSheetDragging = true);
-              },
-              onVerticalDragUpdate: (details) {
-                final delta = details.primaryDelta ?? 0;
-                final fullHeight = _fullSheetHeight();
-                setState(() {
-                  _sheetHeight = (_sheetHeight - delta).clamp(
-                    _sheetMinHeight,
-                    fullHeight,
-                  );
-                  _destinationSheetOpen =
-                      _sheetHeight > _sheetMaxHeight + 8;
-                });
-              },
-              onVerticalDragEnd: (details) {
-                final velocity = details.primaryVelocity ?? 0;
-                final fullHeight = _fullSheetHeight();
-                double target;
-
-                if (velocity < -420) {
-                  target = _sheetHeight < _sheetMaxHeight - 8
-                      ? _sheetMaxHeight
-                      : fullHeight;
-                } else if (velocity > 420) {
-                  target = _sheetHeight > _sheetMaxHeight + 8
-                      ? _sheetMaxHeight
-                      : _sheetMinHeight;
-                } else {
-                  final candidates = <double>[
-                    _sheetMinHeight,
-                    _sheetMaxHeight,
-                    fullHeight,
-                  ];
-                  target = candidates.reduce(
-                    (first, second) =>
-                        (_sheetHeight - first).abs() <=
-                                (_sheetHeight - second).abs()
-                            ? first
-                            : second,
-                  );
-                }
-
-                setState(() {
-                  _isSheetDragging = false;
-                  _sheetHeight = target;
-                  _destinationSheetOpen = target == fullHeight;
-                });
-              },
-              onVerticalDragCancel: () {
-                final fullHeight = _fullSheetHeight();
-                final target = _sheetHeight > _sheetMaxHeight +
-                        (fullHeight - _sheetMaxHeight) / 2
-                    ? fullHeight
-                    : _sheetHeight >
-                            (_sheetMinHeight + _sheetMaxHeight) / 2
-                        ? _sheetMaxHeight
-                        : _sheetMinHeight;
-                setState(() {
-                  _isSheetDragging = false;
-                  _sheetHeight = target;
-                  _destinationSheetOpen = target == fullHeight;
-                });
-              },
-              child: _premiumCollapsedSheet(
-                sheetProgress,
-                detailProgress,
-              ),
-            ),
-            ),
-            body: SizedBox(
-              height: MediaQuery.of(context).size.height,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  CustomGoogleMap(
-                    initialPosition: _initialPosition,
-                    markers: _markers,
-                    myLocationEnabled: true,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    mapToolbarEnabled: false,
-                    compassEnabled: false,
-                    trafficEnabled: false,
-                    buildingsEnabled: true,
-                    indoorViewEnabled: false,
-                    mapType: MapType.normal,
-                    customMapStyle: _premiumMapStyle,
-                    onMapCreated: (GoogleMapController controller) {
-                      _mapController = controller;
-                      final target = _currentLatLng;
-                      if (target != null) {
-                        controller.animateCamera(
-                          CameraUpdate.newCameraPosition(
-                            CameraPosition(target: target, zoom: 15),
-                          ),
-                        );
-                      }
-                    },
-                    onTap: (LatLng position) {},
-                  ),
-                  if (_destinationSheetOpen)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
-                          child: Container(
-                            color: AppColor.white.withOpacity(0.05),
-                          ),
+          SizedBox(
+            height: viewportHeight,
+            width: double.infinity,
+            child: Stack(
+              children: [
+                CustomGoogleMap(
+                  initialPosition: _initialPosition,
+                  markers: _markers,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  compassEnabled: false,
+                  trafficEnabled: false,
+                  buildingsEnabled: true,
+                  indoorViewEnabled: false,
+                  mapType: MapType.normal,
+                  customMapStyle: _premiumMapStyle,
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                    final target = _currentLatLng;
+                    if (target != null) {
+                      controller.animateCamera(
+                        CameraUpdate.newCameraPosition(
+                          CameraPosition(target: target, zoom: 15),
+                        ),
+                      );
+                    }
+                  },
+                  onTap: (LatLng position) {},
+                ),
+                if (_destinationSheetOpen)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
+                        child: Container(
+                          color: AppColor.white.withOpacity(0.05),
                         ),
                       ),
                     ),
-                  Positioned.fill(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        screenHorizPadding,
-                        ResSize.h * 60,
-                        screenHorizPadding,
-                        0,
-                      ),
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Builder(
-                              builder: (drawerContext) => _premiumFloatingButton(
-                                onTap: () {
-                                  Scaffold.of(drawerContext).openDrawer();
-                                },
-                                child: Icon(
-                                  Icons.menu_rounded,
-                                  size: ResSize.h * 21,
-                                  color: _premiumInk,
-                                ),
-                              ),
-                            ),
-                            _premiumFloatingButton(
-                              onTap: _openAccount,
+                  ),
+                Positioned.fill(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      screenHorizPadding,
+                      ResSize.h * 60,
+                      screenHorizPadding,
+                      0,
+                    ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Builder(
+                            builder: (drawerContext) => _premiumFloatingButton(
+                              onTap: () {
+                                Scaffold.of(drawerContext).openDrawer();
+                              },
                               child: Icon(
-                                Icons.person_outline_rounded,
-                                size: ResSize.h * 22,
+                                Icons.menu_rounded,
+                                size: ResSize.h * 21,
                                 color: _premiumInk,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          _premiumFloatingButton(
+                            onTap: _openAccount,
+                            child: Icon(
+                              Icons.person_outline_rounded,
+                              size: ResSize.h * 22,
+                              color: _premiumInk,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                ),
+              ],
+            ),
+          ),
+          SheetViewport(
+            child: Sheet(
+              controller: _homeSheetController,
+              initialOffset: SheetOffset.absolute(_sheetMinPixels),
+              physics: const BouncingSheetPhysics(),
+              snapGrid: SheetSnapGrid(
+                snaps: [
+                  SheetOffset.absolute(_sheetMinPixels),
+                  SheetOffset.absolute(_sheetMidPixels),
+                  const SheetOffset(1),
                 ],
+                minFlingSpeed: 520,
+              ),
+              scrollConfiguration: SheetScrollConfiguration.disabled,
+              child: PointerInterceptor(
+                child: SizedBox(
+                  height: fullSheetPixels,
+                  width: double.infinity,
+                  child: AnimatedBuilder(
+                    animation: _homeSheetController,
+                    builder: (context, child) {
+                      final sheetHeight =
+                          _homeSheetController.value ?? _sheetMinPixels;
+                      final sheetProgress =
+                          ((sheetHeight - _sheetMinPixels) /
+                                  (_sheetMidPixels - _sheetMinPixels))
+                              .clamp(0.0, 1.0);
+                      final rawDetailProgress =
+                          ((sheetHeight - _sheetMidPixels) /
+                                  (fullSheetPixels - _sheetMidPixels))
+                              .clamp(0.0, 1.0);
+                      final detailProgress =
+                          Curves.easeInCubic.transform(rawDetailProgress);
+                      return _premiumCollapsedSheet(
+                        sheetProgress,
+                        detailProgress,
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
-          );
-            },
           ),
           RiderProfile(
             controller: _profilePanelController,
@@ -1773,20 +1749,7 @@ class _HomeState extends State<Home> {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      final fullHeight = _fullSheetHeight();
-                      final target = _sheetHeight > _sheetMaxHeight + 8
-                          ? _sheetMaxHeight
-                          : _sheetHeight >
-                                  (_sheetMinHeight + _sheetMaxHeight) / 2
-                              ? _sheetMinHeight
-                              : _sheetMaxHeight;
-                      setState(() {
-                        _isSheetDragging = false;
-                        _sheetHeight = target;
-                        _destinationSheetOpen = target == fullHeight;
-                      });
-                    },
+                    onTap: _toggleHomeSheet,
                     child: Container(
                       width: ResSize.w * 42,
                       height: ResSize.h * 4,
