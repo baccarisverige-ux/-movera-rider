@@ -1841,10 +1841,10 @@ class _HomeState extends State<Home> {
               ),
             ),
             Positioned(
-              left: ResSize.w * (18 + (30 * (1 - sheetProgress))),
-              right: ResSize.w * (18 + (30 * (1 - sheetProgress))),
+              left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
+              right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
               top: sheetHeight -
-                  ResSize.h * (63 + (22 * (1 - sheetProgress))),
+                  ResSize.h * (63 + (30 * (1 - sheetProgress))),
               child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResSize.w * (4 * (1 - sheetProgress)),
@@ -2582,11 +2582,17 @@ Widget _homePromoCard({
                 ),
               ),
               3.height,
-              TextWidget(
-                text: label,
-                color: color,
-                fontSize: 9.5,
-                fontWeight: active ? fwSemiBold : fwMedium,
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: TextWidget(
+                    text: label,
+                    color: color,
+                    fontSize: 9.5,
+                    fontWeight: active ? fwSemiBold : fwMedium,
+                  ),
+                ),
               ),
             ],
           ),
