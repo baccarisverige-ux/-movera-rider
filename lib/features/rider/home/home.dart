@@ -53,6 +53,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final PanelController _panelController = PanelController();
   final PanelController _profilePanelController = PanelController();
+  final Geocoding _geocoding = Geocoding();
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
@@ -250,7 +251,7 @@ class _HomeState extends State<Home> {
           timeLimit: Duration(seconds: 15),
         ),
       );
-      final placemarks = await placemarkFromCoordinates(
+      final placemarks = await _geocoding.placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
@@ -340,10 +341,10 @@ class _HomeState extends State<Home> {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
     try {
-      final locations = await locationFromAddress(clean);
+      final locations = await _geocoding.locationFromAddress(clean);
       if (locations.isEmpty) return clean;
       final location = locations.first;
-      final placemarks = await placemarkFromCoordinates(
+      final placemarks = await _geocoding.placemarkFromCoordinates(
         location.latitude,
         location.longitude,
       );
@@ -359,7 +360,7 @@ class _HomeState extends State<Home> {
 
   Future<void> _moveMapToAddress(String address) async {
     try {
-      final locations = await locationFromAddress(address);
+      final locations = await _geocoding.locationFromAddress(address);
       if (locations.isEmpty) return;
       final target = LatLng(
         locations.first.latitude,
