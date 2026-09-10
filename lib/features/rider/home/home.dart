@@ -1845,7 +1845,10 @@ class _HomeState extends State<Home> {
               right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
               top: sheetHeight -
                   ResSize.h * (63 + (30 * (1 - sheetProgress))),
-              child: Container(
+              child: Transform.scale(
+                scale: 0.80 + (0.20 * sheetProgress),
+                alignment: Alignment.bottomCenter,
+                child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResSize.w * (4 * (1 - sheetProgress)),
                   vertical: ResSize.h * (5 * (1 - sheetProgress)),
@@ -1920,6 +1923,7 @@ class _HomeState extends State<Home> {
                     ),
                   ],
                 ),
+              ),
               ),
             ),
           ],
