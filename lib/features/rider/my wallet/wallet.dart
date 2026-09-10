@@ -978,15 +978,10 @@ class _WalletScreenState extends State<WalletScreen> {
       );
     }
 
-    final isWalletWordmark = brand == 'apple' || brand == 'google';
-
     return Container(
-      width: isWalletWordmark ? 68 : 42,
+      width: 42,
       height: 38,
-      padding: EdgeInsets.symmetric(
-        horizontal: isWalletWordmark ? 5 : 7,
-        vertical: isWalletWordmark ? 7 : 7,
-      ),
+      padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(11),
