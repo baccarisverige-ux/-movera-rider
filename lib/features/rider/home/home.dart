@@ -1901,117 +1901,124 @@ class _HomeState extends State<Home> {
   }
 
   Widget _comfortRideCarousel() {
-    final cardWidth = MediaQuery.of(context).size.width * 0.80;
+  final viewportWidth = MediaQuery.of(context).size.width;
+  final cardWidth = (viewportWidth * 0.78).clamp(270.0, 330.0).toDouble();
+  final imageHeight = ResSize.h * 112;
+  final bandHeight = ResSize.h * 64;
 
-    return SizedBox(
-      height: ResSize.h * 132,
-      width: double.infinity,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: [
-            SizedBox(
-              width: cardWidth,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _handleDestinationTap,
-                  borderRadius: BorderRadius.circular(23),
-                  child: Container(
-                    height: ResSize.h * 132,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F9FA),
-                      borderRadius: BorderRadius.circular(23),
-                      border: Border.all(color: _premiumLine, width: 0.8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _premiumAccent.withOpacity(0.075),
-                          blurRadius: 20,
-                          offset: const Offset(0, 7),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: cardWidth * 0.43,
-                          height: double.infinity,
-                          child: Image.asset(
-                            'assets/images/movera_comfort_ride.jpeg',
-                            fit: BoxFit.cover,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.high,
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              ResSize.w * 12,
-                              ResSize.h * 12,
-                              ResSize.w * 11,
-                              ResSize.h * 11,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextWidget(
-                                  text: 'MOVERA COMFORT',
-                                  color: _premiumAccent,
-                                  fontSize: 8,
-                                  fontWeight: fwSemiBold,
-                                  letterSpacing: 0.7,
-                                ),
-                                4.height,
-                                TextWidget(
-                                  text: 'More comfort. Every ride.',
-                                  color: _premiumInk,
-                                  fontSize: 12.2,
-                                  fontWeight: fwBold,
-                                ),
-                                4.height,
-                                TextWidget(
-                                  text:
-                                      'Enjoy extra space and a smoother journey.',
-                                  color: _premiumMuted,
-                                  fontSize: 8.3,
-                                  fontWeight: fwNormal,
-                                ),
-                                const Spacer(),
-                                Container(
-                                  height: ResSize.h * 29,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: ResSize.w * 11,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _premiumAccent,
-                                    borderRadius: BorderRadius.circular(11),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: TextWidget(
-                                    text: 'Book Comfort',
-                                    color: AppColor.white,
-                                    fontSize: 8.8,
-                                    fontWeight: fwSemiBold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+  return SizedBox(
+    height: imageHeight + bandHeight + ResSize.h * 2,
+    width: double.infinity,
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.only(right: ResSize.w * 8),
+      children: [
+        _homePromoCard(
+          cardWidth: cardWidth,
+          imageHeight: imageHeight,
+          bandHeight: bandHeight,
+          imageAsset: 'assets/images/movera_comfort_ride.jpeg',
+          title: 'Movera Comfort',
+          subtitle: 'Extra space. Elevated comfort. A smoother way to ride.',
+          onTap: _handleDestinationTap,
+        ),
+        SizedBox(width: ResSize.w * 12),
+        _homePromoCard(
+          cardWidth: cardWidth,
+          imageHeight: imageHeight,
+          bandHeight: bandHeight,
+          imageAsset: 'assets/images/pin_verification.png',
+          title: 'Safety Toolkit',
+          subtitle: 'Essential safety tools, ready throughout every ride.',
+          onTap: () {},
+        ),
+        SizedBox(width: ResSize.w * 18),
+      ],
+    ),
+  );
+}
+
+Widget _homePromoCard({
+  required double cardWidth,
+  required double imageHeight,
+  required double bandHeight,
+  required String imageAsset,
+  required String title,
+  required String subtitle,
+  required VoidCallback onTap,
+}) {
+  return SizedBox(
+    width: cardWidth,
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColor.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _premiumLine, width: 0.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.055),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: imageHeight,
+                child: Image.asset(
+                  imageAsset,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  filterQuality: FilterQuality.high,
                 ),
               ),
-            ),
-            SizedBox(width: ResSize.w * 34),
-          ],
+              Container(
+                width: double.infinity,
+                height: bandHeight,
+                color: AppColor.white,
+                padding: EdgeInsets.fromLTRB(
+                  ResSize.w * 13,
+                  ResSize.h * 8,
+                  ResSize.w * 13,
+                  ResSize.h * 7,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextWidget(
+                      text: title,
+                      color: _premiumInk,
+                      fontSize: 13.6,
+                      fontWeight: fwBold,
+                    ),
+                    3.height,
+                    TextWidget(
+                      text: subtitle,
+                      color: _premiumMuted,
+                      fontSize: 9.2,
+                      fontWeight: fwNormal,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _pickupAddressField() {
     return Material(
