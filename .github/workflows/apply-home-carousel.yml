@@ -155,7 +155,7 @@ jobs:
               ),
             );
           }
-'''
+          '''
 
           updated = text[:start] + replacement + '\n' + text[end:]
           path.write_text(updated)
