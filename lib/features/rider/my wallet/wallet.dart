@@ -989,7 +989,9 @@ class _WalletScreenState extends State<WalletScreen> {
           color: background == Colors.white ? _line : background,
         ),
       ),
-      child: logo,
+      child: brand == 'google'
+          ? Transform.scale(scale: 1.18, child: logo)
+          : logo,
     );
   }
 
