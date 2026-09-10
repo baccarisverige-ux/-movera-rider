@@ -64,6 +64,7 @@ class _HomeState extends State<Home> {
   String? _destinationAddress;
   String? _homeAddress;
   String? _workAddress;
+  List<String> _routeStops = [];
   LatLng? _currentLatLng;
   List<String> _recentAddresses = [];
   List<_SavedPlaceData> _savedPlaces = [];
@@ -406,7 +407,601 @@ class _HomeState extends State<Home> {
       await Future<void>.delayed(const Duration(milliseconds: 360));
       if (!mounted) return;
     }
-    await _showAddressPicker(target: 'destination');
+    await _showRouteAddressPicker(initialField: 'destination');
+  }
+
+  Future<void> _showRouteAddressPicker({
+    required String initialField,
+  }) async {
+    final pickupController = TextEditingController(
+      text: _pickupAddress == 'Current location' ? '' : _pickupAddress ?? '',
+    );
+    final destinationController = TextEditingController(
+      text: _destinationAddress ?? '',
+    );
+    final stopControllers = _routeStops
+        .map((address) => TextEditingController(text: address))
+        .toList();
+    final pickupFocus = FocusNode();
+    final destinationFocus = FocusNode();
+    final stopFocusNodes =
+        stopControllers.map((_) => FocusNode()).toList();
+
+    var activeField = initialField;
+    var activeStopIndex = -1;
+    var query = initialField == 'pickup'
+        ? pickupController.text
+        : destinationController.text;
+
+    TextEditingController activeController() {
+      if (activeField == 'pickup') return pickupController;
+      if (activeField == 'stop' &&
+          activeStopIndex >= 0 &&
+          activeStopIndex < stopControllers.length) {
+        return stopControllers[activeStopIndex];
+      }
+      return destinationController;
+    }
+
+    final draft = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.26),
+      builder: (sheetContext) {
+        return PointerInterceptor(
+          child: StatefulBuilder(
+            builder: (context, setModalState) {
+              final filteredRecent = _recentAddresses
+                  .where(
+                    (address) =>
+                        query.trim().isEmpty ||
+                        address.toLowerCase().contains(
+                              query.trim().toLowerCase(),
+                            ),
+                  )
+                  .take(5)
+                  .toList();
+
+              void activateField(
+                String field,
+                TextEditingController controller, {
+                int stopIndex = -1,
+              }) {
+                setModalState(() {
+                  activeField = field;
+                  activeStopIndex = stopIndex;
+                  query = controller.text;
+                });
+              }
+
+              Widget routeField({
+                required String field,
+                required String label,
+                required String hint,
+                required TextEditingController controller,
+                required FocusNode focusNode,
+                int stopIndex = -1,
+                bool removable = false,
+              }) {
+                final isActive = activeField == field &&
+                    (field != 'stop' || activeStopIndex == stopIndex);
+                return Row(
+                  children: [
+                    Container(
+                      width: ResSize.w * 27,
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: ResSize.w * 10,
+                        height: ResSize.h * 10,
+                        decoration: BoxDecoration(
+                          color: field == 'destination'
+                              ? _premiumAccent
+                              : AppColor.white,
+                          shape: field == 'destination'
+                              ? BoxShape.rectangle
+                              : BoxShape.circle,
+                          borderRadius: field == 'destination'
+                              ? BorderRadius.circular(2)
+                              : null,
+                          border: Border.all(
+                            color: _premiumInk,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    8.width,
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        autofocus: isActive,
+                        onTap: () => activateField(
+                          field,
+                          controller,
+                          stopIndex: stopIndex,
+                        ),
+                        onChanged: (value) {
+                          if (isActive) {
+                            setModalState(() => query = value);
+                          }
+                        },
+                        textInputAction: TextInputAction.search,
+                        style: TextStyle(
+                          color: _premiumInk,
+                          fontSize: ResSize.setSp(14),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: label,
+                          hintText: hint,
+                          labelStyle: TextStyle(
+                            color: isActive
+                                ? _premiumAccent
+                                : _premiumMuted,
+                            fontSize: ResSize.setSp(10),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          hintStyle: TextStyle(
+                            color: _premiumMuted.withOpacity(0.68),
+                            fontSize: ResSize.setSp(13),
+                            fontWeight: FontWeight.w400,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            vertical: ResSize.h * 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (removable)
+                      IconButton(
+                        onPressed: () {
+                          final removedController =
+                              stopControllers.removeAt(stopIndex);
+                          final removedFocus =
+                              stopFocusNodes.removeAt(stopIndex);
+                          removedController.dispose();
+                          removedFocus.dispose();
+                          setModalState(() {
+                            activeField = 'destination';
+                            activeStopIndex = -1;
+                            query = destinationController.text;
+                          });
+                          destinationFocus.requestFocus();
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                        color: _premiumMuted,
+                        iconSize: ResSize.h * 18,
+                      ),
+                  ],
+                );
+              }
+
+              final routeRows = <Widget>[
+                routeField(
+                  field: 'pickup',
+                  label: 'Pickup',
+                  hint: 'Enter pickup address',
+                  controller: pickupController,
+                  focusNode: pickupFocus,
+                ),
+                const Divider(
+                  color: Color(0xFFE4E8EA),
+                  height: 1,
+                  indent: 38,
+                ),
+              ];
+
+              for (var index = 0;
+                  index < stopControllers.length;
+                  index++) {
+                routeRows
+                  ..add(
+                    routeField(
+                      field: 'stop',
+                      label: 'Stop ${index + 1}',
+                      hint: 'Enter stop address',
+                      controller: stopControllers[index],
+                      focusNode: stopFocusNodes[index],
+                      stopIndex: index,
+                      removable: true,
+                    ),
+                  )
+                  ..add(
+                    const Divider(
+                      color: Color(0xFFE4E8EA),
+                      height: 1,
+                      indent: 38,
+                    ),
+                  );
+              }
+
+              routeRows.add(
+                routeField(
+                  field: 'destination',
+                  label: 'Final destination',
+                  hint: 'Where to?',
+                  controller: destinationController,
+                  focusNode: destinationFocus,
+                ),
+              );
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Container(
+                  height: MediaQuery.of(context).size.height * 0.92,
+                  padding: EdgeInsets.fromLTRB(
+                    ResSize.w * 18,
+                    ResSize.h * 10,
+                    ResSize.w * 18,
+                    ResSize.h * 16,
+                  ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(32),
+                      topRight: Radius.circular(32),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: ResSize.w * 42,
+                        height: ResSize.h * 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD8DDE0),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      14.height,
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(Icons.arrow_back_rounded),
+                            color: _premiumInk,
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: TextWidget(
+                                text: 'Plan your ride',
+                                color: _premiumInk,
+                                fontSize: 19,
+                                fontWeight: fwBold,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: ResSize.w * 48),
+                        ],
+                      ),
+                      14.height,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: ResSize.w * 10,
+                                vertical: ResSize.h * 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColor.white,
+                                borderRadius: BorderRadius.circular(23),
+                                border: Border.all(
+                                  color: _premiumInk,
+                                  width: 1.25,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.045),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 7),
+                                  ),
+                                ],
+                              ),
+                              child: Stack(
+                                children: [
+                                  Positioned(
+                                    left: ResSize.w * 13,
+                                    top: ResSize.h * 25,
+                                    bottom: ResSize.h * 25,
+                                    child: Container(
+                                      width: 1.4,
+                                      color: _premiumInk.withOpacity(0.72),
+                                    ),
+                                  ),
+                                  Column(children: routeRows),
+                                ],
+                              ),
+                            ),
+                          ),
+                          10.width,
+                          Material(
+                            color: const Color(0xFFF0F2F3),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: stopControllers.length >= 3
+                                  ? null
+                                  : () {
+                                      final controller =
+                                          TextEditingController();
+                                      final focusNode = FocusNode();
+                                      setModalState(() {
+                                        stopControllers.add(controller);
+                                        stopFocusNodes.add(focusNode);
+                                        activeField = 'stop';
+                                        activeStopIndex =
+                                            stopControllers.length - 1;
+                                        query = '';
+                                      });
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                        focusNode.requestFocus();
+                                      });
+                                    },
+                              customBorder: const CircleBorder(),
+                              child: SizedBox(
+                                width: ResSize.w * 48,
+                                height: ResSize.h * 48,
+                                child: Icon(
+                                  Icons.add_rounded,
+                                  color: stopControllers.length >= 3
+                                      ? _premiumMuted.withOpacity(0.4)
+                                      : _premiumInk,
+                                  size: ResSize.h * 27,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      9.height,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.alt_route_rounded,
+                            size: ResSize.h * 15,
+                            color: _premiumAccent,
+                          ),
+                          7.width,
+                          Expanded(
+                            child: TextWidget(
+                              text: stopControllers.isEmpty
+                                  ? 'Add a stop before your final destination.'
+                                  : 'Stops are visited in order before the final destination.',
+                              color: _premiumMuted,
+                              fontSize: 9,
+                              fontWeight: fwNormal,
+                            ),
+                          ),
+                        ],
+                      ),
+                      13.height,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextWidget(
+                          text: query.trim().isEmpty
+                              ? 'Recent addresses'
+                              : 'Address results',
+                          color: _premiumMuted,
+                          fontSize: 10.5,
+                          fontWeight: fwSemiBold,
+                        ),
+                      ),
+                      5.height,
+                      Expanded(
+                        child: ListView(
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            if (activeField == 'pickup')
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Container(
+                                  width: ResSize.w * 38,
+                                  height: ResSize.h * 38,
+                                  decoration: BoxDecoration(
+                                    color: _premiumAccentSoft,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.my_location_rounded,
+                                    color: _premiumAccent,
+                                    size: ResSize.h * 19,
+                                  ),
+                                ),
+                                title: TextWidget(
+                                  text: 'Current location',
+                                  color: _premiumInk,
+                                  fontSize: 11.5,
+                                  fontWeight: fwSemiBold,
+                                ),
+                                subtitle: TextWidget(
+                                  text: _shortAddress(
+                                    _pickupAddress,
+                                    maxLength: 38,
+                                  ),
+                                  color: _premiumMuted,
+                                  fontSize: 9,
+                                  fontWeight: fwNormal,
+                                ),
+                                onTap: () {
+                                  pickupController.text =
+                                      _pickupAddress ?? 'Current location';
+                                  pickupController.selection =
+                                      TextSelection.collapsed(
+                                    offset: pickupController.text.length,
+                                  );
+                                  setModalState(() {
+                                    query = pickupController.text;
+                                  });
+                                },
+                              ),
+                            for (final address in filteredRecent)
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Container(
+                                  width: ResSize.w * 38,
+                                  height: ResSize.h * 38,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF3F5F5),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.history_rounded,
+                                    color: _premiumInk,
+                                    size: ResSize.h * 19,
+                                  ),
+                                ),
+                                title: TextWidget(
+                                  text: address,
+                                  color: _premiumInk,
+                                  fontSize: 11.5,
+                                  fontWeight: fwMedium,
+                                ),
+                                onTap: () {
+                                  final controller = activeController();
+                                  controller.text = address;
+                                  controller.selection =
+                                      TextSelection.collapsed(
+                                    offset: address.length,
+                                  );
+                                  setModalState(() => query = address);
+                                },
+                              ),
+                            if (query.trim().isNotEmpty &&
+                                !filteredRecent.any(
+                                  (address) =>
+                                      address.toLowerCase() ==
+                                      query.trim().toLowerCase(),
+                                ))
+                              ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: Container(
+                                  width: ResSize.w * 38,
+                                  height: ResSize.h * 38,
+                                  decoration: BoxDecoration(
+                                    color: _premiumAccentSoft,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.search_rounded,
+                                    color: _premiumAccent,
+                                    size: ResSize.h * 19,
+                                  ),
+                                ),
+                                title: TextWidget(
+                                  text: 'Use “${query.trim()}”',
+                                  color: _premiumInk,
+                                  fontSize: 11.5,
+                                  fontWeight: fwSemiBold,
+                                ),
+                                subtitle: TextWidget(
+                                  text: activeField == 'destination'
+                                      ? 'Set as final destination'
+                                      : activeField == 'pickup'
+                                          ? 'Set as pickup'
+                                          : 'Set as Stop ${activeStopIndex + 1}',
+                                  color: _premiumMuted,
+                                  fontSize: 9,
+                                  fontWeight: fwNormal,
+                                ),
+                                onTap: () {
+                                  FocusScope.of(context).unfocus();
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                      10.height,
+                      Material(
+                        color: _premiumAccent,
+                        borderRadius: BorderRadius.circular(18),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.pop(sheetContext, {
+                              'pickup': pickupController.text.trim(),
+                              'destination':
+                                  destinationController.text.trim(),
+                              'stops': stopControllers
+                                  .map((controller) =>
+                                      controller.text.trim())
+                                  .where((address) => address.isNotEmpty)
+                                  .toList(),
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(18),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: ResSize.h * 48,
+                            child: Center(
+                              child: TextWidget(
+                                text: 'Confirm route',
+                                color: AppColor.white,
+                                fontSize: 12.5,
+                                fontWeight: fwSemiBold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    pickupFocus.dispose();
+    destinationFocus.dispose();
+    for (final focusNode in stopFocusNodes) {
+      focusNode.dispose();
+    }
+    pickupController.dispose();
+    destinationController.dispose();
+    for (final controller in stopControllers) {
+      controller.dispose();
+    }
+
+    if (draft == null || !mounted) return;
+    final pickup = await _normaliseAddress(
+      draft['pickup'] as String? ?? '',
+    );
+    final destination = await _normaliseAddress(
+      draft['destination'] as String? ?? '',
+    );
+    final rawStops = (draft['stops'] as List<dynamic>? ?? <dynamic>[])
+        .whereType<String>()
+        .toList();
+    final stops = <String>[];
+    for (final stop in rawStops) {
+      final resolved = await _normaliseAddress(stop);
+      if (resolved.isNotEmpty) stops.add(resolved);
+    }
+    if (!mounted) return;
+    setState(() {
+      if (pickup.isNotEmpty) _pickupAddress = pickup;
+      _destinationAddress =
+          destination.isEmpty ? _destinationAddress : destination;
+      _routeStops = stops;
+      if (pickup.isNotEmpty) _rememberAddress(pickup);
+      if (destination.isNotEmpty) _rememberAddress(destination);
+      for (final stop in stops) {
+        _rememberAddress(stop);
+      }
+    });
+    await _persistAddressData();
+    if (destination.isNotEmpty) {
+      await _moveMapToAddress(destination);
+    }
   }
 
   Future<void> _showAddressPicker({
@@ -1264,7 +1859,7 @@ class _HomeState extends State<Home> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showAddressPicker(target: 'pickup'),
+        onTap: () => _showRouteAddressPicker(initialField: 'pickup'),
         borderRadius: BorderRadius.circular(18),
         child: Container(
           height: ResSize.h * 52,
