@@ -10,6 +10,10 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: movera-rider-pages
+  cancel-in-progress: false
+
 jobs:
   publish:
     environment:
