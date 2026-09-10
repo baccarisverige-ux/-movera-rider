@@ -420,16 +420,19 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         height: 1.55,
                       ),
                     ),
-                    const SizedBox(height: 18),
-                    Center(
-                      child: Image.asset(
-                        'assets/images/schedule_timeline_white.png',
-                        width: double.infinity,
-                        height: 132,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+
                   ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
+              child: SizedBox(
+                width: double.infinity,
+                height: 118,
+                child: Image.network(
+                  'https://raw.githubusercontent.com/baccarisverige-ux/-movera-rider/main/assets/images/schedule_timeline_white.png',
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
