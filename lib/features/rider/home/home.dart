@@ -1652,6 +1652,7 @@ class _HomeState extends State<Home> {
                       return _premiumCollapsedSheet(
                         sheetProgress,
                         detailProgress,
+                        sheetHeight,
                       );
                     },
                   ),
@@ -1675,7 +1676,7 @@ class _HomeState extends State<Home> {
     required VoidCallback onAccountTap,
   }) {
     return Container(
-      height: ResSize.h * 46,
+      height: ResSize.h * 50,
       padding: EdgeInsets.all(ResSize.h * 3),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -1738,12 +1739,12 @@ class _HomeState extends State<Home> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(19),
           child: SizedBox(
-            height: ResSize.h * 40,
-            width: ResSize.w * 43,
+            height: ResSize.h * 44,
+            width: ResSize.w * 46,
             child: Icon(
               icon,
-              size: ResSize.h * 21.5,
-              color: _premiumInk,
+              size: ResSize.h * 24,
+              color: const Color(0xFF11181D),
             ),
           ),
         ),
@@ -1754,6 +1755,7 @@ class _HomeState extends State<Home> {
   Widget _premiumCollapsedSheet(
     double sheetProgress,
     double detailProgress,
+    double sheetHeight,
   ) {
     return Container(
       decoration: const BoxDecoration(
@@ -1841,7 +1843,8 @@ class _HomeState extends State<Home> {
             Positioned(
               left: ResSize.w * (18 + (30 * (1 - sheetProgress))),
               right: ResSize.w * (18 + (30 * (1 - sheetProgress))),
-              bottom: ResSize.h * (10 * (1 - sheetProgress)),
+              top: sheetHeight -
+                  ResSize.h * (63 + (10 * (1 - sheetProgress))),
               child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResSize.w * (4 * (1 - sheetProgress)),
