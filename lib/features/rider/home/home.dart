@@ -1844,7 +1844,7 @@ class _HomeState extends State<Home> {
               left: ResSize.w * (18 + (30 * (1 - sheetProgress))),
               right: ResSize.w * (18 + (30 * (1 - sheetProgress))),
               top: sheetHeight -
-                  ResSize.h * (63 + (10 * (1 - sheetProgress))),
+                  ResSize.h * (63 + (22 * (1 - sheetProgress))),
               child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: ResSize.w * (4 * (1 - sheetProgress)),
