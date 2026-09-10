@@ -938,8 +938,8 @@ class _WalletScreenState extends State<WalletScreen> {
         fit: BoxFit.contain,
       );
     } else if (brand == 'google') {
-      logo = SvgPicture.asset(
-        'assets/images/google_pay_brand.svg',
+      logo = Image.asset(
+        'assets/images/google_pay_brand.png',
         fit: BoxFit.contain,
       );
     } else if (brand == 'paypal') {
