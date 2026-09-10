@@ -18,3 +18,7 @@ Generated Flutter/Gradle files, temporary upload ZIPs, and build output are inte
 ## Google Maps configuration
 
 Never commit Maps API keys. Android reads `MAPS_API_KEY` from a Gradle property or environment variable. iOS reads `GOOGLE_MAPS_API_KEY` from the Xcode build setting exposed through `Info.plist`.
+
+## Web deployment
+
+The Rider web build publishes to GitHub Pages from `main`. Pages deployments are serialized by the publish workflow so overlapping updates do not race each other.
