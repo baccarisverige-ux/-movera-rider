@@ -134,35 +134,36 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _topBar(context),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
                     Text(
                       'Choose date & time',
-                      style: _text(28, weight: FontWeight.w700),
+                      style: _text(23, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       'Select when your driver should be ready.',
-                      style: _text(13, weight: FontWeight.w400, color: _muted),
+                      style: _text(11.5, weight: FontWeight.w400, color: _muted),
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
                     _modeSelector(),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 17),
                     Text(
-                      'Choose a day',
-                      style: _text(15, weight: FontWeight.w600),
+                      'DATE',
+                      style: _text(10, weight: FontWeight.w600, color: _muted)
+                          .copyWith(letterSpacing: 1.3),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 9),
                     _dateStrip(selectedDay),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
                     _timeCard(),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
                     _journeySummary(pickup, arrival),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 10),
                     _policyCard(),
                   ],
                 ),
@@ -185,9 +186,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             onTap: widget.onBack ?? () => Navigator.maybePop(context),
             customBorder: const CircleBorder(),
             child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 23),
+              width: 40,
+              height: 40,
+              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 21),
             ),
           ),
         ),
@@ -206,11 +207,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _modeSelector() {
     return Container(
-      height: 52,
-      padding: const EdgeInsets.all(4),
+      height: 46,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: _surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(color: _line),
       ),
       child: Row(
@@ -240,22 +241,22 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }) {
     return Expanded(
       child: Material(
-        color: selected ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        color: selected ? _ink : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 240),
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: _ink.withOpacity(0.08),
-                        blurRadius: 14,
-                        offset: const Offset(0, 5),
+                        color: _ink.withOpacity(0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ]
                   : const [],
@@ -263,14 +264,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 17, color: selected ? _accent : _muted),
+                Icon(icon, size: 16, color: selected ? Colors.white : _muted),
                 const SizedBox(width: 7),
                 Text(
                   title,
                   style: _text(
-                    12,
+                    11.5,
                     weight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected ? _ink : _muted,
+                    color: selected ? Colors.white : _muted,
                   ),
                 ),
               ],
@@ -283,12 +284,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _dateStrip(DateTime selectedDay) {
     return SizedBox(
-      height: 82,
+      height: 68,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: _dates.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 9),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final date = _dates[index];
           final selected = date == selectedDay;
@@ -296,14 +297,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             color: Colors.transparent,
             child: InkWell(
               onTap: () => _selectDate(date),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(17),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
-                width: 62,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                width: 55,
+                padding: const EdgeInsets.symmetric(vertical: 7),
                 decoration: BoxDecoration(
                   color: selected ? _accent : _surface,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(17),
                   border: Border.all(
                     color: selected ? _accent : _line,
                   ),
@@ -311,8 +312,8 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       ? [
                           BoxShadow(
                             color: _ink.withOpacity(0.14),
-                            blurRadius: 16,
-                            offset: const Offset(0, 7),
+                            blurRadius: 11,
+                            offset: const Offset(0, 5),
                           ),
                         ]
                       : const [],
@@ -323,16 +324,16 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     Text(
                       index == 0 ? 'Today' : DateFormat('EEE').format(date),
                       style: _text(
-                        10,
+                        9,
                         weight: FontWeight.w500,
                         color: selected ? Colors.white70 : _muted,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       DateFormat('d').format(date),
                       style: _text(
-                        20,
+                        18,
                         weight: FontWeight.w700,
                         color: selected ? Colors.white : _ink,
                       ),
@@ -349,10 +350,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _timeCard() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 9),
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _line),
       ),
       child: Column(
@@ -360,34 +361,34 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 32,
+                height: 32,
                 decoration: const BoxDecoration(
                   color: _accentSoft,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.schedule_rounded, color: _accent, size: 19),
+                child: const Icon(Icons.schedule_rounded, color: _accent, size: 17),
               ),
               const SizedBox(width: 10),
-              Text('Choose a time', style: _text(14, weight: FontWeight.w600)),
+              Text('TIME', style: _text(10, weight: FontWeight.w600, color: _muted).copyWith(letterSpacing: 1.3)),
               const Spacer(),
               Text(
                 DateFormat('HH:mm').format(_selectedDateTime),
-                style: _text(17, weight: FontWeight.w700, color: _accent),
+                style: _text(15, weight: FontWeight.w700, color: _ink),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           SizedBox(
-            height: 132,
+            height: 108,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Container(
-                  height: 44,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
+                    color: _surface,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: _line),
                   ),
                 ),
@@ -396,34 +397,34 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     Expanded(
                       child: CupertinoPicker.builder(
                         scrollController: _hourController,
-                        itemExtent: 42,
+                        itemExtent: 38,
                         useMagnifier: true,
-                        magnification: 1.08,
+                        magnification: 1.05,
                         selectionOverlay: const SizedBox.shrink(),
                         onSelectedItemChanged: _selectHour,
                         childCount: 24,
                         itemBuilder: (_, index) => Center(
                           child: Text(
                             index.toString().padLeft(2, '0'),
-                            style: _text(21, weight: FontWeight.w600),
+                            style: _text(19, weight: FontWeight.w600),
                           ),
                         ),
                       ),
                     ),
-                    Text(':', style: _text(21, weight: FontWeight.w700, color: _accent)),
+                    Text(':', style: _text(19, weight: FontWeight.w700, color: _ink)),
                     Expanded(
                       child: CupertinoPicker.builder(
                         scrollController: _minuteController,
-                        itemExtent: 42,
+                        itemExtent: 38,
                         useMagnifier: true,
-                        magnification: 1.08,
+                        magnification: 1.05,
                         selectionOverlay: const SizedBox.shrink(),
                         onSelectedItemChanged: _selectMinute,
                         childCount: 12,
                         itemBuilder: (_, index) => Center(
                           child: Text(
                             (index * 5).toString().padLeft(2, '0'),
-                            style: _text(21, weight: FontWeight.w600),
+                            style: _text(19, weight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -440,25 +441,25 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _journeySummary(DateTime pickup, DateTime arrival) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(color: _line),
       ),
       child: Row(
         children: [
-          const Icon(Icons.route_rounded, color: _accent, size: 22),
-          const SizedBox(width: 12),
+          const Icon(Icons.route_rounded, color: _accent, size: 19),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               _pickupMode ? 'Estimated arrival' : 'Estimated pickup',
-              style: _text(11, weight: FontWeight.w500, color: _muted),
+              style: _text(10.5, weight: FontWeight.w500, color: _muted),
             ),
           ),
           Text(
             DateFormat('HH:mm').format(_pickupMode ? arrival : pickup),
-            style: _text(15, weight: FontWeight.w700),
+            style: _text(14, weight: FontWeight.w700),
           ),
         ],
       ),
@@ -467,15 +468,15 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _policyCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
         color: _accentSoft.withOpacity(0.65),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.verified_user_outlined, color: _accent, size: 20),
+          const Icon(Icons.verified_user_outlined, color: _accent, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -491,7 +492,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Widget _continueArea() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
+      padding: const EdgeInsets.fromLTRB(18, 9, 18, 11),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: _line)),
@@ -500,7 +501,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         top: false,
         child: SizedBox(
           width: double.infinity,
-          height: 54,
+          height: 50,
           child: ElevatedButton(
             onPressed: widget.onConfirm,
             style: ElevatedButton.styleFrom(
@@ -508,7 +509,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
               ),
             ),
             child: Text(
