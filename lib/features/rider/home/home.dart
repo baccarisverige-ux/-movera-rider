@@ -1429,15 +1429,17 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void _openDestinationSheet() {
+  double _fullSheetHeight() {
     final viewportHeight = MediaQuery.of(context).size.height;
     final topInset = MediaQuery.of(context).padding.top + 8;
-    final targetHeight =
-        ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
+    return ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
+  }
+
+  void _openDestinationSheet() {
     setState(() {
       _destinationSheetOpen = true;
       _isSheetDragging = false;
-      _sheetHeight = targetHeight;
+      _sheetHeight = _fullSheetHeight();
     });
   }
 
@@ -1509,6 +1511,13 @@ class _HomeState extends State<Home> {
                   ((sheetHeight - _sheetMinHeight) /
                           (_sheetMaxHeight - _sheetMinHeight))
                       .clamp(0.0, 1.0);
+              final fullSheetHeight = _fullSheetHeight();
+              final rawDetailProgress =
+                  ((sheetHeight - _sheetMaxHeight) /
+                          (fullSheetHeight - _sheetMaxHeight))
+                      .clamp(0.0, 1.0);
+              final detailProgress =
+                  Curves.easeInCubic.transform(rawDetailProgress);
               return SlidingUpPanel(
             color: AppColor.white,
             backdropColor: Colors.transparent,
@@ -1536,45 +1545,73 @@ class _HomeState extends State<Home> {
               child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onVerticalDragStart: (_) {
-                if (_destinationSheetOpen) return;
                 setState(() => _isSheetDragging = true);
               },
               onVerticalDragUpdate: (details) {
-                if (_destinationSheetOpen) return;
                 final delta = details.primaryDelta ?? 0;
+                final fullHeight = _fullSheetHeight();
                 setState(() {
-                  _sheetHeight =
-                      (_sheetHeight - delta).clamp(
-                        _sheetMinHeight,
-                        _sheetMaxHeight,
-                      );
+                  _sheetHeight = (_sheetHeight - delta).clamp(
+                    _sheetMinHeight,
+                    fullHeight,
+                  );
+                  _destinationSheetOpen =
+                      _sheetHeight > _sheetMaxHeight + 8;
                 });
               },
               onVerticalDragEnd: (details) {
-                if (_destinationSheetOpen) return;
                 final velocity = details.primaryVelocity ?? 0;
-                final shouldExpand = velocity < -260 ||
-                    (velocity.abs() <= 260 &&
-                        _sheetHeight >
-                            (_sheetMinHeight + _sheetMaxHeight) / 2);
+                final fullHeight = _fullSheetHeight();
+                double target;
+
+                if (velocity < -420) {
+                  target = _sheetHeight < _sheetMaxHeight - 8
+                      ? _sheetMaxHeight
+                      : fullHeight;
+                } else if (velocity > 420) {
+                  target = _sheetHeight > _sheetMaxHeight + 8
+                      ? _sheetMaxHeight
+                      : _sheetMinHeight;
+                } else {
+                  final candidates = <double>[
+                    _sheetMinHeight,
+                    _sheetMaxHeight,
+                    fullHeight,
+                  ];
+                  target = candidates.reduce(
+                    (first, second) =>
+                        (_sheetHeight - first).abs() <=
+                                (_sheetHeight - second).abs()
+                            ? first
+                            : second,
+                  );
+                }
+
                 setState(() {
                   _isSheetDragging = false;
-                  _sheetHeight =
-                      shouldExpand ? _sheetMaxHeight : _sheetMinHeight;
+                  _sheetHeight = target;
+                  _destinationSheetOpen = target == fullHeight;
                 });
               },
               onVerticalDragCancel: () {
-                if (_destinationSheetOpen) return;
+                final fullHeight = _fullSheetHeight();
+                final target = _sheetHeight > _sheetMaxHeight +
+                        (fullHeight - _sheetMaxHeight) / 2
+                    ? fullHeight
+                    : _sheetHeight >
+                            (_sheetMinHeight + _sheetMaxHeight) / 2
+                        ? _sheetMaxHeight
+                        : _sheetMinHeight;
                 setState(() {
                   _isSheetDragging = false;
-                  _sheetHeight =
-                      _sheetHeight >
-                              (_sheetMinHeight + _sheetMaxHeight) / 2
-                          ? _sheetMaxHeight
-                          : _sheetMinHeight;
+                  _sheetHeight = target;
+                  _destinationSheetOpen = target == fullHeight;
                 });
               },
-              child: _premiumCollapsedSheet(sheetProgress),
+              child: _premiumCollapsedSheet(
+                sheetProgress,
+                detailProgress,
+              ),
             ),
             ),
             body: SizedBox(
@@ -1705,7 +1742,10 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _premiumCollapsedSheet(double sheetProgress) {
+  Widget _premiumCollapsedSheet(
+    double sheetProgress,
+    double detailProgress,
+  ) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -1734,16 +1774,17 @@ class _HomeState extends State<Home> {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      if (_destinationSheetOpen) {
-                        _closeDestinationSheet();
-                        return;
-                      }
+                      final fullHeight = _fullSheetHeight();
+                      final target = _sheetHeight > _sheetMaxHeight + 8
+                          ? _sheetMaxHeight
+                          : _sheetHeight >
+                                  (_sheetMinHeight + _sheetMaxHeight) / 2
+                              ? _sheetMinHeight
+                              : _sheetMaxHeight;
                       setState(() {
                         _isSheetDragging = false;
-                        _sheetHeight = _sheetHeight >
-                                (_sheetMinHeight + _sheetMaxHeight) / 2
-                            ? _sheetMinHeight
-                            : _sheetMaxHeight;
+                        _sheetHeight = target;
+                        _destinationSheetOpen = target == fullHeight;
                       });
                     },
                     child: Container(
@@ -1756,10 +1797,6 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   15.height,
-                  if (_destinationSheetOpen) ...[
-                    _pickupAddressField(),
-                    10.height,
-                  ],
                   _whereToCard(),
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
@@ -1779,19 +1816,21 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                   ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    child: _destinationSheetOpen
-                        ? Padding(
-                            key: const ValueKey('advance-booking-card'),
+                  IgnorePointer(
+                    ignoring: detailProgress < 0.92,
+                    child: ClipRect(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        heightFactor: detailProgress,
+                        child: Opacity(
+                          opacity: detailProgress,
+                          child: Padding(
                             padding: EdgeInsets.only(top: ResSize.h * 24),
                             child: _advanceBookingCard(),
-                          )
-                        : const SizedBox.shrink(
-                            key: ValueKey('advance-booking-empty'),
                           ),
+                        ),
+                      ),
+                    ),
                   ),
 
                 ],
