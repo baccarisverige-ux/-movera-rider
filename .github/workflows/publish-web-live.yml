@@ -53,6 +53,35 @@ jobs:
           p.write_text(s)
           PY
 
+      - name: Fingerprint compiled Flutter bundle
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          build = Path('build/web')
+          version = os.environ['GITHUB_SHA'][:8]
+          main = build / 'main.dart.js'
+          bootstrap = build / 'flutter_bootstrap.js'
+          index = build / 'index.html'
+
+          versioned_main = f'main.{version}.dart.js'
+          versioned_bootstrap = f'flutter_bootstrap.{version}.js'
+
+          bootstrap_text = bootstrap.read_text()
+          bootstrap_text = bootstrap_text.replace('main.dart.js', versioned_main)
+          bootstrap.write_text(bootstrap_text)
+          main.rename(build / versioned_main)
+          bootstrap.rename(build / versioned_bootstrap)
+
+          index_text = index.read_text()
+          index_text = index_text.replace(
+              'flutter_bootstrap.js',
+              versioned_bootstrap,
+          )
+          index.write_text(index_text)
+          PY
+
       - name: Prepare GitHub Pages build
         run: |
           rm -rf /tmp/movera-pages
