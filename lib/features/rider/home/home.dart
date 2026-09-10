@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -19,6 +18,7 @@ import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
 import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
+import 'package:movera_rider/shared/services/location_address.dart' as address_service;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -53,7 +53,6 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   final PanelController _panelController = PanelController();
   final PanelController _profilePanelController = PanelController();
-  final Geocoding _geocoding = Geocoding();
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
@@ -251,13 +250,13 @@ class _HomeState extends State<Home> {
           timeLimit: Duration(seconds: 15),
         ),
       );
-      final placemarks = await _geocoding.placemarkFromCoordinates(
+      final detectedAddress = await address_service.reverseGeocodeAddress(
         position.latitude,
         position.longitude,
       );
-      final address = placemarks.isEmpty
-          ? 'Current location'
-          : _formatPlacemark(placemarks.first);
+      final address = detectedAddress?.trim().isNotEmpty == true
+          ? detectedAddress!.trim()
+          : 'Current location';
       final target = LatLng(position.latitude, position.longitude);
       if (!mounted) return;
       setState(() {
@@ -287,16 +286,6 @@ class _HomeState extends State<Home> {
         _pickupAddress ??= 'Current location';
       });
     }
-  }
-
-  String _formatPlacemark(Placemark place) {
-    final parts = <String>[
-      if ((place.street ?? '').trim().isNotEmpty) place.street!.trim(),
-      if ((place.postalCode ?? '').trim().isNotEmpty) place.postalCode!.trim(),
-      if ((place.locality ?? '').trim().isNotEmpty) place.locality!.trim(),
-      if ((place.country ?? '').trim().isNotEmpty) place.country!.trim(),
-    ];
-    return parts.toSet().join(', ');
   }
 
   String _shortAddress(String? address, {int maxLength = 24}) {
@@ -340,40 +329,21 @@ class _HomeState extends State<Home> {
   Future<String> _normaliseAddress(String input) async {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
-    try {
-      final locations = await _geocoding.locationFromAddress(clean);
-      if (locations.isEmpty) return clean;
-      final location = locations.first;
-      final placemarks = await _geocoding.placemarkFromCoordinates(
-        location.latitude,
-        location.longitude,
-      );
-      if (placemarks.isNotEmpty) {
-        final formatted = _formatPlacemark(placemarks.first);
-        if (formatted.isNotEmpty) return formatted;
-      }
-    } catch (_) {
-      // Keep the user's exact text when geocoding is unavailable.
-    }
-    return clean;
+    final result = await address_service.geocodeAddress(clean);
+    return result?.address.trim().isNotEmpty == true
+        ? result!.address.trim()
+        : clean;
   }
 
   Future<void> _moveMapToAddress(String address) async {
-    try {
-      final locations = await _geocoding.locationFromAddress(address);
-      if (locations.isEmpty) return;
-      final target = LatLng(
-        locations.first.latitude,
-        locations.first.longitude,
-      );
-      await _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: target, zoom: 15),
-        ),
-      );
-    } catch (_) {
-      // Address remains usable even if map positioning is unavailable.
-    }
+    final result = await address_service.geocodeAddress(address);
+    if (result == null) return;
+    final target = LatLng(result.latitude, result.longitude);
+    await _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: target, zoom: 15),
+      ),
+    );
   }
 
   void _rememberAddress(String address) {

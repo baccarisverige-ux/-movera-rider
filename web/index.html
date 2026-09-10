@@ -33,6 +33,50 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    window.moveraReverseGeocode = function(latitude, longitude) {
+      return new Promise(function(resolve) {
+        if (!window.google || !google.maps || !google.maps.Geocoder) {
+          resolve(null);
+          return;
+        }
+        new google.maps.Geocoder().geocode(
+          { location: { lat: latitude, lng: longitude } },
+          function(results, status) {
+            resolve(
+              status === 'OK' && results && results[0]
+                ? results[0].formatted_address
+                : null
+            );
+          }
+        );
+      });
+    };
+
+    window.moveraGeocodeAddress = function(address) {
+      return new Promise(function(resolve) {
+        if (!window.google || !google.maps || !google.maps.Geocoder) {
+          resolve(null);
+          return;
+        }
+        new google.maps.Geocoder().geocode(
+          { address: address },
+          function(results, status) {
+            if (status !== 'OK' || !results || !results[0]) {
+              resolve(null);
+              return;
+            }
+            var location = results[0].geometry.location;
+            resolve(JSON.stringify({
+              address: results[0].formatted_address,
+              latitude: location.lat(),
+              longitude: location.lng()
+            }));
+          }
+        );
+      });
+    };
+  </script>
   <script src="flutter_bootstrap.js" defer></script>
 </body>
 </html>
