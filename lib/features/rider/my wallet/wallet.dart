@@ -933,8 +933,8 @@ class _WalletScreenState extends State<WalletScreen> {
     Color background = Colors.white;
 
     if (brand == 'apple') {
-      logo = Image.asset(
-        AppAssets.applepay,
+      logo = SvgPicture.asset(
+        'assets/images/apple_pay_brand.svg',
         fit: BoxFit.contain,
       );
     } else if (brand == 'google') {
