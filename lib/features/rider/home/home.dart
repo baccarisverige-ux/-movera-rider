@@ -1806,20 +1806,45 @@ class _HomeState extends State<Home> {
               ),
             ),
             Positioned(
-              left: ResSize.w * 18,
-              right: ResSize.w * 18,
-              bottom: 0,
+              left: ResSize.w * (18 + (30 * (1 - sheetProgress))),
+              right: ResSize.w * (18 + (30 * (1 - sheetProgress))),
+              bottom: ResSize.h * (10 * (1 - sheetProgress)),
               child: Container(
-                color: AppColor.white,
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResSize.w * (4 * (1 - sheetProgress)),
+                  vertical: ResSize.h * (5 * (1 - sheetProgress)),
+                ),
+                decoration: BoxDecoration(
+                  color: AppColor.white,
+                  borderRadius: BorderRadius.circular(
+                    32 * (1 - sheetProgress),
+                  ),
+                  border: Border.all(
+                    color: _premiumLine.withOpacity(1 - sheetProgress),
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(
+                        0.14 * (1 - sheetProgress),
+                      ),
+                      blurRadius: 28 * (1 - sheetProgress),
+                      offset: Offset(0, 10 * (1 - sheetProgress)),
+                    ),
+                  ],
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Divider(
-                      color: Color(0xFFE7EBEE),
-                      thickness: 0.8,
-                      height: 1,
+                    Opacity(
+                      opacity: sheetProgress,
+                      child: const Divider(
+                        color: Color(0xFFE7EBEE),
+                        thickness: 0.8,
+                        height: 1,
+                      ),
                     ),
-                    9.height,
+                    SizedBox(height: ResSize.h * (9 * sheetProgress)),
                     Row(
                       children: [
                         Expanded(
@@ -1827,6 +1852,7 @@ class _HomeState extends State<Home> {
                             iconAsset: AppAssets.navMap,
                             label: 'Map',
                             active: true,
+                            floatingFraction: 1 - sheetProgress,
                             onTap: () {},
                           ),
                         ),
@@ -1834,6 +1860,7 @@ class _HomeState extends State<Home> {
                           child: _premiumBottomNavItem(
                             iconAsset: AppAssets.navPayment,
                             label: 'Payment',
+                            floatingFraction: 1 - sheetProgress,
                             onTap: _openPayment,
                           ),
                         ),
@@ -1841,6 +1868,7 @@ class _HomeState extends State<Home> {
                           child: _premiumBottomNavItem(
                             iconAsset: AppAssets.navSchedule,
                             label: 'Schedule ride',
+                            floatingFraction: 1 - sheetProgress,
                             onTap: _openSchedule,
                           ),
                         ),
@@ -1848,6 +1876,7 @@ class _HomeState extends State<Home> {
                           child: _premiumBottomNavItem(
                             iconAsset: AppAssets.navAccount,
                             label: 'Account',
+                            floatingFraction: 1 - sheetProgress,
                             onTap: _openAccount,
                           ),
                         ),
@@ -2466,37 +2495,53 @@ Widget _homePromoCard({
     required String label,
     required VoidCallback onTap,
     bool active = false,
+    double floatingFraction = 0,
   }) {
-    final color =
-        active ? const Color(0xFF2A7A84) : const Color(0xFF899197);
+    final activeColor = Color.lerp(
+      const Color(0xFF2A7A84),
+      _premiumInk,
+      floatingFraction,
+    )!;
+    final color = active ? activeColor : const Color(0xFF899197);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: SizedBox(
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
           height: ResSize.h * 52,
+          margin: EdgeInsets.symmetric(
+            horizontal: ResSize.w * 2.5 * floatingFraction,
+          ),
+          decoration: BoxDecoration(
+            color: active
+                ? Color.lerp(
+                    Colors.transparent,
+                    const Color(0xFFF2F2F2),
+                    floatingFraction,
+                  )
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(
+              24 * floatingFraction + 14 * (1 - floatingFraction),
+            ),
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
+              SizedBox(
                 height: ResSize.h * 30,
                 width: ResSize.w * 30,
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: Opacity(
-                  opacity: active ? 1 : 0.86,
-                  child: Image.asset(
-                    iconAsset,
-                    height: ResSize.h * 18.68,
-                    width: ResSize.w * 18.68,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
+                child: Center(
+                  child: Opacity(
+                    opacity: active ? 1 : 0.86,
+                    child: Image.asset(
+                      iconAsset,
+                      height: ResSize.h * 18.68,
+                      width: ResSize.w * 18.68,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
                   ),
                 ),
               ),
