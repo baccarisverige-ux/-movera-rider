@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -146,19 +148,19 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const SizedBox(height: 5),
                 _addMethodChoice(
-                  icon: Icons.credit_card_rounded,
+                  brand: 'cards',
                   title: 'Debit or credit card',
                   subtitle: 'Visa, Mastercard or Amex',
                   onTap: () => Navigator.pop(sheetContext, 'card'),
                 ),
                 _addMethodChoice(
-                  icon: Icons.account_balance_wallet_outlined,
+                  brand: 'paypal',
                   title: 'PayPal',
                   subtitle: 'Connect your PayPal account',
                   onTap: () => Navigator.pop(sheetContext, 'paypal'),
                 ),
                 _addMethodChoice(
-                  icon: Icons.payments_outlined,
+                  brand: 'klarna',
                   title: 'Klarna',
                   subtitle: 'Pay now or later when available',
                   onTap: () => Navigator.pop(sheetContext, 'klarna'),
@@ -179,7 +181,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _addMethodChoice({
-    required IconData icon,
+    required String brand,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -193,15 +195,7 @@ class _WalletScreenState extends State<WalletScreen> {
           padding: const EdgeInsets.symmetric(vertical: 13),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: _surface,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(icon, color: _ink, size: 20),
-              ),
+              _brandMark(brand),
               const SizedBox(width: 13),
               Expanded(
                 child: Column(
@@ -935,62 +929,67 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _brandMark(String brand) {
-    if (brand == 'apple') {
-      return Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(Icons.apple, color: _ink, size: 22),
-      );
-    }
-    if (brand == 'google') {
-      return Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          'G',
-          style: _style(18, weight: FontWeight.w700),
-        ),
-      );
-    }
-    if (brand == 'paypal') {
-      return _letterBrand('P', const Color(0xFF1A5CA8));
-    }
-    if (brand == 'klarna') {
-      return _letterBrand('K', const Color(0xFFE9A4BD));
-    }
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Icon(Icons.credit_card_rounded, color: _ink, size: 20),
-    );
-  }
+    Widget logo;
+    Color background = Colors.white;
 
-  Widget _letterBrand(String letter, Color color) {
+    if (brand == 'apple') {
+      logo = Image.asset(
+        AppAssets.applepay,
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'google') {
+      logo = SvgPicture.asset(
+        'assets/images/google_pay_brand.svg',
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'paypal') {
+      logo = Image.asset(
+        AppAssets.paypal,
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'klarna') {
+      background = const Color(0xFFFFB3C7);
+      logo = SvgPicture.asset(
+        'assets/images/klarna_brand.svg',
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'cards') {
+      logo = Row(
+        children: [
+          Expanded(
+            child: Image.asset(
+              AppAssets.visa,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Image.asset(
+              AppAssets.mastercard,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ],
+      );
+    } else {
+      logo = Image.asset(
+        AppAssets.mastercard,
+        fit: BoxFit.contain,
+      );
+    }
+
     return Container(
-      width: 38,
+      width: 42,
       height: 38,
-      alignment: Alignment.center,
+      padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.16),
-        borderRadius: BorderRadius.circular(12),
+        color: background,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: background == Colors.white ? _line : background,
+        ),
       ),
-      child: Text(
-        letter,
-        style: _style(16, weight: FontWeight.w700, color: color),
-      ),
+      child: logo,
     );
   }
 
