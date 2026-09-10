@@ -423,7 +423,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     const SizedBox(height: 18),
                     Center(
                       child: Image.asset(
-                        'assets/images/schedule_timeline_transparent.png',
+                        'assets/images/schedule_timeline_white.png',
                         width: double.infinity,
                         height: 132,
                         fit: BoxFit.contain,
