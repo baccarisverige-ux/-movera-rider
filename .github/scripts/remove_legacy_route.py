@@ -91,6 +91,17 @@ schedule = replace_exact(
     'Schedule web-unsafe marker',
 )
 
+# Remove the original ZIP's Islamabad fallback from the still-supported
+# scheduled ride flow. Keep the same neutral fallback used by Home.
+schedule = replace_exact(
+    schedule,
+    'LatLng(33.6844, 73.0479)',
+    'LatLng(59.3293, 18.0686)',
+    'Schedule original Islamabad constants',
+    expected=2,
+)
+schedule = schedule.replace('// Islamabad coordinates', '// neutral map fallback')
+
 home_path.write_text(home)
 schedule_path.write_text(schedule)
 
