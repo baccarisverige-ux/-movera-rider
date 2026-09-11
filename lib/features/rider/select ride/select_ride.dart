@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/rider/Finding%20Drivers/finding_drivers.dart';
@@ -45,14 +46,14 @@ class _RideOption {
 
 class _PaymentOption {
   const _PaymentOption({
-    required this.image,
+    required this.brand,
     required this.name,
-    this.tintable = false,
+    required this.detail,
   });
 
-  final String image;
+  final String brand;
   final String name;
-  final bool tintable;
+  final String detail;
 }
 
 class _SelectRideState extends State<SelectRide> {
@@ -99,15 +100,40 @@ class _SelectRideState extends State<SelectRide> {
   ];
 
   final List<_PaymentOption> _payments = const [
-    _PaymentOption(image: AppAssets.wallet, name: 'Wallet', tintable: true),
-    _PaymentOption(image: AppAssets.cash, name: 'Cash', tintable: true),
-    _PaymentOption(image: AppAssets.mastercard, name: 'Mastercard'),
-    _PaymentOption(image: AppAssets.applepay, name: 'Apple Pay'),
-    _PaymentOption(image: AppAssets.paypal, name: 'PayPal'),
+    _PaymentOption(
+      brand: 'apple',
+      name: 'Apple Pay',
+      detail: 'Available by default',
+    ),
+    _PaymentOption(
+      brand: 'google',
+      name: 'Google Pay',
+      detail: 'Available by default',
+    ),
+    _PaymentOption(
+      brand: 'paypal',
+      name: 'PayPal',
+      detail: 'Pay for this ride',
+    ),
+    _PaymentOption(
+      brand: 'cards',
+      name: 'Card',
+      detail: 'Visa, Mastercard',
+    ),
+    _PaymentOption(
+      brand: 'cash',
+      name: 'Cash',
+      detail: 'Pay the driver',
+    ),
+    _PaymentOption(
+      brand: 'wallet',
+      name: 'Wallet',
+      detail: '\$7.00 available',
+    ),
   ];
 
   int _selectedRide = 1;
-  int _selectedPayment = 3;
+  int _selectedPayment = 0;
   double _price = 7.50;
   DateTime? _scheduledFor;
 
@@ -221,22 +247,150 @@ class _SelectRideState extends State<SelectRide> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _choiceSheet(
-        title: 'Payment method',
-        children: List.generate(_payments.length, (index) {
-          final method = _payments[index];
-          return _sheetChoice(
-            image: method.image,
-            tintImage: method.tintable,
-            title: method.name,
-            subtitle: index == 0 ? '\$7.00 available' : 'Pay for this ride',
-            selected: _selectedPayment == index,
-            onTap: () {
-              setState(() => _selectedPayment = index);
-              Navigator.pop(sheetContext);
-            },
-          );
-        }),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF6F5F1),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD8DDE0),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Payment',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'PAYMENT METHODS',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.25,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: _line),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.035),
+                        blurRadius: 22,
+                        offset: const Offset(0, 9),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < _payments.length; index++) ...[
+                        if (index > 0)
+                          const Divider(
+                            height: 1,
+                            indent: 62,
+                            endIndent: 16,
+                            color: _line,
+                          ),
+                        _walletPaymentTile(index, sheetContext),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _walletPaymentTile(int index, BuildContext sheetContext) {
+    final method = _payments[index];
+    final selected = _selectedPayment == index;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          setState(() => _selectedPayment = index);
+          Navigator.pop(sheetContext);
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            children: [
+              _brandMark(method.brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      method.name,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      selected ? 'Default for rides' : method.detail,
+                      style: TextStyle(
+                        color: selected ? _accent : _muted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: selected ? _ink : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? _ink : _line,
+                    width: 1.4,
+                  ),
+                ),
+                child: selected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -580,26 +734,13 @@ class _SelectRideState extends State<SelectRide> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _compactAction(
-                            icon: Icons.account_balance_wallet_outlined,
-                            label: 'Payment',
-                            value: _payments[_selectedPayment].name,
-                            onTap: _showPaymentPicker,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _compactAction(
-                            icon: Icons.schedule_rounded,
-                            label: 'Pickup',
-                            value: _scheduleLabel,
-                            onTap: _showBookingPicker,
-                          ),
-                        ),
-                      ],
+                    _paymentButton(),
+                    const SizedBox(height: 8),
+                    _compactAction(
+                      icon: Icons.schedule_rounded,
+                      label: 'Pickup',
+                      value: _scheduleLabel,
+                      onTap: _showBookingPicker,
                     ),
                     const SizedBox(height: 10),
                     Material(
@@ -765,6 +906,128 @@ class _SelectRideState extends State<SelectRide> {
           child: Icon(icon, color: _ink, size: 22),
         ),
       ),
+    );
+  }
+
+  Widget _paymentButton() {
+    final method = _payments[_selectedPayment];
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: _showPaymentPicker,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.035),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _brandMark(method.brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      method.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Default for rides',
+                      style: TextStyle(
+                        color: _accent,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: _muted,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _brandMark(String brand) {
+    Widget logo;
+    Color background = Colors.white;
+
+    if (brand == 'apple') {
+      logo = SvgPicture.asset(
+        'assets/images/apple_pay_brand.svg',
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'google') {
+      logo = Transform.scale(
+        scale: 1.18,
+        child: Image.asset(
+          'assets/images/google_pay_brand.png',
+          fit: BoxFit.contain,
+        ),
+      );
+    } else if (brand == 'paypal') {
+      logo = Image.asset(AppAssets.paypal, fit: BoxFit.contain);
+    } else if (brand == 'cards') {
+      logo = Row(
+        children: [
+          Expanded(child: Image.asset(AppAssets.visa, fit: BoxFit.contain)),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Image.asset(AppAssets.mastercard, fit: BoxFit.contain),
+          ),
+        ],
+      );
+    } else if (brand == 'cash') {
+      logo = Image.asset(
+        AppAssets.cash,
+        fit: BoxFit.contain,
+        color: _ink,
+      );
+    } else {
+      logo = Image.asset(
+        AppAssets.wallet,
+        fit: BoxFit.contain,
+        color: _ink,
+      );
+    }
+
+    return Container(
+      width: 42,
+      height: 38,
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: _line),
+      ),
+      child: logo,
     );
   }
 
