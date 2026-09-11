@@ -501,8 +501,20 @@ class _HomeState extends State<Home> {
       _rememberAddress(destination);
     });
     await _persistAddressData();
-    final pickupPosition = _tripPickupLatLng ?? _currentLatLng;
-    if (pickupPosition == null || !mounted) return;
+    var pickupPosition = _tripPickupLatLng ?? _currentLatLng;
+    if (pickupPosition == null) {
+      final pickupResult = await _openPickupMapPicker(
+        _pickupAddress ?? 'Current location',
+      );
+      if (pickupResult == null || !mounted) return;
+      pickupPosition = pickupResult.position;
+      setState(() {
+        _pickupAddress = pickupResult.address;
+        _tripPickupLatLng = pickupResult.position;
+      });
+    }
+    if (!mounted) return;
+    final confirmedPickupPosition = pickupPosition;
     var resolvedDestination = destination;
     LatLng? destinationPosition;
     final destinationResult = await address_service.geocodeAddress(destination);
@@ -525,15 +537,15 @@ class _HomeState extends State<Home> {
           : destination;
       destinationPosition = result.position;
     }
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      BottomToTopTransition(
-        SelectRide(
+    final confirmedDestinationPosition = destinationPosition;
+    if (confirmedDestinationPosition == null || !mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SelectRide(
           pickupAddress: _pickupAddress ?? 'Current location',
           destinationAddress: resolvedDestination,
-          pickupPosition: pickupPosition,
-          destinationPosition: destinationPosition,
+          pickupPosition: confirmedPickupPosition,
+          destinationPosition: confirmedDestinationPosition,
           stops: List<String>.from(_routeStops),
         ),
       ),
@@ -1306,6 +1318,15 @@ class _HomeState extends State<Home> {
       final pickupPosition = exactPickupPosition;
       final destinationPosition = exactDestinationPosition;
       if (pickupPosition == null || destinationPosition == null || !mounted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Please confirm pickup and destination on the map.',
+              ),
+            ),
+          );
+        }
         return;
       }
       await _mapController?.animateCamera(
@@ -1315,10 +1336,9 @@ class _HomeState extends State<Home> {
       );
       if (!mounted) return;
 
-      Navigator.push(
-        context,
-        BottomToTopTransition(
-          SelectRide(
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SelectRide(
             pickupAddress: pickup.isNotEmpty
                 ? pickup
                 : (_pickupAddress ?? 'Current location'),
