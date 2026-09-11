@@ -27,12 +27,15 @@ jobs:
       - name: Wait for this exact Pages build
         run: |
           SHORT="${GITHUB_SHA::8}"
-          for i in $(seq 1 36); do
-            HTML=$(curl -fsSL "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
-            if printf '%s' "$HTML" | grep -q "main.${SHORT}.dart.js"; then
-              echo "LIVE_BUILD=main.${SHORT}.dart.js" >> "$GITHUB_ENV"
-              echo "Exact live build found: main.${SHORT}.dart.js"
-              exit 0
+          for i in $(seq 1 48); do
+            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
+              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
+              if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js"; then
+                echo "LIVE_BUILD=main.${SHORT}.dart.js" >> "$GITHUB_ENV"
+                echo "Exact live build found: main.${SHORT}.dart.js"
+                exit 0
+              fi
             fi
             sleep 10
           done
@@ -62,11 +65,8 @@ jobs:
           page.on('pageerror', e => pageErrors.push({message:String(e), stack:e.stack || ''}));
           page.on('console', m => { if (m.type()==='error') consoleErrors.push(m.text()); });
 
-          const shots = [];
           async function shot(name) {
-            const path = `qa-${name}.png`;
-            await page.screenshot({path, fullPage:true});
-            shots.push(path);
+            await page.screenshot({path:`qa-${name}.png`, fullPage:true});
           }
           async function semantics() {
             return await page.evaluate(() => Array.from(document.querySelectorAll('flt-semantics')).map((el,index) => {
@@ -84,8 +84,7 @@ jobs:
           async function findSemantic(rx) {
             return await page.evaluate((src) => {
               const re = new RegExp(src,'i');
-              const all = Array.from(document.querySelectorAll('flt-semantics'));
-              for (const el of all) {
+              for (const el of Array.from(document.querySelectorAll('flt-semantics'))) {
                 const text = `${el.getAttribute('aria-label')||''} ${el.textContent||''}`.trim();
                 const r = el.getBoundingClientRect();
                 if (re.test(text) && r.width>0 && r.height>0) return {text, x:r.x+r.width/2, y:r.y+r.height/2};
@@ -105,16 +104,16 @@ jobs:
             fs.writeFileSync(`qa-${name}.json`, JSON.stringify(data,null,2));
             console.log(`STATE ${name}\n`+JSON.stringify(data,null,2));
           }
+          function fatalErrors() {
+            return [...pageErrors.map(x=>x.message), ...consoleErrors].filter(x => /Null check operator|RangeError|Another exception|Uncaught|TypeError/i.test(x));
+          }
 
           await page.goto(base+`?v=${Date.now()}`, {waitUntil:'networkidle', timeout:120000});
           await page.waitForTimeout(5000);
           await enableSemantics();
           await dump('home');
           await shot('home');
-
-          if (pageErrors.length || consoleErrors.some(x => /Null check operator|RangeError|Exception|Error:/.test(x))) {
-            console.error('Runtime error on Home before interaction');
-          }
+          if (fatalErrors().length) throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
 
           let opened = await clickSemantic(/Where to\?/i);
           if (!opened) opened = await clickSemantic(/destination/i);
@@ -122,25 +121,21 @@ jobs:
           await shot('destination-open');
 
           const inputs = page.locator('input,textarea');
-          const inputCount = await inputs.count();
-          if (inputCount) {
-            let target = null;
-            for (let i=0;i<inputCount;i++) {
-              const el = inputs.nth(i);
-              if (await el.isVisible().catch(()=>false)) target = el;
-            }
-            if (target) {
-              await target.fill('Stockholm Central Station');
-              await page.waitForTimeout(1800);
-              await target.press('ArrowDown').catch(()=>{});
-              await target.press('Enter').catch(()=>{});
-              await page.waitForTimeout(2000);
-            }
+          let target = null;
+          for (let i=0;i<await inputs.count();i++) {
+            const el = inputs.nth(i);
+            if (await el.isVisible().catch(()=>false)) target = el;
+          }
+          if (target) {
+            await target.fill('Stockholm Central Station');
+            await page.waitForTimeout(1800);
+            await target.press('ArrowDown').catch(()=>{});
+            await target.press('Enter').catch(()=>{});
+            await page.waitForTimeout(2000);
           }
           await dump('destination-entered');
           await shot('destination-entered');
 
-          // Try visible suggestion/result before Next if the text field did not commit.
           if (!await findSemantic(/Next/i)) {
             const candidates = await semantics();
             const suggestion = candidates.find(x => /Stockholm|Central/i.test(`${x.label} ${x.text}`) && x.h>20);
@@ -150,61 +145,38 @@ jobs:
             }
           }
 
-          await clickSemantic(/Next/i);
+          if (!await clickSemantic(/Next/i)) {
+            await dump('next-missing');
+            throw new Error('Next is not clickable in actual live Rider flow');
+          }
           await page.waitForTimeout(3500);
           await enableSemantics();
           await dump('after-next');
           await shot('after-next');
 
-          const choose = await findSemantic(/Choose your ride/i);
-          if (!choose) {
-            console.error('FAIL: Choose your ride is not visible after actual live flow');
-            await browser.close();
-            process.exit(2);
+          if (!await findSemantic(/Choose your ride/i)) {
+            throw new Error('Choose your ride is not visible after actual live flow');
           }
 
-          // Exercise category selection.
           for (const label of [/Mini Ride/i,/Eco-Friendly/i,/XL/i,/Luxury/i]) {
-            const ok = await clickSemantic(label);
-            if (!ok) {
-              console.error(`FAIL: category not clickable: ${label}`);
-              await browser.close();
-              process.exit(3);
-            }
+            if (!await clickSemantic(label)) throw new Error(`Category not clickable: ${label}`);
           }
 
-          // Exercise price controls by coordinates from button semantics if exposed.
-          await clickSemantic(/Payment/i);
+          if (!await clickSemantic(/Payment/i)) throw new Error('Payment control not clickable');
           await page.waitForTimeout(600);
           await enableSemantics();
-          const paymentSheet = await findSemantic(/Payment method/i);
-          if (!paymentSheet) {
-            console.error('FAIL: payment sheet did not open');
-            await browser.close();
-            process.exit(4);
-          }
-          await clickSemantic(/Cash/i);
+          if (!await findSemantic(/Payment method/i)) throw new Error('Payment sheet did not open');
+          if (!await clickSemantic(/Cash/i)) throw new Error('Cash payment option not clickable');
 
-          await clickSemantic(/Pickup time/i);
+          if (!await clickSemantic(/Pickup time/i)) throw new Error('Pickup time control not clickable');
           await page.waitForTimeout(600);
           await enableSemantics();
-          const bookingSheet = await findSemantic(/When do you want to ride/i);
-          if (!bookingSheet) {
-            console.error('FAIL: booking picker did not open');
-            await browser.close();
-            process.exit(5);
-          }
-          await clickSemantic(/Book now/i);
+          if (!await findSemantic(/When do you want to ride/i)) throw new Error('Booking picker did not open');
+          if (!await clickSemantic(/Book now/i)) throw new Error('Book now not clickable');
 
           await dump('categories-tested');
           await shot('categories-tested');
-
-          const fatal = [...pageErrors.map(x=>x.message), ...consoleErrors].filter(x => /Null check operator|RangeError|Another exception|Uncaught|TypeError/i.test(x));
-          if (fatal.length) {
-            console.error('FAIL: runtime errors after categories interactions\n'+fatal.join('\n'));
-            await browser.close();
-            process.exit(6);
-          }
+          if (fatalErrors().length) throw new Error('Fatal runtime errors after categories interactions: '+fatalErrors().join(' | '));
 
           console.log('PASS: actual live Rider reached categories and core controls worked without fatal runtime errors');
           await browser.close();
