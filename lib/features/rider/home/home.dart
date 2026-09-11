@@ -2249,7 +2249,7 @@ class _HomeState extends State<Home> {
               top: sheetHeight -
                   ResSize.h * (63 + (30 * (1 - sheetProgress))),
               child: Transform.scale(
-                scale: 0.80 + (0.20 * sheetProgress),
+                scale: 0.84 + (0.16 * sheetProgress),
                 alignment: Alignment.bottomCenter,
                 child: Container(
                 padding: EdgeInsets.symmetric(
@@ -3090,7 +3090,7 @@ Widget _homePromoCard({
                   fit: BoxFit.scaleDown,
                   child: TextWidget(
                     text: label,
-                    color: color,
+                    color: Colors.black,
                     fontSize: 9.5,
                     fontWeight: active ? fwSemiBold : fwMedium,
                   ),
