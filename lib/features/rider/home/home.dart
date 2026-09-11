@@ -1549,10 +1549,10 @@ class _HomeState extends State<Home> {
   }
 
   Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
-    const width = 112.0;
-    const height = 128.0;
+    const width = 78.4;
+    const height = 89.6;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
+    final canvas = Canvas(recorder)..scale(0.7, 0.7);
     const center = Offset(56, 84);
     final beam = Path()
       ..moveTo(56, 5)
