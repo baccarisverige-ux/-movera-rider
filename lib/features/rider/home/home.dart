@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'dart:ui' show ImageFilter;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -57,6 +58,8 @@ class _HomeState extends State<Home> {
   final SheetController _homeSheetController = SheetController();
   final PanelController _profilePanelController = PanelController();
   Timer? _sheetIdleTimer;
+  Timer? _locationPulseTimer;
+  bool _locationPulseExpanded = false;
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
@@ -78,6 +81,7 @@ class _HomeState extends State<Home> {
   GoogleMapController? _mapController;
   // ignore: prefer_final_fields
   Set<Marker> _markers = {};
+  Set<Circle> _locationCircles = {};
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
@@ -184,6 +188,7 @@ class _HomeState extends State<Home> {
   @override
   void dispose() {
     _sheetIdleTimer?.cancel();
+    _locationPulseTimer?.cancel();
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
       ..dispose();
@@ -271,6 +276,7 @@ class _HomeState extends State<Home> {
           ? detectedAddress!.trim()
           : 'Current location';
       final target = LatLng(position.latitude, position.longitude);
+      final markerIcon = await _premiumGreyMarkerIcon();
       if (!mounted) return;
       setState(() {
         _pickupAddress = address;
@@ -281,12 +287,11 @@ class _HomeState extends State<Home> {
             markerId: const MarkerId('current_location'),
             position: target,
             infoWindow: InfoWindow(title: address),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueBlue,
-            ),
+            icon: markerIcon,
           ),
         };
       });
+      _startLocationPulse(target);
       await _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(target: target, zoom: 15),
@@ -1534,15 +1539,84 @@ class _HomeState extends State<Home> {
     }
   }
 
-  void _loadMarkers() {
-    _markers.add(
-      Marker(
-        markerId: const MarkerId('driver_location'),
-        position: const LatLng(59.3293, 18.0686),
-        infoWindow: const InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-      ),
+  Future<BitmapDescriptor> _premiumGreyMarkerIcon() async {
+    const width = 72.0;
+    const height = 88.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final shadow = Paint()
+      ..color = const Color(0x35000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
+    final pin = Path()
+      ..moveTo(36, 82)
+      ..cubicTo(29, 68, 13, 52, 13, 34)
+      ..cubicTo(13, 9, 59, 9, 59, 34)
+      ..cubicTo(59, 52, 43, 68, 36, 82)
+      ..close();
+    canvas.save();
+    canvas.translate(0, 2);
+    canvas.drawPath(pin, shadow);
+    canvas.restore();
+    canvas.drawPath(pin, Paint()..color = const Color(0xFF5F666B));
+    canvas.drawCircle(const Offset(36, 34), 12, Paint()..color = const Color(0xFFF7F8F8));
+    canvas.drawCircle(const Offset(36, 34), 6, Paint()..color = const Color(0xFF8B9297));
+    final image = await recorder.endRecording().toImage(width.toInt(), height.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(bytes!.buffer.asUint8List());
+  }
+
+  void _startLocationPulse(LatLng target) {
+    _locationPulseTimer?.cancel();
+    void updatePulse() {
+      if (!mounted) return;
+      _locationPulseExpanded = !_locationPulseExpanded;
+      setState(() {
+        _locationCircles = {
+          Circle(
+            circleId: const CircleId('location_pulse'),
+            center: target,
+            radius: _locationPulseExpanded ? 22 : 10,
+            fillColor: const Color(0xFF737A7F).withOpacity(
+              _locationPulseExpanded ? 0.08 : 0.24,
+            ),
+            strokeColor: const Color(0xFF737A7F).withOpacity(
+              _locationPulseExpanded ? 0.12 : 0.38,
+            ),
+            strokeWidth: 2,
+            zIndex: 3,
+          ),
+          Circle(
+            circleId: const CircleId('location_core'),
+            center: target,
+            radius: 4,
+            fillColor: const Color(0xFF697075),
+            strokeColor: Colors.white,
+            strokeWidth: 2,
+            zIndex: 4,
+          ),
+        };
+      });
+    }
+    updatePulse();
+    _locationPulseTimer = Timer.periodic(
+      const Duration(milliseconds: 850),
+      (_) => updatePulse(),
     );
+  }
+
+  Future<void> _loadMarkers() async {
+    final markerIcon = await _premiumGreyMarkerIcon();
+    if (!mounted) return;
+    setState(() {
+      _markers = {
+        Marker(
+          markerId: const MarkerId('pickup_location'),
+          position: const LatLng(59.3293, 18.0686),
+          infoWindow: const InfoWindow(title: 'Pickup location'),
+          icon: markerIcon,
+        ),
+      };
+    });
   }
 
   double _fullSheetHeight() {
@@ -1703,7 +1777,8 @@ class _HomeState extends State<Home> {
                 CustomGoogleMap(
                   initialPosition: _initialPosition,
                   markers: _markers,
-                  myLocationEnabled: true,
+                  circles: _locationCircles,
+                  myLocationEnabled: false,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,
