@@ -1940,7 +1940,7 @@ class _HomeState extends State<Home> {
 
   bool get _isSheetAtMiddle {
     if (!_homeSheetController.hasClient) return false;
-    final offset = _homeSheetController.value;
+    final offset = _homeSheetController.metrics?.offset;
     if (offset == null) return false;
     return (offset - _sheetMidPixels).abs() <= ResSize.h * 1.5;
   }
@@ -1965,7 +1965,7 @@ class _HomeState extends State<Home> {
 
   void _syncHomeSheetState() {
     if (!mounted || !_homeSheetController.hasClient) return;
-    final offset = _homeSheetController.value;
+    final offset = _homeSheetController.metrics?.offset;
     if (offset == null) return;
 
     if (_isSheetAtMiddle) {
@@ -2009,7 +2009,7 @@ class _HomeState extends State<Home> {
 
   void _toggleHomeSheet() {
     final offset = _homeSheetController.hasClient
-        ? (_homeSheetController.value ?? _sheetMinPixels)
+        ? (_homeSheetController.metrics?.offset ?? _sheetMinPixels)
         : _sheetMinPixels;
     final midpoint = (_sheetMinPixels + _sheetMidPixels) / 2;
     final SheetOffset target;
@@ -2189,7 +2189,8 @@ class _HomeState extends State<Home> {
                       animation: _homeSheetController,
                       builder: (context, child) {
                         final sheetHeight = _homeSheetController.hasClient
-                            ? (_homeSheetController.value ?? _sheetMinPixels)
+                            ? (_homeSheetController.metrics?.offset ??
+                                  _sheetMinPixels)
                             : _sheetMinPixels;
                         final sheetProgress =
                             ((sheetHeight - _sheetMinPixels) /
