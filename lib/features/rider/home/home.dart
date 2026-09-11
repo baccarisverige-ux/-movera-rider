@@ -1956,7 +1956,7 @@ class _HomeState extends State<Home> {
                 if (_showRecenterButton && _currentLatLng != null)
                   Positioned(
                     right: ResSize.w * 18,
-                    bottom: ResSize.h * 202,
+                    bottom: _sheetMinPixels + ResSize.h * 14,
                     child: PointerInterceptor(
                       child: Material(
                         color: Colors.white,
