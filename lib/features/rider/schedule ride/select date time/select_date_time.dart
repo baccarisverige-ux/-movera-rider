@@ -431,7 +431,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                 width: double.infinity,
                 height: 118,
                 child: Image.asset(
-                  'assets/images/schedule_timeline_white_v2.png',
+                  'assets/images/schedule_timeline_exact_v3.png',
                   fit: BoxFit.contain,
                 ),
               ),
