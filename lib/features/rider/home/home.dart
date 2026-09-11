@@ -636,7 +636,7 @@ class _HomeState extends State<Home> {
                             padding: EdgeInsets.only(left: ResSize.w * 3),
                             child: _PremiumRouteLocationBadge(
                               color: badgeColor,
-                              size: ResSize.h * 44,
+                              size: ResSize.h * 35.2,
                             ),
                           ),
                         ),
