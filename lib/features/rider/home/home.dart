@@ -449,6 +449,22 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Future<_PickupMapResult?> _openPickupMapPicker(String address) async {
+    LatLng initialPosition = _currentLatLng ?? _initialPosition.target;
+    final cleanAddress = address.trim();
+    if (cleanAddress.isNotEmpty && cleanAddress.toLowerCase() != 'current location') {
+      final geocoded = await address_service.geocodeAddress(cleanAddress);
+      if (geocoded != null) initialPosition = LatLng(geocoded.latitude, geocoded.longitude);
+    }
+    if (!mounted) return null;
+    return Navigator.of(context).push<_PickupMapResult>(
+      MaterialPageRoute(builder: (_) => _PickupMapPickerPage(
+        initialPosition: initialPosition,
+        initialAddress: cleanAddress.isEmpty ? (_pickupAddress ?? 'Current location') : cleanAddress,
+      )),
+    );
+  }
+
   Future<void> _showRouteAddressPicker({
     required String initialField,
   }) async {
@@ -473,6 +489,8 @@ class _HomeState extends State<Home> {
     var query = initialField == 'pickup'
         ? pickupController.text
         : destinationController.text;
+    var pickupConfirmedOnMap = false;
+    LatLng? confirmedPickupLatLng;
 
     TextEditingController activeController() {
       if (activeField == 'pickup') return pickupController;
@@ -525,6 +543,7 @@ class _HomeState extends State<Home> {
                 required FocusNode focusNode,
                 int stopIndex = -1,
                 bool removable = false,
+                VoidCallback? onMapTap,
               }) {
                 final isActive = activeField == field &&
                     (field != 'stop' || activeStopIndex == stopIndex);
@@ -598,6 +617,29 @@ class _HomeState extends State<Home> {
                         ),
                       ),
                     ),
+                    if (onMapTap != null)
+                      Padding(
+                        padding: EdgeInsets.only(right: ResSize.w * 4),
+                        child: Material(
+                          color: _premiumAccentSoft,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            onTap: onMapTap,
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              width: ResSize.w * 38,
+                              height: ResSize.h * 38,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Icon(Icons.map_outlined, color: _premiumAccent, size: ResSize.h * 21),
+                                  Positioned(right: ResSize.w * 5, top: ResSize.h * 5, child: Icon(Icons.location_on_rounded, color: _premiumInk, size: ResSize.h * 11)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (removable)
                       IconButton(
                         onPressed: () {
@@ -629,6 +671,18 @@ class _HomeState extends State<Home> {
                   hint: 'Enter pickup address',
                   controller: pickupController,
                   focusNode: pickupFocus,
+                  onMapTap: () async {
+                    FocusScope.of(context).unfocus();
+                    final result = await _openPickupMapPicker(pickupController.text.trim());
+                    if (result == null || !mounted) return;
+                    pickupController.text = result.address;
+                    pickupController.selection = TextSelection.collapsed(offset: pickupController.text.length);
+                    setModalState(() {
+                      pickupConfirmedOnMap = true;
+                      confirmedPickupLatLng = result.position;
+                      query = pickupController.text;
+                    });
+                  },
                 ),
                 const Divider(
                   color: Color(0xFFE4E8EA),
@@ -968,16 +1022,22 @@ class _HomeState extends State<Home> {
                         child: InkWell(
                           onTap: destinationController.text.trim().isEmpty
                               ? null
-                              : () {
+                              : () async {
+                                  FocusScope.of(context).unfocus();
+                                  var exactPosition = confirmedPickupLatLng;
+                                  if (!pickupConfirmedOnMap) {
+                                    final result = await _openPickupMapPicker(pickupController.text.trim());
+                                    if (result == null || !mounted) return;
+                                    pickupController.text = result.address;
+                                    exactPosition = result.position;
+                                  }
+                                  if (!mounted) return;
                                   Navigator.pop(sheetContext, {
                                     'pickup': pickupController.text.trim(),
-                                    'destination':
-                                        destinationController.text.trim(),
-                                    'stops': stopControllers
-                                        .map((controller) =>
-                                            controller.text.trim())
-                                        .where((address) => address.isNotEmpty)
-                                        .toList(),
+                                    'pickupLat': exactPosition?.latitude,
+                                    'pickupLng': exactPosition?.longitude,
+                                    'destination': destinationController.text.trim(),
+                                    'stops': stopControllers.map((controller) => controller.text.trim()).where((address) => address.isNotEmpty).toList(),
                                   });
                                 },
                           borderRadius: BorderRadius.circular(18),
@@ -1032,8 +1092,11 @@ class _HomeState extends State<Home> {
       if (resolved.isNotEmpty) stops.add(resolved);
     }
     if (!mounted) return;
+    final pickupLat = draft['pickupLat'] as double?;
+    final pickupLng = draft['pickupLng'] as double?;
     setState(() {
       if (pickup.isNotEmpty) _pickupAddress = pickup;
+      if (pickupLat != null && pickupLng != null) _currentLatLng = LatLng(pickupLat, pickupLng);
       _destinationAddress =
           destination.isEmpty ? _destinationAddress : destination;
       _routeStops = stops;
@@ -2872,4 +2935,122 @@ Widget _homePromoCard({
       ),
     );
   }
+}
+
+
+class _PickupMapResult {
+  const _PickupMapResult({required this.address, required this.position});
+  final String address;
+  final LatLng position;
+}
+class _PickupMapPickerPage extends StatefulWidget {
+  const _PickupMapPickerPage({required this.initialPosition, required this.initialAddress});
+  final LatLng initialPosition;
+  final String initialAddress;
+  @override State<_PickupMapPickerPage> createState() => _PickupMapPickerPageState();
+}
+class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
+  static const _ink = Color(0xFF172027), _muted = Color(0xFF7D878E), _accent = Color(0xFF245E78);
+  GoogleMapController? _controller;
+  late LatLng _position;
+  late String _address;
+  bool _resolving = false;
+  @override void initState() {
+    super.initState();
+    _position = widget.initialPosition;
+    _address = widget.initialAddress;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resolveAddress());
+  }
+  Future<void> _resolveAddress() async {
+    if (_resolving) return;
+    setState(() => _resolving = true);
+    final resolved = await address_service.reverseGeocodeAddress(_position.latitude, _position.longitude);
+    if (!mounted) return;
+    setState(() {
+      if (resolved != null && resolved.trim().isNotEmpty) _address = resolved.trim();
+      _resolving = false;
+    });
+  }
+  Future<void> _recenter() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+      final current = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final target = LatLng(current.latitude, current.longitude);
+      _position = target;
+      await _controller?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: 17)));
+      await _resolveAddress();
+    } catch (_) {}
+  }
+  String get _titleAddress => _resolving ? 'Finding this pickup point…' : _address.split(',').take(2).join(',').trim();
+  @override Widget build(BuildContext context) {
+    final safeTop = MediaQuery.of(context).padding.top, safeBottom = MediaQuery.of(context).padding.bottom;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(children: [
+        Positioned.fill(child: CustomGoogleMap(
+          initialPosition: CameraPosition(target: widget.initialPosition, zoom: 17),
+          myLocationEnabled: true,
+          onMapCreated: (controller) => _controller = controller,
+          onCameraMove: (camera) => _position = camera.target,
+          onCameraIdle: _resolveAddress,
+          padding: const EdgeInsets.only(bottom: 270),
+        )),
+        const Center(child: Padding(padding: EdgeInsets.only(bottom: 82), child: _PremiumPickupPin())),
+        Positioned(top: safeTop + 16, left: 18, child: PointerInterceptor(child: Material(
+          color: Colors.white, shape: const CircleBorder(), elevation: 5, shadowColor: Colors.black26,
+          child: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_rounded), color: _ink, iconSize: 28),
+        ))),
+        Positioned(right: 18, bottom: 268 + safeBottom, child: PointerInterceptor(child: Material(
+          color: Colors.white, shape: const CircleBorder(), elevation: 5, shadowColor: Colors.black26,
+          child: IconButton(onPressed: _recenter, icon: const Icon(Icons.my_location_rounded), color: _accent, iconSize: 24),
+        ))),
+        Positioned(left: 0, right: 0, bottom: 0, child: PointerInterceptor(child: Container(
+          padding: EdgeInsets.fromLTRB(24, 15, 24, 20 + safeBottom),
+          decoration: const BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            boxShadow: [BoxShadow(color: Color(0x1A000000), blurRadius: 28, offset: Offset(0, -8))],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 42, height: 4, decoration: BoxDecoration(color: Color(0xFFDDE2E5), borderRadius: BorderRadius.all(Radius.circular(20))))),
+            const SizedBox(height: 18),
+            const Text('Set exact pickup', style: TextStyle(color: _ink, fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.4)),
+            const SizedBox(height: 12),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(width: 38, height: 38, decoration: const BoxDecoration(color: Color(0xFFEAF2F5), shape: BoxShape.circle), child: const Icon(Icons.location_on_rounded, color: _accent, size: 21)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_titleAddress, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
+                Text(_address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 13, height: 1.35)),
+              ])),
+            ]),
+            const SizedBox(height: 18),
+            Material(color: _ink, borderRadius: BorderRadius.circular(17), child: InkWell(
+              onTap: _resolving ? null : () => Navigator.pop(context, _PickupMapResult(address: _address, position: _position)),
+              borderRadius: BorderRadius.circular(17),
+              child: SizedBox(height: 56, width: double.infinity, child: Center(child: Text(
+                _resolving ? 'Locating…' : 'Confirm pickup',
+                style: TextStyle(color: Colors.white.withOpacity(_resolving ? 0.55 : 1), fontSize: 16, fontWeight: FontWeight.w700),
+              ))),
+            )),
+          ]),
+        ))),
+      ]),
+    );
+  }
+}
+class _PremiumPickupPin extends StatelessWidget {
+  const _PremiumPickupPin();
+  @override Widget build(BuildContext context) => Column(mainAxisSize: MainAxisSize.min, children: [
+    Container(
+      width: 52, height: 52,
+      decoration: const BoxDecoration(color: Color(0xFF245E78), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 5))]),
+      child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 25),
+    ),
+    Container(width: 3, height: 17, color: const Color(0xFF245E78)),
+    Container(width: 12, height: 5, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(8))),
+  ]);
 }
