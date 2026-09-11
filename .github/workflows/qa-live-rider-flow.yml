@@ -66,7 +66,7 @@ jobs:
           page.on('console', m => { if (m.type()==='error') consoleErrors.push(m.text()); });
 
           async function shot(name) {
-            await page.screenshot({path:`qa-${name}.png`, fullPage:true});
+            return await page.screenshot({path:`qa-${name}.png`, fullPage:true});
           }
           async function inputs() {
             return await page.locator('input,textarea').evaluateAll(els => els.map((el,index) => {
@@ -80,7 +80,10 @@ jobs:
             console.log(`STATE ${name}\n`+JSON.stringify(data,null,2));
           }
           function fatalErrors() {
-            return [...pageErrors.map(x=>x.message), ...consoleErrors].filter(x => /Null check operator|RangeError|Another exception|Uncaught|TypeError/i.test(x));
+            return [...pageErrors.map(x=>x.message), ...consoleErrors].filter(x => /Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i.test(x));
+          }
+          function requireChanged(before, after, label) {
+            if (Buffer.compare(before, after) === 0) throw new Error(`${label} produced no live UI change`);
           }
 
           await page.goto(base+`?v=${Date.now()}`, {waitUntil:'networkidle', timeout:120000});
@@ -89,7 +92,6 @@ jobs:
           await shot('home');
           if (fatalErrors().length) throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
 
-          // Verify the exact production address functions before using the UI.
           const geo = await page.evaluate(async () => {
             const raw = await window.moveraGeocodeAddress('Stockholm Central Station');
             let forward = null;
@@ -105,10 +107,7 @@ jobs:
             throw new Error('Live reverse geocoding failed');
           }
 
-          // Flutter canvas semantics are empty in this production build. Drive
-          // the same mobile controls a rider taps, using the verified 390x844
-          // viewport. This is the real Pages app, not a local harness.
-          await page.mouse.click(190, 708); // Home "Where to?"
+          await page.mouse.click(190, 708);
           await page.waitForTimeout(1200);
           await dump('route-open');
           await shot('route-open');
@@ -116,7 +115,6 @@ jobs:
           let visibleInputs = page.locator('input,textarea').filter({visible:true});
           let count = await visibleInputs.count().catch(()=>0);
           if (!count) {
-            // Destination row in the route planner.
             await page.mouse.click(185, 274);
             await page.waitForTimeout(400);
             visibleInputs = page.locator('input,textarea');
@@ -130,25 +128,73 @@ jobs:
           await dump('route-filled');
           await shot('route-filled');
 
-          // Next is the bottom action of the 92%-height route sheet.
           await page.mouse.click(195, 804);
           await page.waitForTimeout(3500);
           await dump('pickup-picker');
           await shot('pickup-picker');
 
-          // Exact pickup picker confirms current map position. Wait until its
-          // reverse lookup has had time to complete, then press its bottom CTA.
           await page.waitForTimeout(3500);
           await page.mouse.click(195, 797);
           await page.waitForTimeout(7000);
           await dump('after-pickup-confirm');
-          await shot('after-pickup-confirm');
+          const categoriesInitial = await shot('after-pickup-confirm');
 
           if (fatalErrors().length) {
-            throw new Error('Fatal runtime error in live Rider route flow: '+fatalErrors().join(' | '));
+            throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
           }
 
-          console.log('PASS: exact live Rider build completed production geocoding and route interaction without fatal runtime errors');
+          // Real 390x844 live categories screen: exercise each visible ride card.
+          const ridePoints = [
+            ['mini', 195, 281],
+            ['eco', 195, 380],
+            ['xl', 195, 478],
+            ['luxury', 195, 575],
+          ];
+          let previous = categoriesInitial;
+          for (const [name, x, y] of ridePoints) {
+            await page.mouse.click(x, y);
+            await page.waitForTimeout(450);
+            const current = await shot(`ride-${name}`);
+            requireChanged(previous, current, `Ride category ${name}`);
+            previous = current;
+            if (fatalErrors().length) throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));
+          }
+
+          // Fare decrease/increase must both respond without crashing.
+          await page.mouse.click(50, 708);
+          await page.waitForTimeout(350);
+          const fareDown = await shot('fare-down');
+          requireChanged(previous, fareDown, 'Fare decrease');
+          await page.mouse.click(340, 708);
+          await page.waitForTimeout(350);
+          const fareUp = await shot('fare-up');
+          requireChanged(fareDown, fareUp, 'Fare increase');
+
+          // Open Payment and select Cash from the production bottom sheet.
+          await page.mouse.click(195, 790);
+          await page.waitForTimeout(650);
+          const paymentOpen = await shot('payment-open');
+          requireChanged(fareUp, paymentOpen, 'Payment sheet');
+          if (fatalErrors().length) throw new Error('Fatal runtime error opening payment: '+fatalErrors().join(' | '));
+
+          await page.mouse.click(195, 548);
+          await page.waitForTimeout(650);
+          const paymentCash = await shot('payment-cash');
+          requireChanged(paymentOpen, paymentCash, 'Cash payment selection');
+          if (fatalErrors().length) throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
+
+          // Scroll the real categories panel to expose pickup-time and booking CTA.
+          await page.mouse.move(195, 780);
+          await page.mouse.wheel(0, 720);
+          await page.waitForTimeout(850);
+          await dump('categories-scrolled');
+          await shot('categories-scrolled');
+
+          if (fatalErrors().length) {
+            throw new Error('Fatal runtime error after live categories interactions: '+fatalErrors().join(' | '));
+          }
+
+          console.log('PASS: exact live Rider build exercised all ride cards, fare controls and payment selection without fatal runtime errors');
           await browser.close();
           JS
           node qa-live.mjs
