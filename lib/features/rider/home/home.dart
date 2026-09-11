@@ -1218,19 +1218,43 @@ class _HomeState extends State<Home> {
     });
     await _persistAddressData();
     if (destination.isNotEmpty) {
+      final pickupPosition = exactPickupPosition;
+      if (pickupPosition == null || !mounted) return;
+
+      var resolvedDestination = destination;
+      LatLng? destinationPosition;
       final destinationResult = await address_service.geocodeAddress(
         destination,
       );
-      final pickupPosition = exactPickupPosition;
-      if (destinationResult == null || pickupPosition == null || !mounted) {
-        return;
+      if (destinationResult != null) {
+        resolvedDestination = destinationResult.address.trim().isNotEmpty
+            ? destinationResult.address.trim()
+            : destination;
+        destinationPosition = LatLng(
+          destinationResult.latitude,
+          destinationResult.longitude,
+        );
+      } else {
+        final exactDestination = await _openPickupMapPicker(destination);
+        if (exactDestination == null || !mounted) return;
+        resolvedDestination = exactDestination.address.trim().isNotEmpty
+            ? exactDestination.address.trim()
+            : destination;
+        destinationPosition = exactDestination.position;
       }
-      final destinationPosition = LatLng(
-        destinationResult.latitude,
-        destinationResult.longitude,
+
+      setState(() {
+        _destinationAddress = resolvedDestination;
+        _rememberAddress(resolvedDestination);
+      });
+      await _persistAddressData();
+      await _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: destinationPosition, zoom: 15),
+        ),
       );
-      await _moveMapToAddress(destination);
       if (!mounted) return;
+
       Navigator.push(
         context,
         BottomToTopTransition(
@@ -1238,7 +1262,7 @@ class _HomeState extends State<Home> {
             pickupAddress: pickup.isNotEmpty
                 ? pickup
                 : (_pickupAddress ?? 'Current location'),
-            destinationAddress: destination,
+            destinationAddress: resolvedDestination,
             pickupPosition: pickupPosition,
             destinationPosition: destinationPosition,
             stops: List<String>.from(stops),

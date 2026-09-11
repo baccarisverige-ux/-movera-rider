@@ -120,13 +120,13 @@ class _SelectRideState extends State<SelectRide> {
         markerId: const MarkerId('pickup'),
         position: widget.pickupPosition,
         infoWindow: InfoWindow(title: widget.pickupAddress),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon: BitmapDescriptor.defaultMarker,
       ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
         infoWindow: InfoWindow(title: widget.destinationAddress),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        icon: BitmapDescriptor.defaultMarker,
       ),
     };
   }
@@ -434,7 +434,7 @@ class _SelectRideState extends State<SelectRide> {
               child: CustomGoogleMap(
                 initialPosition: _initialPosition,
                 markers: _markers,
-                myLocationEnabled: true,
+                myLocationEnabled: false,
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 mapToolbarEnabled: false,
