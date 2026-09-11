@@ -48,68 +48,57 @@ jobs:
           import { chromium } from 'playwright';
           import fs from 'fs';
 
-          const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
-          const browser = await chromium.launch({headless:true});
-          const context = await browser.newContext({
-            viewport: {width:390,height:844}, deviceScaleFactor:1, isMobile:true, hasTouch:true, locale:'en-US',
-            geolocation:{latitude:59.3293, longitude:18.0686}, permissions:['geolocation'],
-          });
-          const page = await context.newPage();
-          const cdp = await context.newCDPSession(page);
-          const pageErrors = [];
-          const consoleErrors = [];
-          page.on('pageerror', e => pageErrors.push({message:String(e), stack:e.stack || ''}));
-          page.on('console', m => { if (m.type()==='error') consoleErrors.push(m.text()); });
-          async function shot(name) { return await page.screenshot({path:`qa-${name}.png`, fullPage:true}); }
-          async function panelCrop(name) { return await page.screenshot({path:`qa-${name}-panel.png`, clip:{x:0,y:500,width:390,height:344}}); }
-          async function touchSwipe(x, fromY, toY, steps=18) {
-            await cdp.send('Input.dispatchTouchEvent', {type:'touchStart', touchPoints:[{x,y:fromY,radiusX:8,radiusY:8,force:1}]});
-            for (let i=1;i<=steps;i++) { const y=fromY+(toY-fromY)*(i/steps); await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y,radiusX:8,radiusY:8,force:1}]}); await page.waitForTimeout(18); }
-            await cdp.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
-            await page.waitForTimeout(900);
+          const base='https://baccarisverige-ux.github.io/-movera-rider/';
+          const browser=await chromium.launch({headless:true});
+          const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          const page=await context.newPage();
+          const cdp=await context.newCDPSession(page);
+          const pageErrors=[]; const consoleErrors=[];
+          page.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
+          page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
+          async function shot(name){return await page.screenshot({path:`qa-${name}.png`,fullPage:true});}
+          async function panelCrop(name){return await page.screenshot({path:`qa-${name}-panel.png`,clip:{x:0,y:500,width:390,height:344}});}
+          async function touchSwipe(x,fromY,toY,steps=18){
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:fromY,radiusX:8,radiusY:8,force:1}]});
+            for(let i=1;i<=steps;i++){const y=fromY+(toY-fromY)*(i/steps);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y,radiusX:8,radiusY:8,force:1}]});await page.waitForTimeout(18);}
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}); await page.waitForTimeout(900);
           }
-          async function inputs() { return await page.locator('input,textarea').evaluateAll(els => els.map((el,index)=>{const r=el.getBoundingClientRect();return {index,value:el.value||'',placeholder:el.getAttribute('placeholder')||'',x:r.x,y:r.y,w:r.width,h:r.height,visible:r.width>0&&r.height>0};})); }
-          async function dump(name,extra={}) { const data={name,url:page.url(),inputs:await inputs(),pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],...extra}; fs.writeFileSync(`qa-${name}.json`,JSON.stringify(data,null,2)); console.log(`STATE ${name}\n`+JSON.stringify(data,null,2)); }
-          function fatalErrors(){return [...pageErrors.map(x=>x.message),...consoleErrors].filter(x=>/Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i.test(x));}
+          async function inputs(){return await page.locator('input,textarea').evaluateAll(els=>els.map((el,index)=>{const r=el.getBoundingClientRect();return{index,value:el.value||'',placeholder:el.getAttribute('placeholder')||'',x:r.x,y:r.y,w:r.width,h:r.height,visible:r.width>0&&r.height>0};}));}
+          async function dump(name,extra={}){const data={name,url:page.url(),inputs:await inputs(),pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],...extra};fs.writeFileSync(`qa-${name}.json`,JSON.stringify(data,null,2));console.log(`STATE ${name}\n`+JSON.stringify(data,null,2));}
+          function fatalErrors(){return[...pageErrors.map(x=>x.message),...consoleErrors].filter(x=>/Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i.test(x));}
           function requireChanged(a,b,label){if(Buffer.compare(a,b)===0)throw new Error(`${label} produced no live UI change`);}
 
-          await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
-          await page.waitForTimeout(5000); await dump('home'); await shot('home');
+          await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(5000); await dump('home'); const home=await shot('home');
           if(fatalErrors().length)throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
-          const geo=await page.evaluate(async()=>{const raw=await window.moveraGeocodeAddress('Stockholm Central Station');let forward=null;try{forward=raw?JSON.parse(raw):null;}catch(_){} const reverse=await window.moveraReverseGeocode(59.3293,18.0686);return {forward,reverse};});
-          await dump('geocoding',{geo});
-          if(!geo.forward||!Number.isFinite(Number(geo.forward.latitude))||!Number.isFinite(Number(geo.forward.longitude)))throw new Error('Live forward geocoding failed');
-          if(!geo.reverse||!String(geo.reverse).trim())throw new Error('Live reverse geocoding failed');
+          const geo=await page.evaluate(async()=>{const raw=await window.moveraGeocodeAddress('Stockholm Central Station');let forward=null;try{forward=raw?JSON.parse(raw):null;}catch(_){}const reverse=await window.moveraReverseGeocode(59.3293,18.0686);return{forward,reverse};}); await dump('geocoding',{geo});
+          if(!geo.forward||!Number.isFinite(Number(geo.forward.latitude))||!Number.isFinite(Number(geo.forward.longitude)))throw new Error('Live forward geocoding failed'); if(!geo.reverse||!String(geo.reverse).trim())throw new Error('Live reverse geocoding failed');
 
-          await page.mouse.click(190,708); await page.waitForTimeout(1200); await shot('route-open');
-          let visibleInputs=page.locator('input,textarea').filter({visible:true}); let count=await visibleInputs.count().catch(()=>0);
-          if(!count){await page.mouse.click(185,274);await page.waitForTimeout(400);visibleInputs=page.locator('input,textarea');count=await visibleInputs.count();}
-          if(!count)throw new Error('Route planner destination input did not become editable');
-          await visibleInputs.nth(count-1).fill('Stockholm Central Station'); await page.waitForTimeout(700); await shot('route-filled');
-          await page.mouse.click(195,804); await page.waitForTimeout(3500); await shot('pickup-picker');
-          await page.waitForTimeout(3500); await page.mouse.click(195,797); await page.waitForTimeout(7000); await dump('after-pickup-confirm');
-          const categoriesInitial=await shot('after-pickup-confirm'); if(fatalErrors().length)throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
+          await page.mouse.click(190,708);await page.waitForTimeout(1200);await shot('route-open');
+          let visibleInputs=page.locator('input,textarea').filter({visible:true});let count=await visibleInputs.count().catch(()=>0);if(!count){await page.mouse.click(185,274);await page.waitForTimeout(400);visibleInputs=page.locator('input,textarea');count=await visibleInputs.count();}if(!count)throw new Error('Route planner destination input did not become editable');
+          await visibleInputs.nth(count-1).fill('Stockholm Central Station');await page.waitForTimeout(700);await shot('route-filled');
+          await page.mouse.click(195,804);await page.waitForTimeout(3500);await shot('pickup-picker');await page.waitForTimeout(3500);await page.mouse.click(195,797);await page.waitForTimeout(7000);await dump('after-pickup-confirm');
+          const categoriesInitial=await shot('after-pickup-confirm');if(fatalErrors().length)throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
 
-          const ridePoints=[['mini',195,281],['eco',195,380],['xl',195,478],['luxury',195,575]]; let previous=categoriesInitial;
-          for(const [name,x,y] of ridePoints){await page.mouse.click(x,y);await page.waitForTimeout(450);const current=await shot(`ride-${name}`);requireChanged(previous,current,`Ride category ${name}`);previous=current;if(fatalErrors().length)throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));}
-          await page.mouse.click(50,708); await page.waitForTimeout(350); const fareDown=await shot('fare-down'); requireChanged(previous,fareDown,'Fare decrease');
-          await page.mouse.click(340,708); await page.waitForTimeout(350); const fareUp=await shot('fare-up'); requireChanged(fareDown,fareUp,'Fare increase');
-          await page.mouse.click(195,790); await page.waitForTimeout(650); const paymentOpen=await shot('payment-open'); requireChanged(fareUp,paymentOpen,'Payment sheet');
-          await page.mouse.click(195,548); await page.waitForTimeout(650); const paymentCash=await shot('payment-cash'); requireChanged(paymentOpen,paymentCash,'Cash payment selection');
-          if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
+          const ridePoints=[['mini',195,281],['eco',195,380],['xl',195,478],['luxury',195,575]];let previous=categoriesInitial;for(const[name,x,y]of ridePoints){await page.mouse.click(x,y);await page.waitForTimeout(450);const current=await shot(`ride-${name}`);requireChanged(previous,current,`Ride category ${name}`);previous=current;if(fatalErrors().length)throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));}
+          await page.mouse.click(50,708);await page.waitForTimeout(350);const fareDown=await shot('fare-down');requireChanged(previous,fareDown,'Fare decrease');await page.mouse.click(340,708);await page.waitForTimeout(350);const fareUp=await shot('fare-up');requireChanged(fareDown,fareUp,'Fare increase');
+          await page.mouse.click(195,790);await page.waitForTimeout(650);const paymentOpen=await shot('payment-open');requireChanged(fareUp,paymentOpen,'Payment sheet');await page.mouse.click(195,548);await page.waitForTimeout(650);const paymentCash=await shot('payment-cash');requireChanged(paymentOpen,paymentCash,'Cash payment selection');if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
 
-          const panelBefore=await panelCrop('panel-before-swipe'); await touchSwipe(195,800,410,20); const panelAfter=await panelCrop('panel-after-swipe'); requireChanged(panelBefore,panelAfter,'Touch swipe inside ride panel');
-          const scrolled=await shot('categories-touch-scrolled');
-          await page.mouse.click(195,708); await page.waitForTimeout(750); const bookingSheet=await shot('pickup-time-sheet'); requireChanged(scrolled,bookingSheet,'Pickup time bottom sheet');
-          await page.mouse.click(195,702); await page.waitForTimeout(700); const afterBookNow=await shot('after-book-now'); requireChanged(bookingSheet,afterBookNow,'Book now selection');
-          await page.mouse.click(195,708); await page.waitForTimeout(650); const bookingSheetAgain=await shot('pickup-time-sheet-again'); requireChanged(afterBookNow,bookingSheetAgain,'Pickup time sheet reopen');
-          await page.mouse.click(195,778); await page.waitForTimeout(1200); const laterPicker=await shot('book-for-later-picker'); requireChanged(bookingSheetAgain,laterPicker,'Book for later picker');
+          const panelBefore=await panelCrop('panel-before-swipe');await touchSwipe(195,800,410,20);const panelAfter=await panelCrop('panel-after-swipe');requireChanged(panelBefore,panelAfter,'Touch swipe inside ride panel');const scrolled=await shot('categories-touch-scrolled');
+          await page.mouse.click(195,708);await page.waitForTimeout(750);const bookingSheet=await shot('pickup-time-sheet');requireChanged(scrolled,bookingSheet,'Pickup time bottom sheet');
+          await page.mouse.click(195,702);await page.waitForTimeout(700);const afterBookNow=await shot('after-book-now');requireChanged(bookingSheet,afterBookNow,'Book now selection');
+          await page.mouse.click(195,708);await page.waitForTimeout(650);const bookingSheetAgain=await shot('pickup-time-sheet-again');requireChanged(afterBookNow,bookingSheetAgain,'Pickup time sheet reopen');
+          await page.mouse.click(195,778);await page.waitForTimeout(1200);const laterPicker=await shot('book-for-later-picker');requireChanged(bookingSheetAgain,laterPicker,'Book for later picker');
+          await page.mouse.click(338,680);await page.waitForTimeout(900);const timePicker=await shot('book-for-later-time-picker');requireChanged(laterPicker,timePicker,'Book for later time picker');
 
-          // Default date is already a valid future date; confirm it to reach the time picker.
-          await page.mouse.click(338,680); await page.waitForTimeout(900); const timePicker=await shot('book-for-later-time-picker'); requireChanged(laterPicker,timePicker,'Book for later time picker');
-          await dump('book-for-later-time-picker');
-          if(fatalErrors().length)throw new Error('Fatal runtime error reaching time picker: '+fatalErrors().join(' | '));
-          console.log('PASS: live Rider Book for later reached the real time picker without fatal runtime errors');
+          // Confirm the default future pickup time in the actual production time picker.
+          await page.mouse.click(322,630);await page.waitForTimeout(1000);const scheduled=await shot('scheduled-ride');requireChanged(timePicker,scheduled,'Scheduled ride confirmation');await dump('scheduled-ride');
+          if(fatalErrors().length)throw new Error('Fatal runtime error scheduling ride: '+fatalErrors().join(' | '));
+
+          // The scrolled production panel keeps the final CTA visible at the bottom.
+          await page.mouse.click(195,786);await page.waitForTimeout(5000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
+          if(fatalErrors().length)throw new Error('Fatal runtime error after final booking CTA: '+fatalErrors().join(' | '));
+
+          console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
           await browser.close();
           JS
           node qa-live.mjs
