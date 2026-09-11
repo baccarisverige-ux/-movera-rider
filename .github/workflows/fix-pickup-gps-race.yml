@@ -1,0 +1,216 @@
+name: One-shot pickup GPS race repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-pickup-gps-race.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Separate live GPS from confirmed trip pickup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/features/rider/home/home.dart')
+          text = path.read_text()
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} anchor count={count}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              "  LatLng? _currentLatLng;\n  List<String> _recentAddresses = [];",
+              "  // Live phone GPS. This keeps moving with the device.\n  LatLng? _currentLatLng;\n  // A pickup explicitly confirmed for the current trip. Unlike live GPS,\n  // this must never be overwritten by the position stream.\n  LatLng? _tripPickupLatLng;\n  List<String> _recentAddresses = [];",
+              'trip pickup state',
+          )
+
+          replace_once(
+              """  }) async {
+    final resolved = await _normaliseAddress(address);
+    if (resolved.isEmpty || !mounted) return;
+    setState(() {
+      switch (target) {
+        case 'pickup':
+          _pickupAddress = resolved;
+          break;
+""",
+              """  }) async {
+    final resolved = await _normaliseAddress(address);
+    if (resolved.isEmpty || !mounted) return;
+
+    LatLng? resolvedPickupPosition;
+    if (target == 'pickup') {
+      if (resolved.toLowerCase() == 'current location') {
+        resolvedPickupPosition = _currentLatLng;
+      } else {
+        final geocodedPickup = await address_service.geocodeAddress(resolved);
+        if (geocodedPickup != null) {
+          resolvedPickupPosition = LatLng(
+            geocodedPickup.latitude,
+            geocodedPickup.longitude,
+          );
+        }
+      }
+    }
+    if (!mounted) return;
+
+    setState(() {
+      switch (target) {
+        case 'pickup':
+          _pickupAddress = resolved;
+          if (resolvedPickupPosition != null) {
+            _tripPickupLatLng = resolvedPickupPosition;
+          }
+          break;
+""",
+              'save pickup coordinates',
+          )
+
+          replace_once(
+              """    final destinationResult = await address_service.geocodeAddress(destination);
+    final pickupPosition = _currentLatLng;
+""",
+              """    final destinationResult = await address_service.geocodeAddress(destination);
+    final pickupPosition = _tripPickupLatLng ?? _currentLatLng;
+""",
+              'saved destination pickup source',
+          )
+
+          replace_once(
+              "    LatLng initialPosition = _currentLatLng ?? _initialPosition.target;",
+              "    LatLng initialPosition =\n        _tripPickupLatLng ?? _currentLatLng ?? _initialPosition.target;",
+              'pickup map initial position',
+          )
+
+          replace_once(
+              """                        onChanged: (value) {
+                          if (isActive) {
+                            setModalState(() => query = value);
+                          }
+                        },
+""",
+              """                        onChanged: (value) {
+                          if (isActive) {
+                            setModalState(() {
+                              query = value;
+                              if (field == 'pickup') {
+                                // Editing after a map confirmation invalidates
+                                // the old confirmed coordinates.
+                                pickupConfirmedOnMap = false;
+                                confirmedPickupLatLng = null;
+                              }
+                            });
+                          }
+                        },
+""",
+              'pickup edit invalidation',
+          )
+
+          replace_once(
+              """                                  setModalState(() {
+                                    query = pickupController.text;
+                                  });
+""",
+              """                                  setModalState(() {
+                                    query = pickupController.text;
+                                    pickupConfirmedOnMap =
+                                        _currentLatLng != null;
+                                    confirmedPickupLatLng = _currentLatLng;
+                                  });
+""",
+              'current location confirmation',
+          )
+
+          replace_once(
+              """                                  setModalState(() => query = address);
+""",
+              """                                  setModalState(() {
+                                    query = address;
+                                    if (activeField == 'pickup') {
+                                      pickupConfirmedOnMap = false;
+                                      confirmedPickupLatLng = null;
+                                    }
+                                  });
+""",
+              'recent pickup invalidation',
+          )
+
+          replace_once(
+              """    final pickupLat = draft['pickupLat'] as double?;
+    final pickupLng = draft['pickupLng'] as double?;
+    setState(() {
+      if (pickup.isNotEmpty) _pickupAddress = pickup;
+      if (pickupLat != null && pickupLng != null)
+        _currentLatLng = LatLng(pickupLat, pickupLng);
+""",
+              """    final pickupLat = draft['pickupLat'] as double?;
+    final pickupLng = draft['pickupLng'] as double?;
+    final exactPickupPosition = pickupLat != null && pickupLng != null
+        ? LatLng(pickupLat, pickupLng)
+        : (_tripPickupLatLng ?? _currentLatLng);
+    setState(() {
+      if (pickup.isNotEmpty) _pickupAddress = pickup;
+      if (exactPickupPosition != null) {
+        _tripPickupLatLng = exactPickupPosition;
+      }
+""",
+              'lock confirmed pickup',
+          )
+
+          # At this point the saved-place occurrence has already been changed,
+          # so the remaining route-picker read must use the immutable local
+          # confirmed pickup instead of the live GPS field.
+          replace_once(
+              "      final pickupPosition = _currentLatLng;",
+              "      final pickupPosition = exactPickupPosition;",
+              'route picker pickup source',
+          )
+
+          if text.count('_tripPickupLatLng') < 6:
+              raise SystemExit('trip pickup state was not wired through all required paths')
+          if "_currentLatLng = LatLng(pickupLat, pickupLng)" in text:
+              raise SystemExit('route picker still overwrites live GPS with trip pickup')
+
+          path.write_text(text)
+          PY
+
+      - name: Format Home
+        run: dart format 'lib/features/rider/home/home.dart'
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze repaired flow
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Commit repair
+        run: |
+          if git diff --quiet -- 'lib/features/rider/home/home.dart'; then
+            echo 'No changes produced'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'lib/features/rider/home/home.dart'
+          git commit -m 'Lock confirmed pickup against live GPS updates'
+          git push origin HEAD:main
