@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: movera-rider-pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish:
