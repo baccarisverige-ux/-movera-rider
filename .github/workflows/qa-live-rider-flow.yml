@@ -1,0 +1,222 @@
+name: QA live Rider flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - '.github/workflows/qa-live-rider-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Wait for this exact Pages build
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          for i in $(seq 1 36); do
+            HTML=$(curl -fsSL "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            if printf '%s' "$HTML" | grep -q "main.${SHORT}.dart.js"; then
+              echo "LIVE_BUILD=main.${SHORT}.dart.js" >> "$GITHUB_ENV"
+              echo "Exact live build found: main.${SHORT}.dart.js"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Exact deployed bundle for $SHORT was not found" >&2
+          exit 1
+
+      - name: Exercise actual live Rider flow
+        run: |
+          cat > qa-live.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+
+          const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
+          const browser = await chromium.launch({headless:true});
+          const context = await browser.newContext({
+            viewport: {width:390,height:844},
+            deviceScaleFactor:1,
+            isMobile:true,
+            hasTouch:true,
+            locale:'en-US',
+            geolocation:{latitude:59.3293, longitude:18.0686},
+            permissions:['geolocation'],
+          });
+          const page = await context.newPage();
+          const pageErrors = [];
+          const consoleErrors = [];
+          page.on('pageerror', e => pageErrors.push({message:String(e), stack:e.stack || ''}));
+          page.on('console', m => { if (m.type()==='error') consoleErrors.push(m.text()); });
+
+          const shots = [];
+          async function shot(name) {
+            const path = `qa-${name}.png`;
+            await page.screenshot({path, fullPage:true});
+            shots.push(path);
+          }
+          async function semantics() {
+            return await page.evaluate(() => Array.from(document.querySelectorAll('flt-semantics')).map((el,index) => {
+              const r = el.getBoundingClientRect();
+              return {index, text:(el.textContent||'').trim(), label:el.getAttribute('aria-label')||'', role:el.getAttribute('role')||'', x:r.x,y:r.y,w:r.width,h:r.height};
+            }).filter(x => x.text || x.label || x.role));
+          }
+          async function enableSemantics() {
+            const p = page.locator('flt-semantics-placeholder');
+            if (await p.count()) {
+              await p.first().click({force:true}).catch(()=>{});
+              await page.waitForTimeout(800);
+            }
+          }
+          async function findSemantic(rx) {
+            return await page.evaluate((src) => {
+              const re = new RegExp(src,'i');
+              const all = Array.from(document.querySelectorAll('flt-semantics'));
+              for (const el of all) {
+                const text = `${el.getAttribute('aria-label')||''} ${el.textContent||''}`.trim();
+                const r = el.getBoundingClientRect();
+                if (re.test(text) && r.width>0 && r.height>0) return {text, x:r.x+r.width/2, y:r.y+r.height/2};
+              }
+              return null;
+            }, rx.source);
+          }
+          async function clickSemantic(rx) {
+            const hit = await findSemantic(rx);
+            if (!hit) return false;
+            await page.mouse.click(hit.x, hit.y);
+            await page.waitForTimeout(700);
+            return true;
+          }
+          async function dump(name) {
+            const data = {name, url:page.url(), semantics:await semantics(), pageErrors:[...pageErrors], consoleErrors:[...consoleErrors]};
+            fs.writeFileSync(`qa-${name}.json`, JSON.stringify(data,null,2));
+            console.log(`STATE ${name}\n`+JSON.stringify(data,null,2));
+          }
+
+          await page.goto(base+`?v=${Date.now()}`, {waitUntil:'networkidle', timeout:120000});
+          await page.waitForTimeout(5000);
+          await enableSemantics();
+          await dump('home');
+          await shot('home');
+
+          if (pageErrors.length || consoleErrors.some(x => /Null check operator|RangeError|Exception|Error:/.test(x))) {
+            console.error('Runtime error on Home before interaction');
+          }
+
+          let opened = await clickSemantic(/Where to\?/i);
+          if (!opened) opened = await clickSemantic(/destination/i);
+          await dump('destination-open');
+          await shot('destination-open');
+
+          const inputs = page.locator('input,textarea');
+          const inputCount = await inputs.count();
+          if (inputCount) {
+            let target = null;
+            for (let i=0;i<inputCount;i++) {
+              const el = inputs.nth(i);
+              if (await el.isVisible().catch(()=>false)) target = el;
+            }
+            if (target) {
+              await target.fill('Stockholm Central Station');
+              await page.waitForTimeout(1800);
+              await target.press('ArrowDown').catch(()=>{});
+              await target.press('Enter').catch(()=>{});
+              await page.waitForTimeout(2000);
+            }
+          }
+          await dump('destination-entered');
+          await shot('destination-entered');
+
+          // Try visible suggestion/result before Next if the text field did not commit.
+          if (!await findSemantic(/Next/i)) {
+            const candidates = await semantics();
+            const suggestion = candidates.find(x => /Stockholm|Central/i.test(`${x.label} ${x.text}`) && x.h>20);
+            if (suggestion) {
+              await page.mouse.click(suggestion.x+suggestion.w/2, suggestion.y+suggestion.h/2);
+              await page.waitForTimeout(1000);
+            }
+          }
+
+          await clickSemantic(/Next/i);
+          await page.waitForTimeout(3500);
+          await enableSemantics();
+          await dump('after-next');
+          await shot('after-next');
+
+          const choose = await findSemantic(/Choose your ride/i);
+          if (!choose) {
+            console.error('FAIL: Choose your ride is not visible after actual live flow');
+            await browser.close();
+            process.exit(2);
+          }
+
+          // Exercise category selection.
+          for (const label of [/Mini Ride/i,/Eco-Friendly/i,/XL/i,/Luxury/i]) {
+            const ok = await clickSemantic(label);
+            if (!ok) {
+              console.error(`FAIL: category not clickable: ${label}`);
+              await browser.close();
+              process.exit(3);
+            }
+          }
+
+          // Exercise price controls by coordinates from button semantics if exposed.
+          await clickSemantic(/Payment/i);
+          await page.waitForTimeout(600);
+          await enableSemantics();
+          const paymentSheet = await findSemantic(/Payment method/i);
+          if (!paymentSheet) {
+            console.error('FAIL: payment sheet did not open');
+            await browser.close();
+            process.exit(4);
+          }
+          await clickSemantic(/Cash/i);
+
+          await clickSemantic(/Pickup time/i);
+          await page.waitForTimeout(600);
+          await enableSemantics();
+          const bookingSheet = await findSemantic(/When do you want to ride/i);
+          if (!bookingSheet) {
+            console.error('FAIL: booking picker did not open');
+            await browser.close();
+            process.exit(5);
+          }
+          await clickSemantic(/Book now/i);
+
+          await dump('categories-tested');
+          await shot('categories-tested');
+
+          const fatal = [...pageErrors.map(x=>x.message), ...consoleErrors].filter(x => /Null check operator|RangeError|Another exception|Uncaught|TypeError/i.test(x));
+          if (fatal.length) {
+            console.error('FAIL: runtime errors after categories interactions\n'+fatal.join('\n'));
+            await browser.close();
+            process.exit(6);
+          }
+
+          console.log('PASS: actual live Rider reached categories and core controls worked without fatal runtime errors');
+          await browser.close();
+          JS
+          node qa-live.mjs
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-live-rider-flow
+          path: |
+            qa-*.png
+            qa-*.json
+          if-no-files-found: warn
