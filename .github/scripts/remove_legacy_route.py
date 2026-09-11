@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import shutil
 
 home_path = Path('lib/features/rider/home/home.dart')
@@ -68,21 +69,20 @@ schedule = replace_exact(
     'Schedule edit-route method anchor',
 )
 
-legacy_tap = """onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          BottomToTopTransition(
-                                            const ChooseRoute(),
-                                          ),
-                                        );
-                                      },"""
-schedule = replace_exact(
-    schedule,
-    legacy_tap,
-    'onTap: _editRoute,',
-    'Schedule legacy route taps',
-    expected=2,
+# The two original ZIP route-summary taps have slightly different formatting.
+# Match the navigation structurally instead of depending on indentation.
+legacy_tap_pattern = re.compile(
+    r"onTap\s*:\s*\(\)\s*\{\s*"
+    r"Navigator\.push\(\s*context\s*,\s*"
+    r"BottomToTopTransition\(\s*(?:const\s+)?ChooseRoute\(\)\s*\)\s*"
+    r"\)\s*;\s*\}\s*,",
+    re.S,
 )
+schedule, legacy_tap_count = legacy_tap_pattern.subn('onTap: _editRoute,', schedule)
+if legacy_tap_count != 2:
+    raise SystemExit(
+        f'Schedule legacy route taps: expected 2 structural matches, found {legacy_tap_count}'
+    )
 
 schedule = replace_exact(
     schedule,
@@ -113,9 +113,15 @@ shutil.rmtree(legacy_dir)
 violations = []
 for dart in Path('lib').rglob('*.dart'):
     text = dart.read_text(errors='ignore')
-    if 'ChooseRoute' in text or 'choose%20route/' in text or 'features/rider/choose route/' in text:
+    if (
+        'ChooseRoute' in text
+        or 'choose%20route/' in text
+        or 'features/rider/choose route/' in text
+        or 'Central Park, DHA' in text
+        or '33.6844, 73.0479' in text
+    ):
         violations.append(str(dart))
 if violations:
-    raise SystemExit('Legacy route references remain: ' + ', '.join(violations))
+    raise SystemExit('Legacy route/data references remain: ' + ', '.join(violations))
 
 print('Legacy ChooseRoute/SetOnMap chain removed and all Dart references cleared.')
