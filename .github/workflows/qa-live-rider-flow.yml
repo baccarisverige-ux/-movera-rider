@@ -173,15 +173,30 @@ jobs:
           requireChanged(panelBefore, panelAfter, 'Touch swipe inside ride panel');
           const scrolled = await shot('categories-touch-scrolled');
 
-          // Pickup-time row is now truly visible in the live scrolled panel.
           await page.mouse.click(195, 708);
           await page.waitForTimeout(750);
           const bookingSheet = await shot('pickup-time-sheet');
           requireChanged(scrolled, bookingSheet, 'Pickup time bottom sheet');
-          await dump('pickup-time-sheet');
 
-          if (fatalErrors().length) throw new Error('Fatal runtime error opening pickup time sheet: '+fatalErrors().join(' | '));
-          console.log('PASS: live Rider pickup-time sheet opened after real touch scrolling, with no fatal runtime errors');
+          // Live screenshot verified Book now center around y702.
+          await page.mouse.click(195, 702);
+          await page.waitForTimeout(700);
+          const afterBookNow = await shot('after-book-now');
+          requireChanged(bookingSheet, afterBookNow, 'Book now selection');
+
+          // Re-open pickup time and choose Book for later.
+          await page.mouse.click(195, 708);
+          await page.waitForTimeout(650);
+          const bookingSheetAgain = await shot('pickup-time-sheet-again');
+          requireChanged(afterBookNow, bookingSheetAgain, 'Pickup time sheet reopen');
+          await page.mouse.click(195, 778);
+          await page.waitForTimeout(1200);
+          const laterPicker = await shot('book-for-later-picker');
+          requireChanged(bookingSheetAgain, laterPicker, 'Book for later picker');
+          await dump('book-for-later-picker');
+
+          if (fatalErrors().length) throw new Error('Fatal runtime error testing booking choices: '+fatalErrors().join(' | '));
+          console.log('PASS: live Rider Book now and Book for later controls both responded with no fatal runtime errors');
           await browser.close();
           JS
           node qa-live.mjs
