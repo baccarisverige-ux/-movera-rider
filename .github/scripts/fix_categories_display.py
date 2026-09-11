@@ -31,7 +31,7 @@ new_saved = """    Navigator.of(context).push(
           pickupAddress: _pickupAddress ?? 'Current location',
           destinationAddress: resolvedDestination,
           pickupPosition: confirmedPickupPosition,
-          destinationPosition: destinationPosition,
+          destinationPosition: confirmedDestinationPosition,
           stops: List<String>.from(_routeStops),
         ),
       ),
@@ -89,10 +89,25 @@ new_pickup_guard = """    var pickupPosition = _tripPickupLatLng ?? _currentLatL
     }
     if (!mounted) return;
     final confirmedPickupPosition = pickupPosition;
-    if (confirmedPickupPosition == null) return;
     var resolvedDestination = destination;
 """
 home = replace_exact(home, old_pickup_guard, new_pickup_guard, 'saved-place pickup guard')
+
+old_destination_lock = """    }
+    if (!mounted) return;
+    Navigator.of(context).push(
+"""
+new_destination_lock = """    }
+    final confirmedDestinationPosition = destinationPosition;
+    if (confirmedDestinationPosition == null || !mounted) return;
+    Navigator.of(context).push(
+"""
+home = replace_exact(
+    home,
+    old_destination_lock,
+    new_destination_lock,
+    'saved-place destination lock',
+)
 
 # Main planner should never silently swallow an impossible coordinate state.
 old_draft_guard = """      if (pickupPosition == null || destinationPosition == null || !mounted) {
