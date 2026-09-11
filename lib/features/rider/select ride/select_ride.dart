@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -112,6 +114,7 @@ class _SelectRideState extends State<SelectRide> {
   double _price = 7.50;
   DateTime? _scheduledFor;
   GoogleMapController? _mapController;
+  bool _mapReady = false;
   late final Set<Marker> _markers;
   late final CameraPosition _initialPosition;
 
@@ -133,6 +136,10 @@ class _SelectRideState extends State<SelectRide> {
         icon: BitmapDescriptor.defaultMarker,
       ),
     };
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _mapReady = true);
+    });
   }
 
   Future<void> _fitRoute() async {
@@ -428,10 +435,11 @@ class _SelectRideState extends State<SelectRide> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final height = media.size.height;
-    final minPanel = (height * 0.56).clamp(420.0, 560.0).toDouble();
-    final maxPanel = (height - media.padding.top - 64)
-        .clamp(minPanel + 40, height * 0.90)
+    final maxPanel = (height - media.padding.top - 72)
+        .clamp(280.0, height * 0.90)
         .toDouble();
+    final minPanel =
+        math.min(maxPanel - 48, math.max(320.0, height * 0.48)).toDouble();
     return Scaffold(
       backgroundColor: Colors.white,
       body: SlidingUpPanel(
@@ -451,27 +459,29 @@ class _SelectRideState extends State<SelectRide> {
         body: Stack(
           children: [
             Positioned.fill(
-              child: CustomGoogleMap(
-                initialPosition: _initialPosition,
-                markers: _markers,
-                myLocationEnabled: false,
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-                compassEnabled: false,
-                trafficEnabled: false,
-                buildingsEnabled: true,
-                indoorViewEnabled: false,
-                mapType: MapType.normal,
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                  Future<void>.delayed(
-                    const Duration(milliseconds: 320),
-                    _fitRoute,
-                  );
-                },
-                onTap: (_) {},
-              ),
+              child: _mapReady
+                  ? CustomGoogleMap(
+                      initialPosition: _initialPosition,
+                      markers: _markers,
+                      myLocationEnabled: false,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      compassEnabled: false,
+                      trafficEnabled: false,
+                      buildingsEnabled: true,
+                      indoorViewEnabled: false,
+                      mapType: MapType.normal,
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                        Future<void>.delayed(
+                          const Duration(milliseconds: 320),
+                          _fitRoute,
+                        );
+                      },
+                      onTap: (_) {},
+                    )
+                  : const ColoredBox(color: Color(0xFFEEF1E8)),
             ),
             Positioned(
               top: media.padding.top + 14,
@@ -566,176 +576,195 @@ class _SelectRideState extends State<SelectRide> {
   Widget _panel(ScrollController controller) {
     final selected = _rides[_selectedRide];
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Container(
-          width: 42,
-          height: 4,
-          decoration: BoxDecoration(
-            color: const Color(0xFFD8DDE0),
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Choose your ride',
-              style: TextStyle(
-                color: _ink,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.6,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 2),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 18),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Pick the comfort and space that suits you.',
-              style: TextStyle(
-                color: _muted,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: ListView.builder(
-            controller: controller,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-            itemCount: _rides.length,
-            itemBuilder: (context, index) => _rideTile(index),
-          ),
-        ),
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.fromLTRB(18, 8, 18, 10 + bottomInset),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: _line)),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : MediaQuery.sizeOf(context).height * 0.7;
+        if (height < 96) return const SizedBox.shrink();
+        return SizedBox(
+          height: height,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 10),
               Container(
-                height: 58,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                width: 42,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: _surface,
-                  borderRadius: BorderRadius.circular(16),
+                  color: const Color(0xFFD8DDE0),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Row(
+              ),
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Choose your ride',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.6,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Pick the comfort and space that suits you.',
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView.builder(
+                  controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                  itemCount: _rides.length,
+                  itemBuilder: (context, index) => _rideTile(index),
+                ),
+              ),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.fromLTRB(18, 8, 18, 10 + bottomInset),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: _line)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _priceButton(Icons.remove_rounded, _decreasePrice),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    Container(
+                      height: 58,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: _surface,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
                         children: [
-                          const Text(
-                            'Your fare',
-                            style: TextStyle(
-                              color: _muted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                          _priceButton(Icons.remove_rounded, _decreasePrice),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Your fare',
+                                  style: TextStyle(
+                                    color: _muted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Text(
+                                  '\$${_price.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: _ink,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.4,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            '\$${_price.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: _ink,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
+                          _priceButton(Icons.add_rounded, _increasePrice),
                         ],
                       ),
                     ),
-                    _priceButton(Icons.add_rounded, _increasePrice),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _compactAction(
+                            icon: Icons.account_balance_wallet_outlined,
+                            label: 'Payment',
+                            value: _payments[_selectedPayment].name,
+                            onTap: _showPaymentPicker,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _compactAction(
+                            icon: Icons.schedule_rounded,
+                            label: 'Pickup',
+                            value: _scheduleLabel,
+                            onTap: _showBookingPicker,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Material(
+                      color: _ink,
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        onTap: () async {
+                          setState(() => _mapReady = false);
+                          await Future<void>.delayed(
+                            const Duration(milliseconds: 80),
+                          );
+                          if (!mounted) return;
+                          await Navigator.push(
+                            context,
+                            BottomToTopTransition(
+                              FindingDrivers(
+                                pickupAddress: widget.pickupAddress,
+                                destinationAddress: widget.destinationAddress,
+                                pickupPosition: widget.pickupPosition,
+                                destinationPosition:
+                                    widget.destinationPosition,
+                                rideType: selected.name,
+                                price: _price,
+                                paymentMethod:
+                                    _payments[_selectedPayment].name,
+                              ),
+                            ),
+                          );
+                          if (mounted) setState(() => _mapReady = true);
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: Center(
+                            child: Text(
+                              _scheduledFor == null
+                                  ? 'Book ${selected.name}'
+                                  : 'Schedule ${selected.name}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _compactAction(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: 'Payment',
-                      value: _payments[_selectedPayment].name,
-                      onTap: _showPaymentPicker,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _compactAction(
-                      icon: Icons.schedule_rounded,
-                      label: 'Pickup',
-                      value: _scheduleLabel,
-                      onTap: _showBookingPicker,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Material(
-                color: _ink,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      BottomToTopTransition(
-                        FindingDrivers(
-                          pickupAddress: widget.pickupAddress,
-                          destinationAddress: widget.destinationAddress,
-                          pickupPosition: widget.pickupPosition,
-                          destinationPosition: widget.destinationPosition,
-                          rideType: selected.name,
-                          price: _price,
-                          paymentMethod: _payments[_selectedPayment].name,
-                        ),
-                      ),
-                    );
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: Center(
-                      child: Text(
-                        _scheduledFor == null
-                            ? 'Book ${selected.name}'
-                            : 'Schedule ${selected.name}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
                 ),
               ),
             ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 

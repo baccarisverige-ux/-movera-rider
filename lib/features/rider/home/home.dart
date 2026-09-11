@@ -102,6 +102,7 @@ class _HomeState extends State<Home> {
 
   // ignore: unused_field
   GoogleMapController? _mapController;
+  bool _homeMapParked = false;
   // ignore: prefer_final_fields
   Set<Marker> _markers = {};
   Set<Circle> _locationCircles = {};
@@ -501,55 +502,74 @@ class _HomeState extends State<Home> {
       _rememberAddress(destination);
     });
     await _persistAddressData();
-    var pickupPosition = _tripPickupLatLng ?? _currentLatLng;
-    if (pickupPosition == null) {
-      final pickupResult = await _openPickupMapPicker(
-        _pickupAddress ?? 'Current location',
-      );
-      if (pickupResult == null || !mounted) return;
-      pickupPosition = pickupResult.position;
-      setState(() {
-        _pickupAddress = pickupResult.address;
-        _tripPickupLatLng = pickupResult.position;
-      });
-    }
-    if (!mounted) return;
-    final confirmedPickupPosition = pickupPosition;
-    var resolvedDestination = destination;
-    LatLng? destinationPosition;
-    final destinationResult = await address_service.geocodeAddress(destination);
-    if (destinationResult != null) {
-      resolvedDestination = destinationResult.address.trim().isNotEmpty
-          ? destinationResult.address.trim()
-          : destination;
-      destinationPosition = LatLng(
-        destinationResult.latitude,
-        destinationResult.longitude,
-      );
-    } else {
-      final result = await _openPickupMapPicker(
-        destination,
-        isDestination: true,
-      );
-      if (result == null || !mounted) return;
-      resolvedDestination = result.address.trim().isNotEmpty
-          ? result.address.trim()
-          : destination;
-      destinationPosition = result.position;
-    }
-    final confirmedDestinationPosition = destinationPosition;
-    if (confirmedDestinationPosition == null || !mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SelectRide(
-          pickupAddress: _pickupAddress ?? 'Current location',
-          destinationAddress: resolvedDestination,
-          pickupPosition: confirmedPickupPosition,
-          destinationPosition: confirmedDestinationPosition,
-          stops: List<String>.from(_routeStops),
+    await _withParkedHomeMap(() async {
+      var pickupPosition = _tripPickupLatLng ?? _currentLatLng;
+      if (pickupPosition == null) {
+        final pickupResult = await _openPickupMapPicker(
+          _pickupAddress ?? 'Current location',
+        );
+        if (pickupResult == null || !mounted) return null;
+        pickupPosition = pickupResult.position;
+        setState(() {
+          _pickupAddress = pickupResult.address;
+          _tripPickupLatLng = pickupResult.position;
+        });
+      }
+      if (!mounted) return null;
+      final confirmedPickupPosition = pickupPosition;
+      var resolvedDestination = destination;
+      LatLng? destinationPosition;
+      final destinationResult = await address_service.geocodeAddress(destination);
+      if (destinationResult != null) {
+        resolvedDestination = destinationResult.address.trim().isNotEmpty
+            ? destinationResult.address.trim()
+            : destination;
+        destinationPosition = LatLng(
+          destinationResult.latitude,
+          destinationResult.longitude,
+        );
+      } else {
+        final result = await _openPickupMapPicker(
+          destination,
+          isDestination: true,
+        );
+        if (result == null || !mounted) return null;
+        resolvedDestination = result.address.trim().isNotEmpty
+            ? result.address.trim()
+            : destination;
+        destinationPosition = result.position;
+      }
+      final confirmedDestinationPosition = destinationPosition;
+      if (confirmedDestinationPosition == null || !mounted) return null;
+      return Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SelectRide(
+            pickupAddress: _pickupAddress ?? 'Current location',
+            destinationAddress: resolvedDestination,
+            pickupPosition: confirmedPickupPosition,
+            destinationPosition: confirmedDestinationPosition,
+            stops: List<String>.from(_routeStops),
+          ),
         ),
-      ),
-    );
+      );
+    });
+  }
+
+  Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
+    final parkedNow = !_homeMapParked;
+    if (parkedNow) {
+      setState(() => _homeMapParked = true);
+      _mapController = null;
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      if (!mounted) return null;
+    }
+    try {
+      return await action();
+    } finally {
+      if (parkedNow && mounted) {
+        setState(() => _homeMapParked = false);
+      }
+    }
   }
 
   Future<_PickupMapResult?> _openPickupMapPicker(
@@ -566,17 +586,19 @@ class _HomeState extends State<Home> {
         initialPosition = LatLng(geocoded.latitude, geocoded.longitude);
     }
     if (!mounted) return null;
-    return Navigator.of(context).push<_PickupMapResult>(
-      MaterialPageRoute(
-        builder: (_) => _PickupMapPickerPage(
-          initialPosition: initialPosition,
-          isDestination: isDestination,
-          initialAddress: cleanAddress.isEmpty
-              ? (_pickupAddress ?? 'Current location')
-              : cleanAddress,
+    return _withParkedHomeMap(() {
+      return Navigator.of(context).push<_PickupMapResult>(
+        MaterialPageRoute(
+          builder: (_) => _PickupMapPickerPage(
+            initialPosition: initialPosition,
+            isDestination: isDestination,
+            initialAddress: cleanAddress.isEmpty
+                ? (_pickupAddress ?? 'Current location')
+                : cleanAddress,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Future<void> _showRouteAddressPicker({required String initialField}) async {
@@ -1329,22 +1351,23 @@ class _HomeState extends State<Home> {
         }
         return;
       }
-      // Do not await a Home-map camera animation before opening the ride
-      // categories. On web the platform-map future can stall/fail and block
-      // navigation entirely. SelectRide frames the route on its own map.
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SelectRide(
-            pickupAddress: pickup.isNotEmpty
-                ? pickup
-                : (_pickupAddress ?? 'Current location'),
-            destinationAddress: destination,
-            pickupPosition: pickupPosition,
-            destinationPosition: destinationPosition,
-            stops: List<String>.from(stops),
+      // Park the Home map before opening categories. Two Google Maps at once
+      // crashes the browser tab on Flutter web.
+      await _withParkedHomeMap(() {
+        return Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SelectRide(
+              pickupAddress: pickup.isNotEmpty
+                  ? pickup
+                  : (_pickupAddress ?? 'Current location'),
+              destinationAddress: destination,
+              pickupPosition: pickupPosition,
+              destinationPosition: destinationPosition,
+              stops: List<String>.from(stops),
+            ),
           ),
-        ),
-      );
+        );
+      });
     }
   }
 
@@ -2077,34 +2100,38 @@ class _HomeState extends State<Home> {
               width: double.infinity,
               child: Stack(
                 children: [
-                  CustomGoogleMap(
-                    initialPosition: _initialPosition,
-                    markers: _markers,
-                    circles: _locationCircles,
-                    polygons: _locationDirection,
-                    myLocationEnabled: false,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    mapToolbarEnabled: false,
-                    compassEnabled: false,
-                    trafficEnabled: false,
-                    buildingsEnabled: true,
-                    indoorViewEnabled: false,
-                    mapType: MapType.normal,
-                    customMapStyle: _premiumMapStyle,
-                    onCameraMove: _handleMapCameraMove,
-                    onMapCreated: (GoogleMapController controller) {
-                      _mapController = controller;
-                      final target = _currentLatLng;
-                      if (target != null) {
-                        controller.animateCamera(
-                          CameraUpdate.newCameraPosition(
-                            CameraPosition(target: target, zoom: 15),
+                  Positioned.fill(
+                    child: _homeMapParked
+                        ? const ColoredBox(color: Color(0xFFEEF1E8))
+                        : CustomGoogleMap(
+                            initialPosition: _initialPosition,
+                            markers: _markers,
+                            circles: _locationCircles,
+                            polygons: _locationDirection,
+                            myLocationEnabled: false,
+                            myLocationButtonEnabled: false,
+                            zoomControlsEnabled: false,
+                            mapToolbarEnabled: false,
+                            compassEnabled: false,
+                            trafficEnabled: false,
+                            buildingsEnabled: true,
+                            indoorViewEnabled: false,
+                            mapType: MapType.normal,
+                            customMapStyle: _premiumMapStyle,
+                            onCameraMove: _handleMapCameraMove,
+                            onMapCreated: (GoogleMapController controller) {
+                              _mapController = controller;
+                              final target = _currentLatLng;
+                              if (target != null) {
+                                controller.animateCamera(
+                                  CameraUpdate.newCameraPosition(
+                                    CameraPosition(target: target, zoom: 15),
+                                  ),
+                                );
+                              }
+                            },
+                            onTap: (LatLng position) {},
                           ),
-                        );
-                      }
-                    },
-                    onTap: (LatLng position) {},
                   ),
                   if (_showRecenterButton && _currentLatLng != null)
                     Positioned(
@@ -3669,7 +3696,7 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
                 target: widget.initialPosition,
                 zoom: 17,
               ),
-              myLocationEnabled: true,
+              myLocationEnabled: false,
               onMapCreated: (controller) => _controller = controller,
               onCameraMove: (camera) => _position = camera.target,
               onCameraIdle: _resolveAddress,
