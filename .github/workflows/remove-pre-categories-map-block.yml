@@ -1,0 +1,63 @@
+name: Remove pre-categories map blocker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/remove_pre_categories_map_block.py'
+      - '.github/workflows/remove-pre-categories-map-block.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Remove blocking Home map animation
+        run: python3 .github/scripts/remove_pre_categories_map_block.py
+
+      - name: Format Home
+        run: dart format 'lib/features/rider/home/home.dart'
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze navigation fix
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build navigation fix
+        run: flutter build web --release --base-href '/-movera-rider/' --pwa-strategy=none
+
+      - name: Verify direct SelectRide navigation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path('lib/features/rider/home/home.dart').read_text()
+          marker = "builder: (_) => SelectRide("
+          idx = s.rfind(marker)
+          if idx < 0:
+              raise SystemExit('Main SelectRide route not found')
+          window = s[max(0, idx - 900):idx]
+          if 'animateCamera' in window:
+              raise SystemExit('Home map animation still blocks the main SelectRide route')
+          print('Main SelectRide route has no awaited map animation before navigation.')
+          PY
+
+      - name: Commit validated fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'lib/features/rider/home/home.dart'
+          git commit -m 'Open ride categories without map wait'
+          git push origin HEAD:main
