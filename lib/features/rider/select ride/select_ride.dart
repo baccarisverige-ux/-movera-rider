@@ -1,18 +1,11 @@
-import 'package:dotted_line/dotted_line.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/shared/models/onboarding.dart';
 import 'package:movera_rider/features/rider/Finding%20Drivers/finding_drivers.dart';
-import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class SelectRide extends StatefulWidget {
@@ -22,124 +15,354 @@ class SelectRide extends StatefulWidget {
   State<SelectRide> createState() => _SelectRideState();
 }
 
+class _RideOption {
+  const _RideOption({
+    required this.image,
+    required this.name,
+    required this.note,
+    required this.arrival,
+    required this.price,
+  });
+
+  final String image;
+  final String name;
+  final String note;
+  final String arrival;
+  final double price;
+}
+
+class _PaymentOption {
+  const _PaymentOption({
+    required this.image,
+    required this.name,
+    this.tintable = false,
+  });
+
+  final String image;
+  final String name;
+  final bool tintable;
+}
+
 class _SelectRideState extends State<SelectRide> {
-  List<OnBoardingModel> ridesList = [
-    OnBoardingModel(
+  static const Color _ink = Color(0xFF151B1F);
+  static const Color _muted = Color(0xFF7C858B);
+  static const Color _line = Color(0xFFE4E8EA);
+  static const Color _surface = Color(0xFFF5F6F6);
+  static const Color _accent = Color(0xFF245E78);
+  static const Color _accentSoft = Color(0xFFEAF2F5);
+
+  final List<_RideOption> _rides = const [
+    _RideOption(
       image: AppAssets.mini,
-      title: "Mini Ride",
-      subTitle: "\$5.00",
+      name: 'Mini Ride',
+      note: 'Affordable everyday ride',
+      arrival: '2 min',
+      price: 5.00,
     ),
-    OnBoardingModel(
+    _RideOption(
       image: AppAssets.ecoFriendly,
-      title: "Eco-Friendy",
-      subTitle: "\$7.50",
+      name: 'Eco-Friendly',
+      note: 'Lower-emission ride',
+      arrival: '3 min',
+      price: 7.50,
     ),
-    OnBoardingModel(image: AppAssets.xl, title: "XL", subTitle: "\$17.00"),
-    OnBoardingModel(
+    _RideOption(
+      image: AppAssets.xl,
+      name: 'XL',
+      note: 'More room for people and bags',
+      arrival: '5 min',
+      price: 17.00,
+    ),
+    _RideOption(
       image: AppAssets.luxury,
-      title: "Luxury",
-      subTitle: "\$27.00",
+      name: 'Luxury',
+      note: 'Premium car and comfort',
+      arrival: '4 min',
+      price: 27.00,
     ),
   ];
-  int selectedRide = 1;
-  double price = 7.50;
-  // Add these fields
-  void increasePrice() {
-    setState(() {
-      price = double.parse((price + 0.05).toStringAsFixed(2));
-    });
-  }
 
-  void decreasePrice() {
-    setState(() {
-      // Optional: prevent going below 0
-      if (price > 0) {
-        price = double.parse((price - 0.05).toStringAsFixed(2));
-      }
-    });
-  }
-
-  int selectedMethod = 0;
-
-  List<OnBoardingModel> paymentMethods = [
-    OnBoardingModel(
-      image: AppAssets.wallet,
-      title: "\$7.00",
-      subTitle: "Wallet",
-    ),
-    OnBoardingModel(image: AppAssets.cash, title: "\$7.00", subTitle: "Cash"),
-    OnBoardingModel(
-      image: AppAssets.mastercard,
-      title: "\$7.00",
-      subTitle: "Master card",
-    ),
-    OnBoardingModel(
-      image: AppAssets.applepay,
-      title: "\$7.00",
-      subTitle: "Apple pay",
-    ),
-    OnBoardingModel(
-      image: AppAssets.paypal,
-      title: "\$7.00",
-      subTitle: "Paypal",
-    ),
+  final List<_PaymentOption> _payments = const [
+    _PaymentOption(image: AppAssets.wallet, name: 'Wallet', tintable: true),
+    _PaymentOption(image: AppAssets.cash, name: 'Cash', tintable: true),
+    _PaymentOption(image: AppAssets.mastercard, name: 'Mastercard'),
+    _PaymentOption(image: AppAssets.applepay, name: 'Apple Pay'),
+    _PaymentOption(image: AppAssets.paypal, name: 'PayPal'),
   ];
-  // ignore: unused_field
+
+  int _selectedRide = 1;
+  int _selectedPayment = 3;
+  double _price = 7.50;
+  DateTime? _scheduledFor;
   GoogleMapController? _mapController;
-  // ignore: prefer_final_fields
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {
+    Marker(
+      markerId: const MarkerId('driver_location'),
+      position: const LatLng(33.6844, 73.0479),
+      infoWindow: const InfoWindow(title: 'Pickup'),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+    ),
+  };
 
-  // Default location
   static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479), // Islamabad coordinates
-    zoom: 14.0,
+    target: LatLng(33.6844, 73.0479),
+    zoom: 14,
   );
 
-  @override
-  void initState() {
-    super.initState();
-    _loadMarkers();
+  void _selectRide(int index) {
+    setState(() {
+      _selectedRide = index;
+      _price = _rides[index].price;
+    });
   }
 
-  void _loadMarkers() {
-    // Add any initial markers if needed
-    // Example: driver location marker
-    _markers.add(
-      Marker(
-        markerId: MarkerId('driver_location'),
-        position: LatLng(33.6844, 73.0479),
-        infoWindow: InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+  void _increasePrice() {
+    setState(() => _price = double.parse((_price + 0.50).toStringAsFixed(2)));
+  }
+
+  void _decreasePrice() {
+    final minimum = _rides[_selectedRide].price * 0.65;
+    if (_price <= minimum) return;
+    setState(() {
+      _price = double.parse((_price - 0.50).clamp(minimum, 9999).toStringAsFixed(2));
+    });
+  }
+
+  String get _scheduleLabel {
+    final value = _scheduledFor;
+    if (value == null) return 'Book now';
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return 'Later · ${value.day}/${value.month} at $hour:$minute';
+  }
+
+  Future<void> _chooseLater() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 180)),
+      helpText: 'Choose ride date',
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+      helpText: 'Choose pickup time',
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _scheduledFor = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Future<void> _showBookingPicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _choiceSheet(
+        title: 'When do you want to ride?',
+        children: [
+          _sheetChoice(
+            icon: Icons.bolt_rounded,
+            title: 'Book now',
+            subtitle: 'Request a driver right away',
+            selected: _scheduledFor == null,
+            onTap: () {
+              setState(() => _scheduledFor = null);
+              Navigator.pop(sheetContext);
+            },
+          ),
+          _sheetChoice(
+            icon: Icons.calendar_month_rounded,
+            title: 'Book for later',
+            subtitle: 'Choose a date and pickup time',
+            selected: _scheduledFor != null,
+            onTap: () {
+              Navigator.pop(sheetContext);
+              Future<void>.delayed(
+                const Duration(milliseconds: 180),
+                _chooseLater,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPaymentPicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _choiceSheet(
+        title: 'Payment method',
+        children: List.generate(_payments.length, (index) {
+          final method = _payments[index];
+          return _sheetChoice(
+            image: method.image,
+            tintImage: method.tintable,
+            title: method.name,
+            subtitle: index == 0 ? '\$7.00 available' : 'Pay for this ride',
+            selected: _selectedPayment == index,
+            onTap: () {
+              setState(() => _selectedPayment = index);
+              Navigator.pop(sheetContext);
+            },
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _choiceSheet({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD8DDE0),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: _ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetChoice({
+    IconData? icon,
+    String? image,
+    bool tintImage = false,
+    required String title,
+    required String subtitle,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        minHeight: 68,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? _accentSoft : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: selected ? _accent : _line),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: image != null
+                  ? Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: Image.asset(
+                        image,
+                        fit: BoxFit.contain,
+                        color: tintImage ? _ink : null,
+                      ),
+                    )
+                  : Icon(icon, color: _ink, size: 25),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: _ink,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: _muted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+              color: selected ? _accent : const Color(0xFFCAD0D3),
+              size: 24,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height;
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SlidingUpPanel(
-        color: AppColor.white,
-        backdropColor: Colors.transparent,
-        margin: EdgeInsets.all(0),
-        minHeight: ResSize.h * 360,
-        padding: EdgeInsets.symmetric(
-          horizontal: screenHorizPadding,
-          vertical: ResSize.h * 16,
-        ),
-        boxShadow: [],
-        isDraggable: true,
-        defaultPanelState: PanelState.CLOSED,
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-        parallaxEnabled: false,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-        panelBuilder: (ScrollController sc) => panelColumn(sc),
-        body: SizedBox(
-          child: Stack(
-            children: [
-              CustomGoogleMap(
+        color: Colors.white,
+        minHeight: ResSize.h * 430,
+        maxHeight: height * 0.84,
+        defaultPanelState: PanelState.OPEN,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 28,
+            offset: const Offset(0, -8),
+          ),
+        ],
+        panelBuilder: _panel,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomGoogleMap(
                 initialPosition: _initialPosition,
                 markers: _markers,
                 myLocationEnabled: true,
@@ -151,459 +374,387 @@ class _SelectRideState extends State<SelectRide> {
                 buildingsEnabled: true,
                 indoorViewEnabled: false,
                 mapType: MapType.normal,
-                onMapCreated: (GoogleMapController controller) {
-                  _mapController = controller;
-                  // Any additional map setup can be done here
-                },
-                onTap: (LatLng position) {
-                  // Handle map tap events
-                },
+                onMapCreated: (controller) => _mapController = controller,
+                onTap: (_) {},
               ),
-              SizedBox(
-                width: double.infinity,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                  child: Column(
-                    children: [
-                      50.height,
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          InkWell(
-                            onTap: () {
-                              Navigator.pop(context);
-                            },
-                            child: Container(
-                              height: ResSize.h * 24,
-                              width: ResSize.w * 24,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColor.white,
-                                boxShadow: [
-                                  BoxShadow(
-                                    offset: const Offset(0, 4),
-                                    // ignore: deprecated_member_use
-                                    color: Color(0xff606060).withOpacity(0.12),
-                                    spreadRadius: 6,
-                                    blurRadius: 40,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  Icons.arrow_back_ios_rounded,
-                                  color: AppColor.black,
-                                  size: ResSize.h * 18,
-                                ),
-                              ),
-                            ),
-                          ),
-                          TextWidget(
-                            text: "Select Ride",
-                            color: AppColor.black,
-                            fontSize: 16,
-                            fontWeight: fwSemiBold,
-                          ),
-
-                          SizedBox(
-                            height: ResSize.h * 24,
-                            width: ResSize.w * 24,
-                          ),
-                        ],
-                      ),
-                      18.height,
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: AppColor.white,
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResSize.w * 16,
-                            vertical: ResSize.h * 16,
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Transform.translate(
-                                    offset: const Offset(0, 10),
-                                    child: SizedBox(
-                                      height: ResSize.h * 100,
-                                      child: Column(
-                                        children: [
-                                          verticleCircle(icon: AppAssets.gps),
-
-                                          2.height,
-                                          verticleCircle(
-                                            icon: AppAssets.location,
-                                            removeDottedLine: true,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  12.width,
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        horizentalLocation(
-                                          title: "Pickup location",
-                                          location:
-                                              "Sector i11 Street 15, h340",
-                                        ),
-                                        9.height,
-                                        Divider(
-                                          height: 0,
-                                          thickness: 0.2,
-                                          color: AppColor.border,
-                                        ),
-                                        9.height,
-                                        horizentalLocation(
-                                          title: "Your destination",
-                                          location: "Skypulse solution",
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 14,
+              left: 18,
+              child: Material(
+                color: Colors.white,
+                shape: const CircleBorder(),
+                elevation: 5,
+                shadowColor: Colors.black26,
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 18,
+              left: 88,
+              right: 18,
+              child: Container(
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.96),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.10),
+                      blurRadius: 18,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.route_rounded, color: _accent, size: 21),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Pickup  →  Destination',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget panelColumn(ScrollController sc) {
+  Widget _panel(ScrollController controller) {
+    final selected = _rides[_selectedRide];
     return SingleChildScrollView(
-      controller: sc,
+      controller: controller,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextWidget(
-            fontSize: 14,
-            fontWeight: fwMedium,
-            text: "Available options",
-            color: AppColor.title,
+          Center(
+            child: Container(
+              width: 42,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD8DDE0),
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
           ),
-          8.height,
-          SizedBox(
-            height: ResSize.h * 75,
-            child: ListView.builder(
-              itemCount: ridesList.length,
-              shrinkWrap: true,
-              clipBehavior: Clip.none,
-              padding: EdgeInsets.all(0),
-              scrollDirection: Axis.horizontal,
-              physics: BouncingScrollPhysics(),
-              itemBuilder: (BuildContext context, int index) {
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      selectedRide = index;
-                    });
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: selectedRide == index
-                          ? Color(
-                              0xff215277,
-                              // ignore: deprecated_member_use
-                            ).withOpacity(0.10)
-                          : Colors.transparent,
-                    ),
-                    height: ResSize.h * 75,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        left: ResSize.w * 13,
-                        right: ResSize.w * 13,
+          const SizedBox(height: 15),
+          const Text(
+            'Choose your ride',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 25,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const SizedBox(height: 3),
+          const Text(
+            'Pick the comfort and space that suits you.',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...List.generate(_rides.length, (index) => _rideTile(index)),
+          const SizedBox(height: 14),
+          const Text(
+            'Your fare',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                _priceButton(Icons.remove_rounded, _decreasePrice),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '\$${_price.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.4,
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const Text(
+                        'Adjust your offer',
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _priceButton(Icons.add_rounded, _increasePrice),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _actionRow(
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Payment',
+            value: _payments[_selectedPayment].name,
+            onTap: _showPaymentPicker,
+          ),
+          const SizedBox(height: 9),
+          _actionRow(
+            icon: Icons.calendar_month_outlined,
+            label: 'Pickup time',
+            value: _scheduleLabel,
+            onTap: _showBookingPicker,
+          ),
+          const SizedBox(height: 16),
+          Material(
+            color: _ink,
+            borderRadius: BorderRadius.circular(17),
+            child: InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  BottomToTopTransition(FindingDrivers()),
+                );
+              },
+              borderRadius: BorderRadius.circular(17),
+              child: SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: Center(
+                  child: Text(
+                    _scheduledFor == null
+                        ? 'Book ${selected.name}'
+                        : 'Schedule ${selected.name}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rideTile(int index) {
+    final ride = _rides[index];
+    final selected = index == _selectedRide;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Material(
+        color: selected ? _accentSoft : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: () => _selectRide(index),
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            height: 88,
+            padding: const EdgeInsets.fromLTRB(10, 9, 14, 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: selected ? _accent : _line,
+                width: selected ? 1.6 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 92,
+                  child: Image.asset(
+                    ride.image,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Expanded(
-                            child: Transform.scale(
-                              scale:
-                                  ridesList[index].image ==
-                                      AppAssets.ecoFriendly
-                                  ? 1.45
-                                  : ridesList[index].image == AppAssets.xl
-                                  ? 1
-                                  : 1.2,
-                              child: Transform.translate(
-                                offset: ridesList[index].image == AppAssets.xl
-                                    ? Offset(-5, 5)
-                                    : ridesList[index].image ==
-                                          AppAssets.ecoFriendly
-                                    ? Offset(3, 0)
-                                    : Offset(0, 0),
-                                child: Image.asset(ridesList[index].image),
+                          Flexible(
+                            child: Text(
+                              ride.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _ink,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                          TextWidget(
-                            fontSize: 12,
-                            fontWeight: fwSemiBold,
-                            text: ridesList[index].title,
-                            color: AppColor.black,
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.person_outline_rounded,
+                            color: _muted,
+                            size: 16,
                           ),
-                          TextWidget(
-                            fontSize: 12,
-                            fontWeight: fwNormal,
-                            text: ridesList[index].subTitle,
-                            color: AppColor.black,
+                          const Text(
+                            '4',
+                            style: TextStyle(
+                              color: _muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          4.height,
                         ],
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          15.height,
-          Container(
-            height: ResSize.h * 51,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Color(0xffF3F6FB),
-            ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: ResSize.w * 12),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: decreasePrice,
-                      child: Container(
-                        height: ResSize.h * 27,
-                        width: ResSize.w * 27,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColor.white,
+                      const SizedBox(height: 3),
+                      Text(
+                        '${ride.arrival} · ${ride.note}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w400,
                         ),
-                        child: Center(
-                          child: Container(
-                            width: ResSize.w * 14,
-                            height: ResSize.h * 2,
-                            color: AppColor.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: increasePrice,
-                      child: Container(
-                        height: ResSize.h * 27,
-                        width: ResSize.w * 27,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColor.white,
-                        ),
-                        child: Center(
-                          child: Icon(Icons.add, color: AppColor.black),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      50.width,
-                      TextWidget(
-                        text: "\$${price.toStringAsFixed(2)}",
-                        color: AppColor.black,
-                        fontSize: 20,
-                        fontWeight: fwSemiBold,
-                      ),
-                      7.width,
-                      TextWidget(
-                        text: "recommend fare",
-                        color: AppColor.black,
-                        fontSize: 12,
-                        fontWeight: fwNormal,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          8.height,
-          TextWidget(
-            fontSize: 14,
-            fontWeight: fwMedium,
-            text: "Payment methods",
-            color: AppColor.title,
-          ),
-          14.height,
-          ...List.generate(paymentMethods.length, (index) {
-            return Padding(
-              padding: EdgeInsets.only(top: index == 0 ? 0 : ResSize.h * 8),
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    selectedMethod = index;
-                  });
-                },
-
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: ResSize.w * 10,
-                    vertical: ResSize.h * 8,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: selectedMethod == index
-                        ? Border.all(color: Colors.transparent, width: 0)
-                        : Border.all(color: AppColor.border, width: 0.4),
-                    color: selectedMethod == index
-                        ? AppColor.title
-                        : Colors.transparent,
-                  ),
-                  child: Row(
-                    children: [
-                      index > 1
-                          ? Image.asset(
-                              paymentMethods[index].image,
-                              height: ResSize.h * 25,
-                            )
-                          : Image.asset(
-                              paymentMethods[index].image,
-                              height: ResSize.h * 25,
-                              color: selectedMethod == index
-                                  ? AppColor.white
-                                  : AppColor.title,
-                            ),
-                      12.width,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextWidget(
-                              fontSize: 18,
-                              fontWeight: fwSemiBold,
-                              text: paymentMethods[index].title,
-                              color: selectedMethod == index
-                                  ? AppColor.whiteText
-                                  : AppColor.title,
-                            ),
-                            TextWidget(
-                              fontSize: 12,
-                              fontWeight: fwNormal,
-                              text: paymentMethods[index].subTitle,
-                              color: selectedMethod == index
-                                  ? Color(0xffE2E2E2)
-                                  : AppColor.subtitle,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: ResSize.h * 18,
-                        color: selectedMethod == index
-                            ? AppColor.white
-                            : AppColor.subtitle,
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          }),
-
-          19.height,
-          CustomButton(
-            centerContent: "Confirm",
-            onPressed: () {
-              Navigator.push(context, BottomToTopTransition(FindingDrivers()));
-            },
+                const SizedBox(width: 8),
+                Text(
+                  '\$${ride.price.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget verticleCircle({
-    String? icon,
-    bool isStop = false,
-    String? stopText,
-    bool removeDottedLine = false,
+  Widget _priceButton(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, color: _ink, size: 23),
+        ),
+      ),
+    );
+  }
+
+  Widget _actionRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
   }) {
-    return Expanded(
-      child: Column(
-        children: [
-          Center(child: Image.asset(icon!, height: ResSize.h * 22)),
-
-          removeDottedLine
-              ? 0.height
-              : Expanded(
-                  child: DottedLine(
-                    dashLength: 3,
-                    dashGapLength: 3,
-                    lineThickness: 1.4,
-                    dashColor: AppColor.black,
-                    direction: Axis.vertical,
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget horizentalLocation({String? title, location, bool isStop = false}) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(17),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(17),
+        child: Container(
+          minHeight: 66,
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: _line),
+          ),
+          child: Row(
             children: [
-              TextWidget(
-                fontSize: 12,
-                fontWeight: fwSemiBold,
-                text: title,
-                color: Color(0xffA3A3A3),
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: _ink, size: 21),
               ),
-              Text(
-                location!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.poppins(
-                  fontSize: ResSize.setSp(15),
-                  fontWeight: fwSemiBold,
-                  color: AppColor.black,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: _muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded, color: _muted, size: 25),
             ],
           ),
         ),
-        TextWidget(
-          fontSize: 12,
-          fontWeight: fwNormal,
-          text: "Edit",
-          color: AppColor.primary,
-        ),
-      ],
+      ),
     );
   }
 }
