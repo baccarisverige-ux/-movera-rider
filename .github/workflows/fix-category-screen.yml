@@ -58,74 +58,76 @@ jobs:
 
           home_path = Path('lib/features/rider/home/home.dart')
           home = home_path.read_text()
-          old = '''    if (destination.isNotEmpty) {
-            final destinationResult = await address_service.geocodeAddress(
-              destination,
-            );
-            final pickupPosition = exactPickupPosition;
-            if (destinationResult == null || pickupPosition == null || !mounted) {
-              return;
-            }
-            final destinationPosition = LatLng(
-              destinationResult.latitude,
-              destinationResult.longitude,
-            );
-            await _moveMapToAddress(destination);
-            if (!mounted) return;
-            Navigator.push(
-          '''
-          new = '''    if (destination.isNotEmpty) {
-            final pickupPosition = exactPickupPosition;
-            if (pickupPosition == null || !mounted) return;
+          start_marker = (
+              "    if (destination.isNotEmpty) {\n"
+              "      final destinationResult = await address_service.geocodeAddress(\n"
+              "        destination,\n"
+              "      );\n"
+          )
+          start = home.find(start_marker, home.find('final exactPickupPosition'))
+          if start < 0:
+              raise SystemExit('destination navigation start not found')
+          nav_marker = '      Navigator.push(\n'
+          nav = home.find(nav_marker, start)
+          if nav < 0:
+              raise SystemExit('destination Navigator.push not found')
 
-            var resolvedDestination = destination;
-            LatLng? destinationPosition;
-            final destinationResult = await address_service.geocodeAddress(
-              destination,
-            );
-            if (destinationResult != null) {
-              resolvedDestination = destinationResult.address.trim().isNotEmpty
-                  ? destinationResult.address.trim()
-                  : destination;
-              destinationPosition = LatLng(
-                destinationResult.latitude,
-                destinationResult.longitude,
-              );
-            } else {
-              final exactDestination = await _openPickupMapPicker(destination);
-              if (exactDestination == null || !mounted) return;
-              resolvedDestination = exactDestination.address.trim().isNotEmpty
-                  ? exactDestination.address.trim()
-                  : destination;
-              destinationPosition = exactDestination.position;
-            }
+          new_prefix = '\n'.join([
+              '    if (destination.isNotEmpty) {',
+              '      final pickupPosition = exactPickupPosition;',
+              '      if (pickupPosition == null || !mounted) return;',
+              '',
+              '      var resolvedDestination = destination;',
+              '      LatLng? destinationPosition;',
+              '      final destinationResult = await address_service.geocodeAddress(',
+              '        destination,',
+              '      );',
+              '      if (destinationResult != null) {',
+              '        resolvedDestination = destinationResult.address.trim().isNotEmpty',
+              '            ? destinationResult.address.trim()',
+              '            : destination;',
+              '        destinationPosition = LatLng(',
+              '          destinationResult.latitude,',
+              '          destinationResult.longitude,',
+              '        );',
+              '      } else {',
+              '        final exactDestination = await _openPickupMapPicker(destination);',
+              '        if (exactDestination == null || !mounted) return;',
+              '        resolvedDestination = exactDestination.address.trim().isNotEmpty',
+              '            ? exactDestination.address.trim()',
+              '            : destination;',
+              '        destinationPosition = exactDestination.position;',
+              '      }',
+              '',
+              '      setState(() {',
+              '        _destinationAddress = resolvedDestination;',
+              '        _rememberAddress(resolvedDestination);',
+              '      });',
+              '      await _persistAddressData();',
+              '      await _mapController?.animateCamera(',
+              '        CameraUpdate.newCameraPosition(',
+              '          CameraPosition(target: destinationPosition, zoom: 15),',
+              '        ),',
+              '      );',
+              '      if (!mounted) return;',
+              '',
+          ]) + '\n'
+          home = home[:start] + new_prefix + home[nav:]
 
-            setState(() {
-              _destinationAddress = resolvedDestination;
-              _rememberAddress(resolvedDestination);
-            });
-            await _persistAddressData();
-            await _mapController?.animateCamera(
-              CameraUpdate.newCameraPosition(
-                CameraPosition(target: destinationPosition, zoom: 15),
-              ),
-            );
-            if (!mounted) return;
-            Navigator.push(
-          '''
-          home = replace_once(home, old, new, 'destination navigation gate')
+          route_handoff = (
+              "            pickupAddress: pickup.isNotEmpty\n"
+              "                ? pickup\n"
+              "                : (_pickupAddress ?? 'Current location'),\n"
+              "            destinationAddress: destination,\n"
+          )
+          route_handoff_new = route_handoff.replace(
+              'destinationAddress: destination,',
+              'destinationAddress: resolvedDestination,',
+          )
           home = replace_once(
               home,
-              '''            pickupAddress: pickup.isNotEmpty
-                        ? pickup
-                        : (_pickupAddress ?? 'Current location'),
-                      destinationAddress: destination,
-          ''',
-              '''            pickupAddress: pickup.isNotEmpty
-                        ? pickup
-                        : (_pickupAddress ?? 'Current location'),
-                      destinationAddress: resolvedDestination,
-          ''',
+              route_handoff,
+              route_handoff_new,
               'resolved destination handoff',
           )
           home_path.write_text(home)
