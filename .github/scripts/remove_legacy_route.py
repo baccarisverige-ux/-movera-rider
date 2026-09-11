@@ -119,8 +119,12 @@ if not legacy_dir.exists():
 shutil.rmtree(legacy_dir)
 
 # Prove the old original route cannot be referenced by compiled Dart anymore.
+# Some old imports left directories whose names end in `.dart`, so scan only
+# actual files rather than every matching filesystem entry.
 violations = []
 for dart in Path('lib').rglob('*.dart'):
+    if not dart.is_file():
+        continue
     text = dart.read_text(errors='ignore')
     if (
         'ChooseRoute' in text
