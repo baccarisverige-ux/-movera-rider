@@ -1,0 +1,19 @@
+name: Audit legacy demo strings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-legacy-demo-strings.yml'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find remaining original demo strings
+        run: |
+          echo '--- Skypulse / I11 / old payment / original addresses ---'
+          find lib -type f -name '*.dart' -print0 | xargs -0 grep -n -E 'Skypulse|I11/Street|Sector i11|1141 central park|Lemonade Homilton|\$10\.12|\$14\.30' || true
+          echo '--- remaining unsafe hue markers ---'
+          find lib -type f -name '*.dart' -print0 | xargs -0 grep -n 'defaultMarkerWithHue' || true
