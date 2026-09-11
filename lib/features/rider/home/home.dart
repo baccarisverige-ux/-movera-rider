@@ -1739,28 +1739,17 @@ class _HomeState extends State<Home> {
     final controller = _mapController;
     if (controller == null) return;
 
-    // Interpolate position and zoom for a controlled premium camera motion.
-    final start = _lastMapTarget;
-    final startZoom = _lastMapZoom;
-    const steps = 14;
-    for (var step = 1; step <= steps; step++) {
-      final linear = step / steps;
-      final eased = 1 - math.pow(1 - linear, 3).toDouble();
-      final latitude = start.latitude +
-          (target.latitude - start.latitude) * eased;
-      final longitude = start.longitude +
-          (target.longitude - start.longitude) * eased;
-      final zoom = startZoom + (17 - startZoom) * eased;
-      await controller.moveCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(latitude, longitude),
-            zoom: zoom,
-          ),
+    // Let the map platform animate position and zoom together. This avoids
+    // visible stepping on mobile browsers.
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: target,
+          zoom: 17,
+          bearing: _locationHeading,
         ),
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 45));
-    }
+      ),
+    );
     if (mounted) setState(() => _showRecenterButton = false);
   }
 
