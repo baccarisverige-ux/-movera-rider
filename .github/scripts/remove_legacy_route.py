@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 import shutil
 
 home_path = Path('lib/features/rider/home/home.dart')
@@ -69,21 +68,31 @@ schedule = replace_exact(
     'Schedule edit-route method anchor',
 )
 
-# Both original ZIP route-summary taps push ChooseRoute through
-# BottomToTopTransition. Match the call structurally, including the trailing
-# comma used for Navigator.push's route argument.
-legacy_tap_pattern = re.compile(
-    r"onTap\s*:\s*\(\)\s*\{\s*"
-    r"Navigator\.push\(\s*context\s*,\s*"
-    r"BottomToTopTransition\(\s*(?:const\s+)?ChooseRoute\(\)\s*\)\s*,?\s*"
-    r"\)\s*;\s*\}\s*,",
-    re.S,
-)
-schedule, legacy_tap_count = legacy_tap_pattern.subn('onTap: _editRoute,', schedule)
-if legacy_tap_count != 2:
+# Remove each old ChooseRoute tap by finding the real constructor call and
+# replacing its enclosing onTap callback. This is intentionally independent
+# of whitespace/formatting from the original ZIP.
+needle = 'const ChooseRoute()'
+if schedule.count(needle) != 2:
     raise SystemExit(
-        f'Schedule legacy route taps: expected 2 structural matches, found {legacy_tap_count}'
+        f'Schedule legacy route calls: expected 2, found {schedule.count(needle)}'
     )
+for _ in range(2):
+    idx = schedule.find(needle)
+    if idx < 0:
+        raise SystemExit('ChooseRoute call disappeared unexpectedly')
+    start = schedule.rfind('onTap:', 0, idx)
+    if start < 0:
+        raise SystemExit('Could not locate onTap before ChooseRoute call')
+    end = schedule.find('},', idx)
+    if end < 0:
+        raise SystemExit('Could not locate onTap callback end after ChooseRoute call')
+    callback = schedule[start:end + 2]
+    if 'Navigator.push' not in callback or 'BottomToTopTransition' not in callback:
+        raise SystemExit('ChooseRoute was not inside the expected legacy navigation callback')
+    schedule = schedule[:start] + 'onTap: _editRoute,' + schedule[end + 2:]
+
+if needle in schedule:
+    raise SystemExit('Legacy ChooseRoute callback still remains')
 
 schedule = replace_exact(
     schedule,
