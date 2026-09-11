@@ -93,7 +93,7 @@ jobs:
           python3 -m http.server 8080 --directory build/web >/tmp/movera-http.log 2>&1 &
           echo $! >/tmp/movera-http.pid
           sleep 2
-          cat > /tmp/test-select-ride.mjs <<'JS'
+          cat > test-select-ride.mjs <<'JS'
           import { chromium } from 'playwright';
           import fs from 'fs';
 
@@ -130,7 +130,7 @@ jobs:
           await browser.close();
           if (failed) process.exit(2);
           JS
-          node /tmp/test-select-ride.mjs
+          node ./test-select-ride.mjs
 
       - name: Upload screenshots and reports
         if: always()
