@@ -1,0 +1,330 @@
+name: One-shot trip handoff repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-trip-handoff.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Patch route handoff and ride selection map
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          home_path = Path('lib/features/rider/home/home.dart')
+          select_path = Path('lib/features/rider/select ride/select_ride.dart')
+
+          home = home_path.read_text()
+          select = select_path.read_text()
+
+          old_ctor = """class SelectRide extends StatefulWidget {
+            const SelectRide({super.key});
+
+            @override
+            State<SelectRide> createState() => _SelectRideState();
+          }
+          """.replace('          ', '')
+          new_ctor = """class SelectRide extends StatefulWidget {
+            const SelectRide({
+              super.key,
+              required this.pickupAddress,
+              required this.destinationAddress,
+              required this.pickupPosition,
+              required this.destinationPosition,
+              this.stops = const <String>[],
+            });
+
+            final String pickupAddress;
+            final String destinationAddress;
+            final LatLng pickupPosition;
+            final LatLng destinationPosition;
+            final List<String> stops;
+
+            @override
+            State<SelectRide> createState() => _SelectRideState();
+          }
+          """.replace('          ', '')
+          if select.count(old_ctor) != 1:
+              raise SystemExit(f'SelectRide constructor anchor count={select.count(old_ctor)}')
+          select = select.replace(old_ctor, new_ctor, 1)
+
+          old_map_state = """  DateTime? _scheduledFor;
+            GoogleMapController? _mapController;
+            final Set<Marker> _markers = {
+              Marker(
+                markerId: const MarkerId('driver_location'),
+                position: const LatLng(33.6844, 73.0479),
+                infoWindow: const InfoWindow(title: 'Pickup'),
+                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+              ),
+            };
+
+            static const CameraPosition _initialPosition = CameraPosition(
+              target: LatLng(33.6844, 73.0479),
+              zoom: 14,
+            );
+          """.replace('          ', '')
+          new_map_state = """  DateTime? _scheduledFor;
+            GoogleMapController? _mapController;
+            late final Set<Marker> _markers;
+            late final CameraPosition _initialPosition;
+
+            @override
+            void initState() {
+              super.initState();
+              _initialPosition = CameraPosition(
+                target: widget.pickupPosition,
+                zoom: 14,
+              );
+              _markers = {
+                Marker(
+                  markerId: const MarkerId('pickup'),
+                  position: widget.pickupPosition,
+                  infoWindow: InfoWindow(title: widget.pickupAddress),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                ),
+                Marker(
+                  markerId: const MarkerId('destination'),
+                  position: widget.destinationPosition,
+                  infoWindow: InfoWindow(title: widget.destinationAddress),
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                ),
+              };
+            }
+
+            Future<void> _fitRoute() async {
+              final controller = _mapController;
+              if (controller == null || !mounted) return;
+              final pickup = widget.pickupPosition;
+              final destination = widget.destinationPosition;
+              final samePoint =
+                  (pickup.latitude - destination.latitude).abs() < 0.00001 &&
+                  (pickup.longitude - destination.longitude).abs() < 0.00001;
+              if (samePoint) {
+                await controller.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(target: pickup, zoom: 15),
+                  ),
+                );
+                return;
+              }
+              final bounds = LatLngBounds(
+                southwest: LatLng(
+                  pickup.latitude < destination.latitude
+                      ? pickup.latitude
+                      : destination.latitude,
+                  pickup.longitude < destination.longitude
+                      ? pickup.longitude
+                      : destination.longitude,
+                ),
+                northeast: LatLng(
+                  pickup.latitude > destination.latitude
+                      ? pickup.latitude
+                      : destination.latitude,
+                  pickup.longitude > destination.longitude
+                      ? pickup.longitude
+                      : destination.longitude,
+                ),
+              );
+              try {
+                await controller.animateCamera(
+                  CameraUpdate.newLatLngBounds(bounds, 92),
+                );
+              } catch (_) {
+                await controller.animateCamera(
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(target: pickup, zoom: 14),
+                  ),
+                );
+              }
+            }
+
+            String get _routeLabel =>
+                '${widget.pickupAddress}  →  ${widget.destinationAddress}';
+          """.replace('          ', '')
+          if select.count(old_map_state) != 1:
+              raise SystemExit(f'SelectRide map-state anchor count={select.count(old_map_state)}')
+          select = select.replace(old_map_state, new_map_state, 1)
+
+          old_map_created = "onMapCreated: (controller) => _mapController = controller,"
+          new_map_created = """onMapCreated: (controller) {
+                    _mapController = controller;
+                    Future<void>.delayed(
+                      const Duration(milliseconds: 320),
+                      _fitRoute,
+                    );
+                  },"""
+          if select.count(old_map_created) != 1:
+              raise SystemExit(f'onMapCreated anchor count={select.count(old_map_created)}')
+          select = select.replace(old_map_created, new_map_created, 1)
+
+          old_route_banner = """                child: const Row(
+                  children: [
+                    Icon(Icons.route_rounded, color: _accent, size: 21),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Pickup  →  Destination',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+          """.replace('          ', '')
+          new_route_banner = """                child: Row(
+                  children: [
+                    const Icon(Icons.route_rounded, color: _accent, size: 21),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _routeLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+          """.replace('          ', '')
+          if select.count(old_route_banner) != 1:
+              raise SystemExit(f'route banner anchor count={select.count(old_route_banner)}')
+          select = select.replace(old_route_banner, new_route_banner, 1)
+
+          old_saved_nav = """    await _persistAddressData();
+            await _moveMapToAddress(destination);
+            if (!mounted) return;
+            Navigator.push(
+              context,
+              BottomToTopTransition(const SelectRide()),
+            );
+          """.replace('          ', '')
+          new_saved_nav = """    await _persistAddressData();
+            final destinationResult = await address_service.geocodeAddress(destination);
+            final pickupPosition = _currentLatLng;
+            if (destinationResult == null || pickupPosition == null || !mounted) {
+              return;
+            }
+            final destinationPosition = LatLng(
+              destinationResult.latitude,
+              destinationResult.longitude,
+            );
+            await _moveMapToAddress(destination);
+            if (!mounted) return;
+            Navigator.push(
+              context,
+              BottomToTopTransition(
+                SelectRide(
+                  pickupAddress: _pickupAddress ?? 'Current location',
+                  destinationAddress: destination,
+                  pickupPosition: pickupPosition,
+                  destinationPosition: destinationPosition,
+                  stops: List<String>.from(_routeStops),
+                ),
+              ),
+            );
+          """.replace('          ', '')
+          if home.count(old_saved_nav) != 1:
+              raise SystemExit(f'saved-place navigation anchor count={home.count(old_saved_nav)}')
+          home = home.replace(old_saved_nav, new_saved_nav, 1)
+
+          old_route_nav = """    await _persistAddressData();
+            if (destination.isNotEmpty) {
+              await _moveMapToAddress(destination);
+              if (!mounted) return;
+              Navigator.push(
+                context,
+                BottomToTopTransition(const SelectRide()),
+              );
+            }
+          """.replace('          ', '')
+          new_route_nav = """    await _persistAddressData();
+            if (destination.isNotEmpty) {
+              final destinationResult = await address_service.geocodeAddress(destination);
+              final pickupPosition = _currentLatLng;
+              if (destinationResult == null || pickupPosition == null || !mounted) {
+                return;
+              }
+              final destinationPosition = LatLng(
+                destinationResult.latitude,
+                destinationResult.longitude,
+              );
+              await _moveMapToAddress(destination);
+              if (!mounted) return;
+              Navigator.push(
+                context,
+                BottomToTopTransition(
+                  SelectRide(
+                    pickupAddress: pickup.isNotEmpty
+                        ? pickup
+                        : (_pickupAddress ?? 'Current location'),
+                    destinationAddress: destination,
+                    pickupPosition: pickupPosition,
+                    destinationPosition: destinationPosition,
+                    stops: List<String>.from(stops),
+                  ),
+                ),
+              );
+            }
+          """.replace('          ', '')
+          if home.count(old_route_nav) != 1:
+              raise SystemExit(f'route-picker navigation anchor count={home.count(old_route_nav)}')
+          home = home.replace(old_route_nav, new_route_nav, 1)
+
+          if 'LatLng(33.6844, 73.0479)' in select:
+              raise SystemExit('hard-coded Islamabad coordinates still remain in SelectRide')
+          if 'Pickup  →  Destination' in select:
+              raise SystemExit('generic route label still remains in SelectRide')
+          if 'BottomToTopTransition(const SelectRide())' in home:
+              raise SystemExit('unwired SelectRide navigation still remains in Home')
+
+          home_path.write_text(home)
+          select_path.write_text(select)
+          PY
+
+      - name: Format changed Dart files
+        run: dart format 'lib/features/rider/home/home.dart' 'lib/features/rider/select ride/select_ride.dart'
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze repaired flow
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Commit repair
+        run: |
+          if git diff --quiet -- 'lib/features/rider/home/home.dart' 'lib/features/rider/select ride/select_ride.dart'; then
+            echo 'No changes produced'
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 'lib/features/rider/home/home.dart' 'lib/features/rider/select ride/select_ride.dart'
+          git commit -m 'Fix exact trip handoff to ride categories'
+          git push origin HEAD:main
