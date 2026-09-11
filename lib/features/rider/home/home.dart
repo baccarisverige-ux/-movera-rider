@@ -91,7 +91,10 @@ class _HomeState extends State<Home> {
   String? _homeAddress;
   String? _workAddress;
   List<String> _routeStops = [];
+  // Live device GPS. This may change continuously.
   LatLng? _currentLatLng;
+  // Pickup locked for the trip after the rider confirms it.
+  LatLng? _tripPickupLatLng;
   List<String> _recentAddresses = [];
   List<_SavedPlaceData> _savedPlaces = [];
 
@@ -482,7 +485,7 @@ class _HomeState extends State<Home> {
     });
     await _persistAddressData();
     final destinationResult = await address_service.geocodeAddress(destination);
-    final pickupPosition = _currentLatLng;
+    final pickupPosition = _tripPickupLatLng ?? _currentLatLng;
     if (destinationResult == null || pickupPosition == null || !mounted) {
       return;
     }
@@ -507,7 +510,8 @@ class _HomeState extends State<Home> {
   }
 
   Future<_PickupMapResult?> _openPickupMapPicker(String address) async {
-    LatLng initialPosition = _currentLatLng ?? _initialPosition.target;
+    LatLng initialPosition =
+        _tripPickupLatLng ?? _currentLatLng ?? _initialPosition.target;
     final cleanAddress = address.trim();
     if (cleanAddress.isNotEmpty &&
         cleanAddress.toLowerCase() != 'current location') {
@@ -1161,10 +1165,14 @@ class _HomeState extends State<Home> {
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;
+    final exactPickupPosition = pickupLat != null && pickupLng != null
+        ? LatLng(pickupLat, pickupLng)
+        : (_tripPickupLatLng ?? _currentLatLng);
     setState(() {
       if (pickup.isNotEmpty) _pickupAddress = pickup;
-      if (pickupLat != null && pickupLng != null)
-        _currentLatLng = LatLng(pickupLat, pickupLng);
+      if (exactPickupPosition != null) {
+        _tripPickupLatLng = exactPickupPosition;
+      }
       _destinationAddress = destination.isEmpty
           ? _destinationAddress
           : destination;
@@ -1180,7 +1188,7 @@ class _HomeState extends State<Home> {
       final destinationResult = await address_service.geocodeAddress(
         destination,
       );
-      final pickupPosition = _currentLatLng;
+      final pickupPosition = exactPickupPosition;
       if (destinationResult == null || pickupPosition == null || !mounted) {
         return;
       }
