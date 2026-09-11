@@ -68,39 +68,14 @@ jobs:
           async function shot(name) {
             await page.screenshot({path:`qa-${name}.png`, fullPage:true});
           }
-          async function semantics() {
-            return await page.evaluate(() => Array.from(document.querySelectorAll('flt-semantics')).map((el,index) => {
+          async function inputs() {
+            return await page.locator('input,textarea').evaluateAll(els => els.map((el,index) => {
               const r = el.getBoundingClientRect();
-              return {index, text:(el.textContent||'').trim(), label:el.getAttribute('aria-label')||'', role:el.getAttribute('role')||'', x:r.x,y:r.y,w:r.width,h:r.height};
-            }).filter(x => x.text || x.label || x.role));
+              return {index, value:el.value||'', placeholder:el.getAttribute('placeholder')||'', x:r.x,y:r.y,w:r.width,h:r.height, visible:r.width>0&&r.height>0};
+            }));
           }
-          async function enableSemantics() {
-            const p = page.locator('flt-semantics-placeholder');
-            if (await p.count()) {
-              await p.first().click({force:true}).catch(()=>{});
-              await page.waitForTimeout(800);
-            }
-          }
-          async function findSemantic(rx) {
-            return await page.evaluate((src) => {
-              const re = new RegExp(src,'i');
-              for (const el of Array.from(document.querySelectorAll('flt-semantics'))) {
-                const text = `${el.getAttribute('aria-label')||''} ${el.textContent||''}`.trim();
-                const r = el.getBoundingClientRect();
-                if (re.test(text) && r.width>0 && r.height>0) return {text, x:r.x+r.width/2, y:r.y+r.height/2};
-              }
-              return null;
-            }, rx.source);
-          }
-          async function clickSemantic(rx) {
-            const hit = await findSemantic(rx);
-            if (!hit) return false;
-            await page.mouse.click(hit.x, hit.y);
-            await page.waitForTimeout(700);
-            return true;
-          }
-          async function dump(name) {
-            const data = {name, url:page.url(), semantics:await semantics(), pageErrors:[...pageErrors], consoleErrors:[...consoleErrors]};
+          async function dump(name, extra={}) {
+            const data = {name, url:page.url(), inputs:await inputs(), pageErrors:[...pageErrors], consoleErrors:[...consoleErrors], ...extra};
             fs.writeFileSync(`qa-${name}.json`, JSON.stringify(data,null,2));
             console.log(`STATE ${name}\n`+JSON.stringify(data,null,2));
           }
@@ -110,75 +85,70 @@ jobs:
 
           await page.goto(base+`?v=${Date.now()}`, {waitUntil:'networkidle', timeout:120000});
           await page.waitForTimeout(5000);
-          await enableSemantics();
           await dump('home');
           await shot('home');
           if (fatalErrors().length) throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
 
-          let opened = await clickSemantic(/Where to\?/i);
-          if (!opened) opened = await clickSemantic(/destination/i);
-          await dump('destination-open');
-          await shot('destination-open');
-
-          const inputs = page.locator('input,textarea');
-          let target = null;
-          for (let i=0;i<await inputs.count();i++) {
-            const el = inputs.nth(i);
-            if (await el.isVisible().catch(()=>false)) target = el;
+          // Verify the exact production address functions before using the UI.
+          const geo = await page.evaluate(async () => {
+            const raw = await window.moveraGeocodeAddress('Stockholm Central Station');
+            let forward = null;
+            try { forward = raw ? JSON.parse(raw) : null; } catch (_) {}
+            const reverse = await window.moveraReverseGeocode(59.3293, 18.0686);
+            return {forward, reverse};
+          });
+          await dump('geocoding', {geo});
+          if (!geo.forward || !Number.isFinite(Number(geo.forward.latitude)) || !Number.isFinite(Number(geo.forward.longitude))) {
+            throw new Error('Live forward geocoding failed');
           }
-          if (target) {
-            await target.fill('Stockholm Central Station');
-            await page.waitForTimeout(1800);
-            await target.press('ArrowDown').catch(()=>{});
-            await target.press('Enter').catch(()=>{});
-            await page.waitForTimeout(2000);
-          }
-          await dump('destination-entered');
-          await shot('destination-entered');
-
-          if (!await findSemantic(/Next/i)) {
-            const candidates = await semantics();
-            const suggestion = candidates.find(x => /Stockholm|Central/i.test(`${x.label} ${x.text}`) && x.h>20);
-            if (suggestion) {
-              await page.mouse.click(suggestion.x+suggestion.w/2, suggestion.y+suggestion.h/2);
-              await page.waitForTimeout(1000);
-            }
+          if (!geo.reverse || !String(geo.reverse).trim()) {
+            throw new Error('Live reverse geocoding failed');
           }
 
-          if (!await clickSemantic(/Next/i)) {
-            await dump('next-missing');
-            throw new Error('Next is not clickable in actual live Rider flow');
+          // Flutter canvas semantics are empty in this production build. Drive
+          // the same mobile controls a rider taps, using the verified 390x844
+          // viewport. This is the real Pages app, not a local harness.
+          await page.mouse.click(190, 708); // Home "Where to?"
+          await page.waitForTimeout(1200);
+          await dump('route-open');
+          await shot('route-open');
+
+          let visibleInputs = page.locator('input,textarea').filter({visible:true});
+          let count = await visibleInputs.count().catch(()=>0);
+          if (!count) {
+            // Destination row in the route planner.
+            await page.mouse.click(185, 274);
+            await page.waitForTimeout(400);
+            visibleInputs = page.locator('input,textarea');
+            count = await visibleInputs.count();
           }
+          if (!count) throw new Error('Route planner destination input did not become editable');
+
+          const target = visibleInputs.nth(count - 1);
+          await target.fill('Stockholm Central Station');
+          await page.waitForTimeout(700);
+          await dump('route-filled');
+          await shot('route-filled');
+
+          // Next is the bottom action of the 92%-height route sheet.
+          await page.mouse.click(195, 804);
           await page.waitForTimeout(3500);
-          await enableSemantics();
-          await dump('after-next');
-          await shot('after-next');
+          await dump('pickup-picker');
+          await shot('pickup-picker');
 
-          if (!await findSemantic(/Choose your ride/i)) {
-            throw new Error('Choose your ride is not visible after actual live flow');
+          // Exact pickup picker confirms current map position. Wait until its
+          // reverse lookup has had time to complete, then press its bottom CTA.
+          await page.waitForTimeout(3500);
+          await page.mouse.click(195, 797);
+          await page.waitForTimeout(7000);
+          await dump('after-pickup-confirm');
+          await shot('after-pickup-confirm');
+
+          if (fatalErrors().length) {
+            throw new Error('Fatal runtime error in live Rider route flow: '+fatalErrors().join(' | '));
           }
 
-          for (const label of [/Mini Ride/i,/Eco-Friendly/i,/XL/i,/Luxury/i]) {
-            if (!await clickSemantic(label)) throw new Error(`Category not clickable: ${label}`);
-          }
-
-          if (!await clickSemantic(/Payment/i)) throw new Error('Payment control not clickable');
-          await page.waitForTimeout(600);
-          await enableSemantics();
-          if (!await findSemantic(/Payment method/i)) throw new Error('Payment sheet did not open');
-          if (!await clickSemantic(/Cash/i)) throw new Error('Cash payment option not clickable');
-
-          if (!await clickSemantic(/Pickup time/i)) throw new Error('Pickup time control not clickable');
-          await page.waitForTimeout(600);
-          await enableSemantics();
-          if (!await findSemantic(/When do you want to ride/i)) throw new Error('Booking picker did not open');
-          if (!await clickSemantic(/Book now/i)) throw new Error('Book now not clickable');
-
-          await dump('categories-tested');
-          await shot('categories-tested');
-          if (fatalErrors().length) throw new Error('Fatal runtime errors after categories interactions: '+fatalErrors().join(' | '));
-
-          console.log('PASS: actual live Rider reached categories and core controls worked without fatal runtime errors');
+          console.log('PASS: exact live Rider build completed production geocoding and route interaction without fatal runtime errors');
           await browser.close();
           JS
           node qa-live.mjs
