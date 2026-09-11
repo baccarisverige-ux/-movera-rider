@@ -422,11 +422,40 @@ class _HomeState extends State<Home> {
     await _showRouteAddressPicker(initialField: 'destination');
   }
 
+  Future<void> _useSavedPlaceAsDestination(
+    String? savedAddress, {
+    required String target,
+    String? customType,
+  }) async {
+    final address = savedAddress?.trim() ?? '';
+    if (address.isEmpty) {
+      await _showAddressPicker(target: target, customType: customType);
+      return;
+    }
+
+    final destination = await _normaliseAddress(address);
+    if (destination.isEmpty || !mounted) return;
+
+    setState(() {
+      _destinationAddress = destination;
+      _rememberAddress(destination);
+    });
+    await _persistAddressData();
+    await _moveMapToAddress(destination);
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      BottomToTopTransition(const SelectRide()),
+    );
+  }
+
   Future<void> _showRouteAddressPicker({
     required String initialField,
   }) async {
     final pickupController = TextEditingController(
-      text: _pickupAddress == 'Current location' ? '' : _pickupAddress ?? '',
+      text: _pickupAddress?.trim().isNotEmpty == true
+          ? _pickupAddress!.trim()
+          : 'Current location',
     );
     final destinationController = TextEditingController(
       text: _destinationAddress ?? '',
@@ -2217,7 +2246,10 @@ Widget _homePromoCard({
           iconAsset: AppAssets.quickHome,
           title: 'Home',
           subtitle: _shortAddress(_homeAddress, maxLength: 15),
-          onTap: () => _showAddressPicker(target: 'home'),
+          onTap: () => _useSavedPlaceAsDestination(
+            _homeAddress,
+            target: 'home',
+          ),
         ),
       ),
       8.width,
@@ -2227,7 +2259,10 @@ Widget _homePromoCard({
           iconAsset: AppAssets.quickWork,
           title: 'Work',
           subtitle: _shortAddress(_workAddress, maxLength: 15),
-          onTap: () => _showAddressPicker(target: 'work'),
+          onTap: () => _useSavedPlaceAsDestination(
+            _workAddress,
+            target: 'work',
+          ),
         ),
       ),
       8.width,
@@ -2265,7 +2300,8 @@ Widget _homePromoCard({
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _showAddressPicker(
+        onTap: () => _useSavedPlaceAsDestination(
+          place.address,
           target: 'custom',
           customType: place.type,
         ),
