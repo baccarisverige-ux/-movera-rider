@@ -502,23 +502,37 @@ class _HomeState extends State<Home> {
       _rememberAddress(destination);
     });
     await _persistAddressData();
-    final destinationResult = await address_service.geocodeAddress(destination);
     final pickupPosition = _tripPickupLatLng ?? _currentLatLng;
-    if (destinationResult == null || pickupPosition == null || !mounted) {
-      return;
+    if (pickupPosition == null || !mounted) return;
+    var resolvedDestination = destination;
+    LatLng? destinationPosition;
+    final destinationResult = await address_service.geocodeAddress(destination);
+    if (destinationResult != null) {
+      resolvedDestination = destinationResult.address.trim().isNotEmpty
+          ? destinationResult.address.trim()
+          : destination;
+      destinationPosition = LatLng(
+        destinationResult.latitude,
+        destinationResult.longitude,
+      );
+    } else {
+      final result = await _openPickupMapPicker(
+        destination,
+        isDestination: true,
+      );
+      if (result == null || !mounted) return;
+      resolvedDestination = result.address.trim().isNotEmpty
+          ? result.address.trim()
+          : destination;
+      destinationPosition = result.position;
     }
-    final destinationPosition = LatLng(
-      destinationResult.latitude,
-      destinationResult.longitude,
-    );
-    await _moveMapToAddress(destination);
     if (!mounted) return;
     Navigator.push(
       context,
       BottomToTopTransition(
         SelectRide(
           pickupAddress: _pickupAddress ?? 'Current location',
-          destinationAddress: destination,
+          destinationAddress: resolvedDestination,
           pickupPosition: pickupPosition,
           destinationPosition: destinationPosition,
           stops: List<String>.from(_routeStops),
@@ -527,7 +541,10 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Future<_PickupMapResult?> _openPickupMapPicker(String address) async {
+  Future<_PickupMapResult?> _openPickupMapPicker(
+    String address, {
+    bool isDestination = false,
+  }) async {
     LatLng initialPosition =
         _tripPickupLatLng ?? _currentLatLng ?? _initialPosition.target;
     final cleanAddress = address.trim();
@@ -542,6 +559,7 @@ class _HomeState extends State<Home> {
       MaterialPageRoute(
         builder: (_) => _PickupMapPickerPage(
           initialPosition: initialPosition,
+          isDestination: isDestination,
           initialAddress: cleanAddress.isEmpty
               ? (_pickupAddress ?? 'Current location')
               : cleanAddress,
@@ -573,6 +591,8 @@ class _HomeState extends State<Home> {
         : destinationController.text;
     var pickupConfirmedOnMap = false;
     LatLng? confirmedPickupLatLng;
+    var destinationConfirmedOnMap = false;
+    LatLng? confirmedDestinationLatLng;
 
     TextEditingController activeController() {
       if (activeField == 'pickup') return pickupController;
@@ -671,6 +691,9 @@ class _HomeState extends State<Home> {
                               if (field == 'pickup') {
                                 pickupConfirmedOnMap = false;
                                 confirmedPickupLatLng = null;
+                              } else if (field == 'destination') {
+                                destinationConfirmedOnMap = false;
+                                confirmedDestinationLatLng = null;
                               }
                             });
                           }
@@ -810,6 +833,23 @@ class _HomeState extends State<Home> {
                   controller: destinationController,
                   focusNode: destinationFocus,
                   badgeColor: const Color(0xFF1769E8),
+                  onMapTap: () async {
+                    FocusScope.of(context).unfocus();
+                    final result = await _openPickupMapPicker(
+                      destinationController.text.trim(),
+                      isDestination: true,
+                    );
+                    if (result == null || !mounted) return;
+                    destinationController.text = result.address;
+                    destinationController.selection = TextSelection.collapsed(
+                      offset: destinationController.text.length,
+                    );
+                    setModalState(() {
+                      destinationConfirmedOnMap = true;
+                      confirmedDestinationLatLng = result.position;
+                      query = destinationController.text;
+                    });
+                  },
                 ),
               );
 
@@ -1062,6 +1102,9 @@ class _HomeState extends State<Home> {
                                     if (activeField == 'pickup') {
                                       pickupConfirmedOnMap = false;
                                       confirmedPickupLatLng = null;
+                                    } else if (activeField == 'destination') {
+                                      destinationConfirmedOnMap = false;
+                                      confirmedDestinationLatLng = null;
                                     }
                                   });
                                 },
@@ -1130,13 +1173,50 @@ class _HomeState extends State<Home> {
                                     pickupController.text = result.address;
                                     exactPosition = result.position;
                                   }
-                                  if (!mounted) return;
+
+                                  var exactDestinationPosition =
+                                      confirmedDestinationLatLng;
+                                  if (!destinationConfirmedOnMap) {
+                                    final destinationText =
+                                        destinationController.text.trim();
+                                    final geocodedDestination =
+                                        await address_service.geocodeAddress(
+                                          destinationText,
+                                        );
+                                    if (geocodedDestination != null) {
+                                      destinationController.text =
+                                          geocodedDestination.address;
+                                      exactDestinationPosition = LatLng(
+                                        geocodedDestination.latitude,
+                                        geocodedDestination.longitude,
+                                      );
+                                    } else {
+                                      final result = await _openPickupMapPicker(
+                                        destinationText,
+                                        isDestination: true,
+                                      );
+                                      if (result == null || !mounted) return;
+                                      destinationController.text =
+                                          result.address;
+                                      exactDestinationPosition =
+                                          result.position;
+                                    }
+                                  }
+                                  if (!mounted ||
+                                      exactPosition == null ||
+                                      exactDestinationPosition == null) {
+                                    return;
+                                  }
                                   Navigator.pop(sheetContext, {
                                     'pickup': pickupController.text.trim(),
-                                    'pickupLat': exactPosition?.latitude,
-                                    'pickupLng': exactPosition?.longitude,
+                                    'pickupLat': exactPosition.latitude,
+                                    'pickupLng': exactPosition.longitude,
                                     'destination': destinationController.text
                                         .trim(),
+                                    'destinationLat':
+                                        exactDestinationPosition.latitude,
+                                    'destinationLng':
+                                        exactDestinationPosition.longitude,
                                     'stops': stopControllers
                                         .map(
                                           (controller) =>
@@ -1201,6 +1281,12 @@ class _HomeState extends State<Home> {
     final exactPickupPosition = pickupLat != null && pickupLng != null
         ? LatLng(pickupLat, pickupLng)
         : (_tripPickupLatLng ?? _currentLatLng);
+    final destinationLat = draft['destinationLat'] as double?;
+    final destinationLng = draft['destinationLng'] as double?;
+    final exactDestinationPosition =
+        destinationLat != null && destinationLng != null
+        ? LatLng(destinationLat, destinationLng)
+        : null;
     setState(() {
       if (pickup.isNotEmpty) _pickupAddress = pickup;
       if (exactPickupPosition != null) {
@@ -1219,35 +1305,10 @@ class _HomeState extends State<Home> {
     await _persistAddressData();
     if (destination.isNotEmpty) {
       final pickupPosition = exactPickupPosition;
-      if (pickupPosition == null || !mounted) return;
-
-      var resolvedDestination = destination;
-      LatLng? destinationPosition;
-      final destinationResult = await address_service.geocodeAddress(
-        destination,
-      );
-      if (destinationResult != null) {
-        resolvedDestination = destinationResult.address.trim().isNotEmpty
-            ? destinationResult.address.trim()
-            : destination;
-        destinationPosition = LatLng(
-          destinationResult.latitude,
-          destinationResult.longitude,
-        );
-      } else {
-        final exactDestination = await _openPickupMapPicker(destination);
-        if (exactDestination == null || !mounted) return;
-        resolvedDestination = exactDestination.address.trim().isNotEmpty
-            ? exactDestination.address.trim()
-            : destination;
-        destinationPosition = exactDestination.position;
+      final destinationPosition = exactDestinationPosition;
+      if (pickupPosition == null || destinationPosition == null || !mounted) {
+        return;
       }
-
-      setState(() {
-        _destinationAddress = resolvedDestination;
-        _rememberAddress(resolvedDestination);
-      });
-      await _persistAddressData();
       await _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(target: destinationPosition, zoom: 15),
@@ -1262,7 +1323,7 @@ class _HomeState extends State<Home> {
             pickupAddress: pickup.isNotEmpty
                 ? pickup
                 : (_pickupAddress ?? 'Current location'),
-            destinationAddress: resolvedDestination,
+            destinationAddress: destination,
             pickupPosition: pickupPosition,
             destinationPosition: destinationPosition,
             stops: List<String>.from(stops),
@@ -3496,10 +3557,12 @@ class _PickupMapPickerPage extends StatefulWidget {
   const _PickupMapPickerPage({
     required this.initialPosition,
     required this.initialAddress,
+    this.isDestination = false,
   });
 
   final LatLng initialPosition;
   final String initialAddress;
+  final bool isDestination;
 
   @override
   State<_PickupMapPickerPage> createState() => _PickupMapPickerPageState();
@@ -3672,8 +3735,10 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const Text(
-                      'Set exact pickup',
+                    Text(
+                      widget.isDestination
+                          ? 'Set exact destination'
+                          : 'Set exact pickup',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _ink,
@@ -3766,7 +3831,11 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
                           width: double.infinity,
                           child: Center(
                             child: Text(
-                              _resolving ? 'Locating…' : 'Confirm pickup',
+                              _resolving
+                                  ? 'Locating…'
+                                  : widget.isDestination
+                                  ? 'Confirm destination'
+                                  : 'Confirm pickup',
                               style: TextStyle(
                                 color: Colors.white.withOpacity(
                                   _resolving ? 0.58 : 1,
