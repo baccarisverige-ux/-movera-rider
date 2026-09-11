@@ -143,7 +143,6 @@ jobs:
             throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
           }
 
-          // Real 390x844 live categories screen: exercise each visible ride card.
           const ridePoints = [
             ['mini', 195, 281],
             ['eco', 195, 380],
@@ -160,7 +159,6 @@ jobs:
             if (fatalErrors().length) throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));
           }
 
-          // Fare decrease/increase must both respond without crashing.
           await page.mouse.click(50, 708);
           await page.waitForTimeout(350);
           const fareDown = await shot('fare-down');
@@ -170,7 +168,6 @@ jobs:
           const fareUp = await shot('fare-up');
           requireChanged(fareDown, fareUp, 'Fare increase');
 
-          // Open Payment and select Cash from the production bottom sheet.
           await page.mouse.click(195, 790);
           await page.waitForTimeout(650);
           const paymentOpen = await shot('payment-open');
@@ -183,18 +180,58 @@ jobs:
           requireChanged(paymentOpen, paymentCash, 'Cash payment selection');
           if (fatalErrors().length) throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
 
-          // Scroll the real categories panel to expose pickup-time and booking CTA.
+          // Real finger-style upward drag inside the open ride panel.
           await page.mouse.move(195, 780);
-          await page.mouse.wheel(0, 720);
-          await page.waitForTimeout(850);
+          await page.mouse.down();
+          await page.mouse.move(195, 430, {steps:18});
+          await page.mouse.up();
+          await page.waitForTimeout(900);
+          const categoriesScrolled = await shot('categories-scrolled');
+          requireChanged(paymentCash, categoriesScrolled, 'Ride panel drag');
           await dump('categories-scrolled');
-          await shot('categories-scrolled');
+          if (fatalErrors().length) throw new Error('Fatal runtime error scrolling categories: '+fatalErrors().join(' | '));
+
+          // Pickup time is exposed after the upward drag.
+          await page.mouse.click(195, 566);
+          await page.waitForTimeout(650);
+          const bookingOpen = await shot('booking-open');
+          requireChanged(categoriesScrolled, bookingOpen, 'Pickup time sheet');
+          if (fatalErrors().length) throw new Error('Fatal runtime error opening pickup time: '+fatalErrors().join(' | '));
+
+          // Test Book now and close the sheet.
+          await page.mouse.click(195, 690);
+          await page.waitForTimeout(650);
+          const bookingNow = await shot('booking-now');
+          requireChanged(bookingOpen, bookingNow, 'Book now selection');
+
+          // Re-open Pickup time and exercise Book for later up to the date picker.
+          await page.mouse.click(195, 566);
+          await page.waitForTimeout(550);
+          const bookingReopen = await shot('booking-reopen');
+          requireChanged(bookingNow, bookingReopen, 'Pickup time sheet reopen');
+          await page.mouse.click(195, 770);
+          await page.waitForTimeout(850);
+          const laterDatePicker = await shot('later-date-picker');
+          requireChanged(bookingReopen, laterDatePicker, 'Book for later date picker');
+          if (fatalErrors().length) throw new Error('Fatal runtime error opening later booking: '+fatalErrors().join(' | '));
+
+          // Cancel the date picker, then exercise the final booking CTA.
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(650);
+          const afterDateCancel = await shot('after-date-cancel');
+          requireChanged(laterDatePicker, afterDateCancel, 'Date picker cancel');
+
+          await page.mouse.click(195, 665);
+          await page.waitForTimeout(4500);
+          const afterBooking = await shot('after-booking-cta');
+          requireChanged(afterDateCancel, afterBooking, 'Final booking CTA');
+          await dump('after-booking-cta');
 
           if (fatalErrors().length) {
-            throw new Error('Fatal runtime error after live categories interactions: '+fatalErrors().join(' | '));
+            throw new Error('Fatal runtime error after full live Rider booking flow: '+fatalErrors().join(' | '));
           }
 
-          console.log('PASS: exact live Rider build exercised all ride cards, fare controls and payment selection without fatal runtime errors');
+          console.log('PASS: exact live Rider build completed route entry, all ride cards, fare controls, payment, Book now, Book for later opening, and final booking CTA without fatal runtime errors');
           await browser.close();
           JS
           node qa-live.mjs
