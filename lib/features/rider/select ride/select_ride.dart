@@ -9,7 +9,20 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class SelectRide extends StatefulWidget {
-  const SelectRide({super.key});
+  const SelectRide({
+    super.key,
+    required this.pickupAddress,
+    required this.destinationAddress,
+    required this.pickupPosition,
+    required this.destinationPosition,
+    this.stops = const <String>[],
+  });
+
+  final String pickupAddress;
+  final String destinationAddress;
+  final LatLng pickupPosition;
+  final LatLng destinationPosition;
+  final List<String> stops;
 
   @override
   State<SelectRide> createState() => _SelectRideState();
@@ -95,19 +108,76 @@ class _SelectRideState extends State<SelectRide> {
   double _price = 7.50;
   DateTime? _scheduledFor;
   GoogleMapController? _mapController;
-  final Set<Marker> _markers = {
-    Marker(
-      markerId: const MarkerId('driver_location'),
-      position: const LatLng(33.6844, 73.0479),
-      infoWindow: const InfoWindow(title: 'Pickup'),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-    ),
-  };
+  late final Set<Marker> _markers;
+  late final CameraPosition _initialPosition;
 
-  static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479),
-    zoom: 14,
-  );
+  @override
+  void initState() {
+    super.initState();
+    _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
+    _markers = {
+      Marker(
+        markerId: const MarkerId('pickup'),
+        position: widget.pickupPosition,
+        infoWindow: InfoWindow(title: widget.pickupAddress),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      ),
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: widget.destinationPosition,
+        infoWindow: InfoWindow(title: widget.destinationAddress),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+      ),
+    };
+  }
+
+  Future<void> _fitRoute() async {
+    final controller = _mapController;
+    if (controller == null || !mounted) return;
+    final pickup = widget.pickupPosition;
+    final destination = widget.destinationPosition;
+    final samePoint =
+        (pickup.latitude - destination.latitude).abs() < 0.00001 &&
+        (pickup.longitude - destination.longitude).abs() < 0.00001;
+    if (samePoint) {
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: pickup, zoom: 15),
+        ),
+      );
+      return;
+    }
+    final bounds = LatLngBounds(
+      southwest: LatLng(
+        pickup.latitude < destination.latitude
+            ? pickup.latitude
+            : destination.latitude,
+        pickup.longitude < destination.longitude
+            ? pickup.longitude
+            : destination.longitude,
+      ),
+      northeast: LatLng(
+        pickup.latitude > destination.latitude
+            ? pickup.latitude
+            : destination.latitude,
+        pickup.longitude > destination.longitude
+            ? pickup.longitude
+            : destination.longitude,
+      ),
+    );
+    try {
+      await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 92));
+    } catch (_) {
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: pickup, zoom: 14),
+        ),
+      );
+    }
+  }
+
+  String get _routeLabel =>
+      '${widget.pickupAddress}  →  ${widget.destinationAddress}';
 
   void _selectRide(int index) {
     setState(() {
@@ -124,7 +194,9 @@ class _SelectRideState extends State<SelectRide> {
     final minimum = _rides[_selectedRide].price * 0.65;
     if (_price <= minimum) return;
     setState(() {
-      _price = double.parse((_price - 0.50).clamp(minimum, 9999).toStringAsFixed(2));
+      _price = double.parse(
+        (_price - 0.50).clamp(minimum, 9999).toStringAsFixed(2),
+      );
     });
   }
 
@@ -223,10 +295,7 @@ class _SelectRideState extends State<SelectRide> {
     );
   }
 
-  Widget _choiceSheet({
-    required String title,
-    required List<Widget> children,
-  }) {
+  Widget _choiceSheet({required String title, required List<Widget> children}) {
     return SafeArea(
       top: false,
       child: Container(
@@ -374,7 +443,13 @@ class _SelectRideState extends State<SelectRide> {
                 buildingsEnabled: true,
                 indoorViewEnabled: false,
                 mapType: MapType.normal,
-                onMapCreated: (controller) => _mapController = controller,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  Future<void>.delayed(
+                    const Duration(milliseconds: 320),
+                    _fitRoute,
+                  );
+                },
                 onTap: (_) {},
               ),
             ),
@@ -392,7 +467,11 @@ class _SelectRideState extends State<SelectRide> {
                   child: const SizedBox(
                     width: 52,
                     height: 52,
-                    child: Icon(Icons.arrow_back_rounded, color: _ink, size: 28),
+                    child: Icon(
+                      Icons.arrow_back_rounded,
+                      color: _ink,
+                      size: 28,
+                    ),
                   ),
                 ),
               ),
@@ -415,16 +494,16 @@ class _SelectRideState extends State<SelectRide> {
                     ),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.route_rounded, color: _accent, size: 21),
-                    SizedBox(width: 10),
+                    const Icon(Icons.route_rounded, color: _accent, size: 21),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Pickup  →  Destination',
+                        _routeLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: _ink,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,

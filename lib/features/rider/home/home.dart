@@ -22,8 +22,10 @@ import 'package:movera_rider/features/rider/select%20ride/select_ride.dart';
 import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
-import 'package:movera_rider/shared/services/location_address.dart' as address_service;
-import 'package:movera_rider/shared/services/device_heading.dart' as heading_service;
+import 'package:movera_rider/shared/services/location_address.dart'
+    as address_service;
+import 'package:movera_rider/shared/services/device_heading.dart'
+    as heading_service;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -393,9 +395,7 @@ class _HomeState extends State<Home> {
     if (result == null) return;
     final target = LatLng(result.latitude, result.longitude);
     await _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: target, zoom: 15),
-      ),
+      CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: 15)),
     );
   }
 
@@ -481,33 +481,54 @@ class _HomeState extends State<Home> {
       _rememberAddress(destination);
     });
     await _persistAddressData();
+    final destinationResult = await address_service.geocodeAddress(destination);
+    final pickupPosition = _currentLatLng;
+    if (destinationResult == null || pickupPosition == null || !mounted) {
+      return;
+    }
+    final destinationPosition = LatLng(
+      destinationResult.latitude,
+      destinationResult.longitude,
+    );
     await _moveMapToAddress(destination);
     if (!mounted) return;
     Navigator.push(
       context,
-      BottomToTopTransition(const SelectRide()),
+      BottomToTopTransition(
+        SelectRide(
+          pickupAddress: _pickupAddress ?? 'Current location',
+          destinationAddress: destination,
+          pickupPosition: pickupPosition,
+          destinationPosition: destinationPosition,
+          stops: List<String>.from(_routeStops),
+        ),
+      ),
     );
   }
 
   Future<_PickupMapResult?> _openPickupMapPicker(String address) async {
     LatLng initialPosition = _currentLatLng ?? _initialPosition.target;
     final cleanAddress = address.trim();
-    if (cleanAddress.isNotEmpty && cleanAddress.toLowerCase() != 'current location') {
+    if (cleanAddress.isNotEmpty &&
+        cleanAddress.toLowerCase() != 'current location') {
       final geocoded = await address_service.geocodeAddress(cleanAddress);
-      if (geocoded != null) initialPosition = LatLng(geocoded.latitude, geocoded.longitude);
+      if (geocoded != null)
+        initialPosition = LatLng(geocoded.latitude, geocoded.longitude);
     }
     if (!mounted) return null;
     return Navigator.of(context).push<_PickupMapResult>(
-      MaterialPageRoute(builder: (_) => _PickupMapPickerPage(
-        initialPosition: initialPosition,
-        initialAddress: cleanAddress.isEmpty ? (_pickupAddress ?? 'Current location') : cleanAddress,
-      )),
+      MaterialPageRoute(
+        builder: (_) => _PickupMapPickerPage(
+          initialPosition: initialPosition,
+          initialAddress: cleanAddress.isEmpty
+              ? (_pickupAddress ?? 'Current location')
+              : cleanAddress,
+        ),
+      ),
     );
   }
 
-  Future<void> _showRouteAddressPicker({
-    required String initialField,
-  }) async {
+  Future<void> _showRouteAddressPicker({required String initialField}) async {
     final pickupController = TextEditingController(
       text: _pickupAddress?.trim().isNotEmpty == true
           ? _pickupAddress!.trim()
@@ -521,8 +542,7 @@ class _HomeState extends State<Home> {
         .toList();
     final pickupFocus = FocusNode();
     final destinationFocus = FocusNode();
-    final stopFocusNodes =
-        stopControllers.map((_) => FocusNode()).toList();
+    final stopFocusNodes = stopControllers.map((_) => FocusNode()).toList();
 
     var activeField = initialField;
     var activeStopIndex = -1;
@@ -557,8 +577,8 @@ class _HomeState extends State<Home> {
                     (address) =>
                         query.trim().isEmpty ||
                         address.toLowerCase().contains(
-                              query.trim().toLowerCase(),
-                            ),
+                          query.trim().toLowerCase(),
+                        ),
                   )
                   .take(5)
                   .toList();
@@ -586,7 +606,8 @@ class _HomeState extends State<Home> {
                 VoidCallback? onMapTap,
                 Color? badgeColor,
               }) {
-                final isActive = activeField == field &&
+                final isActive =
+                    activeField == field &&
                     (field != 'stop' || activeStopIndex == stopIndex);
                 return Row(
                   children: [
@@ -606,10 +627,7 @@ class _HomeState extends State<Home> {
                           borderRadius: field == 'destination'
                               ? BorderRadius.circular(2)
                               : null,
-                          border: Border.all(
-                            color: _premiumInk,
-                            width: 2,
-                          ),
+                          border: Border.all(color: _premiumInk, width: 2),
                         ),
                       ),
                     ),
@@ -639,9 +657,7 @@ class _HomeState extends State<Home> {
                           labelText: label,
                           hintText: hint,
                           labelStyle: TextStyle(
-                            color: isActive
-                                ? _premiumAccent
-                                : _premiumMuted,
+                            color: isActive ? _premiumAccent : _premiumMuted,
                             fontSize: ResSize.setSp(10),
                             fontWeight: FontWeight.w600,
                           ),
@@ -666,12 +682,13 @@ class _HomeState extends State<Home> {
                             : 'Select final destination',
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: onMapTap ??
+                          onTap:
+                              onMapTap ??
                               () => activateField(
-                                    field,
-                                    controller,
-                                    stopIndex: stopIndex,
-                                  ),
+                                field,
+                                controller,
+                                stopIndex: stopIndex,
+                              ),
                           child: Padding(
                             padding: EdgeInsets.only(left: ResSize.w * 3),
                             child: _PremiumRouteLocationBadge(
@@ -684,10 +701,12 @@ class _HomeState extends State<Home> {
                     if (removable)
                       IconButton(
                         onPressed: () {
-                          final removedController =
-                              stopControllers.removeAt(stopIndex);
-                          final removedFocus =
-                              stopFocusNodes.removeAt(stopIndex);
+                          final removedController = stopControllers.removeAt(
+                            stopIndex,
+                          );
+                          final removedFocus = stopFocusNodes.removeAt(
+                            stopIndex,
+                          );
                           removedController.dispose();
                           removedFocus.dispose();
                           setModalState(() {
@@ -715,10 +734,14 @@ class _HomeState extends State<Home> {
                   badgeColor: const Color(0xFF079A60),
                   onMapTap: () async {
                     FocusScope.of(context).unfocus();
-                    final result = await _openPickupMapPicker(pickupController.text.trim());
+                    final result = await _openPickupMapPicker(
+                      pickupController.text.trim(),
+                    );
                     if (result == null || !mounted) return;
                     pickupController.text = result.address;
-                    pickupController.selection = TextSelection.collapsed(offset: pickupController.text.length);
+                    pickupController.selection = TextSelection.collapsed(
+                      offset: pickupController.text.length,
+                    );
                     setModalState(() {
                       pickupConfirmedOnMap = true;
                       confirmedPickupLatLng = result.position;
@@ -726,16 +749,10 @@ class _HomeState extends State<Home> {
                     });
                   },
                 ),
-                const Divider(
-                  color: Color(0xFFE4E8EA),
-                  height: 1,
-                  indent: 38,
-                ),
+                const Divider(color: Color(0xFFE4E8EA), height: 1, indent: 38),
               ];
 
-              for (var index = 0;
-                  index < stopControllers.length;
-                  index++) {
+              for (var index = 0; index < stopControllers.length; index++) {
                 routeRows
                   ..add(
                     routeField(
@@ -880,8 +897,8 @@ class _HomeState extends State<Home> {
                                       });
                                       WidgetsBinding.instance
                                           .addPostFrameCallback((_) {
-                                        focusNode.requestFocus();
-                                      });
+                                            focusNode.requestFocus();
+                                          });
                                     },
                               customBorder: const CircleBorder(),
                               child: SizedBox(
@@ -973,8 +990,8 @@ class _HomeState extends State<Home> {
                                       _pickupAddress ?? 'Current location';
                                   pickupController.selection =
                                       TextSelection.collapsed(
-                                    offset: pickupController.text.length,
-                                  );
+                                        offset: pickupController.text.length,
+                                      );
                                   setModalState(() {
                                     query = pickupController.text;
                                   });
@@ -1007,8 +1024,8 @@ class _HomeState extends State<Home> {
                                   controller.text = address;
                                   controller.selection =
                                       TextSelection.collapsed(
-                                    offset: address.length,
-                                  );
+                                        offset: address.length,
+                                      );
                                   setModalState(() => query = address);
                                 },
                               ),
@@ -1043,8 +1060,8 @@ class _HomeState extends State<Home> {
                                   text: activeField == 'destination'
                                       ? 'Set as final destination'
                                       : activeField == 'pickup'
-                                          ? 'Set as pickup'
-                                          : 'Set as Stop ${activeStopIndex + 1}',
+                                      ? 'Set as pickup'
+                                      : 'Set as Stop ${activeStopIndex + 1}',
                                   color: _premiumMuted,
                                   fontSize: 9,
                                   fontWeight: fwNormal,
@@ -1069,7 +1086,9 @@ class _HomeState extends State<Home> {
                                   FocusScope.of(context).unfocus();
                                   var exactPosition = confirmedPickupLatLng;
                                   if (!pickupConfirmedOnMap) {
-                                    final result = await _openPickupMapPicker(pickupController.text.trim());
+                                    final result = await _openPickupMapPicker(
+                                      pickupController.text.trim(),
+                                    );
                                     if (result == null || !mounted) return;
                                     pickupController.text = result.address;
                                     exactPosition = result.position;
@@ -1079,8 +1098,15 @@ class _HomeState extends State<Home> {
                                     'pickup': pickupController.text.trim(),
                                     'pickupLat': exactPosition?.latitude,
                                     'pickupLng': exactPosition?.longitude,
-                                    'destination': destinationController.text.trim(),
-                                    'stops': stopControllers.map((controller) => controller.text.trim()).where((address) => address.isNotEmpty).toList(),
+                                    'destination': destinationController.text
+                                        .trim(),
+                                    'stops': stopControllers
+                                        .map(
+                                          (controller) =>
+                                              controller.text.trim(),
+                                        )
+                                        .where((address) => address.isNotEmpty)
+                                        .toList(),
                                   });
                                 },
                           borderRadius: BorderRadius.circular(18),
@@ -1120,9 +1146,7 @@ class _HomeState extends State<Home> {
     }
 
     if (draft == null || !mounted) return;
-    final pickup = await _normaliseAddress(
-      draft['pickup'] as String? ?? '',
-    );
+    final pickup = await _normaliseAddress(draft['pickup'] as String? ?? '');
     final destination = await _normaliseAddress(
       draft['destination'] as String? ?? '',
     );
@@ -1139,9 +1163,11 @@ class _HomeState extends State<Home> {
     final pickupLng = draft['pickupLng'] as double?;
     setState(() {
       if (pickup.isNotEmpty) _pickupAddress = pickup;
-      if (pickupLat != null && pickupLng != null) _currentLatLng = LatLng(pickupLat, pickupLng);
-      _destinationAddress =
-          destination.isEmpty ? _destinationAddress : destination;
+      if (pickupLat != null && pickupLng != null)
+        _currentLatLng = LatLng(pickupLat, pickupLng);
+      _destinationAddress = destination.isEmpty
+          ? _destinationAddress
+          : destination;
       _routeStops = stops;
       if (pickup.isNotEmpty) _rememberAddress(pickup);
       if (destination.isNotEmpty) _rememberAddress(destination);
@@ -1151,11 +1177,32 @@ class _HomeState extends State<Home> {
     });
     await _persistAddressData();
     if (destination.isNotEmpty) {
+      final destinationResult = await address_service.geocodeAddress(
+        destination,
+      );
+      final pickupPosition = _currentLatLng;
+      if (destinationResult == null || pickupPosition == null || !mounted) {
+        return;
+      }
+      final destinationPosition = LatLng(
+        destinationResult.latitude,
+        destinationResult.longitude,
+      );
       await _moveMapToAddress(destination);
       if (!mounted) return;
       Navigator.push(
         context,
-        BottomToTopTransition(const SelectRide()),
+        BottomToTopTransition(
+          SelectRide(
+            pickupAddress: pickup.isNotEmpty
+                ? pickup
+                : (_pickupAddress ?? 'Current location'),
+            destinationAddress: destination,
+            pickupPosition: pickupPosition,
+            destinationPosition: destinationPosition,
+            stops: List<String>.from(stops),
+          ),
+        ),
       );
     }
   }
@@ -1184,8 +1231,8 @@ class _HomeState extends State<Home> {
                     (address) =>
                         query.trim().isEmpty ||
                         address.toLowerCase().contains(
-                              query.trim().toLowerCase(),
-                            ),
+                          query.trim().toLowerCase(),
+                        ),
                   )
                   .take(6)
                   .toList();
@@ -1318,7 +1365,8 @@ class _HomeState extends State<Home> {
                                 11.width,
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       TextWidget(
                                         text: 'Use current location',
@@ -1587,30 +1635,18 @@ class _HomeState extends State<Home> {
       ..quadraticBezierTo(56, 1, 89, 18)
       ..close();
     final beamPaint = Paint()
-      ..shader = ui.Gradient.linear(
-        const Offset(56, 4),
-        center,
-        [
-          const Color(0x08747B80),
-          const Color(0x35747B80),
-        ],
-      );
+      ..shader = ui.Gradient.linear(const Offset(56, 4), center, [
+        const Color(0x08747B80),
+        const Color(0x35747B80),
+      ]);
     canvas.drawPath(beam, beamPaint);
     canvas.drawCircle(
       center,
       expanded ? 31 : 25,
       Paint()..color = const Color(0x18747B80),
     );
-    canvas.drawCircle(
-      center,
-      20,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      center,
-      15,
-      Paint()..color = const Color(0xFF747B80),
-    );
+    canvas.drawCircle(center, 20, Paint()..color = Colors.white);
+    canvas.drawCircle(center, 15, Paint()..color = const Color(0xFF747B80));
     final image = await recorder.endRecording().toImage(
       width.toInt(),
       height.toInt(),
@@ -1651,13 +1687,12 @@ class _HomeState extends State<Home> {
     _locationPulseTimer?.cancel();
     _locationPulseExpanded = false;
     _updateLocationVisuals();
-    _locationPulseTimer = Timer.periodic(
-      const Duration(milliseconds: 850),
-      (_) {
-        _locationPulseExpanded = !_locationPulseExpanded;
-        _updateLocationVisuals();
-      },
-    );
+    _locationPulseTimer = Timer.periodic(const Duration(milliseconds: 850), (
+      _,
+    ) {
+      _locationPulseExpanded = !_locationPulseExpanded;
+      _updateLocationVisuals();
+    });
   }
 
   void _startLocationTracking() {
@@ -1666,37 +1701,35 @@ class _HomeState extends State<Home> {
       accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 1,
     );
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen((position) {
-      if (!mounted) return;
-      _currentLatLng = LatLng(position.latitude, position.longitude);
-      // GPS course is only a fallback. It must never overwrite the live
-      // compass while the user is stationary or moving slowly.
-      if (!_hasCompassHeading &&
-          position.heading.isFinite &&
-          position.heading >= 0) {
-        _locationHeading = position.heading;
-      }
-      _updateLocationVisuals();
-    });
+    _positionSubscription =
+        Geolocator.getPositionStream(locationSettings: settings).listen((
+          position,
+        ) {
+          if (!mounted) return;
+          _currentLatLng = LatLng(position.latitude, position.longitude);
+          // GPS course is only a fallback. It must never overwrite the live
+          // compass while the user is stationary or moving slowly.
+          if (!_hasCompassHeading &&
+              position.heading.isFinite &&
+              position.heading >= 0) {
+            _locationHeading = position.heading;
+          }
+          _updateLocationVisuals();
+        });
   }
 
   void _startHeadingTracking() {
     heading_service.startHeadingTracking();
     _headingTimer?.cancel();
-    _headingTimer = Timer.periodic(
-      const Duration(milliseconds: 100),
-      (_) {
-        final heading = heading_service.currentHeading();
-        if (heading == null || !heading.isFinite || !mounted) return;
-        var delta = (heading - _locationHeading + 540) % 360 - 180;
-        if (delta.abs() < 0.5) return;
-        _hasCompassHeading = true;
-        _locationHeading = (_locationHeading + delta * 0.32 + 360) % 360;
-        _updateLocationVisuals();
-      },
-    );
+    _headingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      final heading = heading_service.currentHeading();
+      if (heading == null || !heading.isFinite || !mounted) return;
+      var delta = (heading - _locationHeading + 540) % 360 - 180;
+      if (delta.abs() < 0.5) return;
+      _hasCompassHeading = true;
+      _locationHeading = (_locationHeading + delta * 0.32 + 360) % 360;
+      _updateLocationVisuals();
+    });
   }
 
   void _handleMapCameraMove(CameraPosition camera) {
@@ -1743,11 +1776,7 @@ class _HomeState extends State<Home> {
     // visible stepping on mobile browsers.
     await controller.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: target,
-          zoom: 17,
-          bearing: _locationHeading,
-        ),
+        CameraPosition(target: target, zoom: 17, bearing: _locationHeading),
       ),
     );
     if (mounted) setState(() => _showRecenterButton = false);
@@ -1763,8 +1792,8 @@ class _HomeState extends State<Home> {
     return ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
   }
 
-  double get _sheetMinPixels => ResSize.h *
-      (_promotionVisible ? _sheetPromoMinHeight : _sheetMinHeight);
+  double get _sheetMinPixels =>
+      ResSize.h * (_promotionVisible ? _sheetPromoMinHeight : _sheetMinHeight);
 
   double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
 
@@ -1850,17 +1879,11 @@ class _HomeState extends State<Home> {
   }
 
   void _openRoute() {
-    Navigator.push(
-      context,
-      BottomToTopTransition(ChooseRoute()),
-    );
+    Navigator.push(context, BottomToTopTransition(ChooseRoute()));
   }
 
   void _openSchedule() {
-    Navigator.push(
-      context,
-      BottomToTopTransition(const ScheduleRide()),
-    );
+    Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
   }
 
   void _openRideHistory() {
@@ -1908,151 +1931,152 @@ class _HomeState extends State<Home> {
         onPointerCancel: (_) => _scheduleSheetIdleClose(),
         child: Stack(
           children: [
-          SizedBox(
-            height: viewportHeight,
-            width: double.infinity,
-            child: Stack(
-              children: [
-                CustomGoogleMap(
-                  initialPosition: _initialPosition,
-                  markers: _markers,
-                  circles: _locationCircles,
-                  polygons: _locationDirection,
-                  myLocationEnabled: false,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
-                  compassEnabled: false,
-                  trafficEnabled: false,
-                  buildingsEnabled: true,
-                  indoorViewEnabled: false,
-                  mapType: MapType.normal,
-                  customMapStyle: _premiumMapStyle,
-                  onCameraMove: _handleMapCameraMove,
-                  onMapCreated: (GoogleMapController controller) {
-                    _mapController = controller;
-                    final target = _currentLatLng;
-                    if (target != null) {
-                      controller.animateCamera(
-                        CameraUpdate.newCameraPosition(
-                          CameraPosition(target: target, zoom: 15),
-                        ),
-                      );
-                    }
-                  },
-                  onTap: (LatLng position) {},
-                ),
-                if (_showRecenterButton && _currentLatLng != null)
-                  Positioned(
-                    right: ResSize.w * 18,
-                    bottom: _sheetMinPixels + ResSize.h * 14,
-                    child: PointerInterceptor(
-                      child: Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        elevation: 8,
-                        shadowColor: Colors.black26,
-                        child: InkWell(
-                          onTap: _recenterOnUser,
-                          customBorder: const CircleBorder(),
-                          child: SizedBox(
-                            width: ResSize.w * 45,
-                            height: ResSize.h * 45,
-                            child: Icon(
-                              Icons.near_me_outlined,
-                              color: _premiumInk,
-                              size: ResSize.h * 22,
+            SizedBox(
+              height: viewportHeight,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  CustomGoogleMap(
+                    initialPosition: _initialPosition,
+                    markers: _markers,
+                    circles: _locationCircles,
+                    polygons: _locationDirection,
+                    myLocationEnabled: false,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                    compassEnabled: false,
+                    trafficEnabled: false,
+                    buildingsEnabled: true,
+                    indoorViewEnabled: false,
+                    mapType: MapType.normal,
+                    customMapStyle: _premiumMapStyle,
+                    onCameraMove: _handleMapCameraMove,
+                    onMapCreated: (GoogleMapController controller) {
+                      _mapController = controller;
+                      final target = _currentLatLng;
+                      if (target != null) {
+                        controller.animateCamera(
+                          CameraUpdate.newCameraPosition(
+                            CameraPosition(target: target, zoom: 15),
+                          ),
+                        );
+                      }
+                    },
+                    onTap: (LatLng position) {},
+                  ),
+                  if (_showRecenterButton && _currentLatLng != null)
+                    Positioned(
+                      right: ResSize.w * 18,
+                      bottom: _sheetMinPixels + ResSize.h * 14,
+                      child: PointerInterceptor(
+                        child: Material(
+                          color: Colors.white,
+                          shape: const CircleBorder(),
+                          elevation: 8,
+                          shadowColor: Colors.black26,
+                          child: InkWell(
+                            onTap: _recenterOnUser,
+                            customBorder: const CircleBorder(),
+                            child: SizedBox(
+                              width: ResSize.w * 45,
+                              height: ResSize.h * 45,
+                              child: Icon(
+                                Icons.near_me_outlined,
+                                color: _premiumInk,
+                                size: ResSize.h * 22,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                if (_destinationSheetOpen)
+                  if (_destinationSheetOpen)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
+                          child: Container(
+                            color: AppColor.white.withOpacity(0.05),
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned.fill(
-                    child: IgnorePointer(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
-                        child: Container(
-                          color: AppColor.white.withOpacity(0.05),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        screenHorizPadding,
+                        ResSize.h * 60,
+                        screenHorizPadding,
+                        0,
+                      ),
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: Builder(
+                          builder: (drawerContext) => _premiumTopActions(
+                            onMenuTap: () {
+                              Scaffold.of(drawerContext).openDrawer();
+                            },
+                            onAccountTap: _openAccount,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                Positioned.fill(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      screenHorizPadding,
-                      ResSize.h * 60,
-                      screenHorizPadding,
-                      0,
-                    ),
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: Builder(
-                        builder: (drawerContext) => _premiumTopActions(
-                          onMenuTap: () {
-                            Scaffold.of(drawerContext).openDrawer();
-                          },
-                          onAccountTap: _openAccount,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SheetViewport(
-            child: Sheet(
-              controller: _homeSheetController,
-              initialOffset: SheetOffset.absolute(_sheetMinPixels),
-              physics: const BouncingSheetPhysics(),
-              snapGrid: SheetSnapGrid(
-                snaps: [
-                  SheetOffset.absolute(_sheetMinPixels),
-                  SheetOffset.absolute(_sheetMidPixels),
-                  const SheetOffset(1),
                 ],
-                minFlingSpeed: 520,
               ),
-              scrollConfiguration: SheetScrollConfiguration.disabled,
-              child: PointerInterceptor(
-                child: SizedBox(
-                  height: fullSheetPixels,
-                  width: double.infinity,
-                  child: AnimatedBuilder(
-                    animation: _homeSheetController,
-                    builder: (context, child) {
-                      final sheetHeight =
-                          _homeSheetController.value ?? _sheetMinPixels;
-                      final sheetProgress =
-                          ((sheetHeight - _sheetMinPixels) /
-                                  (_sheetMidPixels - _sheetMinPixels))
-                              .clamp(0.0, 1.0);
-                      final rawDetailProgress =
-                          ((sheetHeight - _sheetMidPixels) /
-                                  (fullSheetPixels - _sheetMidPixels))
-                              .clamp(0.0, 1.0);
-                      final detailProgress =
-                          Curves.easeInCubic.transform(rawDetailProgress);
-                      return _premiumCollapsedSheet(
-                        sheetProgress,
-                        detailProgress,
-                        sheetHeight,
-                      );
-                    },
+            ),
+            SheetViewport(
+              child: Sheet(
+                controller: _homeSheetController,
+                initialOffset: SheetOffset.absolute(_sheetMinPixels),
+                physics: const BouncingSheetPhysics(),
+                snapGrid: SheetSnapGrid(
+                  snaps: [
+                    SheetOffset.absolute(_sheetMinPixels),
+                    SheetOffset.absolute(_sheetMidPixels),
+                    const SheetOffset(1),
+                  ],
+                  minFlingSpeed: 520,
+                ),
+                scrollConfiguration: SheetScrollConfiguration.disabled,
+                child: PointerInterceptor(
+                  child: SizedBox(
+                    height: fullSheetPixels,
+                    width: double.infinity,
+                    child: AnimatedBuilder(
+                      animation: _homeSheetController,
+                      builder: (context, child) {
+                        final sheetHeight =
+                            _homeSheetController.value ?? _sheetMinPixels;
+                        final sheetProgress =
+                            ((sheetHeight - _sheetMinPixels) /
+                                    (_sheetMidPixels - _sheetMinPixels))
+                                .clamp(0.0, 1.0);
+                        final rawDetailProgress =
+                            ((sheetHeight - _sheetMidPixels) /
+                                    (fullSheetPixels - _sheetMidPixels))
+                                .clamp(0.0, 1.0);
+                        final detailProgress = Curves.easeInCubic.transform(
+                          rawDetailProgress,
+                        );
+                        return _premiumCollapsedSheet(
+                          sheetProgress,
+                          detailProgress,
+                          sheetHeight,
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          RiderProfile(
-            controller: _profilePanelController,
-            onClose: () {
-              _profilePanelController.close();
-            },
-          ),
+            RiderProfile(
+              controller: _profilePanelController,
+              onClose: () {
+                _profilePanelController.close();
+              },
+            ),
           ],
         ),
       ),
@@ -2098,11 +2122,7 @@ class _HomeState extends State<Home> {
             semanticLabel: 'Menu',
             onTap: onMenuTap,
           ),
-          Container(
-            height: ResSize.h * 23,
-            width: 0.8,
-            color: _premiumLine,
-          ),
+          Container(height: ResSize.h * 23, width: 0.8, color: _premiumLine),
           _premiumTopAction(
             icon: Icons.person_rounded,
             semanticLabel: 'Account',
@@ -2183,10 +2203,7 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   12.height,
-                  if (_promotionVisible) ...[
-                    _ridePromotionTicket(),
-                    9.height,
-                  ],
+                  if (_promotionVisible) ...[_ridePromotionTicket(), 9.height],
                   _whereToCard(),
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
@@ -2197,10 +2214,7 @@ class _HomeState extends State<Home> {
                         child: Opacity(
                           opacity: sheetProgress,
                           child: Column(
-                            children: [
-                              15.height,
-                              _savedPlacesRow(),
-                            ],
+                            children: [15.height, _savedPlacesRow()],
                           ),
                         ),
                       ),
@@ -2228,94 +2242,92 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                   ),
-
                 ],
               ),
             ),
             Positioned(
               left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
               right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
-              top: sheetHeight -
-                  ResSize.h * (63 + (30 * (1 - sheetProgress))),
+              top: sheetHeight - ResSize.h * (63 + (30 * (1 - sheetProgress))),
               child: Transform.scale(
                 scale: 0.84 + (0.16 * sheetProgress),
                 alignment: Alignment.bottomCenter,
                 child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResSize.w * (4 * (1 - sheetProgress)),
-                  vertical: ResSize.h * (5 * (1 - sheetProgress)),
-                ),
-                decoration: BoxDecoration(
-                  color: AppColor.white,
-                  borderRadius: BorderRadius.circular(
-                    32 * (1 - sheetProgress),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResSize.w * (4 * (1 - sheetProgress)),
+                    vertical: ResSize.h * (5 * (1 - sheetProgress)),
                   ),
-                  border: Border.all(
-                    color: _premiumLine.withOpacity(1 - sheetProgress),
-                    width: 0.8,
+                  decoration: BoxDecoration(
+                    color: AppColor.white,
+                    borderRadius: BorderRadius.circular(
+                      32 * (1 - sheetProgress),
+                    ),
+                    border: Border.all(
+                      color: _premiumLine.withOpacity(1 - sheetProgress),
+                      width: 0.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                          0.14 * (1 - sheetProgress),
+                        ),
+                        blurRadius: 28 * (1 - sheetProgress),
+                        offset: Offset(0, 10 * (1 - sheetProgress)),
+                      ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(
-                        0.14 * (1 - sheetProgress),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Opacity(
+                        opacity: sheetProgress,
+                        child: const Divider(
+                          color: Color(0xFFE7EBEE),
+                          thickness: 0.8,
+                          height: 1,
+                        ),
                       ),
-                      blurRadius: 28 * (1 - sheetProgress),
-                      offset: Offset(0, 10 * (1 - sheetProgress)),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Opacity(
-                      opacity: sheetProgress,
-                      child: const Divider(
-                        color: Color(0xFFE7EBEE),
-                        thickness: 0.8,
-                        height: 1,
+                      SizedBox(height: ResSize.h * (9 * sheetProgress)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _premiumBottomNavItem(
+                              iconAsset: AppAssets.navMap,
+                              label: 'Map',
+                              active: true,
+                              floatingFraction: 1 - sheetProgress,
+                              onTap: () {},
+                            ),
+                          ),
+                          Expanded(
+                            child: _premiumBottomNavItem(
+                              iconAsset: AppAssets.navPayment,
+                              label: 'Payment',
+                              floatingFraction: 1 - sheetProgress,
+                              onTap: _openPayment,
+                            ),
+                          ),
+                          Expanded(
+                            child: _premiumBottomNavItem(
+                              iconAsset: AppAssets.navSchedule,
+                              label: 'Schedule ride',
+                              floatingFraction: 1 - sheetProgress,
+                              onTap: _openSchedule,
+                            ),
+                          ),
+                          Expanded(
+                            child: _premiumBottomNavItem(
+                              iconAsset: AppAssets.navAccount,
+                              label: 'Account',
+                              floatingFraction: 1 - sheetProgress,
+                              onTap: _openAccount,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    SizedBox(height: ResSize.h * (9 * sheetProgress)),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _premiumBottomNavItem(
-                            iconAsset: AppAssets.navMap,
-                            label: 'Map',
-                            active: true,
-                            floatingFraction: 1 - sheetProgress,
-                            onTap: () {},
-                          ),
-                        ),
-                        Expanded(
-                          child: _premiumBottomNavItem(
-                            iconAsset: AppAssets.navPayment,
-                            label: 'Payment',
-                            floatingFraction: 1 - sheetProgress,
-                            onTap: _openPayment,
-                          ),
-                        ),
-                        Expanded(
-                          child: _premiumBottomNavItem(
-                            iconAsset: AppAssets.navSchedule,
-                            label: 'Schedule ride',
-                            floatingFraction: 1 - sheetProgress,
-                            onTap: _openSchedule,
-                          ),
-                        ),
-                        Expanded(
-                          child: _premiumBottomNavItem(
-                            iconAsset: AppAssets.navAccount,
-                            label: 'Account',
-                            floatingFraction: 1 - sheetProgress,
-                            onTap: _openAccount,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               ),
             ),
           ],
@@ -2364,7 +2376,8 @@ class _HomeState extends State<Home> {
             bandHeight: bandHeight,
             imageAsset: 'assets/images/movera_airport_premium.jpeg',
             title: 'Fly with ease',
-            subtitle: 'Reserve your airport ride ahead and travel with less stress.',
+            subtitle:
+                'Reserve your airport ride ahead and travel with less stress.',
             onTap: _openSchedule,
           ),
           SizedBox(width: ResSize.w * 12),
@@ -2374,7 +2387,8 @@ class _HomeState extends State<Home> {
             bandHeight: bandHeight,
             imageAsset: 'assets/images/movera_events_premium.jpeg',
             title: 'Reserve for events',
-            subtitle: 'Plan your ride early and arrive exactly when you need to.',
+            subtitle:
+                'Plan your ride early and arrive exactly when you need to.',
             onTap: _openSchedule,
           ),
           SizedBox(width: ResSize.w * 12),
@@ -2384,7 +2398,8 @@ class _HomeState extends State<Home> {
             bandHeight: bandHeight,
             imageAsset: 'assets/images/movera_business_premium.jpeg',
             title: 'Reserve work rides',
-            subtitle: 'Reliable scheduled rides for meetings and important workdays.',
+            subtitle:
+                'Reliable scheduled rides for meetings and important workdays.',
             onTap: _openSchedule,
           ),
           SizedBox(width: ResSize.w * 12),
@@ -2394,7 +2409,8 @@ class _HomeState extends State<Home> {
             bandHeight: bandHeight,
             imageAsset: 'assets/images/movera_outings_premium.jpeg',
             title: 'Plan for outings',
-            subtitle: 'Book ahead for dinners, appointments and plans around town.',
+            subtitle:
+                'Book ahead for dinners, appointments and plans around town.',
             onTap: _openSchedule,
           ),
           SizedBox(width: ResSize.w * 18),
@@ -2403,86 +2419,86 @@ class _HomeState extends State<Home> {
     );
   }
 
-Widget _homePromoCard({
-  required double cardWidth,
-  required double imageHeight,
-  required double bandHeight,
-  required String imageAsset,
-  required String title,
-  required String subtitle,
-  required VoidCallback onTap,
-}) {
-  return SizedBox(
-    width: cardWidth,
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColor.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _premiumLine, width: 0.8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.055),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: double.infinity,
-                height: imageHeight,
-                child: Image.asset(
-                  imageAsset,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  filterQuality: FilterQuality.high,
+  Widget _homePromoCard({
+    required double cardWidth,
+    required double imageHeight,
+    required double bandHeight,
+    required String imageAsset,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: cardWidth,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColor.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: _premiumLine, width: 0.8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.055),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
-              ),
-              Container(
-                width: double.infinity,
-                height: bandHeight,
-                color: AppColor.white,
-                padding: EdgeInsets.fromLTRB(
-                  ResSize.w * 13,
-                  ResSize.h * 8,
-                  ResSize.w * 13,
-                  ResSize.h * 7,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: imageHeight,
+                  child: Image.asset(
+                    imageAsset,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                    filterQuality: FilterQuality.high,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextWidget(
-                      text: title,
-                      color: _premiumInk,
-                      fontSize: 13.6,
-                      fontWeight: fwBold,
-                    ),
-                    3.height,
-                    TextWidget(
-                      text: subtitle,
-                      color: _premiumMuted,
-                      fontSize: 9.2,
-                      fontWeight: fwNormal,
-                    ),
-                  ],
+                Container(
+                  width: double.infinity,
+                  height: bandHeight,
+                  color: AppColor.white,
+                  padding: EdgeInsets.fromLTRB(
+                    ResSize.w * 13,
+                    ResSize.h * 8,
+                    ResSize.w * 13,
+                    ResSize.h * 7,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextWidget(
+                        text: title,
+                        color: _premiumInk,
+                        fontSize: 13.6,
+                        fontWeight: fwBold,
+                      ),
+                      3.height,
+                      TextWidget(
+                        text: subtitle,
+                        color: _premiumMuted,
+                        fontSize: 9.2,
+                        fontWeight: fwNormal,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _pickupAddressField() {
     return Material(
@@ -2558,10 +2574,8 @@ Widget _homePromoCard({
           iconAsset: AppAssets.quickHome,
           title: 'Home',
           subtitle: _shortAddress(_homeAddress, maxLength: 15),
-          onTap: () => _useSavedPlaceAsDestination(
-            _homeAddress,
-            target: 'home',
-          ),
+          onTap: () =>
+              _useSavedPlaceAsDestination(_homeAddress, target: 'home'),
         ),
       ),
       8.width,
@@ -2571,10 +2585,8 @@ Widget _homePromoCard({
           iconAsset: AppAssets.quickWork,
           title: 'Work',
           subtitle: _shortAddress(_workAddress, maxLength: 15),
-          onTap: () => _useSavedPlaceAsDestination(
-            _workAddress,
-            target: 'work',
-          ),
+          onTap: () =>
+              _useSavedPlaceAsDestination(_workAddress, target: 'work'),
         ),
       ),
       8.width,
@@ -2591,12 +2603,7 @@ Widget _homePromoCard({
     for (final place in _savedPlaces) {
       cards
         ..add(8.width)
-        ..add(
-          SizedBox(
-            width: ResSize.w * 108,
-            child: _customPlaceCard(place),
-          ),
-        );
+        ..add(SizedBox(width: ResSize.w * 108, child: _customPlaceCard(place)));
     }
     return SizedBox(
       height: ResSize.h * 46,
@@ -2805,11 +2812,7 @@ Widget _homePromoCard({
                 ),
               ),
             ),
-            Container(
-              width: 0.8,
-              height: ResSize.h * 24,
-              color: _premiumLine,
-            ),
+            Container(width: 0.8, height: ResSize.h * 24, color: _premiumLine),
             Material(
               color: Colors.transparent,
               child: InkWell(
@@ -2838,12 +2841,7 @@ Widget _homePromoCard({
     return Container(
       height: ResSize.h * 58,
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        ResSize.w * 4,
-        0,
-        ResSize.w * 7,
-        0,
-      ),
+      padding: EdgeInsets.fromLTRB(ResSize.w * 4, 0, ResSize.w * 7, 0),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F9F9),
         borderRadius: BorderRadius.circular(20),
@@ -2962,10 +2960,7 @@ Widget _homePromoCard({
               colors: [Color(0xFFFFFFFF), Color(0xFFF5F9F9)],
             ),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: const Color(0xFFDDE7E9),
-              width: 0.8,
-            ),
+            border: Border.all(color: const Color(0xFFDDE7E9), width: 0.8),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF174E55).withOpacity(0.055),
@@ -3274,13 +3269,8 @@ Widget _homePromoCard({
   }
 }
 
-
-
 class _PremiumRouteLocationBadge extends StatelessWidget {
-  const _PremiumRouteLocationBadge({
-    required this.color,
-    required this.size,
-  });
+  const _PremiumRouteLocationBadge({required this.color, required this.size});
 
   final Color color;
   final double size;
@@ -3303,10 +3293,7 @@ class _PremiumRouteLocationBadge extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: [Color(0xFFFFFFFF), Color(0xFFF1F0EC)],
           ),
-          border: Border.all(
-            color: const Color(0xFFD2D6D8),
-            width: 0.8,
-          ),
+          border: Border.all(color: const Color(0xFFD2D6D8), width: 0.8),
           boxShadow: const [
             BoxShadow(
               color: Color(0x190D1A20),
@@ -3439,6 +3426,7 @@ class _PickupMapResult {
   final String address;
   final LatLng position;
 }
+
 class _PickupMapPickerPage extends StatefulWidget {
   const _PickupMapPickerPage({
     required this.initialPosition,
@@ -3601,20 +3589,11 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
             bottom: 0,
             child: PointerInterceptor(
               child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  10,
-                  20,
-                  panelBottomPadding,
-                ),
+                padding: EdgeInsets.fromLTRB(20, 10, 20, panelBottomPadding),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  border: Border(
-                    top: BorderSide(color: _line, width: 1),
-                  ),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  border: Border(top: BorderSide(color: _line, width: 1)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -3710,12 +3689,12 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
                         onTap: _resolving
                             ? null
                             : () => Navigator.pop(
-                                  context,
-                                  _PickupMapResult(
-                                    address: _address,
-                                    position: _position,
-                                  ),
+                                context,
+                                _PickupMapResult(
+                                  address: _address,
+                                  position: _position,
                                 ),
+                              ),
                         borderRadius: BorderRadius.circular(14),
                         child: SizedBox(
                           height: 58,
@@ -3773,11 +3752,7 @@ class _PremiumPickupPin extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          width: 3,
-          height: 19,
-          color: const Color(0xFF172027),
-        ),
+        Container(width: 3, height: 19, color: const Color(0xFF172027)),
         Container(
           width: 12,
           height: 4,

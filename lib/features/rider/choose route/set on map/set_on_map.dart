@@ -141,7 +141,17 @@ class _ChooseRouteOnMapState extends State<ChooseRouteOnMap> {
         CustomButton(
           centerContent: "Confirm pickup",
           onPressed: () {
-            Navigator.push(context, RightToLeftTransition(SelectRide()));
+            Navigator.push(
+              context,
+              RightToLeftTransition(
+                SelectRide(
+                  pickupAddress: 'Selected pickup',
+                  destinationAddress: 'Destination',
+                  pickupPosition: _initialPosition.target,
+                  destinationPosition: _initialPosition.target,
+                ),
+              ),
+            );
           },
         ),
       ],
