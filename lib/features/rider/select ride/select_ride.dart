@@ -280,7 +280,7 @@ class _SelectRideState extends State<SelectRide> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        minHeight: 68,
+        constraints: const BoxConstraints(minHeight: 68),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -706,7 +706,7 @@ class _SelectRideState extends State<SelectRide> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(17),
         child: Container(
-          minHeight: 66,
+          constraints: const BoxConstraints(minHeight: 66),
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(17),
