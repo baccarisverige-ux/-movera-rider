@@ -69,12 +69,13 @@ schedule = replace_exact(
     'Schedule edit-route method anchor',
 )
 
-# The two original ZIP route-summary taps have slightly different formatting.
-# Match the navigation structurally instead of depending on indentation.
+# Both original ZIP route-summary taps push ChooseRoute through
+# BottomToTopTransition. Match the call structurally, including the trailing
+# comma used for Navigator.push's route argument.
 legacy_tap_pattern = re.compile(
     r"onTap\s*:\s*\(\)\s*\{\s*"
     r"Navigator\.push\(\s*context\s*,\s*"
-    r"BottomToTopTransition\(\s*(?:const\s+)?ChooseRoute\(\)\s*\)\s*"
+    r"BottomToTopTransition\(\s*(?:const\s+)?ChooseRoute\(\)\s*\)\s*,?\s*"
     r"\)\s*;\s*\}\s*,",
     re.S,
 )
