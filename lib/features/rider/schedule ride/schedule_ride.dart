@@ -8,7 +8,6 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/confirm%20booking/confirm_booking.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/add%20note/add_note.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/select%20date%20time/select_date_time.dart';
-import 'package:movera_rider/features/rider/schedule%20ride/select%20ride/select_ride.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -120,8 +119,6 @@ class _ScheduleRideState extends State<ScheduleRide> {
         body: body(),
       );
     } else if (currentStep == 2) {
-      return ScheduleSelectRide(onConfirm: goToNextStep, body: body());
-    } else if (currentStep == 3) {
       return ScheduleAddNote(onConfirm: goToNextStep, body: body());
     } else {
       return ScheduleConfirmBooking(body: body());
