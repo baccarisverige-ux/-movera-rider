@@ -198,7 +198,11 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
 
   @override
   void dispose() {
-    _mapController?.dispose();
+    // GoogleMap owns and disposes its platform controller. Disposing the same
+    // web controller again here races the platform view teardown and throws a
+    // generic browser page error when a map screen is popped (for example when
+    // confirming the exact pickup before SelectRide opens).
+    _mapController = null;
     super.dispose();
   }
 }
