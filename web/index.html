@@ -53,6 +53,34 @@
       });
     };
 
+    window.moveraDeviceHeading = null;
+    window.moveraHeadingStarted = false;
+    window.moveraStartHeading = async function() {
+      try {
+        if (window.moveraHeadingStarted) return true;
+        if (typeof DeviceOrientationEvent === 'undefined') return false;
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          var permission = await DeviceOrientationEvent.requestPermission();
+          if (permission !== 'granted') return false;
+        }
+        var updateHeading = function(event) {
+          var value = event.webkitCompassHeading;
+          if (typeof value !== 'number' && typeof event.alpha === 'number') {
+            value = (360 - event.alpha) % 360;
+          }
+          if (typeof value === 'number' && isFinite(value)) {
+            window.moveraDeviceHeading = value;
+          }
+        };
+        window.addEventListener('deviceorientationabsolute', updateHeading, true);
+        window.addEventListener('deviceorientation', updateHeading, true);
+        window.moveraHeadingStarted = true;
+        return true;
+      } catch (_) {
+        return false;
+      }
+    };
+
     window.moveraGeocodeAddress = function(address) {
       return new Promise(function(resolve) {
         if (!window.google || !google.maps || !google.maps.Geocoder) {

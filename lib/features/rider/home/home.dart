@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'dart:ui' show ImageFilter;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -22,6 +23,7 @@ import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
 import 'package:movera_rider/shared/services/location_address.dart' as address_service;
+import 'package:movera_rider/shared/services/device_heading.dart' as heading_service;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -59,9 +61,13 @@ class _HomeState extends State<Home> {
   final PanelController _profilePanelController = PanelController();
   Timer? _sheetIdleTimer;
   Timer? _locationPulseTimer;
+  Timer? _headingTimer;
   StreamSubscription<Position>? _positionSubscription;
   bool _locationPulseExpanded = false;
   double _locationHeading = 0;
+  bool _showRecenterButton = true;
+  BitmapDescriptor? _locationPuckCompact;
+  BitmapDescriptor? _locationPuckExpanded;
 
   static const double _sheetMinHeight = 184;
   static const double _sheetMaxHeight = 294;
@@ -192,6 +198,7 @@ class _HomeState extends State<Home> {
   void dispose() {
     _sheetIdleTimer?.cancel();
     _locationPulseTimer?.cancel();
+    _headingTimer?.cancel();
     _positionSubscription?.cancel();
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
@@ -290,7 +297,9 @@ class _HomeState extends State<Home> {
             ? position.heading
             : 0;
       });
+      await _prepareLocationPuckIcons();
       _startLocationTracking();
+      _startHeadingTracking();
       _startLocationPulse();
       await _mapController?.animateCamera(
         CameraUpdate.newCameraPosition(
@@ -1539,70 +1548,73 @@ class _HomeState extends State<Home> {
     }
   }
 
-  LatLng _pointAt(LatLng origin, double metres, double bearing) {
-    const earthRadius = 6378137.0;
-    final angularDistance = metres / earthRadius;
-    final bearingRad = bearing * math.pi / 180;
-    final latitude = origin.latitude * math.pi / 180;
-    final longitude = origin.longitude * math.pi / 180;
-    final targetLatitude = math.asin(
-      math.sin(latitude) * math.cos(angularDistance) +
-          math.cos(latitude) * math.sin(angularDistance) * math.cos(bearingRad),
+  Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
+    const width = 112.0;
+    const height = 128.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    const center = Offset(56, 84);
+    final beam = Path()
+      ..moveTo(56, 5)
+      ..lineTo(26, 78)
+      ..quadraticBezierTo(56, 94, 86, 78)
+      ..close();
+    final beamPaint = Paint()
+      ..shader = ui.Gradient.linear(
+        const Offset(56, 4),
+        center,
+        [
+          const Color(0x08747B80),
+          const Color(0x35747B80),
+        ],
+      );
+    canvas.drawPath(beam, beamPaint);
+    canvas.drawCircle(
+      center,
+      expanded ? 31 : 25,
+      Paint()..color = const Color(0x18747B80),
     );
-    final targetLongitude = longitude +
-        math.atan2(
-          math.sin(bearingRad) * math.sin(angularDistance) * math.cos(latitude),
-          math.cos(angularDistance) -
-              math.sin(latitude) * math.sin(targetLatitude),
-        );
-    return LatLng(
-      targetLatitude * 180 / math.pi,
-      targetLongitude * 180 / math.pi,
+    canvas.drawCircle(
+      center,
+      20,
+      Paint()..color = Colors.white,
     );
+    canvas.drawCircle(
+      center,
+      15,
+      Paint()..color = const Color(0xFF747B80),
+    );
+    final image = await recorder.endRecording().toImage(
+      width.toInt(),
+      height.toInt(),
+    );
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
+  }
+
+  Future<void> _prepareLocationPuckIcons() async {
+    _locationPuckCompact ??= await _buildLocationPuckIcon(false);
+    _locationPuckExpanded ??= await _buildLocationPuckIcon(true);
   }
 
   void _updateLocationVisuals() {
     final target = _currentLatLng;
-    if (!mounted || target == null) return;
-    final heading = _locationHeading;
+    final icon = _locationPulseExpanded
+        ? _locationPuckExpanded
+        : _locationPuckCompact;
+    if (!mounted || target == null || icon == null) return;
     setState(() {
-      _markers = {};
-      _locationDirection = {
-        Polygon(
-          polygonId: const PolygonId('location_direction'),
-          points: [
-            target,
-            _pointAt(target, 52, heading - 24),
-            _pointAt(target, 52, heading + 24),
-          ],
-          fillColor: const Color(0xFF747B80).withOpacity(0.16),
-          strokeColor: const Color(0xFF747B80).withOpacity(0.05),
-          strokeWidth: 1,
-          zIndex: 2,
-        ),
-      };
-      _locationCircles = {
-        Circle(
-          circleId: const CircleId('location_pulse'),
-          center: target,
-          radius: _locationPulseExpanded ? 24 : 14,
-          fillColor: const Color(0xFF747B80).withOpacity(
-            _locationPulseExpanded ? 0.07 : 0.18,
-          ),
-          strokeColor: const Color(0xFF747B80).withOpacity(
-            _locationPulseExpanded ? 0.10 : 0.24,
-          ),
-          strokeWidth: 1,
-          zIndex: 3,
-        ),
-        Circle(
-          circleId: const CircleId('location_core'),
-          center: target,
-          radius: 9,
-          fillColor: const Color(0xFF747B80),
-          strokeColor: Colors.white,
-          strokeWidth: 3,
-          zIndex: 4,
+      _locationCircles = {};
+      _locationDirection = {};
+      _markers = {
+        Marker(
+          markerId: const MarkerId('live_user_location'),
+          position: target,
+          icon: icon,
+          anchor: const Offset(0.5, 0.66),
+          rotation: _locationHeading,
+          flat: true,
+          zIndex: 20,
         ),
       };
     });
@@ -1625,7 +1637,7 @@ class _HomeState extends State<Home> {
     _positionSubscription?.cancel();
     const settings = LocationSettings(
       accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 2,
+      distanceFilter: 1,
     );
     _positionSubscription = Geolocator.getPositionStream(
       locationSettings: settings,
@@ -1637,6 +1649,63 @@ class _HomeState extends State<Home> {
       }
       _updateLocationVisuals();
     });
+  }
+
+  void _startHeadingTracking() {
+    heading_service.startHeadingTracking();
+    _headingTimer?.cancel();
+    _headingTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) {
+        final heading = heading_service.currentHeading();
+        if (heading == null || !heading.isFinite || !mounted) return;
+        var delta = (heading - _locationHeading + 540) % 360 - 180;
+        if (delta.abs() < 0.5) return;
+        _locationHeading = (_locationHeading + delta * 0.32 + 360) % 360;
+        _updateLocationVisuals();
+      },
+    );
+  }
+
+  void _handleMapCameraMove(CameraPosition camera) {
+    final user = _currentLatLng;
+    if (user == null) return;
+    final distance = Geolocator.distanceBetween(
+      camera.target.latitude,
+      camera.target.longitude,
+      user.latitude,
+      user.longitude,
+    );
+    final shouldShow = camera.zoom < 15.5 || distance > 35;
+    if (shouldShow != _showRecenterButton && mounted) {
+      setState(() => _showRecenterButton = shouldShow);
+    }
+  }
+
+  Future<void> _recenterOnUser() async {
+    _startHeadingTracking();
+    var target = _currentLatLng;
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: Duration(seconds: 8),
+        ),
+      );
+      target = LatLng(position.latitude, position.longitude);
+      _currentLatLng = target;
+      if (position.heading.isFinite && position.heading >= 0) {
+        _locationHeading = position.heading;
+      }
+      _updateLocationVisuals();
+    } catch (_) {}
+    if (target == null) return;
+    await _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: target, zoom: 17),
+      ),
+    );
+    if (mounted) setState(() => _showRecenterButton = false);
   }
 
   void _loadMarkers() {
@@ -1813,6 +1882,7 @@ class _HomeState extends State<Home> {
                   indoorViewEnabled: false,
                   mapType: MapType.normal,
                   customMapStyle: _premiumMapStyle,
+                  onCameraMove: _handleMapCameraMove,
                   onMapCreated: (GoogleMapController controller) {
                     _mapController = controller;
                     final target = _currentLatLng;
@@ -1826,6 +1896,32 @@ class _HomeState extends State<Home> {
                   },
                   onTap: (LatLng position) {},
                 ),
+                if (_showRecenterButton && _currentLatLng != null)
+                  Positioned(
+                    right: ResSize.w * 18,
+                    bottom: ResSize.h * 202,
+                    child: PointerInterceptor(
+                      child: Material(
+                        color: Colors.white,
+                        shape: const CircleBorder(),
+                        elevation: 8,
+                        shadowColor: Colors.black26,
+                        child: InkWell(
+                          onTap: _recenterOnUser,
+                          customBorder: const CircleBorder(),
+                          child: SizedBox(
+                            width: ResSize.w * 45,
+                            height: ResSize.h * 45,
+                            child: Icon(
+                              Icons.near_me_outlined,
+                              color: _premiumInk,
+                              size: ResSize.h * 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 if (_destinationSheetOpen)
                   Positioned.fill(
                     child: IgnorePointer(
