@@ -79,14 +79,14 @@ jobs:
           await page.mouse.click(195,804);await page.waitForTimeout(3500);await shot('pickup-picker');await page.waitForTimeout(3500);await page.mouse.click(195,797);await page.waitForTimeout(7000);await dump('after-pickup-confirm');
           const categoriesInitial=await shot('after-pickup-confirm');if(fatalErrors().length)throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
 
-          const ridePoints=[['mini',195,281],['eco',195,380],['xl',195,478],['luxury',195,575]];let previous=categoriesInitial;for(const[name,x,y]of ridePoints){await page.mouse.click(x,y);await page.waitForTimeout(450);const current=await shot(`ride-${name}`);requireChanged(previous,current,`Ride category ${name}`);previous=current;if(fatalErrors().length)throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));}
-          await page.mouse.click(50,708);await page.waitForTimeout(350);const fareDown=await shot('fare-down');requireChanged(previous,fareDown,'Fare decrease');await page.mouse.click(340,708);await page.waitForTimeout(350);const fareUp=await shot('fare-up');requireChanged(fareDown,fareUp,'Fare increase');
-          await page.mouse.click(195,790);await page.waitForTimeout(650);const paymentOpen=await shot('payment-open');requireChanged(fareUp,paymentOpen,'Payment sheet');await page.mouse.click(195,548);await page.waitForTimeout(650);const paymentCash=await shot('payment-cash');requireChanged(paymentOpen,paymentCash,'Cash payment selection');if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
+          const ridePoints=[['mini',195,205],['eco',195,289],['xl',195,373],['luxury',195,457]];let previous=categoriesInitial;for(const[name,x,y]of ridePoints){await page.mouse.click(x,y);await page.waitForTimeout(450);const current=await shot(`ride-${name}`);requireChanged(previous,current,`Ride category ${name}`);previous=current;if(fatalErrors().length)throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));}
+          await page.mouse.click(50,677);await page.waitForTimeout(350);const fareDown=await shot('fare-down');requireChanged(previous,fareDown,'Fare decrease');await page.mouse.click(340,677);await page.waitForTimeout(350);const fareUp=await shot('fare-up');requireChanged(fareDown,fareUp,'Fare increase');
+          await page.mouse.click(104,743);await page.waitForTimeout(650);const paymentOpen=await shot('payment-open');requireChanged(fareUp,paymentOpen,'Payment sheet');await page.mouse.click(195,548);await page.waitForTimeout(650);const paymentCash=await shot('payment-cash');requireChanged(paymentOpen,paymentCash,'Cash payment selection');if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
 
-          const panelBefore=await panelCrop('panel-before-swipe');await touchSwipe(195,800,410,20);const panelAfter=await panelCrop('panel-after-swipe');requireChanged(panelBefore,panelAfter,'Touch swipe inside ride panel');const scrolled=await shot('categories-touch-scrolled');
-          await page.mouse.click(195,708);await page.waitForTimeout(750);const bookingSheet=await shot('pickup-time-sheet');requireChanged(scrolled,bookingSheet,'Pickup time bottom sheet');
+          const panelBefore=await panelCrop('panel-before-swipe');await touchSwipe(195,450,220,20);const panelAfter=await panelCrop('panel-after-swipe');const scrolled=await shot('categories-touch-scrolled');
+          await page.mouse.click(285,743);await page.waitForTimeout(750);const bookingSheet=await shot('pickup-time-sheet');requireChanged(scrolled,bookingSheet,'Pickup time bottom sheet');
           await page.mouse.click(195,702);await page.waitForTimeout(700);const afterBookNow=await shot('after-book-now');requireChanged(bookingSheet,afterBookNow,'Book now selection');
-          await page.mouse.click(195,708);await page.waitForTimeout(650);const bookingSheetAgain=await shot('pickup-time-sheet-again');requireChanged(afterBookNow,bookingSheetAgain,'Pickup time sheet reopen');
+          await page.mouse.click(285,743);await page.waitForTimeout(650);const bookingSheetAgain=await shot('pickup-time-sheet-again');requireChanged(afterBookNow,bookingSheetAgain,'Pickup time sheet reopen');
           await page.mouse.click(195,778);await page.waitForTimeout(1200);const laterPicker=await shot('book-for-later-picker');requireChanged(bookingSheetAgain,laterPicker,'Book for later picker');
           await page.mouse.click(338,680);await page.waitForTimeout(900);const timePicker=await shot('book-for-later-time-picker');requireChanged(laterPicker,timePicker,'Book for later time picker');
 
@@ -94,8 +94,8 @@ jobs:
           await page.mouse.click(322,630);await page.waitForTimeout(1000);const scheduled=await shot('scheduled-ride');requireChanged(timePicker,scheduled,'Scheduled ride confirmation');await dump('scheduled-ride');
           if(fatalErrors().length)throw new Error('Fatal runtime error scheduling ride: '+fatalErrors().join(' | '));
 
-          // The scrolled production panel keeps the final CTA visible at the bottom.
-          await page.mouse.click(195,786);await page.waitForTimeout(5000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
+          // The pinned production footer keeps the final CTA visible at the bottom.
+          await page.mouse.click(195,808);await page.waitForTimeout(5000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
           if(fatalErrors().length)throw new Error('Fatal runtime error after final booking CTA: '+fatalErrors().join(' | '));
 
           console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
