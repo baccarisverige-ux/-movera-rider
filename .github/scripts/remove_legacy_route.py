@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import shutil
 
 home_path = Path('lib/features/rider/home/home.dart')
@@ -68,18 +69,16 @@ schedule = replace_exact(
     'Schedule edit-route method anchor',
 )
 
-# Remove each old ChooseRoute tap by finding the real constructor call and
-# replacing its enclosing onTap callback. This is intentionally independent
-# of whitespace/formatting from the original ZIP.
-needle = 'const ChooseRoute()'
-if schedule.count(needle) != 2:
-    raise SystemExit(
-        f'Schedule legacy route calls: expected 2, found {schedule.count(needle)}'
-    )
-for _ in range(2):
-    idx = schedule.find(needle)
-    if idx < 0:
-        raise SystemExit('ChooseRoute call disappeared unexpectedly')
+# Remove every remaining original ChooseRoute callback regardless of whether
+# the constructor was written with `const`. The final whole-lib scan below is
+# the authority: no legacy reference is allowed to survive.
+route_pattern = re.compile(r'(?:const\s+)?ChooseRoute\(\)')
+route_matches = list(route_pattern.finditer(schedule))
+if not route_matches:
+    raise SystemExit('No ScheduleRide ChooseRoute call found; expected legacy route to be reachable')
+
+for match in reversed(route_matches):
+    idx = match.start()
     start = schedule.rfind('onTap:', 0, idx)
     if start < 0:
         raise SystemExit('Could not locate onTap before ChooseRoute call')
@@ -91,8 +90,8 @@ for _ in range(2):
         raise SystemExit('ChooseRoute was not inside the expected legacy navigation callback')
     schedule = schedule[:start] + 'onTap: _editRoute,' + schedule[end + 2:]
 
-if needle in schedule:
-    raise SystemExit('Legacy ChooseRoute callback still remains')
+if route_pattern.search(schedule):
+    raise SystemExit('Legacy ChooseRoute callback still remains in ScheduleRide')
 
 schedule = replace_exact(
     schedule,
@@ -134,4 +133,7 @@ for dart in Path('lib').rglob('*.dart'):
 if violations:
     raise SystemExit('Legacy route/data references remain: ' + ', '.join(violations))
 
-print('Legacy ChooseRoute/SetOnMap chain removed and all Dart references cleared.')
+print(
+    f'Removed {len(route_matches)} ScheduleRide legacy route callback(s); '
+    'ChooseRoute/SetOnMap and original Islamabad data are absent from lib.'
+)
