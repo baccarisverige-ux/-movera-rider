@@ -1,0 +1,146 @@
+name: Test SelectRide in Chromium
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-select-ride-browser.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+
+      - name: Create isolated SelectRide harness
+        run: |
+          cp lib/main.dart /tmp/main.dart.production
+          cat > lib/main.dart <<'DART'
+          import 'package:flutter/material.dart';
+          import 'package:flutter_screenutil/flutter_screenutil.dart';
+          import 'package:google_maps_flutter/google_maps_flutter.dart';
+          import 'package:movera_rider/features/rider/select ride/select_ride.dart';
+
+          void main() {
+            runApp(const Harness());
+          }
+
+          class Harness extends StatelessWidget {
+            const Harness({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return ScreenUtilInit(
+                designSize: const Size(375, 812),
+                minTextAdapt: true,
+                splitScreenMode: true,
+                ensureScreenSize: true,
+                builder: (_, __) => const MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  home: SelectRide(
+                    pickupAddress: 'Kista, Stockholm',
+                    destinationAddress: 'Stockholm Centralstation',
+                    pickupPosition: LatLng(59.4032, 17.9448),
+                    destinationPosition: LatLng(59.3309, 18.0584),
+                  ),
+                ),
+              );
+            }
+          }
+          DART
+
+      - name: Build SelectRide harness
+        run: flutter build web --release --pwa-strategy=none
+
+      - name: Inject Google Maps if key is available
+        env:
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || vars.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          if [ -n "$MAPS_WEB_API_KEY" ]; then
+            python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          tag = '  <script src="flutter_bootstrap.js" defer></script>'
+          maps = f'  <script src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}"></script>'
+          if tag in s and 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(tag, maps + '\n' + tag)
+          p.write_text(s)
+          PY
+          fi
+
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium
+
+      - name: Run browser smoke tests
+        run: |
+          python3 -m http.server 8080 --directory build/web >/tmp/movera-http.log 2>&1 &
+          echo $! >/tmp/movera-http.pid
+          sleep 2
+          cat > /tmp/test-select-ride.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+
+          const browser = await chromium.launch({headless:true});
+          const cases = [
+            {name:'iphone390', width:390, height:844},
+            {name:'iphone430', width:430, height:932},
+          ];
+          let failed = false;
+          for (const c of cases) {
+            const context = await browser.newContext({viewport:{width:c.width,height:c.height}, deviceScaleFactor:1});
+            const page = await context.newPage();
+            const errors = [];
+            const consoleErrors = [];
+            page.on('pageerror', e => errors.push(String(e)));
+            page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+            await page.goto('http://127.0.0.1:8080', {waitUntil:'networkidle', timeout:120000});
+            await page.waitForTimeout(3500);
+            await page.screenshot({path:`/tmp/${c.name}.png`, fullPage:true});
+            const bodyText = await page.locator('body').innerText().catch(()=>'');
+            const html = await page.content();
+            const report = {
+              viewport:c,
+              pageErrors:errors,
+              consoleErrors,
+              bodyText,
+              hasFlutterView: html.includes('flutter-view') || html.includes('flt-glass-pane'),
+            };
+            fs.writeFileSync(`/tmp/${c.name}.json`, JSON.stringify(report, null, 2));
+            console.log(JSON.stringify(report));
+            if (errors.length) failed = true;
+            await context.close();
+          }
+          await browser.close();
+          if (failed) process.exit(2);
+          JS
+          node /tmp/test-select-ride.mjs
+
+      - name: Upload screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: select-ride-browser-results
+          path: |
+            /tmp/iphone390.png
+            /tmp/iphone430.png
+            /tmp/iphone390.json
+            /tmp/iphone430.json
+            /tmp/movera-http.log
+          if-no-files-found: error
