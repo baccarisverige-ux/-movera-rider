@@ -14,7 +14,24 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class WaitingForDriver extends StatefulWidget {
-  const WaitingForDriver({super.key});
+  const WaitingForDriver({
+    super.key,
+    required this.pickupAddress,
+    required this.destinationAddress,
+    required this.pickupPosition,
+    required this.destinationPosition,
+    required this.rideType,
+    required this.price,
+    required this.paymentMethod,
+  });
+
+  final String pickupAddress;
+  final String destinationAddress;
+  final LatLng pickupPosition;
+  final LatLng destinationPosition;
+  final String rideType;
+  final double price;
+  final String paymentMethod;
 
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
@@ -26,29 +43,33 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   // ignore: prefer_final_fields
   Set<Marker> _markers = {};
 
-  // Default location
-  static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479), // Islamabad coordinates
-    zoom: 14.0,
-  );
+  late final CameraPosition _initialPosition;
 
   @override
   void initState() {
     super.initState();
+    _initialPosition = CameraPosition(
+      target: widget.pickupPosition,
+      zoom: 14.0,
+    );
     _loadMarkers();
   }
 
   void _loadMarkers() {
-    // Add any initial markers if needed
-    // Example: driver location marker
-    _markers.add(
+    _markers = {
       Marker(
-        markerId: MarkerId('driver_location'),
-        position: LatLng(33.6844, 73.0479),
-        infoWindow: InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        markerId: const MarkerId('pickup'),
+        position: widget.pickupPosition,
+        infoWindow: InfoWindow(title: widget.pickupAddress),
+        icon: BitmapDescriptor.defaultMarker,
       ),
-    );
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: widget.destinationPosition,
+        infoWindow: InfoWindow(title: widget.destinationAddress),
+        icon: BitmapDescriptor.defaultMarker,
+      ),
+    };
   }
 
   @override
@@ -262,7 +283,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwMedium,
-                      text: "Toyota HR-V",
+                      text: widget.rideType,
                       color: AppColor.black,
                     ),
                   ],
@@ -436,7 +457,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                         onTap: () {
                           // Navigator.push(
                           //   context,
-                          //   BottomToTopTransition(ChooseRoute()),
+                          //   BottomToTopTransition(legacy route removed),
                           // );
                         },
                         child: Row(
@@ -456,7 +477,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                                   TextWidget(
                                     fontSize: 14,
                                     fontWeight: fwMedium,
-                                    text: "Sector i11 Street 15, h340",
+                                    text: widget.pickupAddress,
                                     color: AppColor.title,
                                   ),
                                 ],
@@ -470,7 +491,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                         onTap: () {
                           // Navigator.push(
                           //   context,
-                          //   BottomToTopTransition(ChooseRoute()),
+                          //   BottomToTopTransition(legacy route removed),
                           // );
                         },
                         child: Row(
@@ -491,7 +512,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                                   TextWidget(
                                     fontSize: 14,
                                     fontWeight: fwMedium,
-                                    text: "Skypulse solution",
+                                    text: widget.destinationAddress,
                                     color: AppColor.title,
                                   ),
                                 ],
@@ -544,7 +565,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       fontWeight: fwMedium,
                     ),
                     TextWidget(
-                      text: "\$10.12",
+                      text: '\$${widget.price.toStringAsFixed(2)}',
                       color: AppColor.black,
                       fontSize: 14,
                       fontWeight: fwMedium,
@@ -563,7 +584,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       fontWeight: fwMedium,
                     ),
                     TextWidget(
-                      text: "Cash",
+                      text: widget.paymentMethod,
                       color: AppColor.black,
                       fontSize: 14,
                       fontWeight: fwMedium,

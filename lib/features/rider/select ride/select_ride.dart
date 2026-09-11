@@ -630,7 +630,17 @@ class _SelectRideState extends State<SelectRide> {
               onTap: () {
                 Navigator.push(
                   context,
-                  BottomToTopTransition(FindingDrivers()),
+                  BottomToTopTransition(
+                    FindingDrivers(
+                      pickupAddress: widget.pickupAddress,
+                      destinationAddress: widget.destinationAddress,
+                      pickupPosition: widget.pickupPosition,
+                      destinationPosition: widget.destinationPosition,
+                      rideType: selected.name,
+                      price: _price,
+                      paymentMethod: _payments[_selectedPayment].name,
+                    ),
+                  ),
                 );
               },
               borderRadius: BorderRadius.circular(17),

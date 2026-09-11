@@ -14,7 +14,6 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
 import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
@@ -2002,10 +2001,6 @@ class _HomeState extends State<Home> {
       target = SheetOffset.absolute(_sheetMidPixels);
     }
     _animateHomeSheetTo(target, duration: const Duration(milliseconds: 390));
-  }
-
-  void _openRoute() {
-    Navigator.push(context, BottomToTopTransition(ChooseRoute()));
   }
 
   void _openSchedule() {

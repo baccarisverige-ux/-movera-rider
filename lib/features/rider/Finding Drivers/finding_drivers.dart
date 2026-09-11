@@ -15,7 +15,24 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class FindingDrivers extends StatefulWidget {
-  const FindingDrivers({super.key});
+  const FindingDrivers({
+    super.key,
+    required this.pickupAddress,
+    required this.destinationAddress,
+    required this.pickupPosition,
+    required this.destinationPosition,
+    required this.rideType,
+    required this.price,
+    required this.paymentMethod,
+  });
+
+  final String pickupAddress;
+  final String destinationAddress;
+  final LatLng pickupPosition;
+  final LatLng destinationPosition;
+  final String rideType;
+  final double price;
+  final String paymentMethod;
 
   @override
   State<FindingDrivers> createState() => _FindingDriversState();
@@ -29,21 +46,35 @@ class _FindingDriversState extends State<FindingDrivers> {
   int remainingSeconds = 12; // set duration here (30 seconds)
   Timer? _timer;
 
-  static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479), // Islamabad coordinates
-    zoom: 14.0,
-  );
+  late final CameraPosition _initialPosition;
 
   @override
   void initState() {
     super.initState();
+    _initialPosition = CameraPosition(
+      target: widget.pickupPosition,
+      zoom: 14.0,
+    );
     _loadMarkers();
     _startCountdown();
 
     // Navigate after 12 seconds (you can adjust this)
     Future.delayed(Duration(seconds: 12), () {
       if (mounted) {
-        Navigator.push(context, BottomToTopTransition(WaitingForDriver()));
+        Navigator.push(
+          context,
+          BottomToTopTransition(
+            WaitingForDriver(
+              pickupAddress: widget.pickupAddress,
+              destinationAddress: widget.destinationAddress,
+              pickupPosition: widget.pickupPosition,
+              destinationPosition: widget.destinationPosition,
+              rideType: widget.rideType,
+              price: widget.price,
+              paymentMethod: widget.paymentMethod,
+            ),
+          ),
+        );
       }
     });
   }
@@ -69,14 +100,20 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   void _loadMarkers() {
-    _markers.add(
+    _markers = {
       Marker(
-        markerId: MarkerId('driver_location'),
-        position: LatLng(33.6844, 73.0479),
-        infoWindow: InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        markerId: const MarkerId('pickup'),
+        position: widget.pickupPosition,
+        infoWindow: InfoWindow(title: widget.pickupAddress),
+        icon: BitmapDescriptor.defaultMarker,
       ),
-    );
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: widget.destinationPosition,
+        infoWindow: InfoWindow(title: widget.destinationAddress),
+        icon: BitmapDescriptor.defaultMarker,
+      ),
+    };
   }
 
   @override
@@ -207,7 +244,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                   color: AppColor.title,
                   fontSize: 14,
                   fontWeight: fwSemiBold,
-                  text: "1141 central park, Lemonade Homilton",
+                  text: widget.pickupAddress,
                 ),
                 16.height,
                 Divider(color: AppColor.border, thickness: 0.3, height: 0),
@@ -222,7 +259,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                   color: AppColor.title,
                   fontSize: 14,
                   fontWeight: fwSemiBold,
-                  text: "1141 central park, Lemonade Homilton",
+                  text: widget.destinationAddress,
                 ),
                 16.height,
                 Divider(color: AppColor.border, thickness: 0.3, height: 0),
@@ -240,7 +277,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       color: AppColor.title,
                       fontSize: 16,
                       fontWeight: fwBold,
-                      text: "\$14.30",
+                      text: '\$${widget.price.toStringAsFixed(2)}',
                     ),
                   ],
                 ),
@@ -269,7 +306,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                           color: AppColor.title,
                           fontSize: 16,
                           fontWeight: fwBold,
-                          text: "Cash",
+                          text: widget.paymentMethod,
                         ),
                       ],
                     ),
@@ -289,7 +326,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       color: AppColor.title,
                       fontSize: 16,
                       fontWeight: fwBold,
-                      text: "Eco-friendly",
+                      text: widget.rideType,
                     ),
                   ],
                 ),

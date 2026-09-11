@@ -5,14 +5,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rider/choose%20route/choose_route.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/confirm%20booking/confirm_booking.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/add%20note/add_note.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/select%20date%20time/select_date_time.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/select%20ride/select_ride.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -30,8 +28,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
   static const Color _scheduleLine = Color(0xFFE4E7E8);
   static const Color _scheduleAccent = Color(0xFF356879);
 
-  final TextEditingController _pickupController =
-      TextEditingController(text: 'Current location');
+  final TextEditingController _pickupController = TextEditingController(
+    text: 'Current location',
+  );
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
@@ -42,7 +41,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   // Default location
   static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.6844, 73.0479), // Islamabad coordinates
+    target: LatLng(59.3293, 18.0686), // neutral map fallback
     zoom: 14.0,
   );
 
@@ -69,9 +68,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
     _markers.add(
       Marker(
         markerId: MarkerId('driver_location'),
-        position: LatLng(33.6844, 73.0479),
+        position: LatLng(59.3293, 18.0686),
         infoWindow: InfoWindow(title: 'Your Location'),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        icon: BitmapDescriptor.defaultMarker,
       ),
     );
   }
@@ -90,6 +89,12 @@ class _ScheduleRideState extends State<ScheduleRide> {
       return;
     }
     setState(() => currentStep -= 1);
+  }
+
+  void _editRoute() {
+    FocusScope.of(context).unfocus();
+    if (currentStep == 0) return;
+    setState(() => currentStep = 0);
   }
 
   void _addStop() {
@@ -210,9 +215,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
                             icon: Icons.my_location_rounded,
                           ),
                           const Divider(height: 1, indent: 42),
-                          for (var index = 0;
-                              index < _stopControllers.length;
-                              index++) ...[
+                          for (
+                            var index = 0;
+                            index < _stopControllers.length;
+                            index++
+                          ) ...[
                             _scheduleAddressField(
                               controller: _stopControllers[index],
                               label: 'Stop ${index + 1}',
@@ -292,9 +299,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: _scheduleLine),
-                ),
+                border: Border(top: BorderSide(color: _scheduleLine)),
               ),
               child: SafeArea(
                 top: false,
@@ -347,8 +352,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
           child: TextField(
             controller: controller,
             onChanged: (_) => setState(() {}),
-            textInputAction:
-                label == 'Drop-off' ? TextInputAction.done : TextInputAction.next,
+            textInputAction: label == 'Drop-off'
+                ? TextInputAction.done
+                : TextInputAction.next,
             style: GoogleFonts.poppins(
               color: _scheduleInk,
               fontSize: 13.5,
@@ -579,14 +585,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     GestureDetector(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          BottomToTopTransition(
-                                            const ChooseRoute(),
-                                          ),
-                                        );
-                                      },
+                                      onTap: _editRoute,
                                       child: horizentalLocation(
                                         title: "Pick-Up",
                                         location:
