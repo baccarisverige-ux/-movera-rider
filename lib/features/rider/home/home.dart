@@ -65,6 +65,9 @@ class _HomeState extends State<Home> {
   StreamSubscription<Position>? _positionSubscription;
   bool _locationPulseExpanded = false;
   double _locationHeading = 0;
+  bool _hasCompassHeading = false;
+  double _lastMapZoom = 13.0;
+  LatLng _lastMapTarget = const LatLng(59.3293, 18.0686);
   bool _showRecenterButton = true;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
@@ -1549,15 +1552,16 @@ class _HomeState extends State<Home> {
   }
 
   Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
-    const width = 78.4;
-    const height = 89.6;
+    const width = 65.9;
+    const height = 75.3;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..scale(0.7, 0.7);
+    final canvas = Canvas(recorder)..scale(0.588, 0.588);
     const center = Offset(56, 84);
+    // Narrow at the user, with a curved arc at the direction edge.
     final beam = Path()
-      ..moveTo(56, 5)
-      ..lineTo(26, 78)
-      ..quadraticBezierTo(56, 94, 86, 78)
+      ..moveTo(56, 80)
+      ..lineTo(23, 18)
+      ..quadraticBezierTo(56, 1, 89, 18)
       ..close();
     final beamPaint = Paint()
       ..shader = ui.Gradient.linear(
@@ -1644,7 +1648,11 @@ class _HomeState extends State<Home> {
     ).listen((position) {
       if (!mounted) return;
       _currentLatLng = LatLng(position.latitude, position.longitude);
-      if (position.heading.isFinite && position.heading >= 0) {
+      // GPS course is only a fallback. It must never overwrite the live
+      // compass while the user is stationary or moving slowly.
+      if (!_hasCompassHeading &&
+          position.heading.isFinite &&
+          position.heading >= 0) {
         _locationHeading = position.heading;
       }
       _updateLocationVisuals();
@@ -1661,6 +1669,7 @@ class _HomeState extends State<Home> {
         if (heading == null || !heading.isFinite || !mounted) return;
         var delta = (heading - _locationHeading + 540) % 360 - 180;
         if (delta.abs() < 0.5) return;
+        _hasCompassHeading = true;
         _locationHeading = (_locationHeading + delta * 0.32 + 360) % 360;
         _updateLocationVisuals();
       },
@@ -1668,6 +1677,8 @@ class _HomeState extends State<Home> {
   }
 
   void _handleMapCameraMove(CameraPosition camera) {
+    _lastMapZoom = camera.zoom;
+    _lastMapTarget = camera.target;
     final user = _currentLatLng;
     if (user == null) return;
     final distance = Geolocator.distanceBetween(
@@ -1694,17 +1705,39 @@ class _HomeState extends State<Home> {
       );
       target = LatLng(position.latitude, position.longitude);
       _currentLatLng = target;
-      if (position.heading.isFinite && position.heading >= 0) {
+      if (!_hasCompassHeading &&
+          position.heading.isFinite &&
+          position.heading >= 0) {
         _locationHeading = position.heading;
       }
       _updateLocationVisuals();
     } catch (_) {}
     if (target == null) return;
-    await _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: target, zoom: 17),
-      ),
-    );
+    final controller = _mapController;
+    if (controller == null) return;
+
+    // Interpolate position and zoom for a controlled premium camera motion.
+    final start = _lastMapTarget;
+    final startZoom = _lastMapZoom;
+    const steps = 14;
+    for (var step = 1; step <= steps; step++) {
+      final linear = step / steps;
+      final eased = 1 - math.pow(1 - linear, 3).toDouble();
+      final latitude = start.latitude +
+          (target.latitude - start.latitude) * eased;
+      final longitude = start.longitude +
+          (target.longitude - start.longitude) * eased;
+      final zoom = startZoom + (17 - startZoom) * eased;
+      await controller.moveCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(latitude, longitude),
+            zoom: zoom,
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 45));
+    }
     if (mounted) setState(() => _showRecenterButton = false);
   }
 
