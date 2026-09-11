@@ -30,7 +30,7 @@ new_saved = """    Navigator.of(context).push(
         builder: (_) => SelectRide(
           pickupAddress: _pickupAddress ?? 'Current location',
           destinationAddress: resolvedDestination,
-          pickupPosition: pickupPosition,
+          pickupPosition: confirmedPickupPosition,
           destinationPosition: destinationPosition,
           stops: List<String>.from(_routeStops),
         ),
@@ -88,6 +88,8 @@ new_pickup_guard = """    var pickupPosition = _tripPickupLatLng ?? _currentLatL
       });
     }
     if (!mounted) return;
+    final confirmedPickupPosition = pickupPosition;
+    if (confirmedPickupPosition == null) return;
     var resolvedDestination = destination;
 """
 home = replace_exact(home, old_pickup_guard, new_pickup_guard, 'saved-place pickup guard')
