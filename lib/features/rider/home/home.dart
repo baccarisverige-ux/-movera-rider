@@ -421,10 +421,28 @@ class _HomeState extends State<Home> {
   }) async {
     final resolved = await _normaliseAddress(address);
     if (resolved.isEmpty || !mounted) return;
+
+    LatLng? resolvedPickupPosition;
+    if (target == 'pickup') {
+      if (resolved.toLowerCase() == 'current location') {
+        resolvedPickupPosition = _currentLatLng;
+      } else {
+        final geocodedPickup = await address_service.geocodeAddress(resolved);
+        if (geocodedPickup != null) {
+          resolvedPickupPosition = LatLng(
+            geocodedPickup.latitude,
+            geocodedPickup.longitude,
+          );
+        }
+      }
+    }
+    if (!mounted) return;
+
     setState(() {
       switch (target) {
         case 'pickup':
           _pickupAddress = resolved;
+          _tripPickupLatLng = resolvedPickupPosition;
           break;
         case 'destination':
           _destinationAddress = resolved;
@@ -648,7 +666,13 @@ class _HomeState extends State<Home> {
                         ),
                         onChanged: (value) {
                           if (isActive) {
-                            setModalState(() => query = value);
+                            setModalState(() {
+                              query = value;
+                              if (field == 'pickup') {
+                                pickupConfirmedOnMap = false;
+                                confirmedPickupLatLng = null;
+                              }
+                            });
                           }
                         },
                         textInputAction: TextInputAction.search,
@@ -998,6 +1022,9 @@ class _HomeState extends State<Home> {
                                       );
                                   setModalState(() {
                                     query = pickupController.text;
+                                    pickupConfirmedOnMap =
+                                        _currentLatLng != null;
+                                    confirmedPickupLatLng = _currentLatLng;
                                   });
                                 },
                               ),
@@ -1030,7 +1057,13 @@ class _HomeState extends State<Home> {
                                       TextSelection.collapsed(
                                         offset: address.length,
                                       );
-                                  setModalState(() => query = address);
+                                  setModalState(() {
+                                    query = address;
+                                    if (activeField == 'pickup') {
+                                      pickupConfirmedOnMap = false;
+                                      confirmedPickupLatLng = null;
+                                    }
+                                  });
                                 },
                               ),
                             if (query.trim().isNotEmpty &&
