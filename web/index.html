@@ -67,9 +67,16 @@
           var value = event.webkitCompassHeading;
           if (typeof value !== 'number' && typeof event.alpha === 'number') {
             value = (360 - event.alpha) % 360;
+            var screenAngle = 0;
+            if (screen.orientation && typeof screen.orientation.angle === 'number') {
+              screenAngle = screen.orientation.angle;
+            } else if (typeof window.orientation === 'number') {
+              screenAngle = window.orientation;
+            }
+            value = (value + screenAngle + 360) % 360;
           }
           if (typeof value === 'number' && isFinite(value)) {
-            window.moveraDeviceHeading = value;
+            window.moveraDeviceHeading = (value + 360) % 360;
           }
         };
         window.addEventListener('deviceorientationabsolute', updateHeading, true);
