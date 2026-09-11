@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/remove-legacy-route.yml'
+      - '.github/scripts/remove_legacy_route.py'
 
 permissions:
   contents: write
