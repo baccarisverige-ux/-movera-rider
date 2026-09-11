@@ -430,8 +430,8 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
               child: SizedBox(
                 width: double.infinity,
                 height: 118,
-                child: Image.network(
-                  'https://raw.githubusercontent.com/baccarisverige-ux/-movera-rider/main/assets/images/schedule_timeline_white.png',
+                child: Image.asset(
+                  'assets/images/schedule_timeline_white.png',
                   fit: BoxFit.contain,
                 ),
               ),
