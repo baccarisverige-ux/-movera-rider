@@ -69,7 +69,7 @@ class _HomeState extends State<Home> {
   double _lastMapZoom = 13.0;
   LatLng _lastMapTarget = const LatLng(59.3293, 18.0686);
   bool _showRecenterButton = true;
-  bool _promotionVisible = true;
+  bool _promotionVisible = _promotionEnabled;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
 
@@ -203,7 +203,6 @@ class _HomeState extends State<Home> {
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
-    _restorePromotionState();
   }
 
   @override
@@ -218,17 +217,10 @@ class _HomeState extends State<Home> {
     super.dispose();
   }
 
-  Future<void> _restorePromotionState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final dismissed = prefs.getBool('movera_promo_dismissed_$_promotionId') ?? false;
+  void _dismissPromotion() {
     if (!mounted) return;
-    setState(() => _promotionVisible = _promotionEnabled && !dismissed);
-  }
-
-  Future<void> _dismissPromotion() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('movera_promo_dismissed_$_promotionId', true);
-    if (!mounted) return;
+    // Dismiss only for this running session. Refreshing or reopening the app
+    // creates a fresh Home state and shows the active campaign again.
     setState(() => _promotionVisible = false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
