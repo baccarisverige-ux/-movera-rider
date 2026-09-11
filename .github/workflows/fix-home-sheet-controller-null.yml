@@ -30,41 +30,28 @@ jobs:
           p = Path('lib/features/rider/home/home.dart')
           s = p.read_text()
           replacements = [
-          ("""  bool get _isSheetAtMiddle {
-            final offset = _homeSheetController.value;
-            if (offset == null) return false;
-          """, """  bool get _isSheetAtMiddle {
-            if (!_homeSheetController.hasClient) return false;
-            final offset = _homeSheetController.value;
-            if (offset == null) return false;
-          """),
-          ("""  void _syncHomeSheetState() {
-            final offset = _homeSheetController.value;
-            if (!mounted || offset == null) return;
-          """, """  void _syncHomeSheetState() {
-            if (!mounted || !_homeSheetController.hasClient) return;
-            final offset = _homeSheetController.value;
-            if (offset == null) return;
-          """),
-          ("""  void _toggleHomeSheet() {
-            final offset = _homeSheetController.value ?? _sheetMinPixels;
-          """, """  void _toggleHomeSheet() {
-            final offset = _homeSheetController.hasClient
-                ? (_homeSheetController.value ?? _sheetMinPixels)
-                : _sheetMinPixels;
-          """),
-          ("""                        final sheetHeight =
-                            _homeSheetController.value ?? _sheetMinPixels;
-          """, """                        final sheetHeight = _homeSheetController.hasClient
-                            ? (_homeSheetController.value ?? _sheetMinPixels)
-                            : _sheetMinPixels;
-          """),
+              (
+                  "  bool get _isSheetAtMiddle {\n    final offset = _homeSheetController.value;\n    if (offset == null) return false;\n",
+                  "  bool get _isSheetAtMiddle {\n    if (!_homeSheetController.hasClient) return false;\n    final offset = _homeSheetController.value;\n    if (offset == null) return false;\n",
+              ),
+              (
+                  "  void _syncHomeSheetState() {\n    final offset = _homeSheetController.value;\n    if (!mounted || offset == null) return;\n",
+                  "  void _syncHomeSheetState() {\n    if (!mounted || !_homeSheetController.hasClient) return;\n    final offset = _homeSheetController.value;\n    if (offset == null) return;\n",
+              ),
+              (
+                  "  void _toggleHomeSheet() {\n    final offset = _homeSheetController.value ?? _sheetMinPixels;\n",
+                  "  void _toggleHomeSheet() {\n    final offset = _homeSheetController.hasClient\n        ? (_homeSheetController.value ?? _sheetMinPixels)\n        : _sheetMinPixels;\n",
+              ),
+              (
+                  "                        final sheetHeight =\n                            _homeSheetController.value ?? _sheetMinPixels;\n",
+                  "                        final sheetHeight = _homeSheetController.hasClient\n                            ? (_homeSheetController.value ?? _sheetMinPixels)\n                            : _sheetMinPixels;\n",
+              ),
           ]
-          for old,new in replacements:
-              count=s.count(old)
+          for old, new in replacements:
+              count = s.count(old)
               if count != 1:
                   raise SystemExit(f'Expected one exact match, found {count}: {old[:70]!r}')
-              s=s.replace(old,new,1)
+              s = s.replace(old, new, 1)
           p.write_text(s)
           print('Guarded all four live SheetController.value reads.')
           PY
@@ -85,12 +72,17 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('lib/features/rider/home/home.dart').read_text()
-          unsafe='''final sheetHeight =\n                            _homeSheetController.value ?? _sheetMinPixels;'''
-          if unsafe in s:
-              raise SystemExit('Unsafe AnimatedBuilder SheetController.value read remains')
+          s = Path('lib/features/rider/home/home.dart').read_text()
           if s.count('_homeSheetController.hasClient') < 5:
               raise SystemExit('Expected Home sheet hasClient guards are missing')
+          for marker in [
+              'bool get _isSheetAtMiddle',
+              'void _syncHomeSheetState()',
+              'void _toggleHomeSheet()',
+              'final sheetHeight = _homeSheetController.hasClient',
+          ]:
+              if marker not in s:
+                  raise SystemExit(f'Missing guarded source marker: {marker}')
           print('SheetController value reads are guarded.')
           PY
 
