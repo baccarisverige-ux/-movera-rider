@@ -73,23 +73,42 @@
       });
     })();
 
-    window.moveraReverseGeocode = function(latitude, longitude) {
-      return new Promise(function(resolve) {
-        if (!window.google || !google.maps || !google.maps.Geocoder) {
-          resolve(null);
-          return;
-        }
-        new google.maps.Geocoder().geocode(
-          { location: { lat: latitude, lng: longitude } },
-          function(results, status) {
-            resolve(
-              status === 'OK' && results && results[0]
-                ? results[0].formatted_address
-                : null
-            );
-          }
-        );
-      });
+    // Address lookup is intentionally independent from the Google Maps JS
+    // Geocoder. The production Maps key renders the map but is currently not
+    // authorised for Google's Geocoding service. Calling that service caused
+    // address confirmation to fail on the live Rider site. Keep a small
+    // in-memory cache and use the OpenStreetMap Nominatim endpoint instead.
+    window.moveraGeoCache = window.moveraGeoCache || new Map();
+
+    window.moveraFetchJson = async function(url) {
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, 8000);
+      try {
+        var response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'force-cache',
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (_) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    window.moveraReverseGeocode = async function(latitude, longitude) {
+      var key = 'reverse:' + Number(latitude).toFixed(5) + ':' + Number(longitude).toFixed(5);
+      if (window.moveraGeoCache.has(key)) return window.moveraGeoCache.get(key);
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=0&accept-language=en&lat=' +
+        encodeURIComponent(latitude) + '&lon=' + encodeURIComponent(longitude);
+      var data = await window.moveraFetchJson(url);
+      var value = data && data.display_name ? String(data.display_name) : null;
+      if (value) window.moveraGeoCache.set(key, value);
+      return value;
     };
 
     window.moveraDeviceHeading = null;
@@ -127,28 +146,26 @@
       }
     };
 
-    window.moveraGeocodeAddress = function(address) {
-      return new Promise(function(resolve) {
-        if (!window.google || !google.maps || !google.maps.Geocoder) {
-          resolve(null);
-          return;
-        }
-        new google.maps.Geocoder().geocode(
-          { address: address },
-          function(results, status) {
-            if (status !== 'OK' || !results || !results[0]) {
-              resolve(null);
-              return;
-            }
-            var location = results[0].geometry.location;
-            resolve(JSON.stringify({
-              address: results[0].formatted_address,
-              latitude: location.lat(),
-              longitude: location.lng()
-            }));
-          }
-        );
+    window.moveraGeocodeAddress = async function(address) {
+      var clean = String(address || '').trim();
+      if (!clean) return null;
+      var key = 'search:' + clean.toLowerCase();
+      if (window.moveraGeoCache.has(key)) return window.moveraGeoCache.get(key);
+      var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=0&accept-language=en&q=' +
+        encodeURIComponent(clean);
+      var data = await window.moveraFetchJson(url);
+      if (!Array.isArray(data) || !data.length) return null;
+      var first = data[0];
+      var latitude = Number(first.lat);
+      var longitude = Number(first.lon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      var result = JSON.stringify({
+        address: first.display_name ? String(first.display_name) : clean,
+        latitude: latitude,
+        longitude: longitude
       });
+      window.moveraGeoCache.set(key, result);
+      return result;
     };
   </script>
   <script src="flutter_bootstrap.js" defer></script>
