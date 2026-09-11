@@ -1,12 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/rider/Finding%20Drivers/finding_drivers.dart';
-import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -113,79 +110,6 @@ class _SelectRideState extends State<SelectRide> {
   int _selectedPayment = 3;
   double _price = 7.50;
   DateTime? _scheduledFor;
-  GoogleMapController? _mapController;
-  bool _mapReady = false;
-  late final Set<Marker> _markers;
-  late final CameraPosition _initialPosition;
-
-  @override
-  void initState() {
-    super.initState();
-    _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
-    _markers = {
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: widget.pickupPosition,
-        infoWindow: InfoWindow(title: widget.pickupAddress),
-        icon: BitmapDescriptor.defaultMarker,
-      ),
-      Marker(
-        markerId: const MarkerId('destination'),
-        position: widget.destinationPosition,
-        infoWindow: InfoWindow(title: widget.destinationAddress),
-        icon: BitmapDescriptor.defaultMarker,
-      ),
-    };
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _mapReady = true);
-    });
-  }
-
-  Future<void> _fitRoute() async {
-    final controller = _mapController;
-    if (controller == null || !mounted) return;
-    final pickup = widget.pickupPosition;
-    final destination = widget.destinationPosition;
-    final samePoint =
-        (pickup.latitude - destination.latitude).abs() < 0.00001 &&
-        (pickup.longitude - destination.longitude).abs() < 0.00001;
-    if (samePoint) {
-      await controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: pickup, zoom: 15),
-        ),
-      );
-      return;
-    }
-    final bounds = LatLngBounds(
-      southwest: LatLng(
-        pickup.latitude < destination.latitude
-            ? pickup.latitude
-            : destination.latitude,
-        pickup.longitude < destination.longitude
-            ? pickup.longitude
-            : destination.longitude,
-      ),
-      northeast: LatLng(
-        pickup.latitude > destination.latitude
-            ? pickup.latitude
-            : destination.latitude,
-        pickup.longitude > destination.longitude
-            ? pickup.longitude
-            : destination.longitude,
-      ),
-    );
-    try {
-      await controller.animateCamera(CameraUpdate.newLatLngBounds(bounds, 92));
-    } catch (_) {
-      await controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: pickup, zoom: 14),
-        ),
-      );
-    }
-  }
 
   String _compactAddress(String value) {
     final cleaned = value.trim();
@@ -434,86 +358,64 @@ class _SelectRideState extends State<SelectRide> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final height = media.size.height;
-    final maxPanel = (height - media.padding.top - 72)
-        .clamp(280.0, height * 0.90)
-        .toDouble();
-    final minPanel =
-        math.min(maxPanel - 48, math.max(320.0, height * 0.48)).toDouble();
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SlidingUpPanel(
-        color: Colors.white,
-        minHeight: minPanel,
-        maxHeight: maxPanel,
-        defaultPanelState: PanelState.OPEN,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 28,
-            offset: const Offset(0, -8),
-          ),
-        ],
-        panelBuilder: _panel,
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: _mapReady
-                  ? CustomGoogleMap(
-                      initialPosition: _initialPosition,
-                      markers: _markers,
-                      myLocationEnabled: false,
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      compassEnabled: false,
-                      trafficEnabled: false,
-                      buildingsEnabled: true,
-                      indoorViewEnabled: false,
-                      mapType: MapType.normal,
-                      onMapCreated: (controller) {
-                        _mapController = controller;
-                        Future<void>.delayed(
-                          const Duration(milliseconds: 320),
-                          _fitRoute,
-                        );
-                      },
-                      onTap: (_) {},
-                    )
-                  : const ColoredBox(color: Color(0xFFEEF1E8)),
-            ),
-            Positioned(
-              top: media.padding.top + 14,
-              left: 18,
-              child: Material(
-                color: Colors.white,
-                shape: const CircleBorder(),
-                elevation: 5,
-                shadowColor: Colors.black26,
-                child: InkWell(
-                  onTap: () => Navigator.pop(context),
-                  customBorder: const CircleBorder(),
-                  child: const SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      color: _ink,
-                      size: 28,
+      backgroundColor: const Color(0xFFEEF1E8),
+      body: Column(
+        children: [
+          SizedBox(
+            height: media.padding.top + 86,
+            child: Stack(
+              children: [
+                const Positioned.fill(child: _RouteCanvas()),
+                Positioned(
+                  top: media.padding.top + 14,
+                  left: 18,
+                  child: PointerInterceptor(
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      elevation: 5,
+                      shadowColor: Colors.black26,
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        customBorder: const CircleBorder(),
+                        child: const SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: Icon(
+                            Icons.arrow_back_rounded,
+                            color: _ink,
+                            size: 28,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
+                Positioned(
+                  top: media.padding.top + 14,
+                  left: 88,
+                  right: 18,
+                  child: PointerInterceptor(child: _routeChip()),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: PointerInterceptor(
+              child: Material(
+                color: Colors.white,
+                elevation: 16,
+                shadowColor: Colors.black26,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _panel(),
               ),
             ),
-            Positioned(
-              top: media.padding.top + 14,
-              left: 88,
-              right: 18,
-              child: _routeChip(),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -573,28 +475,22 @@ class _SelectRideState extends State<SelectRide> {
     );
   }
 
-  Widget _panel(ScrollController controller) {
+  Widget _panel() {
     final selected = _rides[_selectedRide];
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final height = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : MediaQuery.sizeOf(context).height * 0.7;
-        if (height < 96) return const SizedBox.shrink();
-        return SizedBox(
-          height: height,
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 42,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD8DDE0),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
+    return Column(
+      children: [
+        const SizedBox(height: 10),
+        Center(
+          child: Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD8DDE0),
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+        ),
               const SizedBox(height: 12),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 18),
@@ -629,10 +525,7 @@ class _SelectRideState extends State<SelectRide> {
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.builder(
-                  controller: controller,
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
+                  physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
                   itemCount: _rides.length,
                   itemBuilder: (context, index) => _rideTile(index),
@@ -713,13 +606,8 @@ class _SelectRideState extends State<SelectRide> {
                       color: _ink,
                       borderRadius: BorderRadius.circular(16),
                       child: InkWell(
-                        onTap: () async {
-                          setState(() => _mapReady = false);
-                          await Future<void>.delayed(
-                            const Duration(milliseconds: 80),
-                          );
-                          if (!mounted) return;
-                          await Navigator.push(
+                        onTap: () {
+                          Navigator.push(
                             context,
                             BottomToTopTransition(
                               FindingDrivers(
@@ -735,7 +623,6 @@ class _SelectRideState extends State<SelectRide> {
                               ),
                             ),
                           );
-                          if (mounted) setState(() => _mapReady = true);
                         },
                         borderRadius: BorderRadius.circular(16),
                         child: SizedBox(
@@ -762,9 +649,6 @@ class _SelectRideState extends State<SelectRide> {
                 ),
               ),
             ],
-          ),
-        );
-      },
     );
   }
 
@@ -939,4 +823,57 @@ class _SelectRideState extends State<SelectRide> {
       ),
     );
   }
+}
+
+class _RouteCanvas extends StatelessWidget {
+  const _RouteCanvas();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFD8EDB5),
+            Color(0xFFEEF1E8),
+            Color(0xFFDDE6D0),
+          ],
+        ),
+      ),
+      child: CustomPaint(painter: _RoutePainter(), child: SizedBox.expand()),
+    );
+  }
+}
+
+class _RoutePainter extends CustomPainter {
+  const _RoutePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final land = Paint()..color = const Color(0xFFC1E589).withOpacity(0.55);
+    canvas.drawCircle(Offset(size.width * 0.18, size.height * 0.72), 48, land);
+    canvas.drawCircle(Offset(size.width * 0.82, size.height * 0.28), 36, land);
+    final road = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(size.width * 0.22, size.height * 0.78)
+      ..quadraticBezierTo(
+        size.width * 0.52,
+        size.height * 0.10,
+        size.width * 0.78,
+        size.height * 0.42,
+      );
+    canvas.drawPath(path, road);
+    final pin = Paint()..color = const Color(0xFF245E78);
+    canvas.drawCircle(Offset(size.width * 0.22, size.height * 0.78), 7, pin);
+    canvas.drawCircle(Offset(size.width * 0.78, size.height * 0.42), 7, pin);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
