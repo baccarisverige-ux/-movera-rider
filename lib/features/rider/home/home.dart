@@ -1329,13 +1329,9 @@ class _HomeState extends State<Home> {
         }
         return;
       }
-      await _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: destinationPosition, zoom: 15),
-        ),
-      );
-      if (!mounted) return;
-
+      // Do not await a Home-map camera animation before opening the ride
+      // categories. On web the platform-map future can stall/fail and block
+      // navigation entirely. SelectRide frames the route on its own map.
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => SelectRide(
