@@ -34,6 +34,45 @@
 </head>
 <body>
   <script>
+    // Old Flutter builds used a service worker on this same GitHub Pages scope.
+    // Remove any surviving worker/cache before booting the current non-PWA app.
+    (function() {
+      var resetKey = 'movera-web-cache-reset:' + location.pathname + location.search;
+      var resetNeeded = false;
+      var tasks = [];
+
+      if ('serviceWorker' in navigator) {
+        tasks.push(
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            if (registrations.length) resetNeeded = true;
+            return Promise.all(registrations.map(function(registration) {
+              return registration.unregister();
+            }));
+          })
+        );
+      }
+
+      if ('caches' in window) {
+        tasks.push(
+          caches.keys().then(function(keys) {
+            if (keys.length) resetNeeded = true;
+            return Promise.all(keys.map(function(key) {
+              return caches.delete(key);
+            }));
+          })
+        );
+      }
+
+      Promise.all(tasks).then(function() {
+        if (resetNeeded && !sessionStorage.getItem(resetKey)) {
+          sessionStorage.setItem(resetKey, '1');
+          location.reload();
+        }
+      }).catch(function() {
+        // Cache cleanup must never prevent the Rider app from starting.
+      });
+    })();
+
     window.moveraReverseGeocode = function(latitude, longitude) {
       return new Promise(function(resolve) {
         if (!window.google || !google.maps || !google.maps.Geocoder) {
