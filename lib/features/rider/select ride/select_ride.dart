@@ -49,11 +49,13 @@ class _PaymentOption {
     required this.brand,
     required this.name,
     required this.detail,
+    required this.group,
   });
 
   final String brand;
   final String name;
   final String detail;
+  final String group;
 }
 
 class _SelectRideState extends State<SelectRide> {
@@ -101,34 +103,28 @@ class _SelectRideState extends State<SelectRide> {
 
   final List<_PaymentOption> _payments = const [
     _PaymentOption(
-      brand: 'apple',
-      name: 'Apple Pay',
-      detail: 'Available by default',
-    ),
-    _PaymentOption(
-      brand: 'google',
-      name: 'Google Pay',
-      detail: 'Available by default',
-    ),
-    _PaymentOption(
-      brand: 'paypal',
-      name: 'PayPal',
-      detail: 'Pay for this ride',
+      brand: 'swish',
+      name: 'Swish',
+      detail: 'Instant mobile payment',
+      group: 'app',
     ),
     _PaymentOption(
       brand: 'cards',
       name: 'Card',
       detail: 'Visa, Mastercard',
+      group: 'app',
+    ),
+    _PaymentOption(
+      brand: 'apple',
+      name: 'Apple Pay',
+      detail: 'Fast checkout',
+      group: 'app',
     ),
     _PaymentOption(
       brand: 'cash',
       name: 'Cash',
-      detail: 'Pay the driver',
-    ),
-    _PaymentOption(
-      brand: 'wallet',
-      name: 'Wallet',
-      detail: '\$7.00 available',
+      detail: 'Pay the driver in cash',
+      group: 'driver',
     ),
   ];
 
@@ -282,7 +278,16 @@ class _SelectRideState extends State<SelectRide> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'PAYMENT METHODS',
+                  'Choose how you want to pay',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'PAY IN THE APP',
                   style: TextStyle(
                     color: _muted,
                     fontSize: 10,
@@ -290,40 +295,60 @@ class _SelectRideState extends State<SelectRide> {
                     letterSpacing: 1.25,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: _line),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.035),
-                        blurRadius: 22,
-                        offset: const Offset(0, 9),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      for (var index = 0; index < _payments.length; index++) ...[
-                        if (index > 0)
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                        _walletPaymentTile(index, sheetContext),
-                      ],
-                    ],
+                const SizedBox(height: 8),
+                _paymentGroup(sheetContext, 'app'),
+                const SizedBox(height: 16),
+                const Text(
+                  'PAY THE DRIVER',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.25,
                   ),
                 ),
+                const SizedBox(height: 8),
+                _paymentGroup(sheetContext, 'driver'),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _paymentGroup(BuildContext sheetContext, String group) {
+    final indexes = [
+      for (var i = 0; i < _payments.length; i++)
+        if (_payments[i].group == group) i,
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _line),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 22,
+            offset: const Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < indexes.length; i++) ...[
+            if (i > 0)
+              const Divider(
+                height: 1,
+                indent: 62,
+                endIndent: 16,
+                color: _line,
+              ),
+            _walletPaymentTile(indexes[i], sheetContext),
+          ],
+        ],
+      ),
     );
   }
 
@@ -952,9 +977,11 @@ class _SelectRideState extends State<SelectRide> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
-                      'Default for rides',
-                      style: TextStyle(
+                    Text(
+                      method.detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: _accent,
                         fontSize: 11.5,
                         fontWeight: FontWeight.w500,
@@ -976,6 +1003,20 @@ class _SelectRideState extends State<SelectRide> {
   }
 
   Widget _brandMark(String brand) {
+    if (brand == 'swish') {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: SizedBox(
+          width: 42,
+          height: 38,
+          child: SvgPicture.asset(
+            'assets/images/swish_brand.svg',
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
     Widget logo;
     Color background = Colors.white;
 
@@ -1005,10 +1046,11 @@ class _SelectRideState extends State<SelectRide> {
         ],
       );
     } else if (brand == 'cash') {
-      logo = Image.asset(
-        AppAssets.cash,
-        fit: BoxFit.contain,
-        color: _ink,
+      background = const Color(0xFFEEF6F0);
+      logo = const Icon(
+        Icons.payments_outlined,
+        color: Color(0xFF1F7A4D),
+        size: 20,
       );
     } else {
       logo = Image.asset(
@@ -1025,7 +1067,9 @@ class _SelectRideState extends State<SelectRide> {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: _line),
+        border: Border.all(
+          color: background == Colors.white ? _line : background,
+        ),
       ),
       child: logo,
     );
