@@ -1,0 +1,1 @@
+Trigger GitHub Pages deployment after shrinking pickup and dropoff badges by 20 percent.
