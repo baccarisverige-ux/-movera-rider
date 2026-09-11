@@ -69,11 +69,19 @@ class _HomeState extends State<Home> {
   double _lastMapZoom = 13.0;
   LatLng _lastMapTarget = const LatLng(59.3293, 18.0686);
   bool _showRecenterButton = true;
+  bool _promotionVisible = true;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
 
   static const double _sheetMinHeight = 184;
+  static const double _sheetPromoMinHeight = 244;
   static const double _sheetMaxHeight = 294;
+
+  // Campaign values are kept together so the admin service can replace them
+  // without changing the rider interface.
+  static const bool _promotionEnabled = true;
+  static const String _promotionId = 'next_ride_40_sep_2026';
+  static const String _promotionTitle = '40% off your next ride';
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
   String? _pickupAddress;
@@ -195,6 +203,7 @@ class _HomeState extends State<Home> {
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
+    _restorePromotionState();
   }
 
   @override
@@ -207,6 +216,28 @@ class _HomeState extends State<Home> {
       ..removeListener(_syncHomeSheetState)
       ..dispose();
     super.dispose();
+  }
+
+  Future<void> _restorePromotionState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getBool('movera_promo_dismissed_$_promotionId') ?? false;
+    if (!mounted) return;
+    setState(() => _promotionVisible = _promotionEnabled && !dismissed);
+  }
+
+  Future<void> _dismissPromotion() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('movera_promo_dismissed_$_promotionId', true);
+    if (!mounted) return;
+    setState(() => _promotionVisible = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _animateHomeSheetTo(
+          SheetOffset.absolute(_sheetMinPixels),
+          duration: const Duration(milliseconds: 280),
+        );
+      }
+    });
   }
 
   Future<void> _restoreAddressData() async {
@@ -1751,7 +1782,8 @@ class _HomeState extends State<Home> {
     return ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
   }
 
-  double get _sheetMinPixels => ResSize.h * _sheetMinHeight;
+  double get _sheetMinPixels => ResSize.h *
+      (_promotionVisible ? _sheetPromoMinHeight : _sheetMinHeight);
 
   double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
 
@@ -2169,7 +2201,11 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                   ),
-                  15.height,
+                  12.height,
+                  if (_promotionVisible) ...[
+                    _ridePromotionTicket(),
+                    9.height,
+                  ],
                   _whereToCard(),
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
@@ -2721,6 +2757,94 @@ Widget _homePromoCard({
                 color: AppColor.white,
                 fontSize: 12.5,
                 fontWeight: fwSemiBold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _ridePromotionTicket() {
+    return Semantics(
+      button: true,
+      label: _promotionTitle,
+      child: Container(
+        height: ResSize.h * 48,
+        decoration: BoxDecoration(
+          color: AppColor.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xFFDDE2E4), width: 0.9),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF142D39).withOpacity(0.09),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _handleDestinationTap,
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(15),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(left: ResSize.w * 11),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: ResSize.w * 45,
+                          height: ResSize.h * 34,
+                          alignment: Alignment.center,
+                          child: Image.asset(
+                            'assets/images/promo_card_img.png',
+                            width: ResSize.w * 43,
+                            height: ResSize.h * 31,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                        8.width,
+                        Expanded(
+                          child: TextWidget(
+                            text: _promotionTitle,
+                            color: _premiumInk,
+                            fontSize: 12.2,
+                            fontWeight: fwSemiBold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              width: 0.8,
+              height: ResSize.h * 24,
+              color: _premiumLine,
+            ),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _dismissPromotion,
+                borderRadius: const BorderRadius.horizontal(
+                  right: Radius.circular(15),
+                ),
+                child: SizedBox(
+                  width: ResSize.w * 45,
+                  height: double.infinity,
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: ResSize.h * 20,
+                    color: _premiumMuted,
+                  ),
+                ),
               ),
             ),
           ],
