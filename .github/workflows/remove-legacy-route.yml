@@ -24,11 +24,17 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Remove original ChooseRoute chain
+      - name: Remove original route and connect live trip
         run: python3 .github/scripts/remove_legacy_route.py
 
       - name: Format changed Rider files
-        run: dart format 'lib/features/rider/home/home.dart' 'lib/features/rider/schedule ride/schedule_ride.dart'
+        run: |
+          dart format \
+            'lib/features/rider/home/home.dart' \
+            'lib/features/rider/schedule ride/schedule_ride.dart' \
+            'lib/features/rider/select ride/select_ride.dart' \
+            'lib/features/rider/Finding Drivers/finding_drivers.dart' \
+            'lib/features/rider/waiting for driver/waiting_for_driver.dart'
 
       - name: Resolve dependencies
         run: flutter pub get
@@ -41,7 +47,7 @@ jobs:
 
       - name: Verify legacy route is absent
         run: |
-          if grep -R -n -E 'ChooseRoute|Central Park, DHA|33\.6844, 73\.0479' lib --include='*.dart'; then
+          if find lib -type f -name '*.dart' -print0 | xargs -0 grep -n -E 'ChooseRoute|Central Park, DHA|33\.6844, 73\.0479'; then
             echo 'Legacy Rider route/data still exists.'
             exit 1
           fi
@@ -50,6 +56,12 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A 'lib/features/rider/home/home.dart' 'lib/features/rider/schedule ride/schedule_ride.dart' 'lib/features/rider/choose route'
-          git commit -m 'Remove legacy original ride route'
+          git add -A \
+            'lib/features/rider/home/home.dart' \
+            'lib/features/rider/schedule ride/schedule_ride.dart' \
+            'lib/features/rider/select ride/select_ride.dart' \
+            'lib/features/rider/Finding Drivers/finding_drivers.dart' \
+            'lib/features/rider/waiting for driver/waiting_for_driver.dart' \
+            'lib/features/rider/choose route'
+          git commit -m 'Remove legacy rider trip screens'
           git push origin HEAD:main
