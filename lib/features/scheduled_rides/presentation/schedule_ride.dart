@@ -2,9 +2,11 @@ import 'package:dotted_line/dotted_line.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/confirm_booking.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/add_note.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
@@ -33,10 +35,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
-  // ignore: unused_field
   GoogleMapController? _mapController;
-  // ignore: prefer_final_fields
   Set<Marker> _markers = {};
+  final ScheduledRideSession _session = ScheduledRideSession();
 
   // Default location
   static const CameraPosition _initialPosition = CameraPosition(
@@ -78,6 +79,8 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   void goToNextStep() {
     FocusScope.of(context).unfocus();
+    _session.pickup = _pickupController.text;
+    _session.dropoff = _dropoffController.text;
     setState(() => currentStep += 1);
   }
 
@@ -490,7 +493,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
             mapType: MapType.normal,
             onMapCreated: (GoogleMapController controller) {
               _mapController = controller;
-              // Any additional map setup can be done here
+              AppScope.instance.maps.attach(controller);
             },
             onTap: (LatLng position) {
               // Handle map tap events

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -207,6 +209,9 @@ class _ScheduleConfirmBookingState extends State<ScheduleConfirmBooking> {
           CustomButton(
             centerContent: "CONFIRM",
             onPressed: () {
+              AppScope.instance.ride.restoreFromBackend(
+                RideStatus.bookingRequested,
+              );
               Navigator.push(
                 context,
                 BottomToTopTransition(const ScheduleRidePending()),

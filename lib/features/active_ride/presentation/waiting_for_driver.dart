@@ -1,9 +1,11 @@
 import 'package:dotted_line/dotted_line.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -38,10 +40,9 @@ class WaitingForDriver extends StatefulWidget {
 }
 
 class _WaitingForDriverState extends State<WaitingForDriver> {
-  // ignore: unused_field
   GoogleMapController? _mapController;
-  // ignore: prefer_final_fields
   Set<Marker> _markers = {};
+  final ActiveRideController _ride = ActiveRideController();
 
   late final CameraPosition _initialPosition;
 
@@ -53,6 +54,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       zoom: 14.0,
     );
     _loadMarkers();
+    _ride.markArriving();
   }
 
   void _loadMarkers() {
@@ -190,7 +192,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 mapType: MapType.normal,
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
-                  // Any additional map setup can be done here
+                  AppScope.instance.maps.attach(controller);
                 },
                 onTap: (LatLng position) {
                   // Handle map tap events
@@ -595,6 +597,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
                 InkWell(
                   onTap: () {
+                    _ride.markCancelled();
                     Navigator.push(
                       context,
                       BottomToTopTransition(RideCompleted()),

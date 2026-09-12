@@ -163,6 +163,7 @@ class _FindingDriversState extends State<FindingDrivers> {
               mapType: MapType.normal,
               onMapCreated: (GoogleMapController controller) {
                 _mapController = controller;
+                AppScope.instance.maps.attach(controller);
               },
               onTap: (LatLng position) {},
             ),

@@ -7,7 +7,6 @@ import 'dart:ui' show ImageFilter;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
@@ -18,6 +17,7 @@ import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
+import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -3623,6 +3623,10 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
   late LatLng _position;
   late String _address;
   bool _resolving = false;
+  late final PickupMapController _pickup = PickupMapController(
+    location: AppScope.instance.location,
+    geocoding: AppScope.instance.geocoding,
+  );
 
   @override
   void initState() {
@@ -3632,13 +3636,16 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _resolveAddress());
   }
 
+  @override
+  void dispose() {
+    _pickup.dispose();
+    super.dispose();
+  }
+
   Future<void> _resolveAddress() async {
-    if (_resolving) return;
+    if (_pickup.resolving) return;
     setState(() => _resolving = true);
-    final resolved = await AppScope.instance.geocoding.reverseGeocodeAddress(
-      _position.latitude,
-      _position.longitude,
-    );
+    final resolved = await _pickup.reverse(_position);
     if (!mounted) return;
     setState(() {
       if (resolved != null && resolved.trim().isNotEmpty) {
@@ -3650,26 +3657,12 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
 
   Future<void> _recenter() async {
     try {
-      if (!await AppScope.instance.location.isLocationServiceEnabled()) return;
-      var permission = await AppScope.instance.location.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await AppScope.instance.location.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      final current = await AppScope.instance.location.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-      final target = LatLng(current.latitude, current.longitude);
-      _position = target;
-      await _controller?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: target, zoom: 17),
-        ),
+      final current = await _pickup.currentPosition();
+      if (current == null) return;
+      _position = current;
+      await AppScope.instance.maps.animateCamera(
+        GeoPoint(current.latitude, current.longitude),
+        zoom: 17,
       );
       await _resolveAddress();
     } catch (_) {}
@@ -3699,7 +3692,10 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
                 zoom: 17,
               ),
               myLocationEnabled: false,
-              onMapCreated: (controller) => _controller = controller,
+              onMapCreated: (controller) {
+                _controller = controller;
+                AppScope.instance.maps.attach(controller);
+              },
               onCameraMove: (camera) => _position = camera.target,
               onCameraIdle: _resolveAddress,
               padding: const EdgeInsets.only(bottom: 286),
