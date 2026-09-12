@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="https://cdn.jsdelivr.net/gh/baccarisverige-ux/-movera-rider@web-live/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Movera — premium rides in Sweden.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#11181D">
+  <meta name="color-scheme" content="light">
+
+  <!-- iOS full-screen home screen app -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Movera">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Movera</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: #11181D;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Old Flutter builds used a service worker on this same GitHub Pages scope.
+    // Remove any surviving worker/cache before booting the current non-PWA app.
+    (function() {
+      var resetKey = 'movera-web-cache-reset:' + location.pathname + location.search;
+      var resetNeeded = false;
+      var tasks = [];
+
+      if ('serviceWorker' in navigator) {
+        tasks.push(
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            if (registrations.length) resetNeeded = true;
+            return Promise.all(registrations.map(function(registration) {
+              return registration.unregister();
+            }));
+          })
+        );
+      }
+
+      if ('caches' in window) {
+        tasks.push(
+          caches.keys().then(function(keys) {
+            if (keys.length) resetNeeded = true;
+            return Promise.all(keys.map(function(key) {
+              return caches.delete(key);
+            }));
+          })
+        );
+      }
+
+      Promise.all(tasks).then(function() {
+        if (resetNeeded && !sessionStorage.getItem(resetKey)) {
+          sessionStorage.setItem(resetKey, '1');
+          location.reload();
+        }
+      }).catch(function() {
+        // Cache cleanup must never prevent the Rider app from starting.
+      });
+    })();
+
+    // Address lookup is intentionally independent from the Google Maps JS
+    // Geocoder. The production Maps key renders the map but is currently not
+    // authorised for Google's Geocoding service. Calling that service caused
+    // address confirmation to fail on the live Rider site. Keep a small
+    // in-memory cache and use the OpenStreetMap Nominatim endpoint instead.
+    window.moveraGeoCache = window.moveraGeoCache || new Map();
+
+    window.moveraFetchJson = async function(url) {
+      var controller = new AbortController();
+      var timer = setTimeout(function() { controller.abort(); }, 8000);
+      try {
+        var response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'force-cache',
+          signal: controller.signal,
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (_) {
+        return null;
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    window.moveraReverseGeocode = async function(latitude, longitude) {
+      var key = 'reverse:' + Number(latitude).toFixed(5) + ':' + Number(longitude).toFixed(5);
+      if (window.moveraGeoCache.has(key)) return window.moveraGeoCache.get(key);
+      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=0&accept-language=en&lat=' +
+        encodeURIComponent(latitude) + '&lon=' + encodeURIComponent(longitude);
+      var data = await window.moveraFetchJson(url);
+      var value = data && data.display_name ? String(data.display_name) : null;
+      if (value) window.moveraGeoCache.set(key, value);
+      return value;
+    };
+
+    window.moveraDeviceHeading = null;
+    window.moveraHeadingStarted = false;
+    window.moveraHeadingStartPromise = null;
+    window.moveraHeadingListenerCount = 0;
+    window.moveraHeadingPermission = 'auto';
+    window._moveraSawAbsoluteHeading = false;
+    window._moveraHeadingArmed = false;
+    window._moveraGestureAsked = false;
+    window._moveraLastAskAt = 0;
+
+    window.moveraBrowserInfo = function() {
+      var ua = navigator.userAgent || '';
+      var ios = /iPad|iPhone|iPod/.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var standalone = navigator.standalone === true;
+      var knownInApp = /CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo|Instagram|FBAN|FBAV|Line\/|LinkedIn|Twitter|GSA\/|MicroMessenger|Snapchat|Pinterest|Reddit|Discord|Telegram|Slack|WhatsApp|\bGrok\b|GitHub/.test(ua);
+      var hasSafariToken = /Safari\//.test(ua);
+      var hasVersionToken = /Version\//.test(ua);
+      var safari = ios && hasSafariToken && hasVersionToken &&
+        !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua);
+      var inApp = ios && !safari;
+      var kind = safari ? 'safari' : (inApp ? 'in-app' : (ios ? 'ios-other' : 'other'));
+      return {
+        ua: ua,
+        ios: ios,
+        standalone: standalone,
+        safari: safari,
+        inApp: inApp,
+        knownInApp: knownInApp,
+        kind: kind,
+        secure: !!window.isSecureContext
+      };
+    };
+
+    window.moveraHeadingDebug = {
+      ua: navigator.userAgent || '',
+      browserKind: 'other',
+      isIOS: false,
+      inAppBrowser: false,
+      safari: false,
+      standalone: false,
+      secure: !!window.isSecureContext,
+      hasDeviceOrientationEvent: typeof DeviceOrientationEvent !== 'undefined',
+      hasRequestPermission: false,
+      permission: 'auto',
+      permissionRequestRan: false,
+      permissionResult: null,
+      permissionError: null,
+      gestureAttempts: 0,
+      started: false,
+      listenerCount: 0,
+      orientationEvents: 0,
+      absoluteEvents: 0,
+      lastAlpha: null,
+      lastWebkitCompassHeading: null,
+      lastEventType: null,
+      lastEventAbsolute: null,
+      calculatedHeading: null,
+      dartHeading: null,
+      dartCompassActive: false,
+      dartStartResult: null,
+      dartStartError: null,
+      puckHeading: null,
+      brokenStage: 'permission: waiting for user gesture',
+      note: ''
+    };
+
+    window.moveraBrokenStage = function() {
+      var d = window.moveraHeadingDebug;
+      if (!d.hasDeviceOrientationEvent) {
+        return 'events: DeviceOrientationEvent missing';
+      }
+      if (d.hasRequestPermission && d.permission !== 'granted') {
+        if (d.permissionError && /NotAllowedError|user gesture|permission/i.test(String(d.permissionError))) {
+          return 'permission: request was not a trusted browser gesture';
+        }
+        if (d.permission === 'denied' && d.inAppBrowser) {
+          return 'permission: in-app WKWebView silent deny (open in Safari)';
+        }
+        if (d.permission === 'denied') {
+          return 'permission: Safari/user denied motion access';
+        }
+        if (!d.permissionRequestRan) {
+          return 'permission: request never ran — waiting for a real tap';
+        }
+        return 'permission: waiting for grant (tap again to retry)';
+      }
+      if (d.orientationEvents === 0 && d.absoluteEvents === 0) {
+        if (d.permission === 'granted' || !d.hasRequestPermission) {
+          return 'events: no deviceorientation after start';
+        }
+        return 'events: none yet';
+      }
+      if (d.calculatedHeading == null) {
+        return 'calculated heading: events have no webkitCompassHeading/alpha';
+      }
+      if (d.dartHeading == null) {
+        return 'Dart: JS heading not received by poller';
+      }
+      return 'puck: dart has heading — bitmap should rotate';
+    };
+
+    window.moveraRefreshHeadingDebug = function() {
+      var info = window.moveraBrowserInfo();
+      var d = window.moveraHeadingDebug;
+      d.ua = info.ua;
+      d.browserKind = info.kind;
+      d.isIOS = info.ios;
+      d.inAppBrowser = info.inApp;
+      d.safari = info.safari;
+      d.standalone = info.standalone;
+      d.secure = info.secure;
+      d.hasDeviceOrientationEvent = typeof DeviceOrientationEvent !== 'undefined';
+      d.hasRequestPermission = window.moveraNeedsOrientationPermission();
+      d.permission = window.moveraHeadingPermission;
+      d.started = !!window.moveraHeadingStarted;
+      d.listenerCount = window.moveraHeadingListenerCount || 0;
+      d.calculatedHeading = window.moveraDeviceHeading;
+      if (typeof window.moveraPuckHeading === 'number') d.puckHeading = window.moveraPuckHeading;
+      if (typeof window.moveraDartStartResult === 'boolean') d.dartStartResult = window.moveraDartStartResult;
+      if (window.moveraDartStartError) d.dartStartError = String(window.moveraDartStartError);
+      d.brokenStage = window.moveraBrokenStage();
+      if (info.inApp && d.hasRequestPermission && d.permission === 'denied') {
+        d.note = 'This in-app browser cannot grant motion permission. Open the same URL in Safari.';
+      } else if (info.safari && d.permission === 'denied') {
+        d.note = 'Safari denied motion. Settings → Safari → Motion & Orientation Access, then reload.';
+      } else if (info.safari && d.permission !== 'granted') {
+        d.note = 'Waiting for a real tap so iOS can prompt for motion.';
+      } else {
+        d.note = '';
+      }
+      return d;
+    };
+
+    window.moveraHeadingSnapshot = function() {
+      return JSON.parse(JSON.stringify(window.moveraRefreshHeadingDebug()));
+    };
+
+    window.moveraWrapHeading = function(value) {
+      var heading = Number(value) % 360;
+      if (heading < 0) heading += 360;
+      return heading;
+    };
+
+    window.moveraScreenAngle = function() {
+      if (screen.orientation && typeof screen.orientation.angle === 'number') {
+        return screen.orientation.angle;
+      }
+      if (typeof window.orientation === 'number') return window.orientation;
+      return 0;
+    };
+
+    window.moveraHeadingFromEvent = function(event) {
+      var heading = null;
+      if (typeof event.webkitCompassHeading === 'number' && isFinite(event.webkitCompassHeading)) {
+        heading = event.webkitCompassHeading;
+      } else if (typeof event.alpha === 'number' && isFinite(event.alpha)) {
+        heading = 360 - event.alpha;
+      }
+      if (heading == null || !isFinite(heading)) return null;
+      return window.moveraWrapHeading(heading + window.moveraScreenAngle());
+    };
+
+    window._moveraOnOrientation = function(event) {
+      if (!event) return;
+      var isAbsolute = event.type === 'deviceorientationabsolute';
+      if (isAbsolute) {
+        window.moveraHeadingDebug.absoluteEvents += 1;
+      } else {
+        window.moveraHeadingDebug.orientationEvents += 1;
+      }
+      window.moveraHeadingDebug.lastEventType = event.type;
+      window.moveraHeadingDebug.lastEventAbsolute = !!event.absolute;
+      window.moveraHeadingDebug.lastAlpha =
+        (typeof event.alpha === 'number' && isFinite(event.alpha)) ? event.alpha : null;
+      window.moveraHeadingDebug.lastWebkitCompassHeading =
+        (typeof event.webkitCompassHeading === 'number' && isFinite(event.webkitCompassHeading))
+          ? event.webkitCompassHeading
+          : null;
+      var heading = window.moveraHeadingFromEvent(event);
+      if (heading == null) return;
+      var fromWebkit = typeof event.webkitCompassHeading === 'number' &&
+        isFinite(event.webkitCompassHeading);
+      if (!isAbsolute && window._moveraSawAbsoluteHeading && !fromWebkit) {
+        return;
+      }
+      if (isAbsolute) window._moveraSawAbsoluteHeading = true;
+      window.moveraDeviceHeading = heading;
+      window.moveraHeadingDebug.calculatedHeading = heading;
+    };
+
+    window.moveraAttachHeadingListeners = function() {
+      window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+      window.removeEventListener('deviceorientation', window._moveraOnOrientation, true);
+      window.addEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+      window.addEventListener('deviceorientation', window._moveraOnOrientation, true);
+      window.moveraHeadingListenerCount = 2;
+    };
+
+    window.moveraStopHeading = function() {
+      if (window._moveraOnOrientation) {
+        window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+        window.removeEventListener('deviceorientation', window._moveraOnOrientation, true);
+      }
+      window.moveraHeadingStarted = false;
+      window.moveraHeadingStartPromise = null;
+      window.moveraHeadingListenerCount = 0;
+      window._moveraSawAbsoluteHeading = false;
+      // Do not freeze permission/retry state. A later real gesture may start again.
+    };
+
+    window.moveraInjectHeading = function(deg) {
+      var value = Number(deg);
+      if (!Number.isFinite(value)) return null;
+      window.moveraDeviceHeading = window.moveraWrapHeading(value);
+      window.moveraHeadingDebug.calculatedHeading = window.moveraDeviceHeading;
+      return window.moveraDeviceHeading;
+    };
+
+    window.moveraNeedsOrientationPermission = function() {
+      return typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function';
+    };
+
+    // iOS requires requestPermission() on the same stack as a real browser
+    // gesture. Flutter canvas taps are not trusted. Capture-phase window
+    // listeners are. Failed/rejected attempts must NOT lock later retries.
+    window.moveraRequestHeadingFromGesture = function() {
+      window._moveraGestureAsked = true;
+      window.moveraHeadingDebug.gestureAttempts += 1;
+      if (window.moveraHeadingStarted && window.moveraHeadingPermission === 'granted') {
+        return;
+      }
+      try {
+        if (window.moveraNeedsOrientationPermission()) {
+          window.moveraHeadingDebug.permissionRequestRan = true;
+          DeviceOrientationEvent.requestPermission().then(function(permission) {
+            window.moveraHeadingDebug.permissionResult = String(permission);
+            window.moveraHeadingDebug.permissionError = null;
+            if (permission === 'granted') {
+              window.moveraHeadingPermission = 'granted';
+              window.moveraAttachHeadingListeners();
+              window.moveraHeadingStarted = true;
+            } else {
+              window.moveraHeadingPermission = 'denied';
+              // Still attach: some WKWebViews fire events after a silent deny.
+              window.moveraAttachHeadingListeners();
+            }
+            window.moveraRefreshHeadingDebug();
+          }).catch(function(err) {
+            window.moveraHeadingDebug.permissionError =
+              String(err && err.message ? err.message : err);
+            // NotAllowedError means this tap was not trusted. Keep retrying.
+            window.moveraRefreshHeadingDebug();
+          });
+          try {
+            if (typeof DeviceMotionEvent !== 'undefined' &&
+                typeof DeviceMotionEvent.requestPermission === 'function') {
+              DeviceMotionEvent.requestPermission().then(function() {}).catch(function() {});
+            }
+          } catch (_) {}
+          return;
+        }
+      } catch (err) {
+        window.moveraHeadingDebug.permissionError = String(err && err.message ? err.message : err);
+      }
+      window.moveraStartHeading({fromGesture: true});
+    };
+
+    window.moveraStartHeading = async function(opts) {
+      var fromGesture = !!(opts && opts.fromGesture);
+      if (window.moveraHeadingStarted) return true;
+      if (window.moveraHeadingPermission === 'denied' && !fromGesture) return false;
+      if (window.moveraNeedsOrientationPermission() &&
+          !fromGesture &&
+          window.moveraHeadingPermission !== 'granted') {
+        // Do not call requestPermission outside a user gesture. Dart/Home
+        // startup would steal the iPhone prompt and fail.
+        return false;
+      }
+      if (window.moveraHeadingStartPromise) return window.moveraHeadingStartPromise;
+      window.moveraHeadingStartPromise = (async function() {
+        try {
+          if (typeof DeviceOrientationEvent === 'undefined' &&
+              window.moveraHeadingPermission !== 'granted') {
+            return false;
+          }
+          if (window.moveraNeedsOrientationPermission() &&
+              window.moveraHeadingPermission !== 'granted') {
+            window.moveraHeadingDebug.permissionRequestRan = true;
+            var permission = await DeviceOrientationEvent.requestPermission();
+            window.moveraHeadingDebug.permissionResult = String(permission);
+            if (permission !== 'granted') {
+              window.moveraHeadingPermission = 'denied';
+              window.moveraAttachHeadingListeners();
+              return false;
+            }
+            window.moveraHeadingPermission = 'granted';
+          }
+          window.moveraAttachHeadingListeners();
+          window.moveraHeadingStarted = true;
+          return true;
+        } catch (err) {
+          window.moveraHeadingDebug.permissionError =
+            String(err && err.message ? err.message : err);
+          return false;
+        }
+      })();
+      var started = await window.moveraHeadingStartPromise;
+      if (!started) window.moveraHeadingStartPromise = null;
+      window.moveraRefreshHeadingDebug();
+      return started;
+    };
+
+    window.moveraArmHeadingFromGesture = function() {
+      if (window._moveraHeadingArmed) return;
+      window._moveraHeadingArmed = true;
+      var arm = function() {
+        var now = Date.now();
+        if (now - window._moveraLastAskAt < 350) return;
+        window._moveraLastAskAt = now;
+        window.moveraRequestHeadingFromGesture();
+        if (window.moveraHeadingStarted && window.moveraHeadingPermission === 'granted') {
+          window.removeEventListener('pointerdown', arm, true);
+          window.removeEventListener('touchstart', arm, true);
+          window.removeEventListener('touchend', arm, true);
+          window.removeEventListener('click', arm, true);
+        }
+      };
+      window.addEventListener('pointerdown', arm, true);
+      window.addEventListener('touchstart', arm, true);
+      window.addEventListener('touchend', arm, true);
+      window.addEventListener('click', arm, true);
+    };
+    window.moveraArmHeadingFromGesture();
+    // Do not stop heading on pagehide — iOS fires it for the motion prompt
+    // and for backgrounding, which previously killed listeners after grant.
+
+    window.moveraGeocodeAddress = async function(address) {
+      var clean = String(address || '').trim();
+      if (!clean) return null;
+      var key = 'search:' + clean.toLowerCase();
+      if (window.moveraGeoCache.has(key)) return window.moveraGeoCache.get(key);
+      var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=0&accept-language=en&q=' +
+        encodeURIComponent(clean);
+      var data = await window.moveraFetchJson(url);
+      if (!Array.isArray(data) || !data.length) return null;
+      var first = data[0];
+      var latitude = Number(first.lat);
+      var longitude = Number(first.lon);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      var result = JSON.stringify({
+        address: first.display_name ? String(first.display_name) : clean,
+        latitude: latitude,
+        longitude: longitude
+      });
+      window.moveraGeoCache.set(key, result);
+      return result;
+    };
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJ_3q856NuoUBtnddNnIUC_-zs6ZJDml8"></script>
+  <script src="flutter_bootstrap.45d21cbf.js" defer></script>
+</body>
+</html>
