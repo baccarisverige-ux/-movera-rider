@@ -162,9 +162,10 @@ class RiderSideMenu extends StatelessWidget {
   }
 
   Widget _menuCard(BuildContext context) {
-    final items = <({IconData icon, String title, VoidCallback onTap})>[
+    final items = <({IconData? icon, String? image, String title, VoidCallback onTap})>[
       (
         icon: Icons.account_balance_wallet_outlined,
+        image: null,
         title: 'Wallet',
         onTap: () {
           Navigator.push(
@@ -175,6 +176,7 @@ class RiderSideMenu extends StatelessWidget {
       ),
       (
         icon: Icons.history_rounded,
+        image: null,
         title: 'Ride History',
         onTap: () {
           Navigator.push(
@@ -185,6 +187,7 @@ class RiderSideMenu extends StatelessWidget {
       ),
       (
         icon: Icons.credit_card_outlined,
+        image: null,
         title: 'Payments',
         onTap: () {
           Navigator.push(
@@ -194,7 +197,8 @@ class RiderSideMenu extends StatelessWidget {
         },
       ),
       (
-        icon: Icons.shield_outlined,
+        icon: null,
+        image: AppAssets.safetyShield,
         title: 'Safety',
         onTap: () {
           Navigator.push(
@@ -211,6 +215,7 @@ class RiderSideMenu extends StatelessWidget {
       ),
       (
         icon: Icons.headset_mic_outlined,
+        image: null,
         title: 'Support',
         onTap: () {
           Navigator.push(
@@ -221,6 +226,7 @@ class RiderSideMenu extends StatelessWidget {
       ),
       (
         icon: Icons.mail_outline_rounded,
+        image: null,
         title: 'Invite Friends',
         onTap: () {
           Navigator.push(
@@ -231,6 +237,7 @@ class RiderSideMenu extends StatelessWidget {
       ),
       (
         icon: Icons.info_outline_rounded,
+        image: null,
         title: 'About',
         onTap: () {
           Navigator.push(
@@ -253,6 +260,7 @@ class RiderSideMenu extends StatelessWidget {
           for (var i = 0; i < items.length; i++)
             _menuRow(
               icon: items[i].icon,
+              image: items[i].image,
               title: items[i].title,
               onTap: items[i].onTap,
               isFirst: i == 0,
@@ -264,7 +272,8 @@ class RiderSideMenu extends StatelessWidget {
   }
 
   Widget _menuRow({
-    required IconData icon,
+    IconData? icon,
+    String? image,
     required String title,
     required VoidCallback onTap,
     required bool isFirst,
@@ -291,7 +300,10 @@ class RiderSideMenu extends StatelessWidget {
             children: [
               SizedBox(
                 width: ResSize.w * 26,
-                child: Icon(icon, size: 22 * ResSize.h, color: _icon),
+                height: ResSize.h * 26,
+                child: image != null
+                    ? Image.asset(image, fit: BoxFit.contain)
+                    : Icon(icon, size: 22 * ResSize.h, color: _icon),
               ),
               16.width,
               Expanded(

@@ -25,6 +25,7 @@ class AppAssets {
   static const String payment = 'assets/icons/payment.png';
   static const String scheduledRides = 'assets/icons/scheduled_rides.png';
   static const String safety = 'assets/icons/safety.png';
+  static const String safetyShield = 'assets/icons/safety_shield.png';
   static const String support = 'assets/icons/support.png';
   static const String inviteFriends = 'assets/icons/invite_friends.png';
   static const String about = 'assets/icons/about.png';
