@@ -222,9 +222,6 @@ class _SelectRideState extends State<SelectRide> {
     setState(() => _offeredPrices[ride.id] = next);
   }
 
-  _RideOption get _selectedRide =>
-      _allRides.firstWhere((ride) => ride.id == _selectedRideId);
-
   List<_RideOption> get _visibleRides {
     final rides = [..._allRides];
     switch (_filter) {
