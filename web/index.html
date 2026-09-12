@@ -46,27 +46,6 @@
       -webkit-tap-highlight-color: transparent;
       -webkit-text-size-adjust: 100%;
     }
-    #movera-hd {
-      display: none;
-      position: fixed;
-      top: 8px;
-      right: 8px;
-      z-index: 2147483647;
-      max-width: 250px;
-      max-height: 48vh;
-      overflow: auto;
-      padding: 8px 9px;
-      border-radius: 10px;
-      background: rgba(17, 24, 29, 0.82);
-      color: #f4f6f5;
-      font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
-      letter-spacing: 0;
-      white-space: pre-wrap;
-      pointer-events: auto;
-      -webkit-user-select: text;
-      user-select: text;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.28);
-    }
   </style>
 </head>
 <body>
@@ -231,7 +210,7 @@
           return 'permission: Safari/user denied motion access';
         }
         if (!d.permissionRequestRan) {
-          return 'permission: request never ran — tap the map or this panel';
+          return 'permission: request never ran — waiting for a real tap';
         }
         return 'permission: waiting for grant (tap again to retry)';
       }
@@ -275,32 +254,9 @@
       } else if (info.safari && d.permission === 'denied') {
         d.note = 'Safari denied motion. Settings → Safari → Motion & Orientation Access, then reload.';
       } else if (info.safari && d.permission !== 'granted') {
-        d.note = 'Tap the map, recenter, or this panel once. iOS must prompt from a real tap.';
+        d.note = 'Waiting for a real tap so iOS can prompt for motion.';
       } else {
         d.note = '';
-      }
-      var panel = document.getElementById('movera-hd');
-      if (panel && panel.style.display !== 'none') {
-        panel.textContent =
-          (d.permission === 'granted' ? '' : 'TAP THIS PANEL for compass\n') +
-          info.kind + (info.ios ? ' iOS' : '') +
-          '\nperm=' + d.permission +
-          ' ran=' + (d.permissionRequestRan ? 'yes' : 'no') +
-          '\nresult=' + (d.permissionResult == null ? '—' : d.permissionResult) +
-          '\nerr=' + (d.permissionError || '—') +
-          '\nstarted=' + d.started +
-          ' listeners=' + d.listenerCount +
-          ' taps=' + d.gestureAttempts +
-          '\nevents ori=' + d.orientationEvents +
-          ' abs=' + d.absoluteEvents +
-          '\nwebkit=' + (d.lastWebkitCompassHeading == null ? '—' : d.lastWebkitCompassHeading) +
-          ' alpha=' + (d.lastAlpha == null ? '—' : d.lastAlpha) +
-          '\njsH=' + (d.calculatedHeading == null ? '—' : Number(d.calculatedHeading).toFixed(1)) +
-          ' dartH=' + (d.dartHeading == null ? '—' : Number(d.dartHeading).toFixed(1)) +
-          '\npuck=' + (d.puckHeading == null ? '—' : Number(d.puckHeading).toFixed(1)) +
-          ' compass=' + d.dartCompassActive +
-          '\nstage=' + d.brokenStage +
-          (d.note ? '\n' + d.note : '');
       }
       return d;
     };
@@ -508,32 +464,6 @@
     window.moveraArmHeadingFromGesture();
     // Do not stop heading on pagehide — iOS fires it for the motion prompt
     // and for backgrounding, which previously killed listeners after grant.
-
-    window.moveraInstallHeadingOverlay = function() {
-      var info = window.moveraBrowserInfo();
-      var forced = /[?&]hd=1(?:&|$)/.test(location.search);
-      if (!info.ios && !forced) return;
-      var panel = document.getElementById('movera-hd');
-      if (!panel) {
-        panel = document.createElement('div');
-        panel.id = 'movera-hd';
-        document.body.appendChild(panel);
-        panel.addEventListener('click', function() {
-          window.moveraRequestHeadingFromGesture();
-          window.moveraRefreshHeadingDebug();
-        }, true);
-      }
-      panel.style.display = 'block';
-      window.moveraRefreshHeadingDebug();
-    };
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', window.moveraInstallHeadingOverlay);
-    } else {
-      window.moveraInstallHeadingOverlay();
-    }
-    setInterval(function() {
-      if (document.getElementById('movera-hd')) window.moveraRefreshHeadingDebug();
-    }, 400);
 
     window.moveraGeocodeAddress = async function(address) {
       var clean = String(address || '').trim();

@@ -152,6 +152,9 @@ void main() {
       isFalse,
     );
     expect(html.contains("addEventListener('pagehide'"), isFalse);
+    expect(html.contains('movera-hd'), isFalse);
+    expect(html.contains('TAP THIS PANEL'), isFalse);
+    expect(html.contains('moveraInstallHeadingOverlay'), isFalse);
   });
 
   test('home does not add a compass permission screen', () {
