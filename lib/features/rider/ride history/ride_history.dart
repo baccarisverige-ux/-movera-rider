@@ -308,7 +308,14 @@ class _RideHistoryState extends State<RideHistory> {
       child: Column(
         children: [
           const Spacer(),
-          const _CalendarMark(),
+          SizedBox(
+            width: double.infinity,
+            height: 140,
+            child: Image.asset(
+              'assets/images/schedule_timeline_exact_v3.png',
+              fit: BoxFit.contain,
+            ),
+          ),
           const SizedBox(height: 28),
           Text(
             'No upcoming rides',
@@ -494,81 +501,6 @@ class _RideHistoryState extends State<RideHistory> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CalendarMark extends StatelessWidget {
-  const _CalendarMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 148,
-      height: 148,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 108,
-            height: 118,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF162C36).withOpacity(0.12),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Container(
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1D252C),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                    child: GridView.count(
-                      crossAxisCount: 4,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: List.generate(8, (index) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: index == 5
-                                ? const Color(0xFF2D5878)
-                                : const Color(0xFFF1F3F4),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                        );
-                      }),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Positioned(
-            left: 8,
-            top: 18,
-            child: CircleAvatar(
-              radius: 28,
-              backgroundColor: Color(0xFF2D5878),
-              child: Icon(Icons.schedule_rounded, color: Colors.white, size: 30),
-            ),
-          ),
-        ],
       ),
     );
   }
