@@ -194,6 +194,33 @@ class _SelectRideState extends State<SelectRide> {
   int _selectedPayment = 0;
   _RideFilter _filter = _RideFilter.recommended;
   DateTime? _scheduledFor;
+  final Map<String, double> _offeredPrices = {};
+
+  _RideOption get _selectedRide =>
+      _allRides.firstWhere((ride) => ride.id == _selectedRideId);
+
+  double _priceFor(_RideOption ride) =>
+      _offeredPrices[ride.id] ?? ride.price;
+
+  void _selectRide(String id) {
+    setState(() {
+      _selectedRideId = id;
+      _offeredPrices.putIfAbsent(
+        id,
+        () => _allRides.firstWhere((ride) => ride.id == id).price,
+      );
+    });
+  }
+
+  void _nudgePrice(int delta) {
+    final ride = _selectedRide;
+    final current = _priceFor(ride);
+    final minimum = (ride.price * 0.65).roundToDouble();
+    final maximum = (ride.price * 1.8).roundToDouble();
+    final next = (current + delta).clamp(minimum, maximum).roundToDouble();
+    if (next == current) return;
+    setState(() => _offeredPrices[ride.id] = next);
+  }
 
   _RideOption get _selectedRide =>
       _allRides.firstWhere((ride) => ride.id == _selectedRideId);
@@ -417,7 +444,7 @@ class _SelectRideState extends State<SelectRide> {
           pickupPosition: widget.pickupPosition,
           destinationPosition: widget.destinationPosition,
           rideType: selected.name,
-          price: selected.price,
+          price: _priceFor(selected),
           paymentMethod: _payments[_selectedPayment].name,
         ),
       ),
@@ -475,13 +502,21 @@ class _SelectRideState extends State<SelectRide> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Choose your ride',
-                        style: _text(22, weight: FontWeight.w700, letterSpacing: -0.4),
-                      ),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Choose your ride',
+                            style: _text(
+                              22,
+                              weight: FontWeight.w700,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                        ),
+                        _priceStepper(),
+                      ],
                     ),
                   ),
                   Padding(
@@ -542,6 +577,68 @@ class _SelectRideState extends State<SelectRide> {
             ),
             const SizedBox(width: 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _priceStepper() {
+    final ride = _selectedRide;
+    final price = _priceFor(ride);
+    final minimum = (ride.price * 0.65).roundToDouble();
+    final maximum = (ride.price * 1.8).roundToDouble();
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: _field,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _stepperButton(
+            Icons.remove_rounded,
+            enabled: price > minimum,
+            onTap: () => _nudgePrice(-10),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              _kr(price),
+              style: _text(13.5, weight: FontWeight.w600),
+            ),
+          ),
+          _stepperButton(
+            Icons.add_rounded,
+            enabled: price < maximum,
+            onTap: () => _nudgePrice(10),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepperButton(
+    IconData icon, {
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: enabled ? onTap : null,
+          child: Icon(
+            icon,
+            size: 18,
+            color: enabled ? _ink : _muted.withOpacity(0.45),
+          ),
         ),
       ),
     );
@@ -619,7 +716,7 @@ class _SelectRideState extends State<SelectRide> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => setState(() => _selectedRideId = ride.id),
+          onTap: () => _selectRide(ride.id),
           borderRadius: BorderRadius.circular(20),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
@@ -695,7 +792,7 @@ class _SelectRideState extends State<SelectRide> {
                             ),
                           ),
                           Text(
-                            _kr(ride.price),
+                            _kr(_priceFor(ride)),
                             style: _text(16, weight: FontWeight.w600),
                           ),
                         ],
