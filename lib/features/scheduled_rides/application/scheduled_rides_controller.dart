@@ -42,16 +42,17 @@ class ScheduledRideSession {
 
   void captureRideType(String type, {String? quoteId}) {
     rideType = type;
-    this.quoteId = quoteId;
+    this.quoteId = quoteId ?? this.quoteId ?? 'q_sched_$type';
   }
 
-  Future<String> confirm() async {
+  Future<String> confirm({Future<String> Function()? book}) async {
     submissionStatus = 'submitting';
-    bookingId = await AppScope.instance.booking.requestBooking(
-      rideType: rideType,
-      paymentMethod: paymentMethod,
-      scheduledAt: scheduledAt?.toIso8601String(),
-    );
+    bookingId = await (book ??
+        () => AppScope.instance.booking.requestBooking(
+              rideType: rideType,
+              paymentMethod: paymentMethod,
+              scheduledAt: scheduledAt?.toIso8601String(),
+            ))();
     submissionStatus = 'confirmed';
     markScheduled();
     return bookingId!;

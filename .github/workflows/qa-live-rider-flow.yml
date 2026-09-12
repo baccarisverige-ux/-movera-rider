@@ -170,9 +170,11 @@ jobs:
           if(Buffer.compare(stressHome, stressPickup)===0) throw new Error('Map stress pickup overlay did not open');
           forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup');
           await stressPage.mouse.click(44,44); await stressPage.waitForTimeout(900);
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup-back');
           await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1000);
           await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2200);
           await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup-reopen');
           if(fatalErrors().length) throw new Error('Map stress nested pickup fatal: '+fatalErrors().join(' | '));
 
           await stressPage.goto(base+`?mapflow=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
@@ -193,12 +195,16 @@ jobs:
           await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
           await stressPage.mouse.click(195,797); await stressPage.waitForTimeout(7000);
           await stressPage.screenshot({path:'qa-map-stress-select.png',fullPage:true});
-          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['waiting'], 'select-ride');
+          const selectOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const selectGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(selectOwner, ['waiting','finding'], 'select-ride');
           await stressPage.mouse.click(285,743); await stressPage.waitForTimeout(650);
           await stressPage.mouse.click(195,702); await stressPage.waitForTimeout(700);
           await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(5000);
           await stressPage.screenshot({path:'qa-map-stress-finding.png',fullPage:true});
-          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['home','pickup'], 'finding');
+          const findingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const findingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(findingOwner, ['home','pickup'], 'finding');
           await stressPage.waitForTimeout(14000);
           await stressPage.screenshot({path:'qa-map-stress-waiting.png',fullPage:true});
           const waitingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
@@ -207,8 +213,12 @@ jobs:
           await stressPage.evaluate(()=>{document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('pageshow'));});
           await stressPage.waitForTimeout(1200);
           await stressPage.screenshot({path:'qa-map-stress-resume.png',fullPage:true});
+          const resumeOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const resumeGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(resumeOwner, ['home','pickup'], 'resume');
+          if(resumeGen && waitingGen && Number(resumeGen) < Number(waitingGen)) throw new Error('resume dropped map generation');
           if(fatalErrors().length) throw new Error('Map stress fatal: '+fatalErrors().join(' | '));
-          fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],waitingOwner,waitingGen},null,2));
+          fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],selectOwner,selectGen,findingOwner,findingGen,waitingOwner,waitingGen,resumeOwner,resumeGen},null,2));
           console.log('PASS: map stress Home→pickup→Select Ride→Finding→Waiting→resume with no fatal runtime errors');
           await stressContext.close();
 

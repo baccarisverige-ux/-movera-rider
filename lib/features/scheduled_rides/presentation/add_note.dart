@@ -30,6 +30,23 @@ class _ScheduleAddNoteState extends State<ScheduleAddNote> {
   final TextEditingController _noteController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _noteController.addListener(_syncNote);
+  }
+
+  void _syncNote() {
+    widget.session?.captureNote(_noteController.text.trim());
+  }
+
+  @override
+  void dispose() {
+    _noteController.removeListener(_syncNote);
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SlidingUpPanel(
       color: AppColor.white,

@@ -106,6 +106,24 @@ void main() {
     expect(maps.controller, isNull);
   });
 
+  test('older nested screen disposing later cannot steal the current owner', () {
+    final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.pickup);
+    maps.debugAttach(MapOwners.selectRide);
+    maps.debugAttach(MapOwners.finding);
+    maps.debugAttach(MapOwners.waiting);
+    final generation = maps.generation;
+    maps.detach(owner: MapOwners.home);
+    maps.detach(owner: MapOwners.pickup);
+    maps.detach(owner: MapOwners.selectRide);
+    maps.detach(owner: MapOwners.finding);
+    expect(maps.activeOwner, MapOwners.waiting);
+    expect(maps.generation, generation);
+    maps.detach(owner: MapOwners.waiting);
+    expect(maps.activeOwner, MapOwners.finding);
+  });
+
   test('facade coordinates marker and route state', () {
     final maps = GoogleMapProvider();
     final facade = MapFacade(

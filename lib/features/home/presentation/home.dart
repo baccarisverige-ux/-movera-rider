@@ -110,10 +110,13 @@ class _HomeState extends State<Home> {
   // ignore: unused_field
   GoogleMapController? _mapController;
   bool _homeMapParked = false;
-  // ignore: prefer_final_fields
-  Set<Marker> _markers = {};
-  Set<Circle> _locationCircles = {};
-  Set<Polygon> _locationDirection = {};
+  Set<Marker> get _markers => _locationCtl.markers;
+  set _markers(Set<Marker> value) => _locationCtl.markers = value;
+  Set<Circle> get _locationCircles => _locationCtl.locationCircles;
+  set _locationCircles(Set<Circle> value) => _locationCtl.locationCircles = value;
+  Set<Polygon> get _locationDirection => _locationCtl.locationDirection;
+  set _locationDirection(Set<Polygon> value) =>
+      _locationCtl.locationDirection = value;
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
@@ -270,13 +273,24 @@ class _HomeState extends State<Home> {
         _pickupAddress = detected.address;
         _currentLatLng = target;
         _findingLocation = false;
-        _markers = {};
+        _locationCtl.clearOverlays();
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
-      _startLocationTracking();
-      _startHeadingTracking();
-      _startLocationPulse();
+      _locationCtl.bindLiveLocation(
+        isMounted: () => mounted,
+        onFix: (latLng, heading) {
+          _currentLatLng = latLng;
+          _locationHeading = heading;
+          _updateLocationVisuals();
+        },
+        onHeading: (heading) {
+          _locationHeading = heading;
+          _hasCompassHeading = true;
+          _updateLocationVisuals();
+        },
+        onPulse: _updateLocationVisuals,
+      );
       await AppScope.instance.maps.animateCamera(
         GeoPoint(target.latitude, target.longitude),
         zoom: 15,
@@ -1726,19 +1740,11 @@ class _HomeState extends State<Home> {
         : _locationPuckCompact;
     if (!mounted || target == null || icon == null) return;
     setState(() {
-      _locationCircles = {};
-      _locationDirection = {};
-      _markers = {
-        Marker(
-          markerId: const MarkerId('live_user_location'),
-          position: target,
-          icon: icon,
-          anchor: const Offset(0.5, 0.66),
-          rotation: _locationHeading,
-          flat: true,
-          zIndex: 20,
-        ),
-      };
+      _locationCtl.paintUserPuck(
+        target: target,
+        icon: icon,
+        heading: _locationHeading,
+      );
     });
   }
 
@@ -1809,7 +1815,7 @@ class _HomeState extends State<Home> {
   }
 
   void _loadMarkers() {
-    _markers = {};
+    _locationCtl.clearOverlays();
   }
 
   double _fullSheetHeight() {

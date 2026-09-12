@@ -40,6 +40,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     _selectedDateTime = candidate.add(
       Duration(minutes: remainder == 0 ? 0 : 5 - remainder),
     );
+    _commitSchedule();
+  }
+
+  void _commitSchedule() {
+    widget.session?.captureSchedule(
+      _selectedDateTime,
+      timezone: 'Europe/Stockholm',
+    );
   }
 
   TextStyle _style(
@@ -172,6 +180,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         _selectedDateTime.minute,
       );
     });
+    _commitSchedule();
   }
 
   Future<void> _chooseTime() async {
@@ -340,6 +349,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         result.minute,
       );
     });
+    _commitSchedule();
   }
 
   Widget _sheetAction({
@@ -657,7 +667,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           height: 52,
           child: ElevatedButton(
             onPressed: () {
-              widget.session?.captureSchedule(_selectedDateTime);
+              _commitSchedule();
               widget.onConfirm();
             },
 

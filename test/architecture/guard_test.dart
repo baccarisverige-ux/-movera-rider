@@ -119,4 +119,20 @@ void main() {
     ).readAsStringSync();
     expect(ui.contains('"L - 2323 F"'), isFalse);
   });
+
+  test('home does not own map overlay set fields', () {
+    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    expect(home.contains('Set<Marker> _markers ='), isFalse);
+    expect(home.contains('Set<Circle> _locationCircles ='), isFalse);
+    expect(home.contains('Set<Polygon> _locationDirection ='), isFalse);
+    expect(home.contains('HomeAddressRepository'), isFalse);
+  });
+
+  test('select ride does not keep parallel quote expiry state', () {
+    final ui = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    expect(ui.contains('Map<String, DateTime> _quoteExpires'), isFalse);
+    expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
+  });
 }

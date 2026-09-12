@@ -148,4 +148,24 @@ void main() {
     controller.dispose();
     rt.dispose();
   });
+
+  test('resume resync then older realtime assignment is ignored', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    var matches = 0;
+    final controller = controllerOf(rt, ride);
+    controller.start(
+      seconds: 12,
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () => matches += 1,
+    );
+    rt.emit(RideStatus.findingDriver, sequence: 8);
+    await controller.resync();
+    rt.emit(RideStatus.driverAssigned, sequence: 1);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(matches, 0);
+    controller.dispose();
+    rt.dispose();
+  });
 }

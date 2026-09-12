@@ -50,13 +50,19 @@ class _ScheduleRideState extends State<ScheduleRide> {
   void initState() {
     super.initState();
     _loadMarkers();
+    _pickupController.addListener(_syncRouteToSession);
+    _dropoffController.addListener(_syncRouteToSession);
+    _syncRouteToSession();
   }
 
   @override
   void dispose() {
+    _pickupController.removeListener(_syncRouteToSession);
+    _dropoffController.removeListener(_syncRouteToSession);
     _pickupController.dispose();
     _dropoffController.dispose();
     for (final controller in _stopControllers) {
+      controller.removeListener(_syncRouteToSession);
       controller.dispose();
     }
     sc.dispose();
@@ -79,8 +85,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   int currentStep = 0;
 
-  void goToNextStep() {
-    FocusScope.of(context).unfocus();
+  void _syncRouteToSession() {
     _session.captureRoute(
       pickup: _pickupController.text,
       dropoff: _dropoffController.text,
@@ -89,6 +94,11 @@ class _ScheduleRideState extends State<ScheduleRide> {
           .where((value) => value.isNotEmpty)
           .toList(),
     );
+  }
+
+  void goToNextStep() {
+    FocusScope.of(context).unfocus();
+    _syncRouteToSession();
     setState(() => currentStep += 1);
   }
 
@@ -109,13 +119,18 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   void _addStop() {
     if (_stopControllers.length >= 3) return;
-    setState(() => _stopControllers.add(TextEditingController()));
+    final controller = TextEditingController();
+    controller.addListener(_syncRouteToSession);
+    setState(() => _stopControllers.add(controller));
+    _syncRouteToSession();
   }
 
   void _removeStop(int index) {
     final controller = _stopControllers.removeAt(index);
+    controller.removeListener(_syncRouteToSession);
     controller.dispose();
     setState(() {});
+    _syncRouteToSession();
   }
 
   ScrollController sc = ScrollController();

@@ -125,6 +125,23 @@ void main() {
     expect(selection.quoteIdFor('missing'), isNull);
   });
 
+  test('async quote return after widget-like dispose is dropped', () async {
+    final quotes = _SlowThenFast(CatalogQuoteRepository());
+    final selection = RideSelectionController(
+      store: RideSelectionRepository(),
+      quotes: quotes,
+    );
+    final first = selection.beginQuotes();
+    final load = selection.loadQuotes(
+      generation: first,
+      pickup: 'A',
+      destination: 'B',
+    );
+    selection.beginQuotes();
+    await load;
+    expect(selection.offeredPrices.containsKey('movera'), isFalse);
+  });
+
   test('api quote repository parses mock contract', () async {
     final repo = ApiQuoteRepository(
       api: ApiClient(client: InProcessMockClient()),

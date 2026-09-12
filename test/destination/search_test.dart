@@ -13,4 +13,13 @@ void main() {
     expect(latest, 'ab');
     search.dispose();
   });
+
+  test('disposed search drops the late callback', () async {
+    final search = PlaceSearchService(delay: const Duration(milliseconds: 20));
+    var hits = 0;
+    search.query('ab', (_, __) => hits += 1);
+    search.dispose();
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    expect(hits, 0);
+  });
 }

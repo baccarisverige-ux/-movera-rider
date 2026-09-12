@@ -26,6 +26,16 @@ class ScheduleConfirmBooking extends StatefulWidget {
 class _ScheduleConfirmBookingState extends State<ScheduleConfirmBooking> {
   List<OnBoardingModel> paymentMethods = ScheduledRidesController().paymentMethods();
   int selectedMethod = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncPayment();
+  }
+
+  void _syncPayment() {
+    widget.session?.capturePayment(paymentMethods[selectedMethod].subTitle);
+  }
   @override
   Widget build(BuildContext context) {
     return SlidingUpPanel(
@@ -116,6 +126,7 @@ class _ScheduleConfirmBookingState extends State<ScheduleConfirmBooking> {
                   setState(() {
                     selectedMethod = index;
                   });
+                  _syncPayment();
                 },
 
                 child: Container(

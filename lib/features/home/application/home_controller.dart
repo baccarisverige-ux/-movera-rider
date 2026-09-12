@@ -24,7 +24,8 @@ class DetectedLocation {
   final bool denied;
 }
 
-/// Owns GPS, motion, heading blend, and reverse geocode. Home only paints.
+/// Owns GPS, motion, heading blend, reverse geocode, and map overlay sets.
+/// Home only paints.
 class HomeLocationController {
   HomeLocationController({
     required this.location,
@@ -45,6 +46,9 @@ class HomeLocationController {
   double lastMapZoom = 13.0;
   LatLng lastMapTarget = const LatLng(59.3293, 18.0686);
   bool pulseExpanded = false;
+  Set<Marker> markers = {};
+  Set<Circle> locationCircles = {};
+  Set<Polygon> locationDirection = {};
 
   Future<String> normaliseAddress(String input) async {
     final clean = input.trim();
@@ -58,14 +62,16 @@ class HomeLocationController {
   }
 
   Future<LatLng?> geocodeLatLng(String address) async {
+    final generation = _geoGuard.next();
     final result = await geocoding.geocodeAddress(address);
-    if (result == null) return null;
+    if (!_geoGuard.isCurrent(generation) || result == null) return null;
     return LatLng(result.latitude, result.longitude);
   }
 
   Future<({LatLng point, String address})?> geocodePlace(String address) async {
+    final generation = _geoGuard.next();
     final result = await geocoding.geocodeAddress(address);
-    if (result == null) return null;
+    if (!_geoGuard.isCurrent(generation) || result == null) return null;
     return (
       point: LatLng(result.latitude, result.longitude),
       address: result.address.trim().isNotEmpty ? result.address.trim() : address,
@@ -198,6 +204,43 @@ class HomeLocationController {
       pulseExpanded = !pulseExpanded;
       onTick();
     });
+  }
+
+  void bindLiveLocation({
+    required bool Function() isMounted,
+    required void Function(LatLng latLng, double heading) onFix,
+    required void Function(double heading) onHeading,
+    required void Function() onPulse,
+  }) {
+    startTracking(isMounted: isMounted, onFix: onFix);
+    startHeading(isMounted: isMounted, onHeading: onHeading);
+    startPulse(isMounted: isMounted, onTick: onPulse);
+  }
+
+  void clearOverlays() {
+    markers = {};
+    locationCircles = {};
+    locationDirection = {};
+  }
+
+  void paintUserPuck({
+    required LatLng target,
+    required BitmapDescriptor icon,
+    required double heading,
+  }) {
+    locationCircles = {};
+    locationDirection = {};
+    markers = {
+      Marker(
+        markerId: const MarkerId('live_user_location'),
+        position: target,
+        icon: icon,
+        anchor: const Offset(0.5, 0.66),
+        rotation: heading,
+        flat: true,
+        zIndex: 20,
+      ),
+    };
   }
 
   void dispose() {
