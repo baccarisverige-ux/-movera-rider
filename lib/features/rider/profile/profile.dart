@@ -8,6 +8,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/features/rider/support/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class RiderProfile extends StatelessWidget {
   final VoidCallback? onClose;
