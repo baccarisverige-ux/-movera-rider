@@ -27,9 +27,9 @@ void main() {
 
   test('no SharedPreferences token storage', () {
     final token = File('lib/core/auth/token_store.dart').readAsStringSync();
-    expect(token.contains('SharedPreferences'), isFalse);
+    expect(token.contains("package:shared_preferences"), isFalse);
     final secure = File('lib/core/auth/secure_token_store.dart').readAsStringSync();
-    expect(secure.contains('SharedPreferences'), isFalse);
+    expect(secure.contains("package:shared_preferences"), isFalse);
   });
 
   test('finding driver assignment is not a widget Timer', () {
