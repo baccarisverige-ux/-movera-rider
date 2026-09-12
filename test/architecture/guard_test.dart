@@ -159,15 +159,17 @@ void main() {
 
   test('side menu does not list Promotions or Scheduled Rides', () {
     final menu = File('lib/features/home/presentation/side_menu.dart').readAsStringSync();
-    expect(menu.contains('title: "Promotions"'), isFalse);
-    expect(menu.contains('title: "Scheduled Rides"'), isFalse);
-    expect(menu.contains('title: "Wallet"'), isTrue);
-    expect(menu.contains('title: "Ride History"'), isTrue);
-    expect(menu.contains('title: "Payments"'), isTrue);
-    expect(menu.contains('title: "Safety"'), isTrue);
-    expect(menu.contains('title: "Support"'), isTrue);
-    expect(menu.contains('title: "Invite Friends"'), isTrue);
-    expect(menu.contains('title: "About"'), isTrue);
+    expect(menu.contains('Promotions'), isFalse);
+    expect(menu.contains('Scheduled Rides'), isFalse);
+    expect(menu.contains('Subscriptions'), isFalse);
+    expect(menu.contains('Expense Your Rides'), isFalse);
+    expect(menu.contains('Wallet'), isTrue);
+    expect(menu.contains('Ride History'), isTrue);
+    expect(menu.contains('Payments'), isTrue);
+    expect(menu.contains('Safety'), isTrue);
+    expect(menu.contains('Support'), isTrue);
+    expect(menu.contains('Invite Friends'), isTrue);
+    expect(menu.contains('About'), isTrue);
     expect(menu.contains('Become a driver'), isTrue);
   });
 

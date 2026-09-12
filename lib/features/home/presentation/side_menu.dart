@@ -7,7 +7,6 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
-import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -16,128 +15,47 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 class RiderSideMenu extends StatelessWidget {
   const RiderSideMenu({super.key});
 
-  static const Color _ink = Color(0xFF1D252C);
-  static const Color _muted = Color(0xFF66727C);
+  static const Color _ink = Color(0xFF1C2329);
+  static const Color _muted = Color(0xFF7A858E);
   static const Color _accent = Color(0xFF2D5878);
-  static const Color _softSurface = Color(0xFFF6F8FA);
-  static const Color _line = Color(0xFFE9EDF0);
+  static const Color _canvas = Color(0xFFF3F5F6);
+  static const Color _card = Color(0xFFFFFFFF);
+  static const Color _icon = Color(0xFF3A4550);
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: AppColor.white,
-      elevation: 14,
+      backgroundColor: _canvas,
+      elevation: 0,
       surfaceTintColor: Colors.transparent,
-      width: MediaQuery.of(context).size.width * 0.83,
+      width: MediaQuery.of(context).size.width * 0.84,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
-          topRight: Radius.circular(26),
-          bottomRight: Radius.circular(26),
+          topRight: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Container(
-        color: AppColor.white,
+      child: ColoredBox(
+        color: _canvas,
         child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _profileHeader(),
-              const Divider(height: 1, thickness: 1, color: _line),
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
-                    ResSize.w * 18,
-                    ResSize.h * 10,
-                    ResSize.w * 18,
-                    ResSize.h * 14,
+                    ResSize.w * 16,
+                    ResSize.h * 12,
+                    ResSize.w * 16,
+                    ResSize.h * 12,
                   ),
                   child: Column(
                     children: [
-                      _buildMenuItem(
-                        icon: AppAssets.wallet2,
-                        title: "Wallet",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(const WalletHome()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.rideHistory,
-                        title: "Ride History",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(RideHistory()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.payment,
-                        title: "Payments",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(const WalletScreen()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.safety,
-                        title: "Safety",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(
-                              const HelpArticle(
-                                title: 'Safety',
-                                body:
-                                    'Share your trip, call emergency services, and keep trusted contacts close. Movera Support can also help if a ride does not feel right.',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.support,
-                        title: "Support",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(const SupportHome()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.inviteFriends,
-                        title: "Invite Friends",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(const ReferAndEarn()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.about,
-                        title: "About",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(
-                              const HelpArticle(
-                                title: 'About Movera',
-                                body:
-                                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      10.height,
+                      _profileCard(),
+                      14.height,
+                      _menuCard(context),
+                      14.height,
                       _becomeDriverCard(),
                     ],
                   ),
@@ -151,136 +69,240 @@ class RiderSideMenu extends StatelessWidget {
     );
   }
 
-  Widget _profileHeader() {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        ResSize.w * 24,
-        ResSize.h * 22,
-        ResSize.w * 24,
-        ResSize.h * 20,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: ResSize.w * 66,
-            height: ResSize.h * 66,
-            padding: const EdgeInsets.all(2.5),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColor.white,
-              border: Border.all(color: _line, width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.asset(AppAssets.profileImg, fit: BoxFit.cover),
-            ),
+  Widget _cardSurface({required Widget child, EdgeInsetsGeometry? padding}) {
+    return Container(
+      width: double.infinity,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.035),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
-          15.width,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextWidget(
-                  text: ProfileController().displayName(),
-                  color: _ink,
-                  fontSize: 18,
-                  fontWeight: fwSemiBold,
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _profileCard() {
+    return _cardSurface(
+      padding: EdgeInsets.fromLTRB(
+        ResSize.w * 18,
+        ResSize.h * 18,
+        ResSize.w * 18,
+        ResSize.h * 18,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipOval(
+                child: Image.asset(
+                  AppAssets.profileImg,
+                  width: ResSize.w * 56,
+                  height: ResSize.h * 56,
+                  fit: BoxFit.cover,
                 ),
-                7.height,
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: ResSize.w * 9,
-                    vertical: ResSize.h * 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _softSurface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _line, width: 0.8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.star_rounded,
-                        color: const Color(0xFFF4B928),
-                        size: 16 * ResSize.h,
-                      ),
-                      4.width,
-                      TextWidget(
-                        text: "4.9",
-                        color: _ink,
-                        fontSize: 13,
-                        fontWeight: fwSemiBold,
-                      ),
-                    ],
-                  ),
+              ),
+              14.width,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextWidget(
+                      text: ProfileController().displayName(),
+                      color: _ink,
+                      fontSize: 18,
+                      fontWeight: fwSemiBold,
+                    ),
+                    4.height,
+                    TextWidget(
+                      text: 'Rider',
+                      color: _muted,
+                      fontSize: 13,
+                      fontWeight: fwMedium,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
+          14.height,
+          Row(
+            children: [
+              Icon(
+                Icons.star_rounded,
+                color: _accent,
+                size: 18 * ResSize.h,
+              ),
+              6.width,
+              TextWidget(
+                text: '4.9',
+                color: _ink,
+                fontSize: 15,
+                fontWeight: fwSemiBold,
+              ),
+              6.width,
+              TextWidget(
+                text: 'Rating',
+                color: _muted,
+                fontSize: 13.5,
+                fontWeight: fwMedium,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem({
-    required String icon,
+  Widget _menuCard(BuildContext context) {
+    final items = <({IconData icon, String title, VoidCallback onTap})>[
+      (
+        icon: Icons.account_balance_wallet_outlined,
+        title: 'Wallet',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(const WalletHome()),
+          );
+        },
+      ),
+      (
+        icon: Icons.history_rounded,
+        title: 'Ride History',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(RideHistory()),
+          );
+        },
+      ),
+      (
+        icon: Icons.credit_card_outlined,
+        title: 'Payments',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(const WalletScreen()),
+          );
+        },
+      ),
+      (
+        icon: Icons.shield_outlined,
+        title: 'Safety',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(
+              const HelpArticle(
+                title: 'Safety',
+                body:
+                    'Share your trip, call emergency services, and keep trusted contacts close. Movera Support can also help if a ride does not feel right.',
+              ),
+            ),
+          );
+        },
+      ),
+      (
+        icon: Icons.headset_mic_outlined,
+        title: 'Support',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(const SupportHome()),
+          );
+        },
+      ),
+      (
+        icon: Icons.mail_outline_rounded,
+        title: 'Invite Friends',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(const ReferAndEarn()),
+          );
+        },
+      ),
+      (
+        icon: Icons.info_outline_rounded,
+        title: 'About',
+        onTap: () {
+          Navigator.push(
+            context,
+            RightToLeftTransition(
+              const HelpArticle(
+                title: 'About Movera',
+                body:
+                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+              ),
+            ),
+          );
+        },
+      ),
+    ];
+
+    return _cardSurface(
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++)
+            _menuRow(
+              icon: items[i].icon,
+              title: items[i].title,
+              onTap: items[i].onTap,
+              isFirst: i == 0,
+              isLast: i == items.length - 1,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _menuRow({
+    required IconData icon,
     required String title,
     required VoidCallback onTap,
+    required bool isFirst,
+    required bool isLast,
   }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: ResSize.h * 2),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          splashColor: _accent.withOpacity(0.06),
-          highlightColor: _accent.withOpacity(0.035),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: ResSize.w * 7,
-              vertical: ResSize.h * 8,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  height: ResSize.h * 38,
-                  width: ResSize.w * 38,
-                  decoration: BoxDecoration(
-                    color: _softSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _line, width: 0.7),
-                  ),
-                  alignment: Alignment.center,
-                  child: Image.asset(
-                    icon,
-                    height: 20 * ResSize.h,
-                    color: _accent,
-                  ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.vertical(
+          top: isFirst ? const Radius.circular(22) : Radius.zero,
+          bottom: isLast ? const Radius.circular(22) : Radius.zero,
+        ),
+        splashColor: _accent.withOpacity(0.05),
+        highlightColor: _accent.withOpacity(0.03),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            ResSize.w * 18,
+            ResSize.h * 16,
+            ResSize.w * 18,
+            ResSize.h * 16,
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: ResSize.w * 26,
+                child: Icon(icon, size: 22 * ResSize.h, color: _icon),
+              ),
+              16.width,
+              Expanded(
+                child: TextWidget(
+                  text: title,
+                  color: _ink,
+                  fontSize: 16,
+                  fontWeight: fwMedium,
                 ),
-                14.width,
-                Expanded(
-                  child: TextWidget(
-                    text: title,
-                    color: _ink,
-                    fontSize: 15.5,
-                    fontWeight: fwMedium,
-                  ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: ResSize.h * 19,
-                  color: _muted.withOpacity(0.55),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -288,39 +310,24 @@ class RiderSideMenu extends StatelessWidget {
   }
 
   Widget _becomeDriverCard() {
-    return Container(
-      width: double.infinity,
+    return _cardSurface(
       padding: EdgeInsets.symmetric(
-        horizontal: ResSize.w * 15,
-        vertical: ResSize.h * 14,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F5F8),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCE7ED), width: 0.9),
+        horizontal: ResSize.w * 18,
+        vertical: ResSize.h * 16,
       ),
       child: Row(
         children: [
-          Container(
-            width: ResSize.w * 38,
-            height: ResSize.h * 38,
-            decoration: BoxDecoration(
-              color: AppColor.white.withOpacity(0.82),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: Image.asset(
-              AppAssets.driverIcon,
-              height: 21 * ResSize.h,
-              color: _accent,
-            ),
-          ),
-          13.width,
-          TextWidget(
-            text: "Become a driver",
+          Icon(
+            Icons.directions_car_outlined,
+            size: 22 * ResSize.h,
             color: _accent,
+          ),
+          16.width,
+          TextWidget(
+            text: 'Become a driver',
+            color: _ink,
             fontSize: 16,
-            fontWeight: fwSemiBold,
+            fontWeight: fwMedium,
           ),
         ],
       ),
@@ -328,31 +335,26 @@ class RiderSideMenu extends StatelessWidget {
   }
 
   Widget _footer() {
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: EdgeInsets.fromLTRB(
-        ResSize.w * 18,
-        ResSize.h * 15,
-        ResSize.w * 18,
-        ResSize.h * 18,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColor.white,
-        border: Border(top: BorderSide(color: _line, width: 1)),
+        ResSize.w * 16,
+        ResSize.h * 8,
+        ResSize.w * 16,
+        ResSize.h * 16,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(AppAssets.logo, height: ResSize.h * 20),
+          Image.asset(AppAssets.logo, height: ResSize.h * 18),
           8.width,
           TextWidget(
-            text: "Powered by",
+            text: 'Powered by',
             color: _muted,
-            fontSize: 11.5,
+            fontSize: 11,
             fontWeight: fwMedium,
           ),
           8.width,
-          Image.asset(AppAssets.skypulse, height: ResSize.h * 20),
+          Image.asset(AppAssets.skypulse, height: ResSize.h * 18),
         ],
       ),
     );
