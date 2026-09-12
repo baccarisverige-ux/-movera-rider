@@ -21,6 +21,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const _balanceKey = 'movera_wallet_balance';
 
   double _balance = 0;
+  String? _voucherCode;
 
   @override
   void initState() {
@@ -45,7 +46,10 @@ class _WalletHomeState extends State<WalletHome> {
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() => _balance = prefs.getDouble(_balanceKey) ?? 0);
+    setState(() {
+      _balance = prefs.getDouble(_balanceKey) ?? 0;
+      _voucherCode = prefs.getString('movera_voucher_code');
+    });
   }
 
   Future<void> _saveBalance(double value) async {
@@ -177,6 +181,101 @@ class _WalletHomeState extends State<WalletHome> {
     }
   }
 
+  Future<void> _openVoucher() async {
+    final controller = TextEditingController(text: _voucherCode ?? '');
+    final code = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.28),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: SafeArea(
+            top: false,
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _line,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Add voucher', style: _style(20, weight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Enter a Movera voucher code to add credit.',
+                    style: _style(12, color: _muted),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: controller,
+                    textCapitalization: TextCapitalization.characters,
+                    style: _style(14, weight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      hintText: 'Voucher code',
+                      hintStyle: _style(13, color: _muted),
+                      filled: true,
+                      fillColor: const Color(0xFFF4F5F4),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: () {
+                        final value = controller.text.trim().toUpperCase();
+                        if (value.length >= 4) {
+                          Navigator.pop(sheetContext, value);
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _ink,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        'Apply voucher',
+                        style: _style(14, weight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    if (code == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('movera_voucher_code', code);
+    setState(() => _voucherCode = code);
+  }
+
   Widget _fundMethod({
     required String title,
     required String brand,
@@ -286,17 +385,17 @@ class _WalletHomeState extends State<WalletHome> {
               const SizedBox(height: 6),
               Center(
                 child: Text(
-                  'Pay the driver on the terminal',
+                  'Add funds to your wallet',
                   textAlign: TextAlign.center,
-                  style: _style(13.5, weight: FontWeight.w600),
+                  style: _style(15, weight: FontWeight.w700),
                 ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 4),
               Center(
                 child: Text(
-                  'Tap card, Swish or wallet when you arrive.',
+                  'Top up for rides, or add a voucher code.',
                   textAlign: TextAlign.center,
-                  style: _style(11.5, color: _muted),
+                  style: _style(12, color: _muted),
                 ),
               ),
               const SizedBox(height: 16),
@@ -374,9 +473,30 @@ class _WalletHomeState extends State<WalletHome> {
                   ],
                 ),
               ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: _openVoucher,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _ink,
+                    side: const BorderSide(color: _line),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    _voucherCode == null
+                        ? 'Add voucher'
+                        : 'Voucher ${_voucherCode!}',
+                    style: _style(14, weight: FontWeight.w600),
+                  ),
+                ),
+              ),
               const SizedBox(height: 18),
               Text(
-                'This is your Movera Wallet. Use it as a payment method on rides, and top it up with card, Swish or another method.',
+                'Add funds with card, Swish, Apple Pay or PayPal. Add a voucher if you have a Movera code.',
                 style: _style(12.5, color: _muted, height: 1.45),
               ),
             ],
