@@ -5,7 +5,7 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/promotions/promotions.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
-import 'package:movera_rider/features/rider/my%20rides/my_rides.dart';
+import 'package:movera_rider/features/rider/support/support.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -106,7 +106,12 @@ class RiderSideMenu extends StatelessWidget {
                       _buildMenuItem(
                         icon: AppAssets.support,
                         title: "Support",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            RightToLeftTransition(const SupportHome()),
+                          );
+                        },
                       ),
                       _buildMenuItem(
                         icon: AppAssets.inviteFriends,

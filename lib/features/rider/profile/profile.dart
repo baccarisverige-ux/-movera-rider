@@ -6,7 +6,8 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:movera_rider/features/rider/support/support.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class RiderProfile extends StatelessWidget {
   final VoidCallback? onClose;
@@ -123,7 +124,16 @@ class RiderProfile extends StatelessWidget {
               children: [
                 card(icon: AppAssets.safety, title: "Safety"),
                 15.width,
-                card(icon: AppAssets.support, title: "Support"),
+                card(
+                  icon: AppAssets.support,
+                  title: "Support",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      RightToLeftTransition(const SupportHome()),
+                    );
+                  },
+                ),
                 15.width,
                 card(icon: AppAssets.setting, title: "Settings"),
               ],
@@ -138,7 +148,15 @@ class RiderProfile extends StatelessWidget {
           16.height,
           _menuItem(title: 'Terms & conditions', onTap: () {}),
           _menuItem(title: 'Privacy policy', onTap: () {}),
-          _menuItem(title: 'Need help?', onTap: () {}),
+          _menuItem(
+            title: 'Need help?',
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const SupportHome()),
+              );
+            },
+          ),
           _menuItem(title: 'Log out', onTap: () {}, isLogout: true),
 
           // ✅ Rest of your code untouched
@@ -147,8 +165,10 @@ class RiderProfile extends StatelessWidget {
     );
   }
 
-  Widget card({String? icon, title}) {
-    return Column(
+  Widget card({String? icon, title, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
       children: [
         Container(
           height: ResSize.h * 35,
@@ -173,6 +193,7 @@ class RiderProfile extends StatelessWidget {
           color: AppColor.subtitle,
         ),
       ],
+      ),
     );
   }
 
