@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/rider/Finding%20Drivers/finding_drivers.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -195,6 +198,28 @@ class _SelectRideState extends State<SelectRide> {
   _RideFilter _filter = _RideFilter.recommended;
   DateTime? _scheduledFor;
   final Map<String, double> _offeredPrices = {};
+  bool _mapReady = false;
+  bool _mapParked = false;
+  GoogleMapController? _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Home already unmounted its map. Wait one frame so the platform view
+    // is gone before this screen creates the only live map.
+    Future<void>.delayed(
+      Duration(milliseconds: kIsWeb ? 280 : 80),
+      () {
+        if (mounted) setState(() => _mapReady = true);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _mapController = null;
+    super.dispose();
+  }
 
   _RideOption get _selectedRide =>
       _allRides.firstWhere((ride) => ride.id == _selectedRideId);
@@ -268,6 +293,63 @@ class _SelectRideState extends State<SelectRide> {
   }
 
   String _kr(double value) => 'kr ${value.toStringAsFixed(0)}';
+
+  Future<void> _fitRoute() async {
+    final controller = _mapController;
+    if (controller == null || !mounted) return;
+    final pickup = widget.pickupPosition;
+    final destination = widget.destinationPosition;
+    final samePoint =
+        (pickup.latitude - destination.latitude).abs() < 0.00008 &&
+        (pickup.longitude - destination.longitude).abs() < 0.00008;
+    try {
+      if (samePoint) {
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: pickup, zoom: 14.4),
+          ),
+        );
+        return;
+      }
+      await controller.animateCamera(
+        CameraUpdate.newLatLngBounds(
+          LatLngBounds(
+            southwest: LatLng(
+              pickup.latitude < destination.latitude
+                  ? pickup.latitude
+                  : destination.latitude,
+              pickup.longitude < destination.longitude
+                  ? pickup.longitude
+                  : destination.longitude,
+            ),
+            northeast: LatLng(
+              pickup.latitude > destination.latitude
+                  ? pickup.latitude
+                  : destination.latitude,
+              pickup.longitude > destination.longitude
+                  ? pickup.longitude
+                  : destination.longitude,
+            ),
+          ),
+          56,
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _withParkedMap(Future<void> Function() action) async {
+    if (!_mapParked) {
+      setState(() => _mapParked = true);
+      _mapController = null;
+      await Future<void>.delayed(const Duration(milliseconds: 90));
+      if (!mounted) return;
+    }
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _mapParked = false);
+    }
+  }
 
   Future<void> _chooseLater() async {
     final now = DateTime.now();
@@ -432,26 +514,30 @@ class _SelectRideState extends State<SelectRide> {
 
   void _book() {
     final selected = _selectedRide;
-    Navigator.push(
-      context,
-      BottomToTopTransition(
-        FindingDrivers(
-          pickupAddress: widget.pickupAddress,
-          destinationAddress: widget.destinationAddress,
-          pickupPosition: widget.pickupPosition,
-          destinationPosition: widget.destinationPosition,
-          rideType: selected.name,
-          price: _priceFor(selected),
-          paymentMethod: _payments[_selectedPayment].name,
+    _withParkedMap(() async {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        BottomToTopTransition(
+          FindingDrivers(
+            pickupAddress: widget.pickupAddress,
+            destinationAddress: widget.destinationAddress,
+            pickupPosition: widget.pickupPosition,
+            destinationPosition: widget.destinationPosition,
+            rideType: selected.name,
+            price: _priceFor(selected),
+            paymentMethod: _payments[_selectedPayment].name,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final topHeight = media.padding.top + 132;
+    final topHeight = media.padding.top + (media.size.height * 0.30).clamp(168.0, 236.0);
+    final showLiveMap = _mapReady && !_mapParked;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F1),
       body: Column(
@@ -461,12 +547,57 @@ class _SelectRideState extends State<SelectRide> {
             width: double.infinity,
             child: Stack(
               children: [
-                const Positioned.fill(child: _RouteCanvas()),
+                Positioned.fill(
+                  child: showLiveMap
+                      ? CustomGoogleMap(
+                          initialPosition: CameraPosition(
+                            target: widget.pickupPosition,
+                            zoom: 13.2,
+                          ),
+                          markers: {
+                            Marker(
+                              markerId: const MarkerId('pickup'),
+                              position: widget.pickupPosition,
+                            ),
+                            Marker(
+                              markerId: const MarkerId('destination'),
+                              position: widget.destinationPosition,
+                            ),
+                          },
+                          polylines: {
+                            Polyline(
+                              polylineId: const PolylineId('route'),
+                              points: [
+                                widget.pickupPosition,
+                                widget.destinationPosition,
+                              ],
+                              color: _accent,
+                              width: 4,
+                            ),
+                          },
+                          myLocationEnabled: false,
+                          myLocationButtonEnabled: false,
+                          zoomControlsEnabled: false,
+                          mapToolbarEnabled: false,
+                          compassEnabled: false,
+                          trafficEnabled: false,
+                          buildingsEnabled: false,
+                          indoorViewEnabled: false,
+                          onMapCreated: (controller) {
+                            _mapController = controller;
+                            Future<void>.delayed(
+                              const Duration(milliseconds: 280),
+                              _fitRoute,
+                            );
+                          },
+                        )
+                      : const _RouteCanvas(),
+                ),
                 Positioned(
                   top: media.padding.top + 8,
                   left: 16,
                   right: 16,
-                  child: _searchBar(),
+                  child: PointerInterceptor(child: _searchBar()),
                 ),
               ],
             ),
