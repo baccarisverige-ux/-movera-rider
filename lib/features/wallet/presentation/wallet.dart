@@ -175,7 +175,6 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _muted = Color(0xFF7B8388);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF2D5878);
-  final _store = WalletStore();
   final _wallet = WalletController();
 
   double _balance = 0;
@@ -203,7 +202,7 @@ class _WalletHomeState extends State<WalletHome> {
 
   Future<void> _restore() async {
     final balance = await _wallet.loadBalance();
-    final voucher = await _store.loadVoucherCode();
+    final voucher = await _wallet.loadVoucherCode();
     if (!mounted) return;
     setState(() {
       _balance = balance;
@@ -343,7 +342,7 @@ class _WalletHomeState extends State<WalletHome> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    await _store.saveVoucher(
+    await _wallet.saveVoucher(
       code: offer.code,
       amountKr: offer.amountKr,
       expires: offer.expires,
@@ -604,7 +603,7 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _surface = Color(0xFFF4F5F4);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
-  final _store = WalletStore();
+  final _wallet = WalletController();
 
   bool _businessProfile = false;
   String _selectedMethod = 'apple';
@@ -632,7 +631,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _restorePaymentSettings() async {
-    final saved = await _store.loadPayments();
+    final saved = await _wallet.loadPayments();
     if (!mounted) return;
     setState(() {
       _selectedMethod = saved.defaultMethod;
@@ -643,7 +642,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _savePaymentSettings() async {
-    await _store.savePayments(
+    await _wallet.savePayments(
       WalletPaymentSettings(
         defaultMethod: _selectedMethod,
         business: _businessProfile,
@@ -1021,12 +1020,15 @@ class _WalletScreenState extends State<WalletScreen> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    final current = await _store.loadBalance();
-    await _store.saveBalance(current + offer.amountKr);
-    await _store.saveVoucher(
+    final current = await _wallet.loadBalance();
+    await _wallet.saveVoucher(
       code: offer.code,
       amountKr: offer.amountKr,
       expires: offer.expires,
+    );
+    await _wallet.setBalance(
+      previous: current,
+      next: current + offer.amountKr,
     );
     setState(() => _voucherCode = offer.code);
     if (!mounted) return;

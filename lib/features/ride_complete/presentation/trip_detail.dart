@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -11,7 +11,7 @@ class RideCompletedTripDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trip = TripReceiptRepository().last();
+    final trip = RideCompleteController().receipt();
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(

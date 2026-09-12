@@ -6,7 +6,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
-import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -84,7 +85,7 @@ class _SelectRideState extends State<SelectRide>
   static const Color _cta = Color(0xFF11181D);
 
   List<_RideOption> get _allRides {
-    return RideSelectionRepository().rides().map((ride) {
+    return RideSelectionController().rides().map((ride) {
       return _RideOption(
         id: ride.id,
         image: ride.image,
@@ -106,7 +107,7 @@ class _SelectRideState extends State<SelectRide>
 
   List<_PaymentOption> get _payments {
     final flags = AppScope.instance.flags;
-    return RideSelectionRepository().payments().where((item) {
+    return RideSelectionController().payments().where((item) {
       if (item.brand == 'cash') return flags.enableCash;
       if (item.brand == 'apple') return flags.enableApplePay;
       if (item.brand == 'wallet') return flags.enableWallet;
@@ -477,7 +478,7 @@ class _SelectRideState extends State<SelectRide>
     final selected = _selectedRide;
     _withParkedMap(() async {
       if (!mounted) return;
-      await AppScope.instance.booking.submitFinding(
+      await BookingController().submitFinding(
         pickupAddress: widget.pickupAddress,
         destinationAddress: widget.destinationAddress,
         pickupLat: widget.pickupPosition.latitude,

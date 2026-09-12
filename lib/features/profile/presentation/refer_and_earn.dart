@@ -3,7 +3,7 @@ import 'package:flutter/services.dart'; // <-- Needed for Clipboard
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -12,7 +12,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 class ReferAndEarn extends StatelessWidget {
   const ReferAndEarn({super.key});
 
-  String get referralCode => ProfileRepository().referralCode();
+  String get referralCode => ProfileController().referralCode();
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/ride_history/data/ride_history_repository.dart';
+import 'package:movera_rider/features/ride_history/application/ride_history_controller.dart';
 import 'package:movera_rider/features/ride_history/domain/ride_history.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -18,7 +18,7 @@ class _RideHistoryState extends State<RideHistory> {
   static const Color _line = Color(0xFFE7EBEE);
   static const Color _accent = Color(0xFF2D5878);
   static const Color _cta = Color(0xFF11181D);
-  final List<RideHistoryItem> _past = RideHistoryRepository().past();
+  final List<RideHistoryItem> _past = RideHistoryController().past();
 
   int _tab = 0;
 

@@ -8,6 +8,25 @@ class WalletController {
 
   final WalletStore _store;
 
+  Future<String?> loadVoucherCode() => _store.loadVoucherCode();
+
+  Future<void> saveVoucher({
+    required String code,
+    required int amountKr,
+    required DateTime expires,
+  }) {
+    return _store.saveVoucher(
+      code: code,
+      amountKr: amountKr,
+      expires: expires,
+    );
+  }
+
+  Future<WalletPaymentSettings> loadPayments() => _store.loadPayments();
+
+  Future<void> savePayments(WalletPaymentSettings settings) =>
+      _store.savePayments(settings);
+
   Future<double> loadBalance() => _store.loadBalance();
 
   Future<void> setBalance({

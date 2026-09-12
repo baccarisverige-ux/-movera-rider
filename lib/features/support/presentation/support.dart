@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/support/data/support_repository.dart';
+import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -31,7 +31,7 @@ class SupportHome extends StatelessWidget {
     );
   }
 
-  static final List<SupportRide> rides = SupportRepository().rides();
+  static final List<SupportRide> rides = SupportController().rides();
 
   @override
   Widget build(BuildContext context) {
@@ -445,7 +445,7 @@ class _SupportChatState extends State<SupportChat> {
   void initState() {
     super.initState();
     final ride = widget.ride;
-    final script = SupportRepository().chat(ride: ride);
+    final script = SupportController().chat(ride: ride);
     _messages.add(_ChatLine(fromBot: true, text: script.welcome));
     if (widget.issue != null) {
       _messages.add(_ChatLine(fromBot: false, text: widget.issue!));
@@ -467,7 +467,7 @@ class _SupportChatState extends State<SupportChat> {
       _messages.add(
         _ChatLine(
           fromBot: true,
-          text: SupportRepository().chat(ride: widget.ride).followUp,
+          text: SupportController().chat(ride: widget.ride).followUp,
         ),
       );
     });

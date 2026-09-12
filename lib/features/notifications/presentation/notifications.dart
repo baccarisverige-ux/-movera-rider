@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
+import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -15,7 +15,7 @@ class NotificationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<NotificationItem> notifications =
-        NotificationsRepository().all().map((item) {
+        NotificationsController().feed().map((item) {
       return NotificationItem(
         icon: item.kind == 'check'
             ? Icons.check_circle_outline

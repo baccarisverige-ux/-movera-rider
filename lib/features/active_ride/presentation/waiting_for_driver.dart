@@ -6,7 +6,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
-import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
+import 'package:movera_rider/features/driver_arriving/application/driver_arriving_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
@@ -340,7 +340,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                               TextWidget(
                                 fontSize: 11,
                                 fontWeight: fwSemiBold,
-                                text: DriverRepository().current().ratingLabel,
+                                text: DriverArrivingController().driver().ratingLabel,
                                 color: AppColor.whiteText,
                               ),
                             ],
@@ -359,13 +359,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwSemiBold,
-                      text: DriverRepository().current().name,
+                      text: DriverArrivingController().driver().name,
                       color: AppColor.title,
                     ),
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwMedium,
-                      text: DriverRepository().current().tagline,
+                      text: DriverArrivingController().driver().tagline,
                       color: AppColor.subtitle,
                     ),
                   ],

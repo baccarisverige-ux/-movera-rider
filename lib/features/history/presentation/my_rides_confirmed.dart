@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/history/data/scheduled_ride_cards.dart';
+import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -15,8 +15,8 @@ class ConfirmedsRide extends StatelessWidget {
     return SizedBox(
       child: Column(
         children: [
-          ...List.generate(ScheduledRideCatalog().confirmed().length, (index) {
-            final ride = ScheduledRideCatalog().confirmed()[index];
+          ...List.generate(ScheduledRidesController().confirmed().length, (index) {
+            final ride = ScheduledRidesController().confirmed()[index];
             return Padding(
               padding: EdgeInsets.only(top: index == 0 ? 0 : ResSize.h * 16),
               child: Column(

@@ -23,7 +23,7 @@ class _RideCompletedState extends State<RideCompleted> {
   @override
   void initState() {
     super.initState();
-    ActiveRideController().markClosed();
+    RideCompleteController().close();
   }
 
   @override

@@ -61,4 +61,14 @@ hosted vendor accounts.
 67 AntiAbuse.impossibleTravel  
 68 PrivacyPolicy retention constants  
 69 Restore ride, reconnect backoff, last GPS via smoother  
-70 Rules followed: no approved UI redesign, no guessed deletes  
+70 Rules followed: no approved UI redesign, no guessed deletes
+
+## Wiring status
+
+Live screens are thin presentation. GPS, geocoding, fare, booking, wallet, auth, ride snapshot, catalogs, and mock payments live in application/data.
+
+Blocked only by missing credentials (interfaces exist, mock used):
+- Stripe / Swish live keys
+- FCM / APNs
+- Sentry DSN
+- Admin is a separate application, not in this rider repo

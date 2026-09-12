@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/ride_complete/data/ride_complete_repository.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:flip_card/flip_card.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
@@ -16,7 +16,7 @@ class RideCompletedAddTip extends StatefulWidget {
 }
 
 class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
-  List<String> tips = TipCatalog().amounts();
+  List<String> tips = RideCompleteController().tips();
   int? selectedTipIndex; // Track which tip is selected
   List<GlobalKey<FlipCardState>> flipCardKeys =
       []; // Keys to control flip cards

@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/saved_places/data/saved_places_repository.dart';
+import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
@@ -113,18 +113,18 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               Row(
                 children: [
                   for (var i = 0;
-                      i < SavedPlacesRepository().shortcuts().length;
+                      i < SavedPlacesController().shortcuts().length;
                       i++) ...[
                     if (i > 0) 2.width,
                     Expanded(
                       child: _buildSavedPlace(
-                        icon: SavedPlacesRepository().shortcuts()[i].kind ==
+                        icon: SavedPlacesController().shortcuts()[i].kind ==
                                 'office'
                             ? AppAssets.office
                             : AppAssets.home,
-                        title: SavedPlacesRepository().shortcuts()[i].title,
+                        title: SavedPlacesController().shortcuts()[i].title,
                         subtitle:
-                            SavedPlacesRepository().shortcuts()[i].subtitle,
+                            SavedPlacesController().shortcuts()[i].subtitle,
                         isLeftRounded: i == 0,
                       ),
                     ),
