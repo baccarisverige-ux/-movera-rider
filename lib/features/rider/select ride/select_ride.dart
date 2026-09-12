@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -203,6 +206,11 @@ class _SelectRideState extends State<SelectRide>
   bool _mapParked = false;
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
+  final ScrollController _listController = ScrollController();
+  BitmapDescriptor? _pickupIcon;
+  BitmapDescriptor? _destIcon;
+  String _pickupEtaLabel = '';
+  String _arriveLabel = '';
 
   @override
   void initState() {
@@ -212,19 +220,25 @@ class _SelectRideState extends State<SelectRide>
       duration: const Duration(milliseconds: 520),
       value: 1,
     );
-    // Home already unmounted its map. Wait one frame so the platform view
-    // is gone before this screen creates the only live map.
+    _sheetSlide.addStatusListener((status) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
+        _pinSelectedToTop();
+      }
+    });
     Future<void>.delayed(
       Duration(milliseconds: kIsWeb ? 280 : 80),
       () {
         if (mounted) setState(() => _mapReady = true);
       },
     );
+    _refreshRouteLabels();
   }
 
   @override
   void dispose() {
     _sheetSlide.dispose();
+    _listController.dispose();
     _mapController = null;
     super.dispose();
   }
@@ -241,6 +255,19 @@ class _SelectRideState extends State<SelectRide>
       _offeredPrices.putIfAbsent(
         id,
         () => _allRides.firstWhere((ride) => ride.id == id).price,
+      );
+    });
+    _refreshRouteLabels();
+    _pinSelectedToTop();
+  }
+
+  void _pinSelectedToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listController.hasClients) return;
+      _listController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 420),
+        curve: const Cubic(0.22, 1.0, 0.36, 1.0),
       );
     });
   }
@@ -268,6 +295,13 @@ class _SelectRideState extends State<SelectRide>
         break;
     }
     return rides;
+  }
+
+  List<_RideOption> get _rankedRides {
+    final rides = [..._visibleRides];
+    final selected = rides.where((ride) => ride.id == _selectedRideId);
+    final rest = rides.where((ride) => ride.id != _selectedRideId);
+    return [...selected, ...rest];
   }
 
   TextStyle _text(
@@ -303,7 +337,7 @@ class _SelectRideState extends State<SelectRide>
   String _kr(double value) => 'kr ${value.toStringAsFixed(0)}';
 
   double _minSheet(MediaQueryData media) =>
-      (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
+      (432 + media.padding.bottom).clamp(390.0, media.size.height * 0.56);
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
@@ -312,11 +346,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
-    if (range <= 0) return;
-    final next =
-        (_sheetSlide.value - details.primaryDelta! / range).clamp(0.0, 1.0);
-    _sheetSlide.value = next;
+    _nudgeSheet(details.primaryDelta ?? 0, media);
   }
 
   void _onSheetDragEnd(DragEndDetails details) {
@@ -328,11 +358,167 @@ class _SelectRideState extends State<SelectRide>
             : _sheetSlide.value >= 0.42
                 ? 1.0
                 : 0.0;
+    if (target < 0.5) _pinSelectedToTop();
     _sheetSlide.animateTo(
       target,
       duration: const Duration(milliseconds: 520),
       curve: const Cubic(0.22, 1.0, 0.36, 1.0),
     );
+  }
+
+  void _nudgeSheet(double primaryDelta, MediaQueryData media) {
+    final range = _maxSheet(media) - _minSheet(media);
+    if (range <= 0) return;
+    _sheetSlide.value =
+        (_sheetSlide.value - primaryDelta / range).clamp(0.0, 1.0);
+  }
+
+  bool _onListScroll(ScrollNotification notification, MediaQueryData media) {
+    if (notification is OverscrollNotification) {
+      _nudgeSheet(-notification.overscroll, media);
+      if (_sheetSlide.value < 0.5) _pinSelectedToTop();
+      return true;
+    }
+    if (notification is ScrollUpdateNotification) {
+      final metrics = notification.metrics;
+      final delta = notification.scrollDelta ?? 0;
+      final atTop = metrics.pixels <= 0;
+      final atBottom = metrics.pixels >= metrics.maxScrollExtent - 1;
+      if (atTop && delta < 0) {
+        _nudgeSheet(-delta, media);
+        return true;
+      }
+      if (atBottom && delta > 0) {
+        _nudgeSheet(-delta, media);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int _tripMinutes() {
+    const earthKm = 6371.0;
+    final lat1 = widget.pickupPosition.latitude * math.pi / 180;
+    final lat2 = widget.destinationPosition.latitude * math.pi / 180;
+    final dLat =
+        (widget.destinationPosition.latitude - widget.pickupPosition.latitude) *
+            math.pi /
+            180;
+    final dLng = (widget.destinationPosition.longitude -
+            widget.pickupPosition.longitude) *
+        math.pi /
+        180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1) * math.cos(lat2) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    final km = 2 * earthKm * math.asin(math.sqrt(a));
+    return (km / 32 * 60).clamp(10, 48).round();
+  }
+
+  List<LatLng> _routePoints() {
+    final start = widget.pickupPosition;
+    final end = widget.destinationPosition;
+    final mid = LatLng(
+      (start.latitude + end.latitude) / 2,
+      (start.longitude + end.longitude) / 2,
+    );
+    final dx = end.longitude - start.longitude;
+    final dy = end.latitude - start.latitude;
+    final mag = math.sqrt(dx * dx + dy * dy);
+    if (mag < 0.00001) return [start, end];
+    final bend = mag * 0.22;
+    final curve = LatLng(
+      mid.latitude + (-dx / mag) * bend,
+      mid.longitude + (dy / mag) * bend,
+    );
+    return [start, curve, end];
+  }
+
+  Future<void> _refreshRouteLabels() async {
+    final eta = _selectedRide.etaMin;
+    final pickupLabel = '$eta min';
+    final arrive = DateTime.now().add(
+      Duration(minutes: eta + _tripMinutes()),
+    );
+    final hour = arrive.hour.toString().padLeft(2, '0');
+    final minute = arrive.minute.toString().padLeft(2, '0');
+    final destLabel = 'Arrive by $hour:$minute';
+    if (pickupLabel == _pickupEtaLabel &&
+        destLabel == _arriveLabel &&
+        _pickupIcon != null &&
+        _destIcon != null) {
+      return;
+    }
+    final pickupIcon = await _buildFlagMarker(
+      pickupLabel,
+      const Color(0xFF1F8A4C),
+    );
+    final destIcon = await _buildFlagMarker(
+      destLabel,
+      const Color(0xFF3B6BFF),
+    );
+    if (!mounted) return;
+    setState(() {
+      _pickupEtaLabel = pickupLabel;
+      _arriveLabel = destLabel;
+      _pickupIcon = pickupIcon;
+      _destIcon = destIcon;
+    });
+  }
+
+  Future<BitmapDescriptor> _buildFlagMarker(String text, Color color) async {
+    const pixelRatio = 3.0;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    const pin = 22.0;
+    final pillW = painter.width + 22;
+    final pillH = 30.0;
+    final width = (pillW + 10) * pixelRatio;
+    final height = (pillH + pin) * pixelRatio;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.scale(pixelRatio);
+    final pill = RRect.fromLTRBR(
+      5,
+      0,
+      5 + pillW,
+      pillH,
+      const Radius.circular(15),
+    );
+    canvas.drawRRect(
+      pill,
+      Paint()
+        ..color = Colors.black.withOpacity(0.12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.drawRRect(pill, Paint()..color = color);
+    painter.paint(
+      canvas,
+      Offset(5 + (pillW - painter.width) / 2, (pillH - painter.height) / 2),
+    );
+    final tip = Offset(5 + pillW / 2, pillH + pin - 2);
+    final stem = Path()
+      ..moveTo(5 + pillW / 2 - 7, pillH - 1)
+      ..lineTo(5 + pillW / 2 + 7, pillH - 1)
+      ..lineTo(tip.dx, tip.dy)
+      ..close();
+    canvas.drawPath(stem, Paint()..color = color);
+    canvas.drawCircle(tip, 3.2, Paint()..color = Colors.white);
+    final image = await recorder.endRecording().toImage(
+      width.ceil(),
+      height.ceil(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(bytes!.buffer.asUint8List());
   }
 
   Future<void> _fitRoute() async {
@@ -589,25 +775,41 @@ class _SelectRideState extends State<SelectRide>
                       target: widget.pickupPosition,
                       zoom: 13.2,
                     ),
+                    padding: const EdgeInsets.fromLTRB(18, 92, 18, 24),
                     markers: {
                       Marker(
                         markerId: const MarkerId('pickup'),
                         position: widget.pickupPosition,
+                        icon: _pickupIcon ??
+                            BitmapDescriptor.defaultMarkerWithHue(
+                              BitmapDescriptor.hueGreen,
+                            ),
+                        anchor: const Offset(0.5, 1),
                       ),
                       Marker(
                         markerId: const MarkerId('destination'),
                         position: widget.destinationPosition,
+                        icon: _destIcon ??
+                            BitmapDescriptor.defaultMarkerWithHue(
+                              BitmapDescriptor.hueAzure,
+                            ),
+                        anchor: const Offset(0.5, 1),
                       ),
                     },
                     polylines: {
                       Polyline(
+                        polylineId: const PolylineId('routeGlow'),
+                        points: _routePoints(),
+                        color: const Color(0x553B6BFF),
+                        width: 10,
+                        geodesic: true,
+                      ),
+                      Polyline(
                         polylineId: const PolylineId('route'),
-                        points: [
-                          widget.pickupPosition,
-                          widget.destinationPosition,
-                        ],
-                        color: _accent,
-                        width: 4,
+                        points: _routePoints(),
+                        color: const Color(0xFF3B6BFF),
+                        width: 5,
+                        geodesic: true,
                       ),
                     },
                     myLocationEnabled: false,
@@ -642,9 +844,7 @@ class _SelectRideState extends State<SelectRide>
               final sheetHeight =
                   minSheet + (maxSheet - minSheet) * _sheetSlide.value;
               final collapsed = _sheetSlide.value < 0.38;
-              final visibleRides = collapsed
-                  ? <_RideOption>[_selectedRide]
-                  : _visibleRides;
+              final visibleRides = _rankedRides;
               return Positioned(
             left: 0,
             right: 0,
@@ -695,6 +895,11 @@ class _SelectRideState extends State<SelectRide>
                               ],
                             ),
                           ),
+                          if (collapsed)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                              child: _rideTile(_selectedRide),
+                            ),
                         ],
                       ),
                     ),
@@ -702,20 +907,26 @@ class _SelectRideState extends State<SelectRide>
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
                         child: _filterRow(),
+                      ),
+                    if (!collapsed)
+                      Expanded(
+                        child: NotificationListener<ScrollNotification>(
+                          onNotification: (notification) =>
+                              _onListScroll(notification, media),
+                          child: ListView.builder(
+                            controller: _listController,
+                            physics: const BouncingScrollPhysics(
+                              parent: AlwaysScrollableScrollPhysics(),
+                            ),
+                            padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+                            itemCount: visibleRides.length,
+                            itemBuilder: (context, index) =>
+                                _rideTile(visibleRides[index]),
+                          ),
+                        ),
                       )
                     else
-                      const SizedBox(height: 8),
-                    Expanded(
-                      child: ListView.builder(
-                        physics: collapsed
-                            ? const NeverScrollableScrollPhysics()
-                            : const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-                        itemCount: visibleRides.length,
-                        itemBuilder: (context, index) =>
-                            _rideTile(visibleRides[index]),
-                      ),
-                    ),
+                      const Spacer(),
                     _footer(media.padding.bottom),
                   ],
                 ),
