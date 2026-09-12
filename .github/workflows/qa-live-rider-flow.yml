@@ -171,11 +171,25 @@ jobs:
           forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup');
           await stressPage.mouse.click(44,44); await stressPage.waitForTimeout(900);
           await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1000);
-          let vis=stressPage.locator('input,textarea').filter({visible:true});
-          let n=await vis.count().catch(()=>0);
-          if(!n){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); vis=stressPage.locator('input,textarea'); n=await vis.count();}
-          if(n){await vis.nth(n-1).fill('Stockholm Central Station'); await stressPage.waitForTimeout(500);}
-          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2800);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2200);
+          await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
+          if(fatalErrors().length) throw new Error('Map stress nested pickup fatal: '+fatalErrors().join(' | '));
+
+          await stressPage.goto(base+`?mapflow=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+          await stressPage.waitForTimeout(4000);
+          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
+          let visibleInputs=stressPage.locator('input,textarea').filter({visible:true});
+          let count=await visibleInputs.count().catch(()=>0);
+          if(!count){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); visibleInputs=stressPage.locator('input,textarea'); count=await visibleInputs.count();}
+          if(!count) throw new Error('Map stress destination input did not become editable');
+          try {
+            await visibleInputs.nth(count-1).fill('Stockholm Central Station', {timeout:8000});
+          } catch (_) {
+            await visibleInputs.nth(count-1).click({force:true, timeout:5000});
+            await stressPage.keyboard.type('Stockholm Central Station');
+          }
+          await stressPage.waitForTimeout(700);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(3500);
           await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
           await stressPage.mouse.click(195,797); await stressPage.waitForTimeout(7000);
           await stressPage.screenshot({path:'qa-map-stress-select.png',fullPage:true});
