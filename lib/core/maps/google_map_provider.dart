@@ -26,12 +26,13 @@ class GoogleMapProvider implements MapProvider {
   }
 
   @override
-  Future<void> animateCamera(GeoPoint target, {double zoom = 15}) async {
+  Future<void> animateCamera(GeoPoint target, {double zoom = 15, double bearing = 0}) async {
     await _controller?.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
           target: LatLng(target.latitude, target.longitude),
           zoom: zoom,
+          bearing: bearing,
         ),
       ),
     );

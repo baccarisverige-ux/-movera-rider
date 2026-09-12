@@ -1,7 +1,6 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'dart:ui' show ImageFilter;
@@ -15,10 +14,10 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/core/location/location_point.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
-import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/features/home/application/home_controller.dart';
+import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -31,14 +30,11 @@ import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
-import 'package:movera_rider/shared/services/device_heading.dart'
-    as heading_service;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
-import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
@@ -70,9 +66,12 @@ class _HomeState extends State<Home> {
   final PanelController _profilePanelController = PanelController();
   Timer? _sheetIdleTimer;
   Timer? _locationPulseTimer;
-  Timer? _headingTimer;
-  StreamSubscription<Position>? _positionSubscription;
-  final StaleGuard _geoGuard = StaleGuard();
+  late final HomeLocationController _locationCtl = HomeLocationController(
+    location: AppScope.instance.location,
+    geocoding: AppScope.instance.geocoding,
+    motion: AppScope.instance.motion,
+  );
+  final HomeAddressRepository _addresses = HomeAddressRepository();
   bool _locationPulseExpanded = false;
   double _locationHeading = 0;
   bool _hasCompassHeading = false;
@@ -226,9 +225,7 @@ class _HomeState extends State<Home> {
   void dispose() {
     _sheetIdleTimer?.cancel();
     _locationPulseTimer?.cancel();
-    _headingTimer?.cancel();
-    _positionSubscription?.cancel();
-    _geoGuard.dispose();
+    _locationCtl.dispose();
     AppScope.instance.mapLifecycle.dispose();
     AppScope.instance.maps.detach();
     _homeSheetController
@@ -253,52 +250,29 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _restoreAddressData() async {
-    final prefs = await PreferencesStore.load();
-    final savedPlaces = <_SavedPlaceData>[];
-    final rawSavedPlaces = prefs.getString('movera_saved_places');
-    if (rawSavedPlaces != null) {
-      try {
-        final decoded = jsonDecode(rawSavedPlaces) as List<dynamic>;
-        for (final item in decoded) {
-          if (item is Map) {
-            final place = _SavedPlaceData.fromJson(
-              Map<String, dynamic>.from(item),
-            );
-            if (place.address.trim().isNotEmpty) savedPlaces.add(place);
-          }
-        }
-      } catch (_) {
-        // Ignore damaged local data.
-      }
-    }
+    final saved = await _addresses.load();
     if (mounted) {
       setState(() {
-        _homeAddress = prefs.getString('movera_home_address');
-        _workAddress = prefs.getString('movera_work_address');
-        _recentAddresses =
-            prefs.getStringList('movera_recent_addresses') ?? <String>[];
-        _savedPlaces = savedPlaces.take(_maxCustomPlaces).toList();
+        _homeAddress = saved.home;
+        _workAddress = saved.work;
+        _recentAddresses = saved.recent;
+        _savedPlaces = saved.places
+            .map((place) => _SavedPlaceData.fromJson(Map<String, dynamic>.from(place)))
+            .take(_maxCustomPlaces)
+            .toList();
       });
     }
     await _detectCurrentAddress();
   }
 
   Future<void> _persistAddressData() async {
-    final prefs = await PreferencesStore.load();
-    if (_homeAddress == null) {
-      await prefs.remove('movera_home_address');
-    } else {
-      await prefs.setString('movera_home_address', _homeAddress!);
-    }
-    if (_workAddress == null) {
-      await prefs.remove('movera_work_address');
-    } else {
-      await prefs.setString('movera_work_address', _workAddress!);
-    }
-    await prefs.setStringList('movera_recent_addresses', _recentAddresses);
-    await prefs.setString(
-      'movera_saved_places',
-      jsonEncode(_savedPlaces.map((place) => place.toJson()).toList()),
+    await _addresses.save(
+      HomeAddressSnapshot(
+        home: _homeAddress,
+        work: _workAddress,
+        recent: _recentAddresses,
+        places: _savedPlaces.map((place) => place.toJson()).toList(),
+      ),
     );
   }
 
@@ -337,54 +311,31 @@ class _HomeState extends State<Home> {
   Future<void> _detectCurrentAddress() async {
     if (mounted) setState(() => _findingLocation = true);
     try {
-      var permission = await AppScope.instance.location.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await AppScope.instance.location.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          setState(() {
-            _findingLocation = false;
-            _pickupAddress ??= 'Current location';
-          });
-        }
+      final detected = await _locationCtl.detectCurrent();
+      if (!mounted) return;
+      if (detected.denied) {
+        setState(() {
+          _findingLocation = false;
+          _pickupAddress ??= 'Current location';
+        });
         return;
       }
-      final position = await AppScope.instance.location.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-      final generation = _geoGuard.next();
-      final detectedAddress = await AppScope.instance.geocoding.reverseGeocodeAddress(
-        position.latitude,
-        position.longitude,
-      );
-      if (!_geoGuard.isCurrent(generation)) return;
-      final address = detectedAddress?.trim().isNotEmpty == true
-          ? detectedAddress!.trim()
-          : 'Current location';
-      final target = LatLng(position.latitude, position.longitude);
-      if (!mounted) return;
+      final target = detected.target;
+      if (target == null) return;
       setState(() {
-        _pickupAddress = address;
+        _pickupAddress = detected.address;
         _currentLatLng = target;
         _findingLocation = false;
         _markers = {};
-        _locationHeading = position.heading.isFinite && position.heading >= 0
-            ? position.heading
-            : 0;
+        _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
       _startLocationTracking();
       _startHeadingTracking();
       _startLocationPulse();
-      await _mapController?.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: target, zoom: 15),
-        ),
+      await AppScope.instance.maps.animateCamera(
+        GeoPoint(target.latitude, target.longitude),
+        zoom: 15,
       );
     } catch (_) {
       if (!mounted) return;
@@ -1914,51 +1865,25 @@ class _HomeState extends State<Home> {
   }
 
   void _startLocationTracking() {
-    _positionSubscription?.cancel();
-    const settings = LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 1,
+    _locationCtl.startTracking(
+      isMounted: () => mounted,
+      onFix: (latLng, heading) {
+        _currentLatLng = latLng;
+        _locationHeading = heading;
+        _updateLocationVisuals();
+      },
     );
-    _positionSubscription =
-        AppScope.instance.location.getPositionStream(locationSettings: settings).listen((
-          position,
-        ) {
-          if (!mounted) return;
-          final motion = AppScope.instance.motion.ingest(
-            LocationPoint(
-              point: GeoPoint(position.latitude, position.longitude),
-              timestamp: position.timestamp,
-              accuracyMeters: position.accuracy,
-              speedMps: position.speed,
-              heading: position.heading,
-            ),
-          );
-          _currentLatLng = motion == null
-              ? LatLng(position.latitude, position.longitude)
-              : LatLng(motion.position.latitude, motion.position.longitude);
-          // GPS course is only a fallback. It must never overwrite the live
-          // compass while the user is stationary or moving slowly.
-          if (!_hasCompassHeading &&
-              position.heading.isFinite &&
-              position.heading >= 0) {
-            _locationHeading = position.heading;
-          }
-          _updateLocationVisuals();
-        });
   }
 
   void _startHeadingTracking() {
-    heading_service.startHeadingTracking();
-    _headingTimer?.cancel();
-    _headingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      final heading = heading_service.currentHeading();
-      if (heading == null || !heading.isFinite || !mounted) return;
-      var delta = (heading - _locationHeading + 540) % 360 - 180;
-      if (delta.abs() < 0.5) return;
-      _hasCompassHeading = true;
-      _locationHeading = (_locationHeading + delta * 0.32 + 360) % 360;
-      _updateLocationVisuals();
-    });
+    _locationCtl.startHeading(
+      isMounted: () => mounted,
+      onHeading: (heading) {
+        _locationHeading = heading;
+        _hasCompassHeading = true;
+        _updateLocationVisuals();
+      },
+    );
   }
 
   void _handleMapCameraMove(CameraPosition camera) {
@@ -1972,7 +1897,10 @@ class _HomeState extends State<Home> {
       user.latitude,
       user.longitude,
     );
-    final shouldShow = camera.zoom < 15.5 || distance > 35;
+    final shouldShow = AppScope.instance.camera.showRecenter(
+      zoom: camera.zoom,
+      metersFromUser: distance,
+    );
     if (shouldShow != _showRecenterButton && mounted) {
       AppScope.instance.maps.mode = shouldShow
           ? CameraMode.free
@@ -1986,31 +1914,19 @@ class _HomeState extends State<Home> {
     AppScope.instance.maps.mode = CameraMode.followUser;
     var target = _currentLatLng;
     try {
-      final position = await AppScope.instance.location.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.bestForNavigation,
-          timeLimit: Duration(seconds: 8),
-        ),
-      );
-      target = LatLng(position.latitude, position.longitude);
-      _currentLatLng = target;
-      if (!_hasCompassHeading &&
-          position.heading.isFinite &&
-          position.heading >= 0) {
-        _locationHeading = position.heading;
+      final fix = await _locationCtl.latestFix();
+      if (fix != null) {
+        target = fix;
+        _currentLatLng = target;
+        _locationHeading = _locationCtl.heading;
+        _updateLocationVisuals();
       }
-      _updateLocationVisuals();
     } catch (_) {}
     if (target == null) return;
-    final controller = _mapController;
-    if (controller == null) return;
-
-    // Let the map platform animate position and zoom together. This avoids
-    // visible stepping on mobile browsers.
-    await controller.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: target, zoom: 17, bearing: _locationHeading),
-      ),
+    await AppScope.instance.maps.animateCamera(
+      GeoPoint(target.latitude, target.longitude),
+      zoom: 17,
+      bearing: _locationHeading,
     );
     if (mounted) setState(() => _showRecenterButton = false);
   }

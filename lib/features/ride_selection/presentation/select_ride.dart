@@ -7,6 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
+import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -265,9 +266,11 @@ class _SelectRideState extends State<SelectRide>
   void _nudgePrice(int delta) {
     final ride = _selectedRide;
     final current = _priceFor(ride);
-    final minimum = (ride.price * 0.65).roundToDouble();
-    final maximum = (ride.price * 1.8).roundToDouble();
-    final next = (current + delta).clamp(minimum, maximum).roundToDouble();
+    final next = FareRules.nudge(
+      current: current,
+      catalog: ride.price,
+      delta: delta,
+    );
     if (next == current) return;
     setState(() => _offeredPrices[ride.id] = next);
   }

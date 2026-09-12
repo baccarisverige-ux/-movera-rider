@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
@@ -45,10 +45,8 @@ class FindingDrivers extends StatefulWidget {
 class _FindingDriversState extends State<FindingDrivers> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
-
-  // Countdown variables
-  int remainingSeconds = 12; // set duration here (30 seconds)
-  Timer? _timer;
+  int remainingSeconds = 12;
+  final FindingDriverController _match = FindingDriverController();
 
   late final CameraPosition _initialPosition;
 
@@ -60,29 +58,27 @@ class _FindingDriversState extends State<FindingDrivers> {
       zoom: 14.0,
     );
     _loadMarkers();
-    _startCountdown();
-    AppScope.instance.ride.restoreFromBackend(RideStatus.findingDriver);
-
-    Future.delayed(Duration(seconds: 12), () {
-      if (mounted) {
-        AppScope.instance.ride.restoreFromBackend(RideStatus.driverAssigned);
-        Analytics.driverFound(rideId: AppScope.instance.ride.rideId);
-        RideSnapshotStore.save(
-          RideSnapshot(
-            status: RideStatus.driverAssigned,
-            savedAt: DateTime.now(),
-            pickupAddress: widget.pickupAddress,
-            destinationAddress: widget.destinationAddress,
-            pickupLat: widget.pickupPosition.latitude,
-            pickupLng: widget.pickupPosition.longitude,
-            destinationLat: widget.destinationPosition.latitude,
-            destinationLng: widget.destinationPosition.longitude,
-            rideType: widget.rideType,
-            price: widget.price,
-            paymentMethod: widget.paymentMethod,
-            rideId: AppScope.instance.ride.rideId,
-          ),
-        );
+    _match.start(
+      seconds: 12,
+      snapshot: RideSnapshot(
+        status: RideStatus.findingDriver,
+        savedAt: DateTime.now(),
+        pickupAddress: widget.pickupAddress,
+        destinationAddress: widget.destinationAddress,
+        pickupLat: widget.pickupPosition.latitude,
+        pickupLng: widget.pickupPosition.longitude,
+        destinationLat: widget.destinationPosition.latitude,
+        destinationLng: widget.destinationPosition.longitude,
+        rideType: widget.rideType,
+        price: widget.price,
+        paymentMethod: widget.paymentMethod,
+        rideId: AppScope.instance.ride.rideId,
+      ),
+      onTick: (remaining) {
+        if (mounted) setState(() => remainingSeconds = remaining);
+      },
+      onMatched: () {
+        if (!mounted) return;
         Navigator.push(
           context,
           BottomToTopTransition(
@@ -97,20 +93,8 @@ class _FindingDriversState extends State<FindingDrivers> {
             ),
           ),
         );
-      }
-    });
-  }
-
-  void _startCountdown() {
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (remainingSeconds > 0) {
-        setState(() {
-          remainingSeconds--;
-        });
-      } else {
-        timer.cancel();
-      }
-    });
+      },
+    );
   }
 
   String _formatTime(int seconds) {
@@ -140,7 +124,7 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   @override
   void dispose() {
-    _timer?.cancel(); // stop timer when screen closes
+    _match.dispose();
     super.dispose();
   }
 

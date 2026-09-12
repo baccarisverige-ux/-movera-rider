@@ -6,56 +6,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
+import 'package:movera_rider/features/wallet/data/voucher_catalog.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
-class _VoucherOffer {
-  const _VoucherOffer({
-    required this.code,
-    required this.amountKr,
-    required this.expires,
-  });
+typedef _VoucherOffer = VoucherOffer;
 
-  final String code;
-  final int amountKr;
-  final DateTime expires;
+final _vouchers = VoucherCatalog();
 
-  bool get expired {
-    final end = DateTime(expires.year, expires.month, expires.day, 23, 59, 59);
-    return DateTime.now().isAfter(end);
-  }
-}
-
-_VoucherOffer? lookupMoveraVoucher(String raw) {
-  final code = raw.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
-  if (code.length < 4) return null;
-  const known = <String, (int, String)>{
-    'MOVERA100': (100, '2026-12-31'),
-    'WELCOME50': (50, '2026-12-31'),
-    'RIDE200': (200, '2027-06-30'),
-    'MOVE25': (25, '2026-11-30'),
-    'SUMMER75': (75, '2026-08-01'),
-  };
-  final hit = known[code];
-  if (hit != null) {
-    return _VoucherOffer(
-      code: code,
-      amountKr: hit.$1,
-      expires: DateTime.parse(hit.$2),
-    );
-  }
-  final stamped = RegExp(r'^KR(\d{2,4})-(\d{8})$').firstMatch(code);
-  if (stamped != null) {
-    final stamp = stamped.group(2)!;
-    return _VoucherOffer(
-      code: code,
-      amountKr: int.parse(stamped.group(1)!),
-      expires: DateTime.parse(
-        '${stamp.substring(0, 4)}-${stamp.substring(4, 6)}-${stamp.substring(6, 8)}',
-      ),
-    );
-  }
-  return null;
-}
+_VoucherOffer? lookupMoveraVoucher(String raw) => _vouchers.lookup(raw);
 
 String _voucherDateLabel(DateTime date) {
   const months = [
@@ -65,23 +23,9 @@ String _voucherDateLabel(DateTime date) {
   return '${date.day} ${months[date.month - 1]} ${date.year}';
 }
 
-Future<Set<String>> _usedVoucherCodes() async {
-  final prefs = await PreferencesStore.load();
-  final raw = prefs.getString('movera_used_vouchers');
-  if (raw == null || raw.isEmpty) return <String>{};
-  try {
-    return (jsonDecode(raw) as List<dynamic>).map((item) => item.toString()).toSet();
-  } catch (_) {
-    return <String>{};
-  }
-}
+Future<Set<String>> _usedVoucherCodes() => _vouchers.usedCodes();
 
-Future<void> _markVoucherUsed(String code) async {
-  final prefs = await PreferencesStore.load();
-  final used = await _usedVoucherCodes();
-  used.add(code);
-  await prefs.setString('movera_used_vouchers', jsonEncode(used.toList()));
-}
+Future<void> _markVoucherUsed(String code) => _vouchers.markUsed(code);
 
 Future<_VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);

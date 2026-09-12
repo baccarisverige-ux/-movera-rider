@@ -9,6 +9,10 @@ class MapCameraController {
   final GoogleMapProvider _maps;
   final stale = StaleGuard();
 
+  bool showRecenter({required double zoom, required double metersFromUser}) {
+    return zoom < 15.5 || metersFromUser > 35;
+  }
+
   Future<void> focusOnPickup(GeoPoint point) {
     _maps.mode = CameraMode.pickupSelection;
     return _maps.animateCamera(point, zoom: 16);
