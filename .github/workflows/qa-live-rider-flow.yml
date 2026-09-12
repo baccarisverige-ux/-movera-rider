@@ -178,14 +178,14 @@ jobs:
           await stressPage.goto(base+`?mapflow=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
           await stressPage.waitForTimeout(4000);
           await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
-          let visibleInputs=stressPage.locator('input,textarea').filter({visible:true});
-          let count=await visibleInputs.count().catch(()=>0);
-          if(!count){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); visibleInputs=stressPage.locator('input,textarea'); count=await visibleInputs.count();}
-          if(!count) throw new Error('Map stress destination input did not become editable');
+          let stressInputs=stressPage.locator('input,textarea').filter({visible:true});
+          let stressCount=await stressInputs.count().catch(()=>0);
+          if(!stressCount){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); stressInputs=stressPage.locator('input,textarea'); stressCount=await stressInputs.count();}
+          if(!stressCount) throw new Error('Map stress destination input did not become editable');
           try {
-            await visibleInputs.nth(count-1).fill('Stockholm Central Station', {timeout:8000});
+            await stressInputs.nth(stressCount-1).fill('Stockholm Central Station', {timeout:8000});
           } catch (_) {
-            await visibleInputs.nth(count-1).click({force:true, timeout:5000});
+            await stressInputs.nth(stressCount-1).click({force:true, timeout:5000});
             await stressPage.keyboard.type('Stockholm Central Station');
           }
           await stressPage.waitForTimeout(700);
