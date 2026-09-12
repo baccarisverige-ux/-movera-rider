@@ -7,56 +7,45 @@ sealed class Failure {
 }
 
 class NetworkFailure extends Failure {
-  const NetworkFailure([String message = 'Network unavailable', String? code])
-      : super(message, code: code);
+  const NetworkFailure([super.message = 'Network unavailable']);
 }
 
 class TimeoutFailure extends Failure {
-  const TimeoutFailure([String message = 'Request timed out', String? code])
-      : super(message, code: code);
+  const TimeoutFailure([super.message = 'Request timed out']);
 }
 
 class UnauthorizedFailure extends Failure {
-  const UnauthorizedFailure([String message = 'Session expired', String? code])
-      : super(message, code: code);
+  const UnauthorizedFailure([super.message = 'Session expired']);
 }
 
 class LocationFailure extends Failure {
-  const LocationFailure([String message = 'Location unavailable', String? code])
-      : super(message, code: code);
+  const LocationFailure([super.message = 'Location unavailable']);
 }
 
 class GeocodingFailure extends Failure {
-  const GeocodingFailure([String message = 'Address lookup failed', String? code])
-      : super(message, code: code);
+  const GeocodingFailure([super.message = 'Address lookup failed']);
 }
 
 class RouteFailure extends Failure {
-  const RouteFailure([String message = 'Route unavailable', String? code])
-      : super(message, code: code);
+  const RouteFailure([super.message = 'Route unavailable']);
 }
 
 class BookingFailure extends Failure {
-  const BookingFailure([String message = 'Booking failed', String? code])
-      : super(message, code: code);
+  const BookingFailure([super.message = 'Booking failed']);
 }
 
 class PaymentFailure extends Failure {
-  const PaymentFailure([String message = 'Payment failed', String? code])
-      : super(message, code: code);
+  const PaymentFailure([super.message = 'Payment failed']);
 }
 
 class RealtimeFailure extends Failure {
-  const RealtimeFailure([String message = 'Live connection lost', String? code])
-      : super(message, code: code);
+  const RealtimeFailure([super.message = 'Live connection lost']);
 }
 
 class MapFailure extends Failure {
-  const MapFailure([String message = 'Map failed to load', String? code])
-      : super(message, code: code);
+  const MapFailure([super.message = 'Map failed to load']);
 }
 
 class UnknownFailure extends Failure {
-  const UnknownFailure([String message = 'Something went wrong', String? code])
-      : super(message, code: code);
+  const UnknownFailure([super.message = 'Something went wrong']);
 }
