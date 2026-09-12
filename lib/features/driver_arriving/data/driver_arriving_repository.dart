@@ -1,8 +1,5 @@
-abstract class DriverArrivingRepository {
-  Future<void> refresh();
-}
+import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 
-class LocalDriverArrivingRepository implements DriverArrivingRepository {
-  @override
-  Future<void> refresh() async {}
+class DriverArrivingRepository {
+  DriverProfile driver() => DriverRepository().current();
 }

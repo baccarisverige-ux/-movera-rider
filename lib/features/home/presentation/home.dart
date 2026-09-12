@@ -15,6 +15,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/destination/data/destination_repository.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
@@ -438,6 +439,7 @@ class _HomeState extends State<Home> {
           break;
         case 'destination':
           _destinationAddress = resolved;
+          DestinationRepository.instance.remember(address: resolved);
           break;
         case 'home':
           _homeAddress = resolved;

@@ -1,5 +1,19 @@
 import 'package:movera_rider/features/support/domain/support.dart';
 
+class SupportChatScript {
+  const SupportChatScript({
+    required this.welcome,
+    this.issueAck =
+        'Thanks, I looked at this trip. Tell me a bit more and a Movera agent will take it from here.',
+    this.followUp =
+        'Got it. A Movera agent can follow up on this. You’ll also find the case under Messages.',
+  });
+
+  final String welcome;
+  final String issueAck;
+  final String followUp;
+}
+
 class SupportRepository {
   List<SupportRide> rides() => [
         SupportRide(
@@ -43,4 +57,21 @@ class SupportRepository {
           failed: true,
         ),
       ];
+
+  SupportChatScript chat({SupportRide? ride}) {
+    if (ride == null) {
+      return const SupportChatScript(
+        welcome: 'Hi, welcome to Movera support.\n\nHow can we help today?',
+      );
+    }
+    if (ride.cancelled) {
+      return const SupportChatScript(
+        welcome:
+            'Hi, welcome to Movera support.\n\nI checked this ride and you were not charged for it. If you’d like to share feedback about the driver or vehicle, choose an option below.',
+      );
+    }
+    return SupportChatScript(
+      welcome: 'Hey! How can we help with your ride to ${ride.title}?',
+    );
+  }
 }

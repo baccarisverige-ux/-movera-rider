@@ -1,8 +1,4 @@
-abstract class DestinationSearchRepository {
-  Future<void> refresh();
-}
-
-class LocalDestinationSearchRepository implements DestinationSearchRepository {
-  @override
-  Future<void> refresh() async {}
+class DestinationSearchRepository {
+  String lastQuery = '';
+  void remember(String query) => lastQuery = query;
 }

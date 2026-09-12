@@ -202,7 +202,7 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _restore() async {
-    final balance = await _store.loadBalance();
+    final balance = await _wallet.loadBalance();
     final voucher = await _store.loadVoucherCode();
     if (!mounted) return;
     setState(() {

@@ -1,8 +1,12 @@
-abstract class DestinationRepository {
-  Future<void> refresh();
-}
+class DestinationRepository {
+  static final instance = DestinationRepository();
+  String? lastAddress;
+  double? lastLat;
+  double? lastLng;
 
-class LocalDestinationRepository implements DestinationRepository {
-  @override
-  Future<void> refresh() async {}
+  void remember({String? address, double? lat, double? lng}) {
+    lastAddress = address ?? lastAddress;
+    lastLat = lat ?? lastLat;
+    lastLng = lng ?? lastLng;
+  }
 }

@@ -1,8 +1,7 @@
-abstract class SafetyRepository {
-  Future<void> refresh();
-}
+import 'package:movera_rider/features/safety/domain/safety_event.dart';
 
-class LocalSafetyRepository implements SafetyRepository {
-  @override
-  Future<void> refresh() async {}
+class SafetyRepository {
+  final events = <SafetyEvent>[];
+
+  void add(SafetyEvent event) => events.add(event);
 }

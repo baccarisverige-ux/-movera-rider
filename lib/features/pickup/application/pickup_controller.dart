@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/features/pickup/data/pickup_repository.dart';
 
 class PickupMapFix {
   const PickupMapFix({required this.position, this.address});
@@ -31,6 +32,11 @@ class PickupMapController {
     );
     resolving = false;
     if (!_stale.isCurrent(generation)) return null;
+    PickupRepository.instance.remember(
+      address: address,
+      lat: position.latitude,
+      lng: position.longitude,
+    );
     return address;
   }
 

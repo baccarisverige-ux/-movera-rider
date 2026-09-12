@@ -1,8 +1,8 @@
-abstract class LocationPickerRepository {
-  Future<void> refresh();
-}
-
-class LocalLocationPickerRepository implements LocationPickerRepository {
-  @override
-  Future<void> refresh() async {}
+class LocationPickerRepository {
+  double? lastLat;
+  double? lastLng;
+  void remember(double lat, double lng) {
+    lastLat = lat;
+    lastLng = lng;
+  }
 }

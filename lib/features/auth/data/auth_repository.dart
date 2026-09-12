@@ -1,8 +1,12 @@
-abstract class AuthRepository {
-  Future<void> refresh();
-}
+import 'package:movera_rider/app/di.dart';
 
-class LocalAuthRepository implements AuthRepository {
-  @override
-  Future<void> refresh() async {}
+class AuthRepository {
+  Future<void> signIn({required String provider}) {
+    return AppScope.instance.tokens.save(
+      access: 'movera-mock-$provider',
+      refresh: 'movera-mock-refresh',
+    );
+  }
+
+  Future<void> signOut() => AppScope.instance.tokens.clear();
 }

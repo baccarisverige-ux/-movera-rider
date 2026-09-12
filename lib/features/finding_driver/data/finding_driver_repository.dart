@@ -1,8 +1,6 @@
-abstract class FindingDriverRepository {
-  Future<void> refresh();
-}
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
-class LocalFindingDriverRepository implements FindingDriverRepository {
-  @override
-  Future<void> refresh() async {}
+class FindingDriverRepository {
+  Future<void> save(RideSnapshot snapshot) => RideSnapshotStore.save(snapshot);
+  void clear() => RideSnapshotStore.clear();
 }

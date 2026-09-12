@@ -7,7 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
-import 'package:movera_rider/features/fare/domain/fare_rules.dart';
+import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -186,7 +186,7 @@ class _SelectRideState extends State<SelectRide>
   void _nudgePrice(int delta) {
     final ride = _selectedRide;
     final current = _priceFor(ride);
-    final next = FareRules.nudge(
+    final next = FareController().nudge(
       current: current,
       catalog: ride.price,
       delta: delta,

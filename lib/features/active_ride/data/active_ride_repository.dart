@@ -1,8 +1,6 @@
-abstract class ActiveRideRepository {
-  Future<void> refresh();
-}
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
-class LocalActiveRideRepository implements ActiveRideRepository {
-  @override
-  Future<void> refresh() async {}
+class ActiveRideRepository {
+  Future<RideSnapshot?> restore() => RideSnapshotStore.read();
+  void clear() => RideSnapshotStore.clear();
 }

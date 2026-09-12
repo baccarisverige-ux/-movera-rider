@@ -1,10 +1,15 @@
+import 'package:movera_rider/features/safety/data/safety_repository.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 
 class SafetyController {
-  final events = <SafetyEvent>[];
+  SafetyController({SafetyRepository? store})
+      : _store = store ?? SafetyRepository();
+  final SafetyRepository _store;
+
+  List<SafetyEvent> get events => _store.events;
 
   void record(SafetyKind kind, {String? rideId}) {
-    events.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
+    _store.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
   }
 
   void shareTrip({String? rideId}) =>

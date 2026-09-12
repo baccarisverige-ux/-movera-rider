@@ -1,8 +1,7 @@
-abstract class MessagesRepository {
-  Future<void> refresh();
-}
+import 'package:movera_rider/features/messages/domain/messages.dart';
 
-class LocalMessagesRepository implements MessagesRepository {
-  @override
-  Future<void> refresh() async {}
+class MessagesRepository {
+  final messages = <ChatMessage>[];
+
+  void add(ChatMessage message) => messages.add(message);
 }

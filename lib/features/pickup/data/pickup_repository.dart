@@ -1,8 +1,12 @@
-abstract class PickupRepository {
-  Future<void> refresh();
-}
+class PickupRepository {
+  static final instance = PickupRepository();
+  String? lastAddress;
+  double? lastLat;
+  double? lastLng;
 
-class LocalPickupRepository implements PickupRepository {
-  @override
-  Future<void> refresh() async {}
+  void remember({String? address, double? lat, double? lng}) {
+    lastAddress = address ?? lastAddress;
+    lastLat = lat ?? lastLat;
+    lastLng = lng ?? lastLng;
+  }
 }

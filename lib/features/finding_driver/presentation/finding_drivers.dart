@@ -5,8 +5,6 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
@@ -58,22 +56,16 @@ class _FindingDriversState extends State<FindingDrivers> {
       zoom: 14.0,
     );
     _loadMarkers();
-    _match.start(
-      seconds: 12,
-      snapshot: RideSnapshot(
-        status: RideStatus.findingDriver,
-        savedAt: DateTime.now(),
-        pickupAddress: widget.pickupAddress,
-        destinationAddress: widget.destinationAddress,
-        pickupLat: widget.pickupPosition.latitude,
-        pickupLng: widget.pickupPosition.longitude,
-        destinationLat: widget.destinationPosition.latitude,
-        destinationLng: widget.destinationPosition.longitude,
-        rideType: widget.rideType,
-        price: widget.price,
-        paymentMethod: widget.paymentMethod,
-        rideId: AppScope.instance.ride.rideId,
-      ),
+    _match.startFrom(
+      pickupAddress: widget.pickupAddress,
+      destinationAddress: widget.destinationAddress,
+      pickupLat: widget.pickupPosition.latitude,
+      pickupLng: widget.pickupPosition.longitude,
+      destinationLat: widget.destinationPosition.latitude,
+      destinationLng: widget.destinationPosition.longitude,
+      rideType: widget.rideType,
+      price: widget.price,
+      paymentMethod: widget.paymentMethod,
       onTick: (remaining) {
         if (mounted) setState(() => remainingSeconds = remaining);
       },

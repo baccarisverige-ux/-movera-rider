@@ -445,20 +445,11 @@ class _SupportChatState extends State<SupportChat> {
   void initState() {
     super.initState();
     final ride = widget.ride;
-    final welcome = ride == null
-        ? 'Hi, welcome to Movera support.\n\nHow can we help today?'
-        : ride.cancelled
-            ? 'Hi, welcome to Movera support.\n\nI checked this ride and you were not charged for it. If you’d like to share feedback about the driver or vehicle, choose an option below.'
-            : 'Hey! How can we help with your ride to ${ride.title}?';
-    _messages.add(_ChatLine(fromBot: true, text: welcome));
+    final script = SupportRepository().chat(ride: ride);
+    _messages.add(_ChatLine(fromBot: true, text: script.welcome));
     if (widget.issue != null) {
       _messages.add(_ChatLine(fromBot: false, text: widget.issue!));
-      _messages.add(
-        const _ChatLine(
-          fromBot: true,
-          text: 'Thanks, I looked at this trip. Tell me a bit more and a Movera agent will take it from here.',
-        ),
-      );
+      _messages.add(_ChatLine(fromBot: true, text: script.issueAck));
     }
   }
 
@@ -474,10 +465,9 @@ class _SupportChatState extends State<SupportChat> {
     setState(() {
       _messages.add(_ChatLine(fromBot: false, text: text));
       _messages.add(
-        const _ChatLine(
+        _ChatLine(
           fromBot: true,
-          text:
-              'Got it. A Movera agent can follow up on this. You’ll also find the case under Messages.',
+          text: SupportRepository().chat(ride: widget.ride).followUp,
         ),
       );
     });
