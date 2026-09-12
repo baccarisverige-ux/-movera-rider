@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/data/voucher_catalog.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 
@@ -176,6 +176,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF2D5878);
   final _store = WalletStore();
+  final _wallet = WalletController();
 
   double _balance = 0;
   String? _voucherCode;
@@ -211,18 +212,7 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _saveBalance(double value) async {
-    final delta = value - _balance;
-    await _store.saveBalance(value);
-    if (delta != 0) {
-      AppScope.instance.wallet.add(
-        WalletEntry(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          kind: delta > 0 ? WalletEntryKind.credit : WalletEntryKind.ride,
-          amountMinor: (delta * 100).round(),
-          at: DateTime.now(),
-        ),
-      );
-    }
+    await _wallet.setBalance(previous: _balance, next: value);
     if (!mounted) return;
     setState(() => _balance = value);
   }

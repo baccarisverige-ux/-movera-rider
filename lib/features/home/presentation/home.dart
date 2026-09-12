@@ -1873,20 +1873,12 @@ class _HomeState extends State<Home> {
     _lastMapTarget = camera.target;
     final user = _currentLatLng;
     if (user == null) return;
-    final distance = AppScope.instance.location.distanceBetween(
-      camera.target.latitude,
-      camera.target.longitude,
-      user.latitude,
-      user.longitude,
-    );
-    final shouldShow = AppScope.instance.camera.showRecenter(
+    final shouldShow = AppScope.instance.camera.followOrFree(
       zoom: camera.zoom,
-      metersFromUser: distance,
+      cameraTarget: GeoPoint(camera.target.latitude, camera.target.longitude),
+      user: GeoPoint(user.latitude, user.longitude),
     );
     if (shouldShow != _showRecenterButton && mounted) {
-      AppScope.instance.maps.mode = shouldShow
-          ? CameraMode.free
-          : CameraMode.followUser;
       setState(() => _showRecenterButton = shouldShow);
     }
   }

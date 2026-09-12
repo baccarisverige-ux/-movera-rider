@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -352,8 +353,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _fitRoute() async {
-    final controller = _mapController;
-    if (controller == null || !mounted) return;
+    if (!mounted) return;
     final pickup = widget.pickupPosition;
     final destination = widget.destinationPosition;
     final samePoint =
@@ -361,35 +361,16 @@ class _SelectRideState extends State<SelectRide>
         (pickup.longitude - destination.longitude).abs() < 0.00008;
     try {
       if (samePoint) {
-        await controller.animateCamera(
-          CameraUpdate.newCameraPosition(
-            CameraPosition(target: pickup, zoom: 14.4),
-          ),
+        await AppScope.instance.maps.animateCamera(
+          GeoPoint(pickup.latitude, pickup.longitude),
+          zoom: 14.4,
         );
         return;
       }
-      await controller.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(
-              pickup.latitude < destination.latitude
-                  ? pickup.latitude
-                  : destination.latitude,
-              pickup.longitude < destination.longitude
-                  ? pickup.longitude
-                  : destination.longitude,
-            ),
-            northeast: LatLng(
-              pickup.latitude > destination.latitude
-                  ? pickup.latitude
-                  : destination.latitude,
-              pickup.longitude > destination.longitude
-                  ? pickup.longitude
-                  : destination.longitude,
-            ),
-          ),
-          56,
-        ),
+      await AppScope.instance.maps.fitBounds(
+        GeoPoint(pickup.latitude, pickup.longitude),
+        GeoPoint(destination.latitude, destination.longitude),
+        padding: 56,
       );
     } catch (_) {}
   }
