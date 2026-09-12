@@ -18,7 +18,7 @@ import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/sockets/socket_client.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
-import 'package:movera_rider/features/destination/application/destination_session.dart';
+import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -51,6 +51,7 @@ class AppScope {
         booking = BookingCoordinator() {
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
+    destinationSearch = DestinationSearchController(search);
     map = MapFacade(
       provider: maps,
       camera: camera,
@@ -86,5 +87,6 @@ class AppScope {
   final PickupSession pickup;
   final DestinationSession destination;
   final BookingCoordinator booking;
+  late final DestinationSearchController destinationSearch;
   FeatureFlags flags = FeatureFlags.current;
 }

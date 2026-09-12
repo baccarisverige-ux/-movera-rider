@@ -18,6 +18,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination/data/destination_repository.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
+import 'package:movera_rider/features/location_picker/application/location_picker_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -711,7 +712,6 @@ class _HomeState extends State<Home> {
                         onChanged: (value) {
                           if (isActive) {
                             setModalState(() {
-                              query = value;
                               if (field == 'pickup') {
                                 pickupConfirmedOnMap = false;
                                 confirmedPickupLatLng = null;
@@ -719,6 +719,10 @@ class _HomeState extends State<Home> {
                                 destinationConfirmedOnMap = false;
                                 confirmedDestinationLatLng = null;
                               }
+                            });
+                            AppScope.instance.destinationSearch.type(value, (text) {
+                              if (!mounted) return;
+                              setModalState(() => query = text);
                             });
                           }
                         },
@@ -1445,7 +1449,10 @@ class _HomeState extends State<Home> {
                         autofocus: true,
                         textInputAction: TextInputAction.search,
                         onChanged: (value) {
-                          setModalState(() => query = value);
+                          AppScope.instance.destinationSearch.type(value, (text) {
+                            if (!mounted) return;
+                            setModalState(() => query = text);
+                          });
                         },
                         onSubmitted: (value) {
                           if (value.trim().isNotEmpty) {
@@ -3628,6 +3635,7 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
     if (_pickup.resolving) return;
     setState(() => _resolving = true);
     final resolved = await _pickup.reverse(_position);
+    LocationPickerController().remember(_position.latitude, _position.longitude);
     if (!mounted) return;
     setState(() {
       if (resolved != null && resolved.trim().isNotEmpty) {
