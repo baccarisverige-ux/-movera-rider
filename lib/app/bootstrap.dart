@@ -11,6 +11,11 @@ Future<void> bootstrap() async {
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
+    AppScope.instance.crashes.record(
+      details.exception,
+      details.stack ?? StackTrace.empty,
+      screen: details.library,
+    );
     AppLog.fatal(
       'flutter.error',
       error: details.exception,
@@ -32,6 +37,7 @@ Future<void> bootstrap() async {
       runApp(const MoveraApp());
     },
     (error, stack) {
+      AppScope.instance.crashes.record(error, stack);
       AppLog.fatal('zone.error', error: error, stackTrace: stack);
     },
   );

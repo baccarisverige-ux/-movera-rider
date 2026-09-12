@@ -28,4 +28,12 @@ class AppGeocoding implements GeocodingRepository {
     if (!stale.isCurrent(generation)) return null;
     return result;
   }
+
+  Future<String?> reverseGeocodeAddress(double latitude, double longitude) {
+    return address_service.reverseGeocodeAddress(latitude, longitude);
+  }
+
+  Future<address_service.AddressCoordinates?> geocodeAddress(String address) {
+    return address_service.geocodeAddress(address);
+  }
 }

@@ -2,17 +2,25 @@ import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/location/place_search.dart';
+import 'package:movera_rider/core/logging/crash_reporter.dart';
 import 'package:movera_rider/core/maps/google_map_provider.dart';
 import 'package:movera_rider/core/maps/map_camera_controller.dart';
 import 'package:movera_rider/core/maps/map_facade.dart';
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/push_service.dart';
+import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/sockets/socket_client.dart';
+import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
+import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
@@ -29,10 +37,18 @@ class AppScope {
         realtime = RealtimeConnection(),
         quotes = MockQuoteRepository(),
         payments = LocalPaymentRepository(),
+        paymentGateway = MockPaymentGateway(),
         wallet = WalletLedger(),
         lifecycle = AppLifecycleObserver(),
         permissions = PermissionService(),
-        search = PlaceSearchService() {
+        search = PlaceSearchService(),
+        location = LocationRepository(),
+        geocoding = AppGeocoding(),
+        push = NoopPushService(),
+        crashes = const CrashReporter(),
+        pickup = PickupSession(),
+        destination = DestinationSession(),
+        booking = BookingCoordinator() {
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     map = MapFacade(
@@ -58,9 +74,17 @@ class AppScope {
   late final SocketClient sockets;
   final MockQuoteRepository quotes;
   final LocalPaymentRepository payments;
+  final MockPaymentGateway paymentGateway;
   final WalletLedger wallet;
   final AppLifecycleObserver lifecycle;
   final PermissionService permissions;
   final PlaceSearchService search;
+  final LocationRepository location;
+  final AppGeocoding geocoding;
+  final PushService push;
+  final CrashReporter crashes;
+  final PickupSession pickup;
+  final DestinationSession destination;
+  final BookingCoordinator booking;
   FeatureFlags flags = FeatureFlags.current;
 }

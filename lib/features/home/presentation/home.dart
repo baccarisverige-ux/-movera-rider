@@ -31,8 +31,6 @@ import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
-import 'package:movera_rider/shared/services/location_address.dart'
-    as address_service;
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -40,7 +38,7 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
@@ -255,7 +253,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _restoreAddressData() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     final savedPlaces = <_SavedPlaceData>[];
     final rawSavedPlaces = prefs.getString('movera_saved_places');
     if (rawSavedPlaces != null) {
@@ -286,7 +284,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _persistAddressData() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     if (_homeAddress == null) {
       await prefs.remove('movera_home_address');
     } else {
@@ -339,9 +337,9 @@ class _HomeState extends State<Home> {
   Future<void> _detectCurrentAddress() async {
     if (mounted) setState(() => _findingLocation = true);
     try {
-      var permission = await Geolocator.checkPermission();
+      var permission = await AppScope.instance.location.checkPermission();
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+        permission = await AppScope.instance.location.requestPermission();
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
@@ -353,14 +351,14 @@ class _HomeState extends State<Home> {
         }
         return;
       }
-      final position = await Geolocator.getCurrentPosition(
+      final position = await AppScope.instance.location.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 15),
         ),
       );
       final generation = _geoGuard.next();
-      final detectedAddress = await address_service.reverseGeocodeAddress(
+      final detectedAddress = await AppScope.instance.geocoding.reverseGeocodeAddress(
         position.latitude,
         position.longitude,
       );
@@ -439,7 +437,7 @@ class _HomeState extends State<Home> {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
     final generation = _geoGuard.next();
-    final result = await address_service.geocodeAddress(clean);
+    final result = await AppScope.instance.geocoding.geocodeAddress(clean);
     if (!_geoGuard.isCurrent(generation)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
@@ -447,7 +445,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _moveMapToAddress(String address) async {
-    final result = await address_service.geocodeAddress(address);
+    final result = await AppScope.instance.geocoding.geocodeAddress(address);
     if (result == null) return;
     final target = LatLng(result.latitude, result.longitude);
     await _mapController?.animateCamera(
@@ -480,7 +478,7 @@ class _HomeState extends State<Home> {
       if (resolved.toLowerCase() == 'current location') {
         resolvedPickupPosition = _currentLatLng;
       } else {
-        final geocodedPickup = await address_service.geocodeAddress(resolved);
+        final geocodedPickup = await AppScope.instance.geocoding.geocodeAddress(resolved);
         if (geocodedPickup != null) {
           resolvedPickupPosition = LatLng(
             geocodedPickup.latitude,
@@ -572,7 +570,7 @@ class _HomeState extends State<Home> {
       final confirmedPickupPosition = pickupPosition;
       var resolvedDestination = destination;
       LatLng? destinationPosition;
-      final destinationResult = await address_service.geocodeAddress(destination);
+      final destinationResult = await AppScope.instance.geocoding.geocodeAddress(destination);
       if (destinationResult != null) {
         resolvedDestination = destinationResult.address.trim().isNotEmpty
             ? destinationResult.address.trim()
@@ -637,7 +635,7 @@ class _HomeState extends State<Home> {
     final cleanAddress = address.trim();
     if (cleanAddress.isNotEmpty &&
         cleanAddress.toLowerCase() != 'current location') {
-      final geocoded = await address_service.geocodeAddress(cleanAddress);
+      final geocoded = await AppScope.instance.geocoding.geocodeAddress(cleanAddress);
       if (geocoded != null)
         initialPosition = LatLng(geocoded.latitude, geocoded.longitude);
     }
@@ -1269,7 +1267,7 @@ class _HomeState extends State<Home> {
                                     final destinationText =
                                         destinationController.text.trim();
                                     final geocodedDestination =
-                                        await address_service.geocodeAddress(
+                                        await AppScope.instance.geocoding.geocodeAddress(
                                           destinationText,
                                         );
                                     if (geocodedDestination != null) {
@@ -1922,7 +1920,7 @@ class _HomeState extends State<Home> {
       distanceFilter: 1,
     );
     _positionSubscription =
-        Geolocator.getPositionStream(locationSettings: settings).listen((
+        AppScope.instance.location.getPositionStream(locationSettings: settings).listen((
           position,
         ) {
           if (!mounted) return;
@@ -1968,7 +1966,7 @@ class _HomeState extends State<Home> {
     _lastMapTarget = camera.target;
     final user = _currentLatLng;
     if (user == null) return;
-    final distance = Geolocator.distanceBetween(
+    final distance = AppScope.instance.location.distanceBetween(
       camera.target.latitude,
       camera.target.longitude,
       user.latitude,
@@ -1988,7 +1986,7 @@ class _HomeState extends State<Home> {
     AppScope.instance.maps.mode = CameraMode.followUser;
     var target = _currentLatLng;
     try {
-      final position = await Geolocator.getCurrentPosition(
+      final position = await AppScope.instance.location.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.bestForNavigation,
           timeLimit: Duration(seconds: 8),
@@ -3728,7 +3726,7 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
   Future<void> _resolveAddress() async {
     if (_resolving) return;
     setState(() => _resolving = true);
-    final resolved = await address_service.reverseGeocodeAddress(
+    final resolved = await AppScope.instance.geocoding.reverseGeocodeAddress(
       _position.latitude,
       _position.longitude,
     );
@@ -3743,16 +3741,16 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
 
   Future<void> _recenter() async {
     try {
-      if (!await Geolocator.isLocationServiceEnabled()) return;
-      var permission = await Geolocator.checkPermission();
+      if (!await AppScope.instance.location.isLocationServiceEnabled()) return;
+      var permission = await AppScope.instance.location.checkPermission();
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+        permission = await AppScope.instance.location.requestPermission();
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         return;
       }
-      final current = await Geolocator.getCurrentPosition(
+      final current = await AppScope.instance.location.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
       final target = LatLng(current.latitude, current.longitude);
