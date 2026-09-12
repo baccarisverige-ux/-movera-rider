@@ -1,169 +1,634 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rider/ride%20history/components/appbar.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
-class RideHistory extends StatelessWidget {
+class RideHistory extends StatefulWidget {
   const RideHistory({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(ResSize.h * 70),
-        child: HistoryAppBar(),
+  State<RideHistory> createState() => _RideHistoryState();
+}
+
+class _HistoryRide {
+  const _HistoryRide({
+    required this.title,
+    required this.when,
+    required this.price,
+    required this.image,
+    this.cancelled = false,
+    this.featured = false,
+  });
+
+  final String title;
+  final DateTime when;
+  final double price;
+  final String image;
+  final bool cancelled;
+  final bool featured;
+}
+
+class _RideHistoryState extends State<RideHistory> {
+  static const Color _ink = Color(0xFF1D252C);
+  static const Color _muted = Color(0xFF778189);
+  static const Color _line = Color(0xFFE7EBEE);
+  static const Color _cta = Color(0xFF1F8A4C);
+
+  static final List<_HistoryRide> _past = [
+    _HistoryRide(
+      title: 'Alby Centrum',
+      when: DateTime(2026, 9, 1, 15, 40),
+      price: 211,
+      image: 'assets/images/rides/movera.png',
+      featured: true,
+    ),
+    _HistoryRide(
+      title: 'Klockarvägen 37, Södertälje',
+      when: DateTime(2026, 8, 31, 17, 0),
+      price: 229,
+      image: 'assets/images/rides/comfort.png',
+    ),
+    _HistoryRide(
+      title: 'Alby Centrum',
+      when: DateTime(2026, 8, 24, 17, 31),
+      price: 157,
+      image: 'assets/images/rides/movera.png',
+    ),
+    _HistoryRide(
+      title: 'Alby Centrum',
+      when: DateTime(2026, 8, 24, 17, 22),
+      price: 0,
+      image: 'assets/images/rides/electric.png',
+      cancelled: true,
+    ),
+    _HistoryRide(
+      title: 'Klockarvägen 37, Södertälje',
+      when: DateTime(2026, 8, 17, 17, 10),
+      price: 199,
+      image: 'assets/images/rides/premium.png',
+    ),
+    _HistoryRide(
+      title: 'Bilia Länna Mercedes-Benz',
+      when: DateTime(2026, 6, 3, 16, 29),
+      price: 463,
+      image: 'assets/images/rides/xl.png',
+    ),
+    _HistoryRide(
+      title: 'Bilia Södertälje – Mercedes-Benz',
+      when: DateTime(2025, 10, 29, 14, 10),
+      price: 0,
+      image: 'assets/images/rides/movera.png',
+      cancelled: true,
+    ),
+  ];
+
+  int _tab = 0;
+
+  TextStyle _text(
+    double size, {
+    FontWeight weight = FontWeight.w400,
+    Color color = _ink,
+    double? height,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.poppins(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
+  }
+
+  String _priceLabel(_HistoryRide ride) {
+    if (ride.cancelled) return 'kr 0 · Cancelled';
+    return 'kr ${ride.price.toStringAsFixed(0)}';
+  }
+
+  String _whenLabel(DateTime when) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
+    final minute = when.minute.toString().padLeft(2, '0');
+    final ampm = when.hour >= 12 ? 'PM' : 'AM';
+    return '${months[when.month - 1]} ${when.day} · $hour:$minute $ampm';
+  }
+
+  String _monthTitle(DateTime when) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[when.month - 1]} ${when.year}';
+  }
+
+  Map<String, List<_HistoryRide>> get _groupedPast {
+    final map = <String, List<_HistoryRide>>{};
+    for (final ride in _past) {
+      if (ride.featured) continue;
+      map.putIfAbsent(_monthTitle(ride.when), () => []).add(ride);
+    }
+    return map;
+  }
+
+  void _openSchedule() {
+    Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
+  }
+
+  void _showHowItWorks() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      body: SingleChildScrollView(
-        physics: BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            Container(
-              height: ResSize.h * 6,
-              width: double.infinity,
-              color: Color(0xffFAFAFA),
-            ),
-            16.height,
-            ListView.builder(
-              itemCount: 10,
-              shrinkWrap: true,
-              clipBehavior: Clip.none,
-              padding: EdgeInsets.all(0),
-              physics: NeverScrollableScrollPhysics(),
-              itemBuilder: (BuildContext context, int index) {
-                return Padding(
-                  padding: EdgeInsets.only(
-                    top: index == 0 ? 0 : ResSize.h * 16,
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: _line,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: screenHorizPadding,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Image.asset(
-                              AppAssets.hisImg,
-                              height: ResSize.h * 50,
-                              width: ResSize.w * 54,
-                            ),
-                            8.width,
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextWidget(
-                                    text: "Skypulse solution pvt",
-                                    color: AppColor.black,
-                                    fontSize: 16,
-                                    fontWeight: fwSemiBold,
-                                  ),
-                                  4.height,
-                                  Row(
-                                    children: [
-                                      TextWidget(
-                                        text: "Ride - ",
-                                        color: AppColor.subtitle,
-                                        fontSize: 14,
-                                        fontWeight: fwMedium,
-                                      ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: ResSize.w * 7,
-                                        ),
-                                        height: ResSize.h * 21,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          color: AppColor.green,
-                                        ),
-                                        child: Center(
-                                          child: TextWidget(
-                                            text: "Completed",
-                                            color: AppColor.white,
-                                            fontSize: 12,
-                                            fontWeight: fwBold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  14.height,
-                                  Divider(
-                                    color: AppColor.border,
-                                    thickness: 0.2,
-                                    height: 0,
-                                  ),
-                                  9.height,
-                                  Row(
-                                    children: [
-                                      // 62.width,
-                                      TextWidget(
-                                        text: "5.6 km",
-                                        color: AppColor.subtitle,
-                                        fontSize: 12,
-                                        fontWeight: fwSemiBold,
-                                      ),
-                                      14.width,
-                                      SizedBox(
-                                        width: ResSize.w * 6,
-                                        child: Divider(
-                                          color: AppColor.border,
-                                          height: 0,
-                                          thickness: 2,
-                                        ),
-                                      ),
-                                      14.width,
-                                      TextWidget(
-                                        text: "\$12.00",
-                                        color: AppColor.subtitle,
-                                        fontSize: 12,
-                                        fontWeight: fwSemiBold,
-                                      ),
-                                      12.width,
-                                      SizedBox(
-                                        width: ResSize.w * 6,
-                                        child: Divider(
-                                          color: AppColor.border,
-                                          height: 0,
-                                          thickness: 2,
-                                        ),
-                                      ),
-                                      12.width,
-                                      TextWidget(
-                                        text: "20 Jun, 10:30 AM",
-                                        color: AppColor.subtitle,
-                                        fontSize: 12,
-                                        fontWeight: fwSemiBold,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      16.height,
-                      Container(
-                        height: ResSize.h * 6,
-                        width: double.infinity,
-                        color: Color(0xffFAFAFA),
-                      ),
-                    ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Scheduled rides',
+                style: _text(20, weight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Pick a time in advance, lock in your fare, and a driver will meet you when you need to leave.',
+                style: _text(14, color: _muted, height: 1.45),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openSchedule();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _cta,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(26),
+                    ),
                   ),
-                );
-              },
+                  child: Text(
+                    'Schedule a ride',
+                    style: _text(16, weight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: top + 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _showHowItWorks,
+                  icon: const Icon(Icons.info_outline_rounded, color: _ink),
+                ),
+              ],
             ),
-          ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+            child: Text(
+              'Rides',
+              style: _text(34, weight: FontWeight.w700, letterSpacing: -0.8),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                _tabLabel('Upcoming', 0),
+                const SizedBox(width: 22),
+                _tabLabel('Past', 1),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: _line),
+          Expanded(
+            child: _tab == 0 ? _upcoming() : _pastList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabLabel(String label, int index) {
+    final selected = _tab == index;
+    return GestureDetector(
+      onTap: () => setState(() => _tab = index),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10, top: 6),
+            child: Text(
+              label,
+              style: _text(
+                15.5,
+                weight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? _ink : _muted,
+              ),
+            ),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            height: 3,
+            width: selected ? 78 : 0,
+            decoration: BoxDecoration(
+              color: _cta,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _upcoming() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        children: [
+          const Spacer(),
+          const _CalendarMark(),
+          const SizedBox(height: 28),
+          Text(
+            'No upcoming rides',
+            style: _text(22, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Whatever is on your schedule, a Scheduled Ride can get you there on time',
+            textAlign: TextAlign.center,
+            style: _text(14.5, color: _muted, height: 1.45),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: _showHowItWorks,
+            child: Text(
+              'Learn how it works',
+              style: _text(15, weight: FontWeight.w600, color: _cta),
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton(
+              onPressed: _openSchedule,
+              style: FilledButton.styleFrom(
+                backgroundColor: _cta,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+              ),
+              child: Text(
+                'Schedule a ride',
+                style: _text(16.5, weight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pastList() {
+    final featured = _past.where((ride) => ride.featured).toList();
+    final grouped = _groupedPast;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+      children: [
+        if (featured.isNotEmpty) ...[
+          _featuredCard(featured.first),
+          const SizedBox(height: 28),
+        ],
+        for (final entry in grouped.entries) ...[
+          Text(
+            entry.key,
+            style: _text(18, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          for (final ride in entry.value) _rideRow(ride),
+          const SizedBox(height: 18),
+        ],
+      ],
+    );
+  }
+
+  Widget _featuredCard(_HistoryRide ride) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 148,
+            width: double.infinity,
+            child: CustomPaint(painter: _MiniRoutePainter()),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(ride.title, style: _text(18, weight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(_whenLabel(ride.when), style: _text(13.5, color: _muted)),
+                const SizedBox(height: 2),
+                Text(_priceLabel(ride), style: _text(13.5, color: _muted)),
+                const SizedBox(height: 14),
+                _rebookChip(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rideRow(_HistoryRide ride) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(6),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    ride.image,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(
+                      ride.cancelled
+                          ? Icons.no_crash_outlined
+                          : Icons.directions_car_filled_rounded,
+                      color: _muted,
+                    ),
+                  ),
+                ),
+                if (ride.cancelled)
+                  const Align(
+                    alignment: Alignment.topRight,
+                    child: Icon(Icons.schedule, size: 14, color: _ink),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ride.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: _text(15, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  ride.cancelled
+                      ? '${_whenLabel(ride.when)} · Cancelled'
+                      : _whenLabel(ride.when),
+                  style: _text(12.5, color: _muted),
+                ),
+                Text(
+                  _priceLabel(ride),
+                  style: _text(12.5, color: _muted),
+                ),
+              ],
+            ),
+          ),
+          _rebookChip(),
+        ],
+      ),
+    );
+  }
+
+  Widget _rebookChip() {
+    return Material(
+      color: const Color(0xFFF3F4F5),
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: () => Navigator.pop(context),
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.replay_rounded, size: 16, color: _ink),
+              const SizedBox(width: 6),
+              Text('Rebook', style: _text(13, weight: FontWeight.w600)),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _CalendarMark extends StatelessWidget {
+  const _CalendarMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 148,
+      height: 148,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 108,
+            height: 118,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF162C36).withOpacity(0.12),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1D252C),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: GridView.count(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: List.generate(8, (index) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: index == 5
+                                ? const Color(0xFF1F8A4C)
+                                : const Color(0xFFF1F3F4),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Positioned(
+            left: 8,
+            top: 18,
+            child: CircleAvatar(
+              radius: 28,
+              backgroundColor: Color(0xFF1F8A4C),
+              child: Icon(Icons.schedule_rounded, color: Colors.white, size: 30),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniRoutePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sky = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFDCE8DE), Color(0xFFEEF3E8)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, sky);
+
+    final water = Paint()..color = const Color(0xFFC5D7E6);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(size.width * 0.12, size.height * 0.18, size.width * 0.5, 26),
+        const Radius.circular(16),
+      ),
+      water,
+    );
+
+    final path = Path()
+      ..moveTo(size.width * 0.16, size.height * 0.72)
+      ..quadraticBezierTo(
+        size.width * 0.46,
+        size.height * 0.2,
+        size.width * 0.86,
+        size.height * 0.42,
+      );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF1D252C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.16, size.height * 0.72),
+      7,
+      Paint()..color = const Color(0xFF1D252C),
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.16, size.height * 0.72),
+      3.2,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset(size.width * 0.86, size.height * 0.42),
+        width: 11,
+        height: 11,
+      ),
+      Paint()..color = const Color(0xFF1D252C),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
