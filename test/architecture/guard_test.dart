@@ -135,8 +135,11 @@ void main() {
     expect(html.contains('moveraInjectHeading'), isTrue);
     expect(html.contains('moveraStopHeading'), isTrue);
     expect(html.contains('moveraArmHeadingFromGesture'), isTrue);
+    expect(html.contains('moveraRequestHeadingFromGesture'), isTrue);
+    expect(html.contains("addEventListener('pointerdown', arm, true)"), isTrue);
+    expect(html.contains("addEventListener('touchstart', arm, true)"), isTrue);
     expect(html.contains("addEventListener('touchend', arm, true)"), isTrue);
-    expect(html.contains('DeviceOrientationEvent.requestPermission'), isTrue);
+    expect(html.contains('DeviceOrientationEvent.requestPermission().then'), isTrue);
     expect(html.contains('webkitCompassHeading'), isTrue);
     expect(html.contains('moveraScreenAngle'), isTrue);
   });

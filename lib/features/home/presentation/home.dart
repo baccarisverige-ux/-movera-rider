@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -64,6 +65,9 @@ class _HomeState extends State<Home> {
   late bool _promotionVisible = _promos.homeCampaign().active;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
+  ui.Image? _puckCompactImage;
+  ui.Image? _puckExpandedImage;
+  int _webPuckPaintGen = 0;
 
   static const double _sheetMinHeight = 184;
   static const double _sheetPromoMinHeight = 244;
@@ -226,6 +230,8 @@ class _HomeState extends State<Home> {
   void dispose() {
     _sheetIdleTimer?.cancel();
     _locationCtl.dispose();
+    _puckCompactImage?.dispose();
+    _puckExpandedImage?.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.home);
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
@@ -1725,6 +1731,11 @@ class _HomeState extends State<Home> {
       width.toInt(),
       height.toInt(),
     );
+    if (expanded) {
+      _puckExpandedImage = image;
+    } else {
+      _puckCompactImage = image;
+    }
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
   }
@@ -1734,17 +1745,61 @@ class _HomeState extends State<Home> {
     _locationPuckExpanded ??= await _buildLocationPuckIcon(true);
   }
 
+  Future<BitmapDescriptor?> _webRotatedPuck({
+    required bool expanded,
+    required double heading,
+  }) async {
+    final src = expanded ? _puckExpandedImage : _puckCompactImage;
+    if (src == null) return null;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final cx = src.width * 0.5;
+    final cy = src.height * 0.66;
+    canvas
+      ..translate(cx, cy)
+      ..rotate(heading * math.pi / 180)
+      ..translate(-cx, -cy)
+      ..drawImage(src, Offset.zero, Paint());
+    final image = await recorder.endRecording().toImage(src.width, src.height);
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (data == null) return null;
+    return BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+  }
+
   void _updateLocationVisuals() {
     final target = _currentLatLng;
-    final icon = _locationPulseExpanded
-        ? _locationPuckExpanded
-        : _locationPuckCompact;
+    final expanded = _locationPulseExpanded;
+    final icon = expanded ? _locationPuckExpanded : _locationPuckCompact;
     if (!mounted || target == null || icon == null) return;
+    final heading = _locationHeading;
+    if (kIsWeb) {
+      _paintWebPuck(target: target, expanded: expanded, heading: heading);
+      return;
+    }
     setState(() {
       _locationCtl.paintUserPuck(
         target: target,
         icon: icon,
-        heading: _locationHeading,
+        heading: heading,
+      );
+    });
+  }
+
+  Future<void> _paintWebPuck({
+    required LatLng target,
+    required bool expanded,
+    required double heading,
+  }) async {
+    final gen = ++_webPuckPaintGen;
+    final rotated = await _webRotatedPuck(expanded: expanded, heading: heading);
+    if (!mounted || gen != _webPuckPaintGen) return;
+    setState(() {
+      _locationCtl.paintUserPuck(
+        target: target,
+        icon: rotated ??
+            (expanded ? _locationPuckExpanded : _locationPuckCompact)!,
+        heading: rotated == null ? heading : 0,
       );
     });
   }

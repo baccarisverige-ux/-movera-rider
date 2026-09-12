@@ -134,6 +134,7 @@
     window.moveraHeadingPermission = 'auto';
     window._moveraSawAbsolute = false;
     window._moveraHeadingArmed = false;
+    window._moveraGestureAsked = false;
 
     window.moveraWrapHeading = function(value) {
       var heading = Number(value) % 360;
@@ -172,6 +173,14 @@
       window.moveraDeviceHeading = heading;
     };
 
+    window.moveraAttachHeadingListeners = function() {
+      window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+      window.removeEventListener('deviceorientation', window._moveraOnOrientation, true);
+      window.addEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+      window.addEventListener('deviceorientation', window._moveraOnOrientation, true);
+      window.moveraHeadingListenerCount = 2;
+    };
+
     window.moveraStopHeading = function() {
       if (window._moveraOnOrientation) {
         window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
@@ -190,26 +199,62 @@
       return window.moveraDeviceHeading;
     };
 
-    window.moveraStartHeading = async function() {
+    window.moveraNeedsOrientationPermission = function() {
+      return typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function';
+    };
+
+    // iOS requires requestPermission() to be invoked synchronously from a
+    // real browser gesture. Flutter canvas taps are not trusted, so this is
+    // armed on capture-phase pointer/touch/click.
+    window.moveraRequestHeadingFromGesture = function() {
+      if (window.moveraHeadingStarted || window._moveraGestureAsked) return;
+      window._moveraGestureAsked = true;
+      try {
+        if (window.moveraNeedsOrientationPermission()) {
+          DeviceOrientationEvent.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+              window.moveraHeadingPermission = 'granted';
+              window.moveraAttachHeadingListeners();
+              window.moveraHeadingStarted = true;
+            } else {
+              window.moveraHeadingPermission = 'denied';
+            }
+          }).catch(function() {
+            window.moveraHeadingPermission = 'denied';
+          });
+          return;
+        }
+      } catch (_) {}
+      window.moveraStartHeading({fromGesture: true});
+    };
+
+    window.moveraStartHeading = async function(opts) {
+      var fromGesture = !!(opts && opts.fromGesture);
       if (window.moveraHeadingStarted) return true;
+      if (window.moveraHeadingPermission === 'denied') return false;
+      if (window.moveraNeedsOrientationPermission() &&
+          !fromGesture &&
+          window.moveraHeadingPermission !== 'granted') {
+        // Do not call requestPermission outside a user gesture. Dart/Home
+        // startup would steal the iPhone prompt and fail.
+        return false;
+      }
       if (window.moveraHeadingStartPromise) return window.moveraHeadingStartPromise;
       window.moveraHeadingStartPromise = (async function() {
         try {
-          if (typeof DeviceOrientationEvent === 'undefined' && window.moveraHeadingPermission !== 'granted') {
+          if (typeof DeviceOrientationEvent === 'undefined' &&
+              window.moveraHeadingPermission !== 'granted') {
             return false;
           }
           if (window.moveraHeadingPermission === 'denied') return false;
-          if (window.moveraHeadingPermission !== 'granted' &&
-              typeof DeviceOrientationEvent !== 'undefined' &&
-              typeof DeviceOrientationEvent.requestPermission === 'function') {
+          if (window.moveraNeedsOrientationPermission() &&
+              window.moveraHeadingPermission !== 'granted') {
             var permission = await DeviceOrientationEvent.requestPermission();
             if (permission !== 'granted') return false;
+            window.moveraHeadingPermission = 'granted';
           }
-          window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
-          window.removeEventListener('deviceorientation', window._moveraOnOrientation, true);
-          window.addEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
-          window.addEventListener('deviceorientation', window._moveraOnOrientation, true);
-          window.moveraHeadingListenerCount = 2;
+          window.moveraAttachHeadingListeners();
           window.moveraHeadingStarted = true;
           return true;
         } catch (_) {
@@ -221,22 +266,25 @@
       return started;
     };
 
-    // iPhone Safari only grants DeviceOrientationEvent from a real browser
-    // gesture. Flutter canvas taps are not trusted. First native touch/click
-    // on Home (including the existing recenter control) requests permission
-    // without adding a new UI.
     window.moveraArmHeadingFromGesture = function() {
       if (window._moveraHeadingArmed) return;
       window._moveraHeadingArmed = true;
       var arm = function() {
+        window.removeEventListener('pointerdown', arm, true);
+        window.removeEventListener('touchstart', arm, true);
         window.removeEventListener('touchend', arm, true);
         window.removeEventListener('click', arm, true);
-        window.moveraStartHeading();
+        window.moveraRequestHeadingFromGesture();
       };
+      window.addEventListener('pointerdown', arm, true);
+      window.addEventListener('touchstart', arm, true);
       window.addEventListener('touchend', arm, true);
       window.addEventListener('click', arm, true);
     };
     window.moveraArmHeadingFromGesture();
+    window.addEventListener('pagehide', function() {
+      window.moveraStopHeading();
+    });
 
     window.moveraGeocodeAddress = async function(address) {
       var clean = String(address || '').trim();
