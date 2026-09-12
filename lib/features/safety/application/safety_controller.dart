@@ -96,6 +96,17 @@ class SafetyController extends ChangeNotifier {
   String rideCheckStatusLabel() =>
       rideCheckPolicy.enabled ? 'On' : 'Off';
 
+  void _publishSnapshot() {
+    reportSafetySnapshot(
+      jsonEncode({
+        'pinRequired': preferences.pinRequired,
+        'contacts': contacts.length,
+        'tripShareEnabled': preferences.tripShareEnabled,
+        'rideCheckEnabled': rideCheckPolicy.enabled,
+      }),
+    );
+  }
+
   void record(SafetyKind kind, {String? rideId}) {
     _events.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
   }
@@ -108,6 +119,7 @@ class SafetyController extends ChangeNotifier {
   Future<void> load() async {
     loading = true;
     error = null;
+    _publishSnapshot();
     notifyListeners();
     try {
       await _session.load();
@@ -115,14 +127,7 @@ class SafetyController extends ChangeNotifier {
         'contacts': contacts.length,
         'pinRequired': preferences.pinRequired,
       });
-      reportSafetySnapshot(
-        jsonEncode({
-          'pinRequired': preferences.pinRequired,
-          'contacts': contacts.length,
-          'tripShareEnabled': preferences.tripShareEnabled,
-          'rideCheckEnabled': rideCheckPolicy.enabled,
-        }),
-      );
+      _publishSnapshot();
       final pending = pendingRideCheckType();
       if (pending != null && pending.isNotEmpty) {
         final type = RideCheckEventType.values.firstWhere(
