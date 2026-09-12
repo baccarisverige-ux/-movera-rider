@@ -1,9 +1,28 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  AppLog.info('app.start');
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    AppLog.fatal(
+      'flutter.error',
+      error: details.exception,
+      stackTrace: details.stack,
+      extra: {'library': details.library ?? ''},
+    );
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    AppLog.fatal('platform.error', error: error, stackTrace: stack);
+    return true;
+  };
+
+  AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
   runApp(const MoveraApp());
 }

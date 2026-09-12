@@ -95,10 +95,10 @@ Already removed in earlier work: old Help wrapper, old Trips list, old History a
 - Auth screens (Sign in / Create account / Phone) — current login UI, not a duplicate of a new screen.
 - Folder names with spaces (`select ride`, `Finding Drivers`) — rename is a later dedicated commit.
 
-## Next architecture steps (later commits, one each)
+## Executed this pass (UI frozen)
 
-1. Extract map geocoding/camera into `core/maps` without changing Home visuals.
-2. Move voucher catalog into `features/wallet/domain` without changing Wallet UI.
-3. Typed routes for Home → SelectRide → FindingDrivers.
-4. Remote quotes replacing local fare math.
-5. Snake_case folder rename pass.
+Core maps/location/motion/api/realtime/auth/errors, ride state machine with
+validated transitions, wallet ledger, quote + payment repositories, design
+tokens, crash handlers, unit tests, architecture CI, and a mock `/api/v1`
+backend + SQL schema. Approved screens were not restyled or moved.
+

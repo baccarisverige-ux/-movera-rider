@@ -1,0 +1,24 @@
+name: Architecture gates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/architecture-gates.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze lib/app lib/core lib/features/ride_booking lib/features/wallet/domain lib/features/payments lib/features/promotions lib/shared/design_system
+      - run: flutter test test/motion test/ride test/wallet
