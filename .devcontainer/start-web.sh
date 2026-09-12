@@ -8,6 +8,11 @@ if curl -fsS http://127.0.0.1:8080 >/dev/null 2>&1; then
   exit 0
 fi
 
+if [ -z "${MAPS1:-}" ] && [ -z "${MAPS_WEB_API_KEY:-}" ]; then
+  echo "WARNING: No MAPS1/MAPS_WEB_API_KEY Codespaces secret is available."
+  echo "Flutter will still start, but the Google Map can be blank until the Maps browser key is added to Codespaces."
+fi
+
 nohup flutter run \
   -d web-server \
   --web-hostname 0.0.0.0 \
