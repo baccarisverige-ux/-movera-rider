@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/rating/application/rating_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -15,6 +16,7 @@ class RideCompletedGiveReview extends StatefulWidget {
 }
 
 class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
+  final RatingController _ratingCtl = RatingController();
   double _rating = 2.0;
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,7 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
             itemBuilder: (context, _) =>
                 Icon(Icons.star_rounded, color: Color(0xffF99417)),
             onRatingUpdate: (rating) {
+              _ratingCtl.set(rating);
               setState(() {
                 _rating = rating;
               });

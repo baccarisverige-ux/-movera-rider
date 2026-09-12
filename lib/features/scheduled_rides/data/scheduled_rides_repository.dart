@@ -1,8 +1,15 @@
-abstract class ScheduledRidesRepository {
-  Future<void> refresh();
-}
-
-class LocalScheduledRidesRepository implements ScheduledRidesRepository {
-  @override
-  Future<void> refresh() async {}
+class CancelReasonCatalog {
+  List<String> all() => const [
+        'Change of plans',
+        'Found cheaper ride',
+        'Unable to contact driver',
+        'Incorrect pickup location',
+        'Payment issues',
+        'Duplicate booking by mistake',
+        'Driver asked to cancel',
+        'Emergency or urgent matter',
+        'Weather conditions',
+        'Ride no longer needed',
+        'Other',
+      ];
 }

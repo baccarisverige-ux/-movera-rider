@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat_appbar.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
@@ -17,8 +18,7 @@ class Chat extends StatefulWidget {
 
 class _ChatState extends State<Chat> {
   final TextEditingController _messageController = TextEditingController();
-
-  final List<Widget> _messages = [];
+  final MessagesController _chat = MessagesController();
   bool showSendIcon = false;
 
   @override
@@ -33,15 +33,7 @@ class _ChatState extends State<Chat> {
 
   // Function to send message
   void _sendMessage() {
-    if (_messageController.text.trim().isEmpty) {
-      return; // Don't send if text is empty
-    }
-
-    if (_messages.length.isEven) {
-      _messages.add(SenderMessage(text: _messageController.text));
-    } else {
-      _messages.add(ReceiverMessage(text: _messageController.text));
-    }
+    if (!_chat.send(_messageController.text)) return;
     setState(() {});
     _messageController.clear();
   }
@@ -65,7 +57,13 @@ class _ChatState extends State<Chat> {
                   return SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: _messages,
+                      children: _chat.messages
+                          .map(
+                            (message) => message.fromRider
+                                ? SenderMessage(text: message.text)
+                                : ReceiverMessage(text: message.text),
+                          )
+                          .toList(),
                     ),
                   );
                 },

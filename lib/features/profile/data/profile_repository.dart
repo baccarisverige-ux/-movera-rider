@@ -1,8 +1,3 @@
-abstract class ProfileRepository {
-  Future<void> refresh();
-}
-
-class LocalProfileRepository implements ProfileRepository {
-  @override
-  Future<void> refresh() async {}
+class ProfileRepository {
+  String displayName() => 'Ben Gleason';
 }

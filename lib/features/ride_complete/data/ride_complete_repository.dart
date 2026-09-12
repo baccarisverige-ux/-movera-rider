@@ -1,8 +1,3 @@
-abstract class RideCompleteRepository {
-  Future<void> refresh();
-}
-
-class LocalRideCompleteRepository implements RideCompleteRepository {
-  @override
-  Future<void> refresh() async {}
+class TipCatalog {
+  List<String> amounts() => const ['\$1', '\$2', '\$5'];
 }

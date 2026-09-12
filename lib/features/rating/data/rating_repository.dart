@@ -1,8 +1,7 @@
-abstract class RatingRepository {
-  Future<void> refresh();
-}
+class RatingRepository {
+  double last = 2;
 
-class LocalRatingRepository implements RatingRepository {
-  @override
-  Future<void> refresh() async {}
+  void set(double value) {
+    last = value;
+  }
 }
