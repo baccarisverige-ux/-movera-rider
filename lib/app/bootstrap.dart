@@ -26,5 +26,13 @@ Future<void> bootstrap() async {
 
   AppScope.instance.lifecycle.attach();
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
-  runApp(const MoveraApp());
+
+  runZonedGuarded(
+    () {
+      runApp(const MoveraApp());
+    },
+    (error, stack) {
+      AppLog.fatal('zone.error', error: error, stackTrace: stack);
+    },
+  );
 }

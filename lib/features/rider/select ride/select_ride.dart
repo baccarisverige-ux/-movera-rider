@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -562,6 +563,7 @@ class _SelectRideState extends State<SelectRide>
     _withParkedMap(() async {
       if (!mounted) return;
       final rideId = newRequestId();
+      Analytics.bookingSubmitted(rideId: rideId);
       AppScope.instance.ride.restoreFromBackend(
         RideStatus.findingDriver,
         id: rideId,

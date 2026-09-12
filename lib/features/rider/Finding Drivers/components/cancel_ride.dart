@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -188,6 +189,7 @@ class _RideCancellationDialogState extends State<RideCancellationDialog> {
             // Search again button
             InkWell(
               onTap: () {
+                Analytics.rideCancelled();
                 RideSnapshotStore.clear();
                 Navigator.of(context).popUntil((route) => route.isFirst);
               },

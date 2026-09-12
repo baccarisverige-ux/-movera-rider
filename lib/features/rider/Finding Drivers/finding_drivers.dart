@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -65,6 +66,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     Future.delayed(Duration(seconds: 12), () {
       if (mounted) {
         AppScope.instance.ride.restoreFromBackend(RideStatus.driverAssigned);
+        Analytics.driverFound(rideId: AppScope.instance.ride.rideId);
         RideSnapshotStore.save(
           RideSnapshot(
             status: RideStatus.driverAssigned,
