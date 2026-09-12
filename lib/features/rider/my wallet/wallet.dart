@@ -6,8 +6,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 class WalletHome extends StatefulWidget {
   const WalletHome({super.key});
 
@@ -250,7 +248,7 @@ class _WalletHomeState extends State<WalletHome> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F1),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,7 +274,16 @@ class _WalletHomeState extends State<WalletHome> {
                   const SizedBox(width: 42),
                 ],
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 168,
+                width: double.infinity,
+                child: Image.asset(
+                  'assets/images/wallet_rider_3d.jpg',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              const SizedBox(height: 8),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
