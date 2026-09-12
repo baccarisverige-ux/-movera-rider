@@ -80,7 +80,7 @@ void main() {
 
   test('presentation does not import feature data repositories', () {
     final banned = RegExp(
-      r"package:movera_rider/features/[^'\"]+/data/",
+      r'package:movera_rider/features/[^/]+/data/',
     );
     for (final file in presentation()) {
       final src = file.readAsStringSync();

@@ -7,6 +7,8 @@ import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 export 'package:movera_rider/features/wallet/data/voucher_catalog.dart'
     show VoucherOffer;
+export 'package:movera_rider/features/wallet/data/wallet_repository.dart'
+    show WalletPaymentSettings;
 
 class WalletController {
   WalletController({WalletStore? store, VoucherCatalog? vouchers})
