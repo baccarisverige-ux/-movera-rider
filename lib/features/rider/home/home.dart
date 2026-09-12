@@ -2086,7 +2086,7 @@ class _HomeState extends State<Home> {
     final fullSheetPixels = viewportHeight - topInset;
 
     return Scaffold(
-      drawer: const RiderSideMenu(),
+      drawer: RiderSideMenu(),
       drawerScrimColor: Colors.black.withOpacity(0.38),
       body: Listener(
         behavior: HitTestBehavior.translucent,

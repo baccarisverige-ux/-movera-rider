@@ -40,13 +40,13 @@ class RiderProfile extends StatelessWidget {
         topLeft: Radius.circular(21),
         topRight: Radius.circular(21),
       ),
-      panelBuilder: (ScrollController sc) => panelColumn(sc),
+      panelBuilder: (ScrollController sc) => panelColumn(sc, context),
       // panelBuilder: (ScrollController sc) => panelColumn(sc, context),
       // body: widget.body,
     );
   }
 
-  Widget panelColumn(ScrollController sc) {
+  Widget panelColumn(ScrollController sc, BuildContext context) {
     return SingleChildScrollView(
       controller: sc,
       child: Column(
