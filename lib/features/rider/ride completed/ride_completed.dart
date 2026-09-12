@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/rider/ride%20completed/components/add_tip.dart';
 import 'package:movera_rider/features/rider/ride%20completed/components/driver_info.dart';
 import 'package:movera_rider/features/rider/ride%20completed/components/give_review.dart';
@@ -16,6 +19,8 @@ class RideCompleted extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    RideSnapshotStore.clear();
+    AppScope.instance.ride.restoreFromBackend(RideStatus.closed);
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(

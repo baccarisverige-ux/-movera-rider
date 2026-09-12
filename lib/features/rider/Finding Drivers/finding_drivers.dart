@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/rider/Finding%20Drivers/components/cancel_ride.dart';
 import 'package:movera_rider/features/rider/waiting%20for%20driver/waiting_for_driver.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
@@ -57,10 +60,27 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
     _loadMarkers();
     _startCountdown();
+    AppScope.instance.ride.restoreFromBackend(RideStatus.findingDriver);
 
-    // Navigate after 12 seconds (you can adjust this)
     Future.delayed(Duration(seconds: 12), () {
       if (mounted) {
+        AppScope.instance.ride.restoreFromBackend(RideStatus.driverAssigned);
+        RideSnapshotStore.save(
+          RideSnapshot(
+            status: RideStatus.driverAssigned,
+            savedAt: DateTime.now(),
+            pickupAddress: widget.pickupAddress,
+            destinationAddress: widget.destinationAddress,
+            pickupLat: widget.pickupPosition.latitude,
+            pickupLng: widget.pickupPosition.longitude,
+            destinationLat: widget.destinationPosition.latitude,
+            destinationLng: widget.destinationPosition.longitude,
+            rideType: widget.rideType,
+            price: widget.price,
+            paymentMethod: widget.paymentMethod,
+            rideId: AppScope.instance.ride.rideId,
+          ),
+        );
         Navigator.push(
           context,
           BottomToTopTransition(

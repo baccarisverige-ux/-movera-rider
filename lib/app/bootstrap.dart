@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/app.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 
 Future<void> bootstrap() async {
@@ -23,6 +24,7 @@ Future<void> bootstrap() async {
     return true;
   };
 
+  AppScope.instance.lifecycle.attach();
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
   runApp(const MoveraApp());
 }

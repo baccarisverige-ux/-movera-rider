@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _VoucherOffer {
@@ -264,8 +266,19 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _saveBalance(double value) async {
+    final delta = value - _balance;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_balanceKey, value);
+    if (delta != 0) {
+      AppScope.instance.wallet.add(
+        WalletEntry(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          kind: delta > 0 ? WalletEntryKind.credit : WalletEntryKind.ride,
+          amountMinor: (delta * 100).round(),
+          at: DateTime.now(),
+        ),
+      );
+    }
     if (!mounted) return;
     setState(() => _balance = value);
   }

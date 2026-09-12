@@ -11,9 +11,17 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/core/location/location_point.dart';
+import 'package:movera_rider/core/maps/camera_mode.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/rider/Finding%20Drivers/finding_drivers.dart';
 import 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
 import 'package:movera_rider/features/rider/profile/profile.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
@@ -66,6 +74,7 @@ class _HomeState extends State<Home> {
   Timer? _locationPulseTimer;
   Timer? _headingTimer;
   StreamSubscription<Position>? _positionSubscription;
+  final StaleGuard _geoGuard = StaleGuard();
   bool _locationPulseExpanded = false;
   double _locationHeading = 0;
   bool _hasCompassHeading = false;
@@ -210,6 +219,9 @@ class _HomeState extends State<Home> {
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreActiveRide();
+    });
   }
 
   @override
@@ -218,6 +230,9 @@ class _HomeState extends State<Home> {
     _locationPulseTimer?.cancel();
     _headingTimer?.cancel();
     _positionSubscription?.cancel();
+    _geoGuard.dispose();
+    AppScope.instance.mapLifecycle.dispose();
+    AppScope.instance.maps.detach();
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
       ..dispose();
@@ -289,6 +304,38 @@ class _HomeState extends State<Home> {
     );
   }
 
+  Future<void> _restoreActiveRide() async {
+    final snapshot = await RideSnapshotStore.read();
+    if (snapshot == null || !mounted) return;
+    AppScope.instance.ride.restoreFromBackend(
+      snapshot.status,
+      id: snapshot.rideId,
+    );
+    if (snapshot.status != RideStatus.findingDriver &&
+        snapshot.status != RideStatus.driverAssigned &&
+        snapshot.status != RideStatus.driverArriving &&
+        snapshot.status != RideStatus.bookingRequested) {
+      return;
+    }
+    await Navigator.push(
+      context,
+      BottomToTopTransition(
+        FindingDrivers(
+          pickupAddress: snapshot.pickupAddress,
+          destinationAddress: snapshot.destinationAddress,
+          pickupPosition: LatLng(snapshot.pickupLat, snapshot.pickupLng),
+          destinationPosition: LatLng(
+            snapshot.destinationLat,
+            snapshot.destinationLng,
+          ),
+          rideType: snapshot.rideType,
+          price: snapshot.price,
+          paymentMethod: snapshot.paymentMethod,
+        ),
+      ),
+    );
+  }
+
   Future<void> _detectCurrentAddress() async {
     if (mounted) setState(() => _findingLocation = true);
     try {
@@ -312,10 +359,12 @@ class _HomeState extends State<Home> {
           timeLimit: Duration(seconds: 15),
         ),
       );
+      final generation = _geoGuard.next();
       final detectedAddress = await address_service.reverseGeocodeAddress(
         position.latitude,
         position.longitude,
       );
+      if (!_geoGuard.isCurrent(generation)) return;
       final address = detectedAddress?.trim().isNotEmpty == true
           ? detectedAddress!.trim()
           : 'Current location';
@@ -389,7 +438,9 @@ class _HomeState extends State<Home> {
   Future<String> _normaliseAddress(String input) async {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
+    final generation = _geoGuard.next();
     final result = await address_service.geocodeAddress(clean);
+    if (!_geoGuard.isCurrent(generation)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
         : clean;
@@ -561,6 +612,8 @@ class _HomeState extends State<Home> {
     final parkedNow = !_homeMapParked;
     if (parkedNow) {
       setState(() => _homeMapParked = true);
+      AppScope.instance.mapLifecycle.park();
+      AppScope.instance.maps.detach();
       _mapController = null;
       await Future<void>.delayed(const Duration(milliseconds: 80));
       if (!mounted) return null;
@@ -569,6 +622,7 @@ class _HomeState extends State<Home> {
       return await action();
     } finally {
       if (parkedNow && mounted) {
+        AppScope.instance.mapLifecycle.resume();
         setState(() => _homeMapParked = false);
       }
     }
@@ -1872,7 +1926,18 @@ class _HomeState extends State<Home> {
           position,
         ) {
           if (!mounted) return;
-          _currentLatLng = LatLng(position.latitude, position.longitude);
+          final motion = AppScope.instance.motion.ingest(
+            LocationPoint(
+              point: GeoPoint(position.latitude, position.longitude),
+              timestamp: position.timestamp,
+              accuracyMeters: position.accuracy,
+              speedMps: position.speed,
+              heading: position.heading,
+            ),
+          );
+          _currentLatLng = motion == null
+              ? LatLng(position.latitude, position.longitude)
+              : LatLng(motion.position.latitude, motion.position.longitude);
           // GPS course is only a fallback. It must never overwrite the live
           // compass while the user is stationary or moving slowly.
           if (!_hasCompassHeading &&
@@ -1911,12 +1976,16 @@ class _HomeState extends State<Home> {
     );
     final shouldShow = camera.zoom < 15.5 || distance > 35;
     if (shouldShow != _showRecenterButton && mounted) {
+      AppScope.instance.maps.mode = shouldShow
+          ? CameraMode.free
+          : CameraMode.followUser;
       setState(() => _showRecenterButton = shouldShow);
     }
   }
 
   Future<void> _recenterOnUser() async {
     _startHeadingTracking();
+    AppScope.instance.maps.mode = CameraMode.followUser;
     var target = _currentLatLng;
     try {
       final position = await Geolocator.getCurrentPosition(
@@ -2123,6 +2192,8 @@ class _HomeState extends State<Home> {
                             onCameraMove: _handleMapCameraMove,
                             onMapCreated: (GoogleMapController controller) {
                               _mapController = controller;
+                              AppScope.instance.maps.attach(controller);
+                              AppScope.instance.mapLifecycle.created();
                               final target = _currentLatLng;
                               if (target != null) {
                                 controller.animateCamera(

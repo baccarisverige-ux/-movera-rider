@@ -43,7 +43,7 @@ class ApiClient {
       };
       late http.Response response;
       if (method == 'GET') {
-        response = await _client.get(uri, headers: headers).timeout(_timeout);
+        response = await _getWithRetry(uri, headers);
       } else {
         response = await _client
             .post(uri, headers: headers, body: jsonEncode(body ?? {}))
@@ -65,5 +65,20 @@ class ApiClient {
       AppLog.error('api.timeout', extra: {'path': path, 'requestId': requestId});
       throw ApiError(code: 'TIMEOUT', message: 'Request timed out', requestId: requestId);
     }
+  }
+
+  Future<http.Response> _getWithRetry(
+    Uri uri,
+    Map<String, String> headers,
+  ) async {
+    Object? lastError;
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await _client.get(uri, headers: headers).timeout(_timeout);
+      } on TimeoutException catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError ?? TimeoutException('GET retry failed');
   }
 }
