@@ -269,16 +269,6 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  void _nudgePrice(int delta) {
-    final ride = _selectedRide;
-    final current = _priceFor(ride);
-    final minimum = (ride.price * 0.65).roundToDouble();
-    final maximum = (ride.price * 1.8).roundToDouble();
-    final next = (current + delta).clamp(minimum, maximum).roundToDouble();
-    if (next == current) return;
-    setState(() => _offeredPrices[ride.id] = next);
-  }
-
   List<_RideOption> get _visibleRides {
     final rides = [..._allRides];
     switch (_filter) {
@@ -474,17 +464,6 @@ class _SelectRideState extends State<SelectRide>
       mid.longitude + (dy / mag) * bend,
     );
     return [start, curve, end];
-  }
-
-  String get _pickupEtaLabel => '${_selectedRide.etaMin} min';
-
-  String get _arriveLabel {
-    final arrive = DateTime.now().add(
-      Duration(minutes: _selectedRide.etaMin + _tripMinutes()),
-    );
-    final hour = arrive.hour.toString().padLeft(2, '0');
-    final minute = arrive.minute.toString().padLeft(2, '0');
-    return 'Arrive by $hour:$minute';
   }
 
   Future<void> _fitRoute() async {
@@ -826,26 +805,6 @@ class _SelectRideState extends State<SelectRide>
                       right: 16,
                       child: PointerInterceptor(child: _searchBar()),
                     ),
-                    Positioned(
-                      top: media.padding.top + 64,
-                      left: 16,
-                      right: 16,
-                      child: PointerInterceptor(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _mapBadge(
-                              _pickupEtaLabel,
-                              const Color(0xFF1F8A4C),
-                            ),
-                            _mapBadge(
-                              _arriveLabel,
-                              const Color(0xFF3B6BFF),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -868,25 +827,13 @@ class _SelectRideState extends State<SelectRide>
                         child: Column(
                           children: [
                             const SizedBox(height: 10),
-                            Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Container(
-                                  width: 38,
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: _line,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(right: 12),
-                                    child: _priceStepper(),
-                                  ),
-                                ),
-                              ],
+                            Container(
+                              width: 38,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: _line,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                             if (collapsed)
                               Padding(
@@ -935,22 +882,6 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
-  Widget _mapBadge(String label, Color color) {
-    return Material(
-      color: color,
-      elevation: 6,
-      shadowColor: color.withOpacity(0.35),
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        child: Text(
-          label,
-          style: _text(12.5, weight: FontWeight.w700, color: Colors.white),
-        ),
-      ),
-    );
-  }
-
   Widget _searchBar() {
     return Material(
       color: Colors.white.withOpacity(0.96),
@@ -986,68 +917,6 @@ class _SelectRideState extends State<SelectRide>
             ),
             const SizedBox(width: 8),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _priceStepper() {
-    final ride = _selectedRide;
-    final price = _priceFor(ride);
-    final minimum = (ride.price * 0.65).roundToDouble();
-    final maximum = (ride.price * 1.8).roundToDouble();
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: _field,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _stepperButton(
-            Icons.remove_rounded,
-            enabled: price > minimum,
-            onTap: () => _nudgePrice(-10),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Text(
-              _kr(price),
-              style: _text(13.5, weight: FontWeight.w600),
-            ),
-          ),
-          _stepperButton(
-            Icons.add_rounded,
-            enabled: price < maximum,
-            onTap: () => _nudgePrice(10),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _stepperButton(
-    IconData icon, {
-    required bool enabled,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: Material(
-        color: Colors.white,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: enabled ? onTap : null,
-          child: Icon(
-            icon,
-            size: 18,
-            color: enabled ? _ink : _muted.withOpacity(0.45),
-          ),
         ),
       ),
     );
