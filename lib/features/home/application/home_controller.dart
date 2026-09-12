@@ -39,8 +39,12 @@ class HomeLocationController {
   final StaleGuard _geoGuard = StaleGuard();
   StreamSubscription<Position>? _positionSub;
   Timer? _headingTimer;
+  Timer? _pulseTimer;
   bool hasCompassHeading = false;
   double heading = 0;
+  double lastMapZoom = 13.0;
+  LatLng lastMapTarget = const LatLng(59.3293, 18.0686);
+  bool pulseExpanded = false;
 
   Future<String> normaliseAddress(String input) async {
     final clean = input.trim();
@@ -182,9 +186,24 @@ class HomeLocationController {
     return target;
   }
 
+  void startPulse({
+    required bool Function() isMounted,
+    required void Function() onTick,
+  }) {
+    _pulseTimer?.cancel();
+    pulseExpanded = false;
+    onTick();
+    _pulseTimer = Timer.periodic(const Duration(milliseconds: 850), (_) {
+      if (!isMounted()) return;
+      pulseExpanded = !pulseExpanded;
+      onTick();
+    });
+  }
+
   void dispose() {
     _positionSub?.cancel();
     _headingTimer?.cancel();
+    _pulseTimer?.cancel();
     _geoGuard.dispose();
   }
 }

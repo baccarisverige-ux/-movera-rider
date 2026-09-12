@@ -16,7 +16,8 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class ScheduleConfirmBooking extends StatefulWidget {
   final Widget body;
-  const ScheduleConfirmBooking({super.key, required this.body});
+  final ScheduledRideSession? session;
+  const ScheduleConfirmBooking({super.key, required this.body, this.session});
 
   @override
   State<ScheduleConfirmBooking> createState() => _ScheduleConfirmBookingState();
@@ -187,10 +188,22 @@ class _ScheduleConfirmBookingState extends State<ScheduleConfirmBooking> {
           16.height,
           CustomButton(
             centerContent: "CONFIRM",
-            onPressed: () {
-              AppScope.instance.ride.restoreFromBackend(
-                RideStatus.bookingRequested,
-              );
+            onPressed: () async {
+              final session = widget.session;
+              if (session != null) {
+                session.capturePayment(paymentMethods[selectedMethod].subTitle);
+                session.captureRideType('movera');
+                try {
+                  await session.confirm();
+                } catch (_) {
+                  session.markScheduled();
+                }
+              } else {
+                AppScope.instance.ride.restoreFromBackend(
+                  RideStatus.bookingRequested,
+                );
+              }
+              if (!context.mounted) return;
               Navigator.push(
                 context,
                 BottomToTopTransition(const ScheduleRidePending()),

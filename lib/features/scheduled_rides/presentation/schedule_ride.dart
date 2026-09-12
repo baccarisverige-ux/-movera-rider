@@ -81,8 +81,14 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   void goToNextStep() {
     FocusScope.of(context).unfocus();
-    _session.pickup = _pickupController.text;
-    _session.dropoff = _dropoffController.text;
+    _session.captureRoute(
+      pickup: _pickupController.text,
+      dropoff: _dropoffController.text,
+      stops: _stopControllers
+          .map((controller) => controller.text.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(),
+    );
     setState(() => currentStep += 1);
   }
 
@@ -122,11 +128,16 @@ class _ScheduleRideState extends State<ScheduleRide> {
         onConfirm: goToNextStep,
         onBack: goToPreviousStep,
         body: body(),
+        session: _session,
       );
     } else if (currentStep == 2) {
-      return ScheduleAddNote(onConfirm: goToNextStep, body: body());
+      return ScheduleAddNote(
+        onConfirm: goToNextStep,
+        body: body(),
+        session: _session,
+      );
     } else {
-      return ScheduleConfirmBooking(body: body());
+      return ScheduleConfirmBooking(body: body(), session: _session);
     }
   }
 

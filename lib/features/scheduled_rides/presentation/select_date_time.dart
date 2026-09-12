@@ -2,17 +2,20 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback onConfirm;
   final VoidCallback? onBack;
   final Widget body;
+  final ScheduledRideSession? session;
 
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
     required this.onConfirm,
     this.onBack,
+    this.session,
   });
 
   @override
@@ -653,7 +656,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: widget.onConfirm,
+            onPressed: () {
+              widget.session?.captureSchedule(_selectedDateTime);
+              widget.onConfirm();
+            },
+
             style: ElevatedButton.styleFrom(
               backgroundColor: _ink,
               foregroundColor: Colors.white,

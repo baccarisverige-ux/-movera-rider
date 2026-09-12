@@ -1,19 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
-import 'package:movera_rider/features/wallet/data/voucher_catalog.dart';
-import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 
 typedef _VoucherOffer = VoucherOffer;
 
-final _vouchers = VoucherCatalog();
+final _wallet = WalletController();
 
-_VoucherOffer? lookupMoveraVoucher(String raw) => _vouchers.lookup(raw);
+_VoucherOffer? lookupMoveraVoucher(String raw) => _wallet.lookup(raw);
 
 String _voucherDateLabel(DateTime date) {
   const months = [
@@ -23,9 +19,9 @@ String _voucherDateLabel(DateTime date) {
   return '${date.day} ${months[date.month - 1]} ${date.year}';
 }
 
-Future<Set<String>> _usedVoucherCodes() => _vouchers.usedCodes();
+Future<Set<String>> _usedVoucherCodes() => _wallet.usedCodes();
 
-Future<void> _markVoucherUsed(String code) => _vouchers.markUsed(code);
+Future<void> _markVoucherUsed(String code) => _wallet.markUsed(code);
 
 Future<_VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);

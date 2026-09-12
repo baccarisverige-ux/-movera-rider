@@ -77,4 +77,46 @@ void main() {
       expect(src.contains("'movera': 259"), isFalse, reason: file.path);
     }
   });
+
+  test('presentation does not import feature data repositories', () {
+    final banned = RegExp(
+      r"package:movera_rider/features/[^'\"]+/data/",
+    );
+    for (final file in presentation()) {
+      final src = file.readAsStringSync();
+      expect(banned.hasMatch(src), isFalse, reason: file.path);
+    }
+  });
+
+  test('presentation does not construct API, booking, or payment clients', () {
+    for (final file in presentation()) {
+      final src = file.readAsStringSync();
+      expect(src.contains('ApiClient('), isFalse, reason: file.path);
+      expect(src.contains('InProcessMockClient('), isFalse, reason: file.path);
+      expect(src.contains('MockPaymentGateway('), isFalse, reason: file.path);
+      expect(src.contains('MockRideRealtime('), isFalse, reason: file.path);
+    }
+  });
+
+  test('home does not import address repository', () {
+    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    expect(home.contains('home_repository.dart'), isFalse);
+    expect(home.contains('HomeAddressRepository'), isFalse);
+  });
+
+  test('select ride widget is not the source of ride/payment truth', () {
+    final ui = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    expect(ui.contains("String _selectedRideId"), isFalse);
+    expect(ui.contains('int _selectedPayment'), isFalse);
+    expect(ui.contains('DateTime? _scheduledFor'), isFalse);
+  });
+
+  test('waiting screen does not hardcode driver plate', () {
+    final ui = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+    expect(ui.contains('"L - 2323 F"'), isFalse);
+  });
 }

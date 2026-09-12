@@ -37,6 +37,53 @@ void main() {
     expect(maps.activeOwner, isNull);
   });
 
+  test('rapid push pop keeps a single active owner', () {
+    final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.pickup);
+    maps.debugAttach(MapOwners.selectRide);
+    maps.debugAttach(MapOwners.finding);
+    maps.debugAttach(MapOwners.waiting);
+    expect(maps.ownerStack, [
+      MapOwners.home,
+      MapOwners.pickup,
+      MapOwners.selectRide,
+      MapOwners.finding,
+      MapOwners.waiting,
+    ]);
+    maps.detach(owner: MapOwners.waiting);
+    maps.detach(owner: MapOwners.finding);
+    expect(maps.activeOwner, MapOwners.selectRide);
+    maps.detach(owner: MapOwners.home);
+    expect(maps.activeOwner, MapOwners.selectRide);
+  });
+
+  test('recreated screen with same owner id moves to top', () {
+    final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.pickup);
+    maps.debugAttach(MapOwners.home);
+    expect(maps.activeOwner, MapOwners.home);
+    expect(maps.ownerStack, [MapOwners.pickup, MapOwners.home]);
+  });
+
+  test('resume while nested ride screen is active does not detach it', () {
+    final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.waiting);
+    maps.detach(owner: MapOwners.home);
+    expect(maps.activeOwner, MapOwners.waiting);
+    expect(maps.generation, 2);
+  });
+
+  test('camera calls are no-ops without a live controller', () async {
+    final maps = GoogleMapProvider();
+    await maps.animateCamera(const GeoPoint(59.3, 18.0));
+    await maps.moveCamera(const GeoPoint(59.3, 18.0));
+    await maps.fitBounds(const GeoPoint(59.3, 18.0), const GeoPoint(59.4, 18.1));
+    expect(maps.controller, isNull);
+  });
+
   test('re-attach moves owner to top and bumps generation', () {
     final maps = GoogleMapProvider();
     maps.debugAttach(MapOwners.home);

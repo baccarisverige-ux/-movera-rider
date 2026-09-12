@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
@@ -54,6 +55,7 @@ class RideRestoreCoordinator {
     final surface = surfaceFor(snapshot);
     showing = surface;
     restores += 1;
+    reportRestoreSurface(surface.name);
     if (snapshot == null || surface == RestoredSurface.home) {
       return const Home();
     }
@@ -88,6 +90,7 @@ class RideRestoreCoordinator {
   }
 
   Future<Widget> root() async {
+    reportRestoreSurface('hold');
     try {
       final snapshot = await _reader();
       AppLog.info(
@@ -98,6 +101,7 @@ class RideRestoreCoordinator {
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
+      reportRestoreSurface(RestoredSurface.home.name);
       return const Home();
     }
   }

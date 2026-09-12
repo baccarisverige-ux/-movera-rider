@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerWebQaHooks();
+  AppScope.instance.maps.onOwnerDebug = reportMapOwner;
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);

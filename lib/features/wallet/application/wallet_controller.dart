@@ -5,6 +5,9 @@ import 'package:movera_rider/features/wallet/data/voucher_catalog.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
+export 'package:movera_rider/features/wallet/data/voucher_catalog.dart'
+    show VoucherOffer;
+
 class WalletController {
   WalletController({WalletStore? store, VoucherCatalog? vouchers})
       : _store = store ?? WalletStore(),
@@ -13,6 +16,12 @@ class WalletController {
   final WalletStore _store;
   final VoucherCatalog _vouchers;
   final Set<String> _topUpKeys = {};
+
+  VoucherOffer? lookup(String raw) => _vouchers.lookup(raw);
+
+  Future<Set<String>> usedCodes() => _vouchers.usedCodes();
+
+  Future<void> markUsed(String code) => _vouchers.markUsed(code);
 
   Future<String?> loadVoucherCode() => _store.loadVoucherCode();
 

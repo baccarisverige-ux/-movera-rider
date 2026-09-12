@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
 class RideRestoreGate extends StatefulWidget {
@@ -25,6 +26,7 @@ class RideRestoreGateState extends State<RideRestoreGate> {
   @override
   void initState() {
     super.initState();
+    reportRestoreSurface('hold');
     RideRestoreCoordinator.instance.onReplaceRoot = show;
     RideRestoreCoordinator.instance.root().then((page) {
       if (!mounted) return;

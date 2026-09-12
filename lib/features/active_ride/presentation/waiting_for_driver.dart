@@ -8,6 +8,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_arriving_controller.dart';
+import 'package:movera_rider/features/driver_arriving/domain/driver_arrival_view.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
@@ -47,6 +48,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   final ActiveRideController _ride = ActiveRideController();
+  late final DriverArrivalView _arrival =
+      DriverArrivingController().arrival(rideType: widget.rideType);
 
   late final CameraPosition _initialPosition;
 
@@ -150,7 +153,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       ),
                       child: Center(
                         child: TextWidget(
-                          text: DriverArrivingController().eta(),
+                          text: _arrival.eta,
                           fontSize: 14,
                           fontWeight: fwMedium,
                           color: AppColor.whiteText,
@@ -290,19 +293,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     TextWidget(
                       fontSize: 20,
                       fontWeight: fwSemiBold,
-                      text: "L - 2323 F",
+                      text: _arrival.plate,
                       color: AppColor.black,
                     ),
                     2.height,
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwMedium,
-                      text: widget.rideType,
+                      text: _arrival.vehicleLabel,
                       color: AppColor.black,
                     ),
                   ],
                 ),
-                Image.asset(AppAssets.comfortRide, height: ResSize.h * 43),
+                Image.asset(_arrival.vehicleImage, height: ResSize.h * 43),
               ],
             ),
           ),
@@ -321,7 +324,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         image: DecorationImage(
-                          image: AssetImage(AppAssets.profileImg),
+                          image: AssetImage(_arrival.photoAsset),
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -349,7 +352,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                               TextWidget(
                                 fontSize: 11,
                                 fontWeight: fwSemiBold,
-                                text: DriverArrivingController().driver().ratingLabel,
+                                text: _arrival.rating,
                                 color: AppColor.whiteText,
                               ),
                             ],
@@ -368,13 +371,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwSemiBold,
-                      text: DriverArrivingController().driver().name,
+                      text: _arrival.name,
                       color: AppColor.title,
                     ),
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwMedium,
-                      text: DriverArrivingController().driver().tagline,
+                      text: _arrival.tagline,
                       color: AppColor.subtitle,
                     ),
                   ],

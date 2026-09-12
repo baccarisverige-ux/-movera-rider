@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -11,10 +12,12 @@ import 'package:sliding_up_panel/sliding_up_panel.dart';
 class ScheduleAddNote extends StatefulWidget {
   final VoidCallback onConfirm;
   final Widget body;
+  final ScheduledRideSession? session;
   const ScheduleAddNote({
     super.key,
     required this.body,
     required this.onConfirm,
+    this.session,
   });
 
   @override
@@ -167,6 +170,9 @@ class _ScheduleAddNoteState extends State<ScheduleAddNote> {
                             : _noteController.text;
                         showTextField = false;
                       });
+                      widget.session?.captureNote(
+                        _noteController.text.trim(),
+                      );
                     },
                   ),
                 ),
@@ -267,6 +273,16 @@ class _ScheduleAddNoteState extends State<ScheduleAddNote> {
                 Expanded(
                   child: InkWell(
                     onTap: () {
+                      final typed = _noteController.text.trim();
+                      setState(() {
+                        noteText = typed.isEmpty
+                            ? "You have not added any notes"
+                            : typed;
+                        showTextField = false;
+                      });
+                      widget.session?.captureNote(
+                        typed.isEmpty ? '' : typed,
+                      );
                       widget.onConfirm();
                     },
                     child: Container(

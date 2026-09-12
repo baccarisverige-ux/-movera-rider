@@ -115,14 +115,23 @@ jobs:
 
           console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
 
-          async function seedRestore(page, snapshot, shotName){
+          async function seedRestore(page, snapshot, shotName, expectedSurface){
             await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
             await page.waitForFunction(() => typeof window.moveraSeedActiveRide === 'function', null, {timeout:60000});
             const seeded = await page.evaluate(async (raw) => await window.moveraSeedActiveRide(raw), JSON.stringify(snapshot));
             if(seeded !== 'ok') throw new Error('moveraSeedActiveRide failed: '+seeded);
             await page.reload({waitUntil:'networkidle'});
-            await page.waitForTimeout(4500);
-            return await page.screenshot({path:`qa-${shotName}.png`,fullPage:true});
+            await page.waitForFunction(() => window.moveraFirstSurface && window.moveraFirstSurface !== 'hold', null, {timeout:60000});
+            const first = await page.evaluate(() => window.moveraFirstSurface);
+            const homeBuilt = await page.evaluate(() => window.moveraHomeBuilt === true);
+            const current = await page.evaluate(() => window.moveraRestoreSurface);
+            if(first !== expectedSurface) throw new Error(`first restored surface was ${first}, expected ${expectedSurface}`);
+            if(homeBuilt) throw new Error(`Home was constructed during ${expectedSurface} restore`);
+            if(current && current !== expectedSurface) throw new Error(`current surface ${current}, expected ${expectedSurface}`);
+            await page.waitForTimeout(2500);
+            const shot = await page.screenshot({path:`qa-${shotName}.png`,fullPage:true});
+            fs.writeFileSync(`qa-${shotName}.json`, JSON.stringify({first, current, homeBuilt, expectedSurface},null,2));
+            return shot;
           }
           const findingSnap={
             status:'findingDriver',
@@ -134,19 +143,20 @@ jobs:
             rideType:'Movera',price:259,paymentMethod:'Apple Pay',rideId:'qa-restore-1'
           };
           const restorePage=await context.newPage();
-          const restoreShot=await seedRestore(restorePage, findingSnap, 'restore-finding');
+          const restoreShot=await seedRestore(restorePage, findingSnap, 'restore-finding', 'finding');
           if(Buffer.compare(restoreShot, home)===0) throw new Error('Restore reload showed Home flash/same Home');
-          fs.writeFileSync('qa-restore-finding.json', JSON.stringify({pageErrors:[],note:'seeded flutter.movera_active_ride findingDriver'},null,2));
-          console.log('PASS: restore finding reload did not remain on Home');
+          console.log('PASS: restore finding first surface was Finding, Home never constructed');
 
           const waitingSnap={...findingSnap, status:'driverAssigned', rideId:'qa-restore-wait'};
           const waitPage=await context.newPage();
-          const waitShot=await seedRestore(waitPage, waitingSnap, 'restore-waiting');
+          const waitShot=await seedRestore(waitPage, waitingSnap, 'restore-waiting', 'waiting');
           if(Buffer.compare(waitShot, home)===0) throw new Error('Waiting restore showed Home');
           if(Buffer.compare(waitShot, restoreShot)===0) throw new Error('Waiting restore matched Finding restore');
-          fs.writeFileSync('qa-restore-waiting.json', JSON.stringify({pageErrors:[],note:'seeded flutter.movera_active_ride driverAssigned'},null,2));
-          console.log('PASS: restore waiting reload did not remain on Home or Finding');
+          console.log('PASS: restore waiting first surface was Waiting, Home never constructed');
 
+          function forbidOwner(actual, forbidden, label){
+            if(actual && forbidden.includes(actual)) throw new Error(`${label} stale map owner ${actual}`);
+          }
           const stressPage=await context.newPage();
           stressPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
           stressPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
@@ -157,13 +167,34 @@ jobs:
           await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2800);
           const stressPickup=await stressPage.screenshot({path:'qa-map-stress-pickup.png',fullPage:true});
           if(Buffer.compare(stressHome, stressPickup)===0) throw new Error('Map stress pickup overlay did not open');
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup');
           await stressPage.mouse.click(44,44); await stressPage.waitForTimeout(900);
           await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1000);
-          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2200);
+          let vis=stressPage.locator('input,textarea').filter({visible:true});
+          let n=await vis.count().catch(()=>0);
+          if(!n){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); vis=stressPage.locator('input,textarea'); n=await vis.count();}
+          if(n){await vis.nth(n-1).fill('Stockholm Central Station'); await stressPage.waitForTimeout(500);}
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2800);
           await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
+          await stressPage.mouse.click(195,797); await stressPage.waitForTimeout(7000);
+          await stressPage.screenshot({path:'qa-map-stress-select.png',fullPage:true});
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['waiting'], 'select-ride');
+          await stressPage.mouse.click(285,743); await stressPage.waitForTimeout(650);
+          await stressPage.mouse.click(195,702); await stressPage.waitForTimeout(700);
+          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(5000);
+          await stressPage.screenshot({path:'qa-map-stress-finding.png',fullPage:true});
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['home','pickup'], 'finding');
+          await stressPage.waitForTimeout(14000);
+          await stressPage.screenshot({path:'qa-map-stress-waiting.png',fullPage:true});
+          const waitingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const waitingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(waitingOwner, ['home','pickup'], 'waiting');
+          await stressPage.evaluate(()=>{document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('pageshow'));});
+          await stressPage.waitForTimeout(1200);
+          await stressPage.screenshot({path:'qa-map-stress-resume.png',fullPage:true});
           if(fatalErrors().length) throw new Error('Map stress fatal: '+fatalErrors().join(' | '));
-          fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
-          console.log('PASS: map stress nested pickup attach/detach with no fatal runtime errors');
+          fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],waitingOwner,waitingGen},null,2));
+          console.log('PASS: map stress Home→pickup→Select Ride→Finding→Waiting→resume with no fatal runtime errors');
 
           await browser.close();
           JS

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
@@ -66,6 +67,62 @@ void main() {
     );
     await Future.wait([firstLoad, secondLoad]);
     expect(selection.offeredPrices['movera'], 259);
+  });
+
+  test('destination B remains authoritative when A finishes later', () async {
+    final quotes = _SlowThenFast(CatalogQuoteRepository());
+    final selection = RideSelectionController(
+      store: RideSelectionRepository(),
+      quotes: quotes,
+    );
+    final destA = selection.beginQuotes();
+    final loadA = selection.loadQuotes(
+      generation: destA,
+      pickup: 'A',
+      destination: 'Destination A',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    final destB = selection.beginQuotes();
+    final loadB = selection.loadQuotes(
+      generation: destB,
+      pickup: 'A',
+      destination: 'Destination B',
+    );
+    await Future.wait([loadA, loadB]);
+    expect(selection.offeredPrices['movera'], 259);
+  });
+
+  test('ride category change while quotes pending keeps later generation', () async {
+    final quotes = _SlowThenFast(CatalogQuoteRepository());
+    final selection = RideSelectionController(
+      store: RideSelectionRepository(),
+      quotes: quotes,
+    );
+    final first = selection.beginQuotes();
+    final load = selection.loadQuotes(
+      generation: first,
+      pickup: 'A',
+      destination: 'B',
+    );
+    selection.selectRide('xl', 399);
+    await load;
+    expect(selection.selectedRideId, 'xl');
+    expect(selection.quoteIds['movera'], 'q_1');
+  });
+
+  test('select ride and payment live on the controller', () {
+    final selection = RideSelectionController(
+      store: RideSelectionRepository(),
+      quotes: CatalogQuoteRepository(),
+      flags: const FeatureFlags(),
+    );
+    selection.selectRide('xl', 399);
+    selection.selectPayment(0);
+    selection.scheduleFor(DateTime(2026, 9, 13, 10));
+    expect(selection.selectedRideId, 'xl');
+    expect(selection.selectedPayment, 0);
+    expect(selection.isScheduled, isTrue);
+    expect(selection.quoteIdFor('missing'), isNull);
   });
 
   test('api quote repository parses mock contract', () async {

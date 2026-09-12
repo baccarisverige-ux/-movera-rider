@@ -128,4 +128,24 @@ void main() {
     controller.dispose();
     rt.dispose();
   });
+
+  test('assignment after cancel does not match when event arrives later', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    var matches = 0;
+    final controller = controllerOf(rt, ride);
+    controller.start(
+      seconds: 12,
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () => matches += 1,
+    );
+    controller.cancelSearch();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    rt.emit(RideStatus.driverAssigned, sequence: 20);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(matches, 0);
+    controller.dispose();
+    rt.dispose();
+  });
 }

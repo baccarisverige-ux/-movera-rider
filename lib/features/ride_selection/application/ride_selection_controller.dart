@@ -23,10 +23,14 @@ class RideSelectionController {
 
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
+  final Map<String, DateTime> quoteExpiresAt = {};
   int _quoteGeneration = 0;
   bool usedFallback = false;
   String selectedRideId = 'movera';
   int selectedPayment = 1;
+  DateTime? scheduledFor;
+
+  bool get isScheduled => scheduledFor != null;
 
   List<RideCatalogItem> rides() => _store.rides();
 
@@ -61,6 +65,7 @@ class RideSelectionController {
       if (generation != _quoteGeneration) return;
       offeredPrices[ride.id] = quote.totalMinor / 100;
       quoteIds[ride.id] = quote.id;
+      quoteExpiresAt[ride.id] = quote.expiresAt;
       if (quote.signedPayload == 'fallback') usedFallback = true;
     }
   }
@@ -71,6 +76,18 @@ class RideSelectionController {
     selectedRideId = id;
     offeredPrices.putIfAbsent(id, () => catalog);
   }
+
+  void selectPayment(int index) {
+    selectedPayment = index;
+  }
+
+  void scheduleFor(DateTime? at) {
+    scheduledFor = at;
+  }
+
+  String? quoteIdFor(String id) => quoteIds[id];
+
+  DateTime? expiryFor(String id) => quoteExpiresAt[id];
 
   double changeOffer({
     required String id,

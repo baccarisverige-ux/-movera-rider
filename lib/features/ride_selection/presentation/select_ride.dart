@@ -115,10 +115,7 @@ class _SelectRideState extends State<SelectRide>
     }).toList();
   }
 
-  String _selectedRideId = 'movera';
-  int _selectedPayment = 1;
   _RideFilter _filter = _RideFilter.recommended;
-  DateTime? _scheduledFor;
   final RideSelectionController _selection = RideSelectionController();
   bool _mapReady = false;
   bool _mapParked = false;
@@ -163,7 +160,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   _RideOption get _selectedRide =>
-      _allRides.firstWhere((ride) => ride.id == _selectedRideId);
+      _allRides.firstWhere((ride) => ride.id == _selection.selectedRideId);
 
   double _priceFor(_RideOption ride) =>
       _selection.priceFor(ride.id, ride.price);
@@ -172,7 +169,6 @@ class _SelectRideState extends State<SelectRide>
     final catalog =
         _allRides.firstWhere((ride) => ride.id == id).price;
     setState(() {
-      _selectedRideId = id;
       _selection.selectRide(id, catalog);
     });
   }
@@ -323,13 +319,13 @@ class _SelectRideState extends State<SelectRide>
     );
     if (time == null || !mounted) return;
     setState(() {
-      _scheduledFor = DateTime(
+      _selection.scheduleFor(DateTime(
         date.year,
         date.month,
         date.day,
         time.hour,
         time.minute,
-      );
+      ));
     });
   }
 
@@ -370,9 +366,9 @@ class _SelectRideState extends State<SelectRide>
                   icon: Icons.bolt_rounded,
                   title: 'Book now',
                   subtitle: 'Request a driver right away',
-                  selected: _scheduledFor == null,
+                  selected: _selection.scheduledFor == null,
                   onTap: () {
-                    setState(() => _scheduledFor = null);
+                    setState(() => _selection.scheduleFor(null));
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -380,7 +376,7 @@ class _SelectRideState extends State<SelectRide>
                   icon: Icons.calendar_month_rounded,
                   title: 'Book for later',
                   subtitle: 'Choose a date and pickup time',
-                  selected: _scheduledFor != null,
+                  selected: _selection.scheduledFor != null,
                   onTap: () {
                     Navigator.pop(sheetContext);
                     Future<void>.delayed(
@@ -480,7 +476,7 @@ class _SelectRideState extends State<SelectRide>
         destinationLng: widget.destinationPosition.longitude,
         rideType: selected.name,
         price: _priceFor(selected),
-        paymentMethod: _payments[_selectedPayment].name,
+        paymentMethod: _payments[_selection.selectedPayment].name,
       );
       await Navigator.push(
         context,
@@ -492,7 +488,7 @@ class _SelectRideState extends State<SelectRide>
             destinationPosition: widget.destinationPosition,
             rideType: selected.name,
             price: _priceFor(selected),
-            paymentMethod: _payments[_selectedPayment].name,
+            paymentMethod: _payments[_selection.selectedPayment].name,
           ),
         ),
       );
@@ -855,7 +851,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _rideTile(_RideOption ride) {
-    final selected = ride.id == _selectedRideId;
+    final selected = ride.id == _selection.selectedRideId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
@@ -1027,7 +1023,7 @@ class _SelectRideState extends State<SelectRide>
                       height: 54,
                       child: Center(
                         child: Text(
-                          _scheduledFor == null
+                          _selection.scheduledFor == null
                               ? 'Select ${selected.name}'
                               : 'Schedule ${selected.name}',
                           maxLines: 1,
@@ -1068,7 +1064,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _paymentButton() {
-    final method = _payments[_selectedPayment];
+    final method = _payments[_selection.selectedPayment];
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
@@ -1129,12 +1125,12 @@ class _SelectRideState extends State<SelectRide>
 
   Widget _walletPaymentTile(int index, BuildContext sheetContext) {
     final method = _payments[index];
-    final selected = _selectedPayment == index;
+    final selected = _selection.selectedPayment == index;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          setState(() => _selectedPayment = index);
+          setState(() => _selection.selectPayment(index));
           Navigator.pop(sheetContext);
         },
         child: Padding(

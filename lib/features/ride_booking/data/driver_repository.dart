@@ -3,17 +3,23 @@ class DriverProfile {
     required this.name,
     required this.tagline,
     required this.vehicle,
+    required this.plate,
     required this.rideNumber,
     required this.ratingLabel,
     required this.completedAt,
+    this.vehicleImage = 'assets/images/comfort_ride.png',
+    this.photoAsset = 'assets/images/profile_img.png',
   });
 
   final String name;
   final String tagline;
   final String vehicle;
+  final String plate;
   final String rideNumber;
   final String ratingLabel;
   final String completedAt;
+  final String vehicleImage;
+  final String photoAsset;
 }
 
 class DriverRepository {
@@ -21,6 +27,7 @@ class DriverRepository {
         name: 'Merle Feeney',
         tagline: 'Top rated driver',
         vehicle: 'Toyota HR-V . L-2323 F',
+        plate: 'L - 2323 F',
         rideNumber: '#IL19051950015',
         ratingLabel: '5.0',
         completedAt: '22 May, 2025 . 12:30 pm ',

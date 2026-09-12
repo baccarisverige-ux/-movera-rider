@@ -17,11 +17,15 @@ class GoogleMapProvider implements MapProvider {
   final Map<String, List<GeoPoint>> routes = {};
   int generation = 0;
   CameraMode mode = CameraMode.followUser;
+  void Function(String? owner, int generation)? onOwnerDebug;
 
   GoogleMapController? get controller =>
       _owners.isEmpty ? null : _owners.last.controller;
 
   String? get activeOwner => _owners.isEmpty ? null : _owners.last.owner;
+
+  List<String> get ownerStack =>
+      _owners.map((item) => item.owner).toList(growable: false);
 
   void attach(GoogleMapController controller, {String owner = 'map'}) {
     _push(owner, controller);
@@ -31,10 +35,13 @@ class GoogleMapProvider implements MapProvider {
   @visibleForTesting
   void debugAttach(String owner) => _push(owner, null);
 
+  void _notifyOwner() => onOwnerDebug?.call(activeOwner, generation);
+
   void _push(String owner, GoogleMapController? controller) {
     generation += 1;
     _owners.removeWhere((item) => item.owner == owner);
     _owners.add(_OwnedMap(owner, controller));
+    _notifyOwner();
   }
 
   /// Only the current owner may detach. Older stacked maps stay put.
@@ -42,6 +49,7 @@ class GoogleMapProvider implements MapProvider {
     if (_owners.isEmpty) return;
     if (_owners.last.owner != owner) return;
     _owners.removeLast();
+    _notifyOwner();
   }
 
   @override
@@ -116,5 +124,6 @@ class GoogleMapProvider implements MapProvider {
   void dispose() {
     // Never dispose plugin controllers. Drop ownership only.
     _owners.clear();
+    _notifyOwner();
   }
 }

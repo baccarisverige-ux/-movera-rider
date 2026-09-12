@@ -17,6 +17,34 @@ class ScheduledRideSession {
   String? bookingId;
   String submissionStatus = 'idle';
 
+  void captureRoute({
+    required String pickup,
+    required String dropoff,
+    required List<String> stops,
+  }) {
+    this.pickup = pickup;
+    this.dropoff = dropoff;
+    this.stops = List<String>.from(stops);
+  }
+
+  void captureSchedule(DateTime at, {String timezone = 'Europe/Stockholm'}) {
+    scheduledAt = at;
+    this.timezone = timezone;
+  }
+
+  void captureNote(String value) {
+    note = value;
+  }
+
+  void capturePayment(String method) {
+    paymentMethod = method;
+  }
+
+  void captureRideType(String type, {String? quoteId}) {
+    rideType = type;
+    this.quoteId = quoteId;
+  }
+
   Future<String> confirm() async {
     submissionStatus = 'submitting';
     bookingId = await AppScope.instance.booking.requestBooking(
@@ -25,6 +53,7 @@ class ScheduledRideSession {
       scheduledAt: scheduledAt?.toIso8601String(),
     );
     submissionStatus = 'confirmed';
+    markScheduled();
     return bookingId!;
   }
 

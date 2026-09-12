@@ -16,9 +16,10 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
-import 'package:movera_rider/features/home/data/home_repository.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/location_picker/application/location_picker_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/features/promotions/application/promotions_controller.dart';
@@ -39,21 +40,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
-class _SavedPlaceData {
-  const _SavedPlaceData({required this.type, required this.address});
-
-  final String type;
-  final String address;
-
-  Map<String, String> toJson() => {'type': type, 'address': address};
-
-  factory _SavedPlaceData.fromJson(Map<String, dynamic> json) {
-    return _SavedPlaceData(
-      type: json['type'] as String? ?? 'other',
-      address: json['address'] as String? ?? '',
-    );
-  }
-}
+typedef _SavedPlaceData = SavedPlaceData;
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -66,20 +53,15 @@ class _HomeState extends State<Home> {
   final SheetController _homeSheetController = SheetController();
   final PanelController _profilePanelController = PanelController();
   Timer? _sheetIdleTimer;
-  Timer? _locationPulseTimer;
   late final HomeLocationController _locationCtl = HomeLocationController(
     location: AppScope.instance.location,
     geocoding: AppScope.instance.geocoding,
     motion: AppScope.instance.motion,
   );
-  final HomeAddressRepository _addresses = HomeAddressRepository();
-  bool _locationPulseExpanded = false;
-  double _locationHeading = 0;
-  bool _hasCompassHeading = false;
-  double _lastMapZoom = 13.0;
-  LatLng _lastMapTarget = const LatLng(59.3293, 18.0686);
+  late final HomePlacesController _places = HomePlacesController();
+  final PromotionsController _promos = PromotionsController();
   bool _showRecenterButton = true;
-  bool _promotionVisible = PromotionsController().homeCampaign().active;
+  late bool _promotionVisible = _promos.homeCampaign().active;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
 
@@ -87,25 +69,43 @@ class _HomeState extends State<Home> {
   static const double _sheetPromoMinHeight = 244;
   static const double _sheetMaxHeight = 294;
 
-  bool get _promotionEnabled => PromotionsController().homeCampaign().active;
-  String get _promotionId => PromotionsController().homeCampaign().id;
-  String get _promotionTitle => PromotionsController().homeCampaign().title;
+  bool get _promotionEnabled => _promos.homeCampaign().active;
+  String get _promotionId => _promos.homeCampaign().id;
+  String get _promotionTitle => _promos.homeCampaign().title;
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
-  String? _pickupAddress;
-  String? _destinationAddress;
-  String? _homeAddress;
-  String? _workAddress;
-  List<String> _routeStops = [];
-  // Live device GPS. This may change continuously.
-  LatLng? _currentLatLng;
-  // Pickup locked for the trip after the rider confirms it.
-  LatLng? _tripPickupLatLng;
-  List<String> _recentAddresses = [];
-  List<_SavedPlaceData> _savedPlaces = [];
 
-  static const int _maxRecentAddresses = 8;
-  static const int _maxCustomPlaces = 8;
+  bool get _locationPulseExpanded => _locationCtl.pulseExpanded;
+  set _locationPulseExpanded(bool value) => _locationCtl.pulseExpanded = value;
+  double get _locationHeading => _locationCtl.heading;
+  set _locationHeading(double value) => _locationCtl.heading = value;
+  bool get _hasCompassHeading => _locationCtl.hasCompassHeading;
+  set _hasCompassHeading(bool value) => _locationCtl.hasCompassHeading = value;
+  double get _lastMapZoom => _locationCtl.lastMapZoom;
+  set _lastMapZoom(double value) => _locationCtl.lastMapZoom = value;
+  LatLng get _lastMapTarget => _locationCtl.lastMapTarget;
+  set _lastMapTarget(LatLng value) => _locationCtl.lastMapTarget = value;
+  String? get _pickupAddress => _places.pickupAddress;
+  set _pickupAddress(String? value) => _places.pickupAddress = value;
+  String? get _destinationAddress => _places.destinationAddress;
+  set _destinationAddress(String? value) => _places.destinationAddress = value;
+  String? get _homeAddress => _places.homeAddress;
+  set _homeAddress(String? value) => _places.homeAddress = value;
+  String? get _workAddress => _places.workAddress;
+  set _workAddress(String? value) => _places.workAddress = value;
+  List<String> get _routeStops => _places.routeStops;
+  set _routeStops(List<String> value) => _places.routeStops = value;
+  LatLng? get _currentLatLng => _places.currentLatLng;
+  set _currentLatLng(LatLng? value) => _places.currentLatLng = value;
+  LatLng? get _tripPickupLatLng => _places.tripPickupLatLng;
+  set _tripPickupLatLng(LatLng? value) => _places.tripPickupLatLng = value;
+  List<String> get _recentAddresses => _places.recentAddresses;
+  set _recentAddresses(List<String> value) => _places.recentAddresses = value;
+  List<_SavedPlaceData> get _savedPlaces => _places.savedPlaces;
+  set _savedPlaces(List<_SavedPlaceData> value) => _places.savedPlaces = value;
+
+  static const int _maxRecentAddresses = HomePlacesController.maxRecent;
+  static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
   // ignore: unused_field
   GoogleMapController? _mapController;
@@ -212,6 +212,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    reportHomeBuilt();
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
@@ -220,7 +221,6 @@ class _HomeState extends State<Home> {
   @override
   void dispose() {
     _sheetIdleTimer?.cancel();
-    _locationPulseTimer?.cancel();
     _locationCtl.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.home);
     _homeSheetController
@@ -245,31 +245,12 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _restoreAddressData() async {
-    final saved = await _addresses.load();
-    if (mounted) {
-      setState(() {
-        _homeAddress = saved.home;
-        _workAddress = saved.work;
-        _recentAddresses = saved.recent;
-        _savedPlaces = saved.places
-            .map((place) => _SavedPlaceData.fromJson(Map<String, dynamic>.from(place)))
-            .take(_maxCustomPlaces)
-            .toList();
-      });
-    }
+    await _places.load();
+    if (mounted) setState(() {});
     await _detectCurrentAddress();
   }
 
-  Future<void> _persistAddressData() async {
-    await _addresses.save(
-      HomeAddressSnapshot(
-        home: _homeAddress,
-        work: _workAddress,
-        recent: _recentAddresses,
-        places: _savedPlaces.map((place) => place.toJson()).toList(),
-      ),
-    );
-  }
+  Future<void> _persistAddressData() => _places.persist();
 
   Future<void> _detectCurrentAddress() async {
     if (mounted) setState(() => _findingLocation = true);
@@ -332,20 +313,7 @@ class _HomeState extends State<Home> {
     }
   }
 
-  String? _existingAddressFor(String target) {
-    switch (target) {
-      case 'pickup':
-        return _pickupAddress;
-      case 'home':
-        return _homeAddress;
-      case 'work':
-        return _workAddress;
-      case 'destination':
-        return _destinationAddress;
-      default:
-        return null;
-    }
-  }
+  String? _existingAddressFor(String target) => _places.existingFor(target);
 
   Future<String> _normaliseAddress(String input) {
     return _locationCtl.normaliseAddress(input);
@@ -360,17 +328,7 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void _rememberAddress(String address) {
-    final clean = address.trim();
-    if (clean.isEmpty || clean == 'Current location') return;
-    _recentAddresses.removeWhere(
-      (saved) => saved.toLowerCase() == clean.toLowerCase(),
-    );
-    _recentAddresses.insert(0, clean);
-    if (_recentAddresses.length > _maxRecentAddresses) {
-      _recentAddresses = _recentAddresses.take(_maxRecentAddresses).toList();
-    }
-  }
+  void _rememberAddress(String address) => _places.remember(address);
 
   Future<void> _saveAddressFor(
     String target,
@@ -394,35 +352,15 @@ class _HomeState extends State<Home> {
     if (!mounted) return;
 
     setState(() {
-      switch (target) {
-        case 'pickup':
-          _pickupAddress = resolved;
-          _tripPickupLatLng = resolvedPickupPosition;
-          break;
-        case 'destination':
-          _destinationAddress = resolved;
-          DestinationController().remember(address: resolved);
-          break;
-        case 'home':
-          _homeAddress = resolved;
-          break;
-        case 'work':
-          _workAddress = resolved;
-          break;
-        case 'custom':
-          final type = customType ?? 'other';
-          final existingIndex = _savedPlaces.indexWhere(
-            (place) => place.type == type,
-          );
-          final place = _SavedPlaceData(type: type, address: resolved);
-          if (existingIndex >= 0) {
-            _savedPlaces[existingIndex] = place;
-          } else if (_savedPlaces.length < _maxCustomPlaces) {
-            _savedPlaces.add(place);
-          }
-          break;
+      _places.applyResolved(
+        target: target,
+        address: resolved,
+        pickupPosition: resolvedPickupPosition,
+        customType: customType,
+      );
+      if (target == 'destination') {
+        DestinationController().remember(address: resolved);
       }
-      _rememberAddress(resolved);
     });
     await _persistAddressData();
     if (target == 'pickup' || target == 'destination') {
@@ -1805,15 +1743,10 @@ class _HomeState extends State<Home> {
   }
 
   void _startLocationPulse() {
-    _locationPulseTimer?.cancel();
-    _locationPulseExpanded = false;
-    _updateLocationVisuals();
-    _locationPulseTimer = Timer.periodic(const Duration(milliseconds: 850), (
-      _,
-    ) {
-      _locationPulseExpanded = !_locationPulseExpanded;
-      _updateLocationVisuals();
-    });
+    _locationCtl.startPulse(
+      isMounted: () => mounted,
+      onTick: _updateLocationVisuals,
+    );
   }
 
   void _startLocationTracking() {

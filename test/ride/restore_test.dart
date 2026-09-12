@@ -86,4 +86,30 @@ void main() {
     expect(await c.resumeIfNeeded(), isNull);
     expect(c.showing, RestoredSurface.home);
   });
+
+  test('cold start finding never builds Home', () async {
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.findingDriver),
+    );
+    final page = await c.root();
+    expect(page, isA<FindingDrivers>());
+    expect(c.showing, RestoredSurface.finding);
+  });
+
+  test('cold start assigned never builds Home', () async {
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.driverAssigned),
+    );
+    final page = await c.root();
+    expect(page, isA<WaitingForDriver>());
+    expect(c.showing, RestoredSurface.waiting);
+  });
+
+  test('resume with older surface stays on waiting', () async {
+    final snapshot = snap(RideStatus.driverAssigned);
+    final c = RideRestoreCoordinator(reader: () async => snapshot);
+    c.showing = RestoredSurface.waiting;
+    c.debugAtRoot = () => true;
+    expect(await c.resumeIfNeeded(), isNull);
+  });
 }
