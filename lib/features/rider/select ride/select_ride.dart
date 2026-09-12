@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/rider/Finding%20Drivers/finding_drivers.dart';
-import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -60,21 +59,21 @@ class _PaymentOption {
     required this.brand,
     required this.name,
     required this.detail,
-    required this.group,
   });
 
   final String brand;
   final String name;
   final String detail;
-  final String group;
 }
 
 class _SelectRideState extends State<SelectRide> {
-  static const Color _ink = Color(0xFF171C1F);
-  static const Color _muted = Color(0xFF7A8288);
-  static const Color _line = Color(0xFFE6E8E7);
-  static const Color _accent = Color(0xFF1F7A4D);
-  static const Color _accentSoft = Color(0xFFE7F4EC);
+  static const Color _ink = Color(0xFF1D252C);
+  static const Color _muted = Color(0xFF778189);
+  static const Color _line = Color(0xFFE7EBEE);
+  static const Color _accent = Color(0xFF2D5878);
+  static const Color _accentSoft = Color(0xFFEAF2F8);
+  static const Color _field = Color(0xFFF6F5F1);
+  static const Color _cta = Color(0xFF11181D);
 
   static const List<_RideOption> _allRides = [
     _RideOption(
@@ -158,56 +157,43 @@ class _SelectRideState extends State<SelectRide> {
       brand: 'apple',
       name: 'Apple Pay',
       detail: 'Available by default',
-      group: 'app',
     ),
     _PaymentOption(
       brand: 'google',
       name: 'Google Pay',
       detail: 'Available by default',
-      group: 'app',
     ),
     _PaymentOption(
       brand: 'paypal',
       name: 'PayPal',
       detail: 'Pay for this ride',
-      group: 'app',
     ),
     _PaymentOption(
       brand: 'cards',
       name: 'Card',
       detail: 'Visa, Mastercard',
-      group: 'app',
     ),
     _PaymentOption(
       brand: 'swish',
       name: 'Swish',
       detail: 'Instant mobile payment',
-      group: 'app',
     ),
     _PaymentOption(
       brand: 'cash',
       name: 'Cash',
       detail: 'Pay the driver in cash',
-      group: 'driver',
     ),
     _PaymentOption(
       brand: 'wallet',
       name: 'Wallet',
       detail: 'kr 7 available',
-      group: 'app',
     ),
   ];
-
-  final DraggableScrollableController _sheetController =
-      DraggableScrollableController();
 
   String _selectedRideId = 'movera';
   int _selectedPayment = 0;
   _RideFilter _filter = _RideFilter.recommended;
   DateTime? _scheduledFor;
-  bool _collapsed = false;
-  bool _mapReady = false;
-  GoogleMapController? _mapController;
 
   _RideOption get _selectedRide =>
       _allRides.firstWhere((ride) => ride.id == _selectedRideId);
@@ -224,68 +210,23 @@ class _SelectRideState extends State<SelectRide> {
       case _RideFilter.recommended:
         break;
     }
-    if (_collapsed) {
-      return [_selectedRide];
-    }
     return rides;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      setState(() => _mapReady = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _sheetController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fitRoute() async {
-    final controller = _mapController;
-    if (controller == null || !mounted) return;
-    final pickup = widget.pickupPosition;
-    final destination = widget.destinationPosition;
-    final samePoint =
-        (pickup.latitude - destination.latitude).abs() < 0.00001 &&
-        (pickup.longitude - destination.longitude).abs() < 0.00001;
-    if (samePoint) {
-      await controller.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: pickup, zoom: 14.2),
-        ),
-      );
-      return;
-    }
-    try {
-      await controller.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(
-              pickup.latitude < destination.latitude
-                  ? pickup.latitude
-                  : destination.latitude,
-              pickup.longitude < destination.longitude
-                  ? pickup.longitude
-                  : destination.longitude,
-            ),
-            northeast: LatLng(
-              pickup.latitude > destination.latitude
-                  ? pickup.latitude
-                  : destination.latitude,
-              pickup.longitude > destination.longitude
-                  ? pickup.longitude
-                  : destination.longitude,
-            ),
-          ),
-          80,
-        ),
-      );
-    } catch (_) {}
+  TextStyle _text(
+    double size, {
+    FontWeight weight = FontWeight.w500,
+    Color color = _ink,
+    double? height,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.poppins(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+    );
   }
 
   String _compactAddress(String value) {
@@ -342,29 +283,25 @@ class _SelectRideState extends State<SelectRide> {
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
+                  width: 38,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD8DDE0),
-                    borderRadius: BorderRadius.circular(20),
+                    color: _line,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Align(
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'When do you want to ride?',
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: _text(20, weight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -419,35 +356,48 @@ class _SelectRideState extends State<SelectRide> {
               children: [
                 Center(
                   child: Container(
-                    width: 40,
+                    width: 38,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD8DDE0),
-                      borderRadius: BorderRadius.circular(20),
+                      color: _line,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Payment',
-                  style: TextStyle(
-                    color: _ink,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text('Payment', style: _text(22, weight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'PAYMENT METHODS',
-                  style: TextStyle(
+                  style: _text(
+                    10,
+                    weight: FontWeight.w600,
                     color: _muted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
                     letterSpacing: 1.25,
                   ),
                 ),
                 const SizedBox(height: 10),
-                _paymentGroup(sheetContext, 'all'),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: _line),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < _payments.length; i++) ...[
+                        if (i > 0)
+                          const Divider(
+                            height: 1,
+                            indent: 62,
+                            endIndent: 16,
+                            color: _line,
+                          ),
+                        _walletPaymentTile(i, sheetContext),
+                      ],
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -477,128 +427,79 @@ class _SelectRideState extends State<SelectRide> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    final topHeight = media.padding.top + 132;
     return Scaffold(
-      backgroundColor: const Color(0xFFEEF1E8),
-      body: Stack(
+      backgroundColor: const Color(0xFFF6F5F1),
+      body: Column(
         children: [
-          Positioned.fill(
-            child: _mapReady
-                ? CustomGoogleMap(
-                    initialPosition: CameraPosition(
-                      target: widget.pickupPosition,
-                      zoom: 12.6,
-                    ),
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: widget.pickupPosition,
-                      ),
-                      Marker(
-                        markerId: const MarkerId('destination'),
-                        position: widget.destinationPosition,
-                      ),
-                    },
-                    polylines: {
-                      Polyline(
-                        polylineId: const PolylineId('route'),
-                        points: [
-                          widget.pickupPosition,
-                          widget.destinationPosition,
-                        ],
-                        color: const Color(0xFF3B6BFF),
-                        width: 5,
-                      ),
-                    },
-                    myLocationEnabled: false,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    mapToolbarEnabled: false,
-                    compassEnabled: false,
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                      Future<void>.delayed(
-                        const Duration(milliseconds: 280),
-                        _fitRoute,
-                      );
-                    },
-                  )
-                : const ColoredBox(color: Color(0xFFEEF1E8)),
+          SizedBox(
+            height: topHeight,
+            width: double.infinity,
+            child: Stack(
+              children: [
+                const Positioned.fill(child: _RouteCanvas()),
+                Positioned(
+                  top: media.padding.top + 8,
+                  left: 16,
+                  right: 16,
+                  child: _searchBar(),
+                ),
+              ],
+            ),
           ),
-          Positioned(
-            top: media.padding.top + 10,
-            left: 12,
-            right: 12,
-            child: PointerInterceptor(child: _searchBar()),
-          ),
-          NotificationListener<DraggableScrollableNotification>(
-            onNotification: (notification) {
-              final collapsed = notification.extent < 0.46;
-              if (collapsed != _collapsed) {
-                setState(() => _collapsed = collapsed);
-              }
-              return false;
-            },
-            child: DraggableScrollableSheet(
-              controller: _sheetController,
-              initialChildSize: 0.74,
-              minChildSize: 0.36,
-              maxChildSize: 0.94,
-              snap: true,
-              snapSizes: const [0.36, 0.74, 0.94],
-              builder: (context, scrollController) {
-                return PointerInterceptor(
-                  child: Material(
-                    color: Colors.white,
-                    elevation: 18,
-                    shadowColor: Colors.black26,
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(22),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 42,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD8DDE0),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          child: _collapsed
-                              ? const SizedBox(height: 6)
-                              : Padding(
-                                  key: const ValueKey('filters'),
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    12,
-                                    16,
-                                    4,
-                                  ),
-                                  child: _filterRow(),
-                                ),
-                        ),
-                        Expanded(
-                          child: ListView.builder(
-                            controller: scrollController,
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
-                            itemCount: _visibleRides.length,
-                            itemBuilder: (context, index) {
-                              final ride = _visibleRides[index];
-                              return _rideTile(ride);
-                            },
-                          ),
-                        ),
-                        _footer(media.padding.bottom),
-                      ],
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF162C36).withOpacity(0.10),
+                    blurRadius: 28,
+                    offset: const Offset(0, -8),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _line,
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                );
-              },
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Choose your ride',
+                        style: _text(22, weight: FontWeight.w700, letterSpacing: -0.4),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                    child: _filterRow(),
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+                      itemCount: _visibleRides.length,
+                      itemBuilder: (context, index) =>
+                          _rideTile(_visibleRides[index]),
+                    ),
+                  ),
+                  _footer(media.padding.bottom),
+                ],
+              ),
             ),
           ),
         ],
@@ -609,35 +510,37 @@ class _SelectRideState extends State<SelectRide> {
   Widget _searchBar() {
     return Material(
       color: Colors.white.withOpacity(0.96),
-      borderRadius: BorderRadius.circular(28),
-      elevation: 4,
-      shadowColor: Colors.black26,
-      child: SizedBox(
-        height: 48,
+      borderRadius: BorderRadius.circular(22),
+      elevation: 0,
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.96),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _line),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF162C36).withOpacity(0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
         child: Row(
           children: [
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded, color: _ink),
             ),
-            const Icon(Icons.search_rounded, color: _muted, size: 20),
-            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 _compactAddress(widget.destinationAddress),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: _text(15, weight: FontWeight.w500),
               ),
             ),
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.add_rounded, color: _ink),
-            ),
+            const SizedBox(width: 8),
           ],
         ),
       ),
@@ -645,28 +548,31 @@ class _SelectRideState extends State<SelectRide> {
   }
 
   Widget _filterRow() {
-    return Row(
-      children: [
-        _filterChip(
-          label: 'Recommended',
-          selected: _filter == _RideFilter.recommended,
-          onTap: () => setState(() => _filter = _RideFilter.recommended),
-        ),
-        const SizedBox(width: 8),
-        _filterChip(
-          label: 'Faster',
-          icon: Icons.schedule_rounded,
-          selected: _filter == _RideFilter.faster,
-          onTap: () => setState(() => _filter = _RideFilter.faster),
-        ),
-        const SizedBox(width: 8),
-        _filterChip(
-          label: 'Cheaper',
-          icon: Icons.payments_outlined,
-          selected: _filter == _RideFilter.cheaper,
-          onTap: () => setState(() => _filter = _RideFilter.cheaper),
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _filterChip(
+            label: 'Recommended',
+            selected: _filter == _RideFilter.recommended,
+            onTap: () => setState(() => _filter = _RideFilter.recommended),
+          ),
+          const SizedBox(width: 8),
+          _filterChip(
+            label: 'Faster',
+            icon: Icons.schedule_rounded,
+            selected: _filter == _RideFilter.faster,
+            onTap: () => setState(() => _filter = _RideFilter.faster),
+          ),
+          const SizedBox(width: 8),
+          _filterChip(
+            label: 'Cheaper',
+            icon: Icons.payments_outlined,
+            selected: _filter == _RideFilter.cheaper,
+            onTap: () => setState(() => _filter = _RideFilter.cheaper),
+          ),
+        ],
+      ),
     );
   }
 
@@ -679,30 +585,25 @@ class _SelectRideState extends State<SelectRide> {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : const Color(0xFFF4F5F4),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? _accent : const Color(0xFFE1E4E3),
-            width: selected ? 1.6 : 1,
-          ),
+          color: selected ? _accentSoft : _field,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: selected ? _accent : _line, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 15, color: selected ? _ink : _muted),
+              Icon(icon, size: 15, color: selected ? _accent : _muted),
               const SizedBox(width: 5),
             ],
             Text(
               label,
-              style: TextStyle(
-                color: _ink,
-                fontSize: 13.5,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              style: _text(
+                13,
+                weight: selected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
           ],
@@ -714,168 +615,203 @@ class _SelectRideState extends State<SelectRide> {
   Widget _rideTile(_RideOption ride) {
     final selected = ride.id == _selectedRideId;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: GestureDetector(
-        onTap: () {
-          setState(() => _selectedRideId = ride.id);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? _accent : Colors.transparent,
-              width: 1.7,
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 86,
-                height: 58,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned.fill(
-                      child: Image.asset(ride.image, fit: BoxFit.contain),
-                    ),
-                    if (ride.glyph != null)
-                      Positioned(
-                        left: 0,
-                        bottom: 2,
-                        child: Container(
-                          width: 26,
-                          height: 26,
-                          decoration: const BoxDecoration(
-                            color: _accentSoft,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(ride.glyph, size: 15, color: _accent),
-                        ),
-                      ),
-                  ],
-                ),
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _selectedRideId = ride.id),
+          borderRadius: BorderRadius.circular(20),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.fromLTRB(10, 12, 14, 12),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFFBFCFC) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected ? _accent : Colors.transparent,
+                width: 1.2,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF162C36).withOpacity(0.06),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 92,
+                  height: 62,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: Image.asset(ride.image, fit: BoxFit.contain),
+                      ),
+                      if (ride.glyph != null)
+                        Positioned(
+                          left: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: const BoxDecoration(
+                              color: _accentSoft,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(ride.glyph, size: 14, color: _accent),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ride.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _text(16, weight: FontWeight.w600),
+                            ),
+                          ),
+                          Text(
+                            _kr(ride.price),
+                            style: _text(16, weight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            ride.arrival,
+                            style: _text(12.5, color: _muted),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.person_outline_rounded,
+                            size: 14,
+                            color: _muted,
+                          ),
+                          Text(
+                            ' ${ride.seats}',
+                            style: _text(12.5, color: _muted),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        ride.note,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(12.5, color: _muted, weight: FontWeight.w400),
+                      ),
+                      if (ride.badge != null) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: selected ? _accent : _accentSoft,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                           child: Text(
-                            ride.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: _ink,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
+                            ride.badge!,
+                            style: _text(
+                              9.5,
+                              weight: FontWeight.w700,
+                              color: selected ? Colors.white : _accent,
+                              letterSpacing: 0.4,
                             ),
                           ),
                         ),
-                        Text(
-                          _kr(ride.price),
-                          style: const TextStyle(
-                            color: _ink,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
                       ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Text(
-                          ride.arrival,
-                          style: const TextStyle(
-                            color: _muted,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(
-                          Icons.person_outline_rounded,
-                          size: 14,
-                          color: _muted,
-                        ),
-                        Text(
-                          ' ${ride.seats}',
-                          style: const TextStyle(
-                            color: _muted,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      ride.note,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _muted,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    if (ride.badge != null && selected) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _accent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          ride.badge!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ),
-                    ] else if (ride.badge != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _accentSoft,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          ride.badge!,
-                          style: const TextStyle(
-                            color: _accent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ),
                     ],
-                  ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _footer(double bottomInset) {
+    final selected = _selectedRide;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottomInset),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _line)),
+      ),
+      child: Column(
+        children: [
+          _paymentButton(),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Material(
+                  color: _cta,
+                  borderRadius: BorderRadius.circular(18),
+                  child: InkWell(
+                    onTap: _book,
+                    borderRadius: BorderRadius.circular(18),
+                    child: SizedBox(
+                      height: 54,
+                      child: Center(
+                        child: Text(
+                          _scheduledFor == null
+                              ? 'Select ${selected.name}'
+                              : 'Schedule ${selected.name}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _text(
+                            16,
+                            weight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Material(
+                color: _cta,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _showBookingPicker,
+                  child: const SizedBox(
+                    width: 54,
+                    height: 54,
+                    child: Icon(
+                      Icons.calendar_month_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -916,120 +852,26 @@ class _SelectRideState extends State<SelectRide> {
                       method.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: _text(15, weight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       method.detail,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: _text(
+                        11.5,
+                        weight: FontWeight.w500,
                         color: method.brand == 'cash' ? _accent : _muted,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: _muted,
-                size: 22,
-              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted, size: 22),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _footer(double bottomInset) {
-    final selected = _selectedRide;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, 6, 16, 10 + bottomInset),
-      color: Colors.white,
-      child: Column(
-        children: [
-          _paymentButton(),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Material(
-                  color: _accent,
-                  borderRadius: BorderRadius.circular(28),
-                  child: InkWell(
-                    onTap: _book,
-                    borderRadius: BorderRadius.circular(28),
-                    child: SizedBox(
-                      height: 52,
-                      child: Center(
-                        child: Text(
-                          _scheduledFor == null
-                              ? 'Select ${selected.name}'
-                              : 'Schedule ${selected.name}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Material(
-                color: _accent,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: _showBookingPicker,
-                  child: const SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: Icon(
-                      Icons.calendar_month_rounded,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _paymentGroup(BuildContext sheetContext, String group) {
-    final indexes = [
-      for (var i = 0; i < _payments.length; i++)
-        if (group == 'all' || _payments[i].group == group) i,
-    ];
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < indexes.length; i++) ...[
-            if (i > 0)
-              const Divider(height: 1, indent: 62, endIndent: 16, color: _line),
-            _walletPaymentTile(indexes[i], sheetContext),
-          ],
-        ],
       ),
     );
   }
@@ -1054,19 +896,13 @@ class _SelectRideState extends State<SelectRide> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      method.name,
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    Text(method.name, style: _text(14.5, weight: FontWeight.w600)),
                     Text(
                       selected ? 'Default for rides' : method.detail,
-                      style: TextStyle(
+                      style: _text(
+                        11.5,
                         color: selected ? _accent : _muted,
-                        fontSize: 11.5,
+                        weight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -1117,18 +953,8 @@ class _SelectRideState extends State<SelectRide> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: _ink,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: _muted, fontSize: 13),
-                  ),
+                  Text(title, style: _text(16, weight: FontWeight.w600)),
+                  Text(subtitle, style: _text(13, color: _muted)),
                 ],
               ),
             ),
@@ -1141,10 +967,10 @@ class _SelectRideState extends State<SelectRide> {
   Widget _brandMark(String brand) {
     if (brand == 'swish') {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(11),
         child: SizedBox(
-          width: 28,
-          height: 22,
+          width: 42,
+          height: 38,
           child: SvgPicture.asset(
             'assets/images/swish_brand.svg',
             fit: BoxFit.cover,
@@ -1179,7 +1005,11 @@ class _SelectRideState extends State<SelectRide> {
       );
     } else if (brand == 'cash') {
       background = const Color(0xFFEEF6F0);
-      logo = const Icon(Icons.payments_outlined, color: Color(0xFF1F7A4D), size: 20);
+      logo = const Icon(
+        Icons.payments_outlined,
+        color: Color(0xFF1F7A4D),
+        size: 20,
+      );
     } else {
       logo = Image.asset(AppAssets.wallet, color: _ink, fit: BoxFit.contain);
     }
@@ -1197,4 +1027,77 @@ class _SelectRideState extends State<SelectRide> {
       child: logo,
     );
   }
+}
+
+class _RouteCanvas extends StatelessWidget {
+  const _RouteCanvas();
+
+  @override
+  Widget build(BuildContext context) {
+    return const CustomPaint(painter: _RoutePainter(), child: SizedBox.expand());
+  }
+}
+
+class _RoutePainter extends CustomPainter {
+  const _RoutePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sky = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFFDCE8DE), Color(0xFFEEF3E8), Color(0xFFF6F5F1)],
+      ).createShader(Offset.zero & size);
+    canvas.drawRect(Offset.zero & size, sky);
+
+    final water = Paint()..color = const Color(0xFFC9D9D4).withOpacity(0.7);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(size.width * 0.08, size.height * 0.18, size.width * 0.38, 28),
+        const Radius.circular(20),
+      ),
+      water,
+    );
+
+    final land = Paint()..color = const Color(0xFFD7E3D4);
+    canvas.drawCircle(Offset(size.width * 0.78, size.height * 0.42), 46, land);
+    canvas.drawCircle(Offset(size.width * 0.22, size.height * 0.62), 34, land);
+
+    final path = Path()
+      ..moveTo(size.width * 0.16, size.height * 0.72)
+      ..quadraticBezierTo(
+        size.width * 0.42,
+        size.height * 0.18,
+        size.width * 0.84,
+        size.height * 0.46,
+      );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF2D5878).withOpacity(0.18)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 10
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF2D5878)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    void pin(Offset c, Color color) {
+      canvas.drawCircle(c, 9, Paint()..color = color);
+      canvas.drawCircle(c, 4.2, Paint()..color = Colors.white);
+    }
+
+    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1D252C));
+    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF2D5878));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
