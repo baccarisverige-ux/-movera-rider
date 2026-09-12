@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Offset;
 
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
