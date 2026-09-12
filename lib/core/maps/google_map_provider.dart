@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -7,7 +8,7 @@ import 'package:movera_rider/core/maps/marker_store.dart';
 class _OwnedMap {
   const _OwnedMap(this.owner, this.controller);
   final String owner;
-  final GoogleMapController controller;
+  final GoogleMapController? controller;
 }
 
 class GoogleMapProvider implements MapProvider {
@@ -23,6 +24,14 @@ class GoogleMapProvider implements MapProvider {
   String? get activeOwner => _owners.isEmpty ? null : _owners.last.owner;
 
   void attach(GoogleMapController controller, {String owner = 'map'}) {
+    _push(owner, controller);
+  }
+
+  /// Test hook for owner/generation without a plugin controller.
+  @visibleForTesting
+  void debugAttach(String owner) => _push(owner, null);
+
+  void _push(String owner, GoogleMapController? controller) {
     generation += 1;
     _owners.removeWhere((item) => item.owner == owner);
     _owners.add(_OwnedMap(owner, controller));

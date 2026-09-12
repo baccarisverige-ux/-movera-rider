@@ -6,6 +6,31 @@ WaitingForDriver is the approved surface for assigned / arriving / in-progress.
 
 Web snapshot key: `flutter.movera_active_ride` (`RideSnapshotStore.key`).
 
+## 20-phase completion pass
+
+| PHASE | STATUS |
+|---|---|
+| 1 Restore authority (`RideRestoreGate` only; Home restore deleted) | DONE AND WIRED |
+| 2 Resume vs cold start (resync always; navigate only at root) | DONE AND WIRED |
+| 3 Map owner/generation; never `GoogleMapController.dispose()` | DONE AND WIRED |
+| 4 Nested pickup map stays one owner-stacked map, no extra GoogleMap widget type | DONE AND WIRED |
+| 5 Routes stored in facade; polyline only on Select Ride (approved) | DONE AND WIRED |
+| 6 `flutter_secure_storage` iOS/Android; memory web/CI | DONE AND WIRED |
+| 7 Waiting `initState` does not `markArriving()` | DONE AND WIRED |
+| 8 WaitingForDriver = assigned / arriving / in-progress | DONE AND WIRED |
+| 9 Finding assignment from realtime (~12s); countdown is visual | DONE AND WIRED |
+| 10 Quote `id == quoteId`; later generation wins | DONE AND WIRED |
+| 11 Wallet `topUp` / `redeemVoucher` / `chargeRide` / `refund` | DONE AND WIRED |
+| 12 Home promo from `PromotionsController` (“40% off your next ride”) | DONE AND WIRED |
+| 13 Double-book in-flight lock on finding + scheduled | DONE AND WIRED |
+| 14 `ScheduledRideSession` owns pickup/dropoff/stops/time/quote/booking | DONE AND WIRED |
+| 15 Unit tests (restore, maps, quotes, wallet, finding, tokens, booking, guards) | DONE AND WIRED |
+| 16 Live QA scheduled Continue (test, not UI) | DONE AND WIRED |
+| 17 Restore/reload QA seeds Finding + Waiting | DONE AND WIRED |
+| 18 Map stress QA nested pickup attach/detach | DONE AND WIRED |
+| 19 Analyzer + architecture gates CI | DONE AND WIRED |
+| 20 Honest remaining mocks below | DONE AND WIRED |
+
 ## How to replace mocks
 
 | Mock | Replace with |

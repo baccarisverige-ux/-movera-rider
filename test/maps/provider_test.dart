@@ -4,6 +4,7 @@ import 'package:movera_rider/core/maps/google_map_provider.dart';
 import 'package:movera_rider/core/maps/map_facade.dart';
 import 'package:movera_rider/core/maps/map_camera_controller.dart';
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
 
 void main() {
@@ -24,9 +25,38 @@ void main() {
 
   test('older owner cannot detach newer map', () {
     final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.pickup);
+    expect(maps.activeOwner, MapOwners.pickup);
+    expect(maps.generation, 2);
+    maps.detach(owner: MapOwners.home);
+    expect(maps.activeOwner, MapOwners.pickup);
+    maps.detach(owner: MapOwners.pickup);
+    expect(maps.activeOwner, MapOwners.home);
+    maps.detach(owner: MapOwners.home);
     expect(maps.activeOwner, isNull);
-    maps.detach(owner: 'home');
+  });
+
+  test('re-attach moves owner to top and bumps generation', () {
+    final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.selectRide);
+    maps.debugAttach(MapOwners.home);
+    expect(maps.activeOwner, MapOwners.home);
+    expect(maps.generation, 3);
+    maps.detach(owner: MapOwners.selectRide);
+    expect(maps.activeOwner, MapOwners.home);
+    maps.detach(owner: MapOwners.home);
+    expect(maps.activeOwner, MapOwners.selectRide);
+  });
+
+  test('dispose drops owners and never needs a plugin controller', () {
+    final maps = GoogleMapProvider();
+    maps.debugAttach(MapOwners.finding);
+    maps.debugAttach(MapOwners.waiting);
+    maps.dispose();
     expect(maps.activeOwner, isNull);
+    expect(maps.controller, isNull);
   });
 
   test('facade coordinates marker and route state', () {

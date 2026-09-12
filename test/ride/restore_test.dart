@@ -77,4 +77,13 @@ void main() {
     expect(await c.resumeIfNeeded(), isNull);
     expect(await c.resumeIfNeeded(), isNull);
   });
+
+  test('resume does not yank an intentional non-root screen', () async {
+    final snapshot = snap(RideStatus.findingDriver);
+    final c = RideRestoreCoordinator(reader: () async => snapshot);
+    c.showing = RestoredSurface.home;
+    c.debugAtRoot = () => false;
+    expect(await c.resumeIfNeeded(), isNull);
+    expect(c.showing, RestoredSurface.home);
+  });
 }

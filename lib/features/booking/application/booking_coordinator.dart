@@ -11,6 +11,24 @@ class BookingCoordinator {
     required String rideType,
     required String paymentMethod,
     String? scheduledAt,
+  }) {
+    if (_inflight != null) return _inflight!;
+    final started = _requestBooking(
+      rideType: rideType,
+      paymentMethod: paymentMethod,
+      scheduledAt: scheduledAt,
+    );
+    _inflight = started;
+    started.whenComplete(() {
+      if (identical(_inflight, started)) _inflight = null;
+    });
+    return started;
+  }
+
+  Future<String> _requestBooking({
+    required String rideType,
+    required String paymentMethod,
+    String? scheduledAt,
   }) async {
     final id = newIdempotencyKey('booking');
     final json = await AppScope.instance.api.post(
@@ -47,9 +65,9 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
-  }) async {
+  }) {
     if (_inflight != null) return _inflight!;
-    _inflight = _submitFinding(
+    final started = _submitFinding(
       pickupAddress: pickupAddress,
       destinationAddress: destinationAddress,
       pickupLat: pickupLat,
@@ -60,11 +78,11 @@ class BookingCoordinator {
       price: price,
       paymentMethod: paymentMethod,
     );
-    try {
-      return await _inflight!;
-    } finally {
-      _inflight = null;
-    }
+    _inflight = started;
+    started.whenComplete(() {
+      if (identical(_inflight, started)) _inflight = null;
+    });
+    return started;
   }
 
   Future<String> _submitFinding({

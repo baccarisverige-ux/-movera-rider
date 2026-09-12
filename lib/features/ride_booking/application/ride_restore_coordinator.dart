@@ -21,6 +21,9 @@ class RideRestoreCoordinator {
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
 
+  /// Tests: pretend Profile/Wallet is open so resume must not navigate.
+  bool Function()? debugAtRoot;
+
   static final instance = RideRestoreCoordinator();
 
   RestoredSurface surfaceFor(RideSnapshot? snapshot) {
@@ -100,6 +103,8 @@ class RideRestoreCoordinator {
   }
 
   bool get atRoot {
+    final override = debugAtRoot;
+    if (override != null) return override();
     try {
       final nav = moveraNavigatorKey.currentState;
       if (nav == null) return true;
@@ -110,10 +115,15 @@ class RideRestoreCoordinator {
   }
 
   Future<Widget?> resumeIfNeeded() async {
-    final snapshot = await _reader();
+    var snapshot = await _reader();
     final id = snapshot?.rideId;
     if (id != null) {
-      await AppScope.instance.rideRealtime.reconnectAndResync(id);
+      try {
+        await AppScope.instance.rideRealtime.reconnectAndResync(id);
+      } catch (_) {}
+      try {
+        snapshot = await _reader();
+      } catch (_) {}
     }
     if (!atRoot) return null;
     final next = surfaceFor(snapshot);

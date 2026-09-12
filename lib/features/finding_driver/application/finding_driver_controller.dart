@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
@@ -33,6 +34,7 @@ class FindingDriverController {
   int _lastSequence = -1;
   RideSnapshot? _snapshot;
   void Function()? _onMatched;
+  int timeoutLogs = 0;
 
   RideSession get ride => _ride ?? AppScope.instance.ride;
   ApiClient get api => _api ?? AppScope.instance.api;
@@ -99,6 +101,13 @@ class FindingDriverController {
         onTick(remaining);
       } else {
         timer.cancel();
+        if (!_assigned && !_cancelled) {
+          timeoutLogs += 1;
+          AppLog.info(
+            'ride.finding.no_driver',
+            extra: {'rideId': snapshot.rideId, 'seconds': seconds},
+          );
+        }
       }
     });
     final rideId = snapshot.rideId ?? ride.rideId ?? 'ride';

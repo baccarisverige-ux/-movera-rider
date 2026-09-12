@@ -115,8 +115,17 @@ jobs:
 
           console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
 
-          const restorePage=await context.newPage();
-          const snapshot={
+          async function seedRestore(page, snapshot, shotName){
+            await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+            await page.waitForTimeout(2500);
+            await page.evaluate((raw)=>{
+              localStorage.setItem('flutter.movera_active_ride', raw);
+            }, JSON.stringify(snapshot));
+            await page.reload({waitUntil:'networkidle'});
+            await page.waitForTimeout(4000);
+            return await page.screenshot({path:`qa-${shotName}.png`,fullPage:true});
+          }
+          const findingSnap={
             status:'findingDriver',
             savedAt:new Date().toISOString(),
             pickupAddress:'Current location',
@@ -125,17 +134,37 @@ jobs:
             destinationLat:59.3301,destinationLng:18.058,
             rideType:'Movera',price:259,paymentMethod:'Apple Pay',rideId:'qa-restore-1'
           };
-          await restorePage.goto(base+`?restore=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
-          await restorePage.waitForTimeout(2500);
-          await restorePage.evaluate((raw)=>{
-            localStorage.setItem('flutter.movera_active_ride', raw);
-          }, JSON.stringify(snapshot));
-          await restorePage.reload({waitUntil:'networkidle'});
-          await restorePage.waitForTimeout(4000);
-          const restoreShot=await restorePage.screenshot({path:'qa-restore-finding.png',fullPage:true});
+          const restorePage=await context.newPage();
+          const restoreShot=await seedRestore(restorePage, findingSnap, 'restore-finding');
           if(Buffer.compare(restoreShot, home)===0) throw new Error('Restore reload showed Home flash/same Home');
-          fs.writeFileSync('qa-restore-finding.json', JSON.stringify({pageErrors:[],note:'seeded flutter.movera_active_ride'},null,2));
-          console.log('PASS: restore reload did not remain on Home');
+          fs.writeFileSync('qa-restore-finding.json', JSON.stringify({pageErrors:[],note:'seeded flutter.movera_active_ride findingDriver'},null,2));
+          console.log('PASS: restore finding reload did not remain on Home');
+
+          const waitingSnap={...findingSnap, status:'driverAssigned', rideId:'qa-restore-wait'};
+          const waitPage=await context.newPage();
+          const waitShot=await seedRestore(waitPage, waitingSnap, 'restore-waiting');
+          if(Buffer.compare(waitShot, home)===0) throw new Error('Waiting restore showed Home');
+          if(Buffer.compare(waitShot, restoreShot)===0) throw new Error('Waiting restore matched Finding restore');
+          fs.writeFileSync('qa-restore-waiting.json', JSON.stringify({pageErrors:[],note:'seeded flutter.movera_active_ride driverAssigned'},null,2));
+          console.log('PASS: restore waiting reload did not remain on Home or Finding');
+
+          const stressPage=await context.newPage();
+          stressPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
+          stressPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
+          await stressPage.goto(base+`?mapstress=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+          await stressPage.waitForTimeout(4000);
+          const stressHome=await stressPage.screenshot({path:'qa-map-stress-home.png',fullPage:true});
+          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2800);
+          const stressPickup=await stressPage.screenshot({path:'qa-map-stress-pickup.png',fullPage:true});
+          if(Buffer.compare(stressHome, stressPickup)===0) throw new Error('Map stress pickup overlay did not open');
+          await stressPage.mouse.click(44,44); await stressPage.waitForTimeout(900);
+          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1000);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2200);
+          await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
+          if(fatalErrors().length) throw new Error('Map stress fatal: '+fatalErrors().join(' | '));
+          fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          console.log('PASS: map stress nested pickup attach/detach with no fatal runtime errors');
 
           await browser.close();
           JS

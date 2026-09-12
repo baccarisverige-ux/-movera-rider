@@ -3,10 +3,13 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Iterable<File> presentation() => Directory('lib/features')
+  Iterable<File> dartUnder(String root) => Directory(root)
       .listSync(recursive: true)
       .whereType<File>()
-      .where((f) => f.path.contains('/presentation/') && f.path.endsWith('.dart'));
+      .where((f) => f.path.endsWith('.dart'));
+
+  Iterable<File> presentation() => dartUnder('lib/features')
+      .where((f) => f.path.contains('/presentation/'));
 
   test('presentation does not import raw http or shared_preferences', () {
     for (final file in presentation()) {
@@ -41,6 +44,31 @@ void main() {
     final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
     expect(home.contains('_restoreActiveRide'), isFalse);
     expect(home.contains('RideSnapshotStore'), isFalse);
+  });
+
+  test('home does not draw a trip polyline', () {
+    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    expect(home.contains('Polyline('), isFalse);
+    expect(home.contains('polylines:'), isFalse);
+  });
+
+  test('waiting screen does not markArriving on open', () {
+    final ui = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+    expect(ui.contains('markArriving'), isFalse);
+  });
+
+  test('never disposes GoogleMapController', () {
+    for (final file in dartUnder('lib')) {
+      final src = file.readAsStringSync();
+      expect(src.contains('GoogleMapController.dispose'), isFalse, reason: file.path);
+      expect(
+        RegExp(r'_mapController\?\.dispose|_mapController\.dispose').hasMatch(src),
+        isFalse,
+        reason: file.path,
+      );
+    }
   });
 
   test('presentation has no catalog fare table', () {

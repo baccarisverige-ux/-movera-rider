@@ -22,6 +22,14 @@ RideSnapshot snap() => RideSnapshot(
       rideId: 'r1',
     );
 
+FindingDriverController controllerOf(MockRideRealtime rt, RideSession ride) {
+  return FindingDriverController(
+    realtime: rt,
+    ride: ride,
+    store: FindingDriverRepository(),
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
@@ -32,11 +40,7 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: ride,
-      store: FindingDriverRepository(),
-    );
+    final controller = controllerOf(rt, ride);
     controller.start(
       seconds: 12,
       snapshot: snap(),
@@ -55,11 +59,7 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: ride,
-      store: FindingDriverRepository(),
-    );
+    final controller = controllerOf(rt, ride);
     controller.start(
       seconds: 12,
       snapshot: snap(),
@@ -78,11 +78,7 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: ride,
-      store: FindingDriverRepository(),
-    );
+    final controller = controllerOf(rt, ride);
     controller.start(
       seconds: 12,
       snapshot: snap(),
@@ -100,11 +96,7 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: ride,
-      store: FindingDriverRepository(),
-    );
+    final controller = controllerOf(rt, ride);
     controller.start(
       seconds: 12,
       snapshot: snap(),
@@ -115,6 +107,24 @@ void main() {
     rt.emit(RideStatus.driverAssigned, sequence: 2);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(matches, 0);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test('countdown end without realtime does not assign', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    var matches = 0;
+    final controller = controllerOf(rt, ride);
+    controller.start(
+      seconds: 0,
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () => matches += 1,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    expect(matches, 0);
+    expect(controller.timeoutLogs, 1);
     controller.dispose();
     rt.dispose();
   });
