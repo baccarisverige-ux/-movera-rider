@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rider/home/home.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -149,10 +147,7 @@ void showCancelRideReasonDialog(BuildContext context) {
                             fontSize: 12,
                             height: ResSize.h * 38,
                             onPressed: () {
-                              Navigator.pushReplacement(
-                                context,
-                                BottomToTopTransition(Home()),
-                              );
+                              Navigator.of(context).popUntil((route) => route.isFirst);
                             },
                           ),
                         ),

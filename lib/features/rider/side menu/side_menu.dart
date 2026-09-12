@@ -7,6 +7,8 @@ import 'package:movera_rider/features/rider/promotions/promotions.dart';
 import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
 import 'package:movera_rider/features/rider/my%20rides/my_rides.dart';
 import 'package:movera_rider/features/rider/support/support.dart';
+import 'package:movera_rider/shared/presentation/Refer%20and%20Earn/refer_and_earn.dart';
+import 'package:movera_rider/shared/presentation/notification/notifiction.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -87,7 +89,12 @@ class RiderSideMenu extends StatelessWidget {
                       _buildMenuItem(
                         icon: AppAssets.payment,
                         title: "Payments",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            RightToLeftTransition(const WalletScreen()),
+                          );
+                        },
                       ),
                       _buildMenuItem(
                         icon: AppAssets.scheduledRides,
@@ -102,7 +109,18 @@ class RiderSideMenu extends StatelessWidget {
                       _buildMenuItem(
                         icon: AppAssets.safety,
                         title: "Safety",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            RightToLeftTransition(
+                              const HelpArticle(
+                                title: 'Safety',
+                                body:
+                                    'Share your trip, call emergency services, and keep trusted contacts close. Movera Support can also help if a ride does not feel right.',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       _buildMenuItem(
                         icon: AppAssets.support,
@@ -117,12 +135,28 @@ class RiderSideMenu extends StatelessWidget {
                       _buildMenuItem(
                         icon: AppAssets.inviteFriends,
                         title: "Invite Friends",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            RightToLeftTransition(const ReferAndEarn()),
+                          );
+                        },
                       ),
                       _buildMenuItem(
                         icon: AppAssets.about,
                         title: "About",
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            RightToLeftTransition(
+                              const HelpArticle(
+                                title: 'About Movera',
+                                body:
+                                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       10.height,
                       _becomeDriverCard(),

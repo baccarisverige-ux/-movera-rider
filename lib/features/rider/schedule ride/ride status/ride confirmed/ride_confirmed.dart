@@ -3,7 +3,6 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/presentation/chat/chat.dart';
-import 'package:movera_rider/features/rider/home/home.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/ride%20status/cancel%20ride/cancel_ride.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -403,10 +402,7 @@ class ScheduleRideConfirmed extends StatelessWidget {
                   20.width,
                   InkWell(
                     onTap: () {
-                      Navigator.pushReplacement(
-                        context,
-                        BottomToTopTransition(Home()),
-                      );
+                      Navigator.of(context).popUntil((route) => route.isFirst);
                     },
                     child: buildButton(image: AppAssets.home, title: "HOME"),
                   ),

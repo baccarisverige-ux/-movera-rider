@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rider/home/home.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -189,10 +187,7 @@ class _RideCancellationDialogState extends State<RideCancellationDialog> {
             // Search again button
             InkWell(
               onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  BottomToTopTransition(Home()),
-                );
+                Navigator.of(context).popUntil((route) => route.isFirst);
               },
               child: Container(
                 height: ResSize.h * 47,

@@ -22,6 +22,7 @@ import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
 import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
 import 'package:movera_rider/features/rider/support/support.dart';
+import 'package:movera_rider/shared/presentation/notification/notifiction.dart';
 import 'package:movera_rider/shared/services/location_address.dart'
     as address_service;
 import 'package:movera_rider/shared/services/device_heading.dart'
@@ -3362,17 +3363,32 @@ class _HomeState extends State<Home> {
           _buildProfileOption(
             icon: Icons.history,
             title: "Ride History",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const RideHistory()),
+              );
+            },
           ),
           _buildProfileOption(
             icon: Icons.payment_outlined,
             title: "Payment Methods",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const WalletScreen()),
+              );
+            },
           ),
           _buildProfileOption(
             icon: Icons.notifications_outlined,
             title: "Notifications",
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const NotificationScreen()),
+              );
+            },
           ),
           _buildProfileOption(
             icon: Icons.help_outline,
