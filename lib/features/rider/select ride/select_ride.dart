@@ -213,7 +213,7 @@ class _SelectRideState extends State<SelectRide>
     _sheetSlide = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
-      value: 1,
+      value: 0,
     );
     _sheetSlide.addStatusListener((status) {
       if (status == AnimationStatus.completed ||
@@ -330,14 +330,14 @@ class _SelectRideState extends State<SelectRide>
   String _kr(double value) => 'kr ${value.toStringAsFixed(0)}';
 
   double _minSheet(MediaQueryData media) {
-    final needed = 368 + media.padding.bottom;
-    final cap = media.size.height * 0.58;
-    return needed.clamp(320.0, cap < 360 ? 360.0 : cap);
+    final needed = 338 + media.padding.bottom;
+    final cap = media.size.height * 0.46;
+    return needed.clamp(300.0, cap < 320 ? 320.0 : cap);
   }
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
-    final maxH = media.size.height - media.padding.top - 200;
+    final maxH = media.size.height - media.padding.top - 228;
     return maxH <= minH ? minH : maxH;
   }
 
@@ -828,47 +828,46 @@ class _SelectRideState extends State<SelectRide>
                         onVerticalDragUpdate: (details) =>
                             _onSheetDragUpdate(details, media),
                         onVerticalDragEnd: _onSheetDragEnd,
+                        onTap: () {
+                          _sheetSlide.animateTo(
+                            collapsed ? 1 : 0,
+                            duration: const Duration(milliseconds: 480),
+                            curve: const Cubic(0.22, 1.0, 0.36, 1.0),
+                          );
+                        },
                         child: Column(
                           children: [
                             const SizedBox(height: 10),
-                            Container(
-                              width: 38,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: _line,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 14, 12, 0),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Choose your ride',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: _text(
-                                        20,
-                                        weight: FontWeight.w700,
-                                        letterSpacing: -0.4,
-                                      ),
-                                    ),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: _line,
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  const SizedBox(width: 8),
-                                  _priceStepper(),
-                                ],
-                              ),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 12),
+                                    child: _priceStepper(),
+                                  ),
+                                ),
+                              ],
                             ),
                             if (collapsed)
                               Padding(
                                 padding:
-                                    const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                                    const EdgeInsets.fromLTRB(14, 12, 14, 0),
                                 child: _rideTile(_selectedRide),
                               ),
                             if (!collapsed)
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 12, 16, 4),
                                 child: _filterRow(),
                               ),
                           ],
