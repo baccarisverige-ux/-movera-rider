@@ -6,6 +6,364 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
+class WalletHome extends StatefulWidget {
+  const WalletHome({super.key});
+
+  @override
+  State<WalletHome> createState() => _WalletHomeState();
+}
+
+class _WalletHomeState extends State<WalletHome> {
+  static const Color _ink = Color(0xFF11181D);
+  static const Color _muted = Color(0xFF7B8388);
+  static const Color _line = Color(0xFFE6E8E7);
+  static const Color _accent = Color(0xFF2D5878);
+  static const _balanceKey = 'movera_wallet_balance';
+
+  double _balance = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  TextStyle _style(
+    double size, {
+    FontWeight weight = FontWeight.w500,
+    Color color = _ink,
+    double? height,
+  }) {
+    return GoogleFonts.poppins(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+    );
+  }
+
+  Future<void> _restore() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _balance = prefs.getDouble(_balanceKey) ?? 0);
+  }
+
+  Future<void> _saveBalance(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_balanceKey, value);
+    if (!mounted) return;
+    setState(() => _balance = value);
+  }
+
+  Future<void> _openAddFunds() async {
+    int amount = 200;
+    final funded = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.28),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return SafeArea(
+              top: false,
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: _line,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Add funds',
+                      style: _style(20, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pay with a card, Swish or a stored method. Wallet cannot top itself up.',
+                      style: _style(12, weight: FontWeight.w400, color: _muted),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        for (final value in [100, 200, 500]) ...[
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setSheetState(() => amount = value),
+                              child: Container(
+                                height: 46,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: amount == value ? _ink : const Color(0xFFF4F5F4),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  'kr $value',
+                                  style: _style(
+                                    13,
+                                    weight: FontWeight.w600,
+                                    color: amount == value ? Colors.white : _ink,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (value != 500) const SizedBox(width: 8),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'PAY WITH',
+                      style: _style(10, weight: FontWeight.w600, color: _muted)
+                          .copyWith(letterSpacing: 1.2),
+                    ),
+                    const SizedBox(height: 6),
+                    _fundMethod(
+                      title: 'Apple Pay',
+                      brand: 'apple',
+                      onTap: () => Navigator.pop(sheetContext, true),
+                    ),
+                    _fundMethod(
+                      title: 'Google Pay',
+                      brand: 'google',
+                      onTap: () => Navigator.pop(sheetContext, true),
+                    ),
+                    _fundMethod(
+                      title: 'Card',
+                      brand: 'cards',
+                      onTap: () => Navigator.pop(sheetContext, true),
+                    ),
+                    _fundMethod(
+                      title: 'Swish',
+                      brand: 'swish',
+                      onTap: () => Navigator.pop(sheetContext, true),
+                    ),
+                    _fundMethod(
+                      title: 'PayPal',
+                      brand: 'paypal',
+                      onTap: () => Navigator.pop(sheetContext, true),
+                    ),
+                    _fundMethod(
+                      title: 'Klarna',
+                      brand: 'klarna',
+                      onTap: () => Navigator.pop(sheetContext, true),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (funded == true) {
+      await _saveBalance(_balance + amount);
+    }
+  }
+
+  Widget _fundMethod({
+    required String title,
+    required String brand,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              _miniBrand(brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title, style: _style(14, weight: FontWeight.w600)),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniBrand(String brand) {
+    Widget child;
+    Color background = const Color(0xFFF4F5F4);
+    if (brand == 'apple') {
+      child = SvgPicture.asset('assets/images/apple_pay_brand.svg');
+      background = Colors.white;
+    } else if (brand == 'google') {
+      child = Image.asset('assets/images/google_pay_brand.png');
+      background = Colors.white;
+    } else if (brand == 'paypal') {
+      child = Image.asset(AppAssets.paypal);
+    } else if (brand == 'klarna') {
+      child = SvgPicture.asset('assets/images/klarna_brand.svg');
+      background = const Color(0xFFFFB3C7);
+    } else if (brand == 'swish') {
+      child = SvgPicture.asset('assets/images/swish_brand.svg', fit: BoxFit.cover);
+    } else {
+      child = Row(
+        children: [
+          Expanded(child: Image.asset(AppAssets.visa, fit: BoxFit.contain)),
+          const SizedBox(width: 2),
+          Expanded(child: Image.asset(AppAssets.mastercard, fit: BoxFit.contain)),
+        ],
+      );
+      background = Colors.white;
+    }
+    return Container(
+      width: 42,
+      height: 38,
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: background == Colors.white ? _line : background),
+      ),
+      child: child,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F5F1),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      customBorder: const CircleBorder(),
+                      child: const SizedBox(
+                        width: 42,
+                        height: 42,
+                        child: Icon(Icons.arrow_back_rounded, color: _ink),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text('Wallet', style: _style(16, weight: FontWeight.w700)),
+                  const Spacer(),
+                  const SizedBox(width: 42),
+                ],
+              ),
+              const SizedBox(height: 22),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF11181D), Color(0xFF2D5878)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF11181D).withOpacity(0.28),
+                      blurRadius: 28,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'MOVERA',
+                          style: _style(
+                            11,
+                            weight: FontWeight.w700,
+                            color: Colors.white.withOpacity(0.7),
+                          ).copyWith(letterSpacing: 2.2),
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.contactless_rounded,
+                          color: Colors.white.withOpacity(0.86),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      'Available balance',
+                      style: _style(
+                        12,
+                        weight: FontWeight.w400,
+                        color: Colors.white.withOpacity(0.72),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'kr ${_balance.toStringAsFixed(0)}',
+                      style: _style(34, weight: FontWeight.w700, color: Colors.white),
+                    ),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: _openAddFunds,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: _ink,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Add funds',
+                          style: _style(14, weight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'This is your Movera Wallet. Use it as a payment method on rides, and top it up with card, Swish or another method.',
+                style: _style(12.5, color: _muted, height: 1.45),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -616,6 +974,18 @@ class _WalletScreenState extends State<WalletScreen> {
                       child: Column(
                         children: [
                           _paymentTile(
+                            id: 'wallet',
+                            title: 'Movera Wallet',
+                            detail: 'Pay from your balance',
+                            brand: 'wallet',
+                          ),
+                          const Divider(
+                            height: 1,
+                            indent: 62,
+                            endIndent: 16,
+                            color: _line,
+                          ),
+                          _paymentTile(
                             id: 'apple',
                             title: 'Apple Pay',
                             detail: 'Available by default',
@@ -632,6 +1002,18 @@ class _WalletScreenState extends State<WalletScreen> {
                             title: 'Google Pay',
                             detail: 'Available by default',
                             brand: 'google',
+                          ),
+                          const Divider(
+                            height: 1,
+                            indent: 62,
+                            endIndent: 16,
+                            color: _line,
+                          ),
+                          _paymentTile(
+                            id: 'swish',
+                            title: 'Swish',
+                            detail: 'Instant mobile payment',
+                            brand: 'swish',
                           ),
                           const Divider(
                             height: 1,
@@ -983,6 +1365,18 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
         ],
       );
+    } else if (brand == 'swish') {
+      logo = SvgPicture.asset(
+        'assets/images/swish_brand.svg',
+        fit: BoxFit.cover,
+      );
+    } else if (brand == 'wallet' || brand.startsWith('wallet')) {
+      background = const Color(0xFF11181D);
+      logo = const Icon(
+        Icons.account_balance_wallet_rounded,
+        color: Colors.white,
+        size: 20,
+      );
     } else if (brand == 'cash') {
       background = const Color(0xFFEEF6F0);
       logo = const Icon(
@@ -1010,7 +1404,9 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
       child: brand == 'google'
           ? Transform.scale(scale: 1.18, child: logo)
-          : logo,
+          : brand == 'swish'
+              ? ClipRRect(borderRadius: BorderRadius.circular(4), child: logo)
+              : logo,
     );
   }
 

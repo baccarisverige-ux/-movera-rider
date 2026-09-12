@@ -62,7 +62,7 @@ class RiderSideMenu extends StatelessWidget {
                         onTap: () {
                           Navigator.push(
                             context,
-                            RightToLeftTransition(const WalletScreen()),
+                            RightToLeftTransition(const WalletHome()),
                           );
                         },
                       ),

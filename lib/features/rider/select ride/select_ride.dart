@@ -158,6 +158,11 @@ class _SelectRideState extends State<SelectRide>
 
   final List<_PaymentOption> _payments = const [
     _PaymentOption(
+      brand: 'wallet',
+      name: 'Movera Wallet',
+      detail: 'Pay from your balance',
+    ),
+    _PaymentOption(
       brand: 'apple',
       name: 'Apple Pay',
       detail: 'Available by default',
@@ -187,15 +192,10 @@ class _SelectRideState extends State<SelectRide>
       name: 'Cash',
       detail: 'Pay the driver in cash',
     ),
-    _PaymentOption(
-      brand: 'wallet',
-      name: 'Wallet',
-      detail: 'kr 7 available',
-    ),
   ];
 
   String _selectedRideId = 'movera';
-  int _selectedPayment = 0;
+  int _selectedPayment = 1;
   _RideFilter _filter = _RideFilter.recommended;
   DateTime? _scheduledFor;
   final Map<String, double> _offeredPrices = {};
