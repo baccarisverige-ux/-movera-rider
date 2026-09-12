@@ -1,7 +1,7 @@
 import 'package:movera_rider/features/ride_history/domain/ride_history.dart';
 
 class RideHistoryRepository {
-  List<RideHistoryItem> past() => const [
+  List<RideHistoryItem> past() => [
         RideHistoryItem(
           title: 'Alby Centrum',
           when: DateTime(2026, 9, 1, 15, 40),
