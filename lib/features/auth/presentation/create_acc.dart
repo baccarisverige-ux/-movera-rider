@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/shared/widgets/checkbox.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
@@ -208,6 +209,7 @@ class _CreateAccountState extends State<CreateAccount> {
               CustomButton(
                 centerContent: "Continue",
                 onPressed: () {
+                  AuthController().requestOtp();
                   Navigator.push(
                     context,
                     BottomToTopTransition(const PhoneVerification()),

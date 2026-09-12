@@ -1,6 +1,12 @@
 import 'package:movera_rider/app/di.dart';
 
 class AuthController {
+  String? lastPhone;
+
+  Future<void> requestOtp({String phone = ''}) async {
+    lastPhone = phone;
+  }
+
   Future<void> signIn({required String provider}) {
     return AppScope.instance.tokens.save(
       access: 'movera-mock-$provider',

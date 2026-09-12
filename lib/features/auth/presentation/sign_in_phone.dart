@@ -3,6 +3,7 @@ import 'package:country_pickers/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -133,6 +134,7 @@ class _SignInPhoneState extends State<SignInPhone> {
               CustomButton(
                 centerContent: "Continue",
                 onPressed: () {
+                  AuthController().requestOtp();
                   Navigator.push(
                     context,
                     BottomToTopTransition(const PhoneVerification()),

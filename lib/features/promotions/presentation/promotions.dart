@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/promotions/data/promotions_repository.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -134,12 +135,13 @@ class _PromotionsState extends State<Promotions> {
                         height: 0,
                       ),
                       6.height,
-                      promoCard(
-                        AppAssets.promoCard2Bg,
-                        AppAssets.promoCard2Img,
-                      ),
-                      12.height,
-                      promoCard(AppAssets.promoCardBg, AppAssets.promoCardImg),
+                      for (var i = 0; i < PromotionsRepository().cards().length; i++) ...[
+                        if (i > 0) 12.height,
+                        promoCard(
+                          PromotionsRepository().cards()[i].background,
+                          PromotionsRepository().cards()[i].image,
+                        ),
+                      ],
                       16.height,
                       Container(
                         padding: EdgeInsets.symmetric(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/support/data/support_repository.dart';
+import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class SupportHome extends StatelessWidget {
@@ -29,48 +31,7 @@ class SupportHome extends StatelessWidget {
     );
   }
 
-  static final List<SupportRide> rides = [
-    SupportRide(
-      title: 'Alby Centrum',
-      when: DateTime(2026, 9, 1, 15, 40),
-      price: 211,
-      image: 'assets/images/rides/comfort.png',
-    ),
-    SupportRide(
-      title: 'Fotoautomat Arlanda Terminal 5',
-      when: DateTime(2026, 8, 30, 21, 25),
-      price: 0,
-      image: 'assets/images/rides/electric.png',
-      cancelled: true,
-      extra: '2 drivers',
-    ),
-    SupportRide(
-      title: 'Klockarvägen 37, Södertälje 15159',
-      when: DateTime(2026, 8, 31, 17, 0),
-      price: 229,
-      image: 'assets/images/rides/movera.png',
-    ),
-    SupportRide(
-      title: 'Fotoautomat Arlanda Terminal 5',
-      when: DateTime(2026, 8, 30, 21, 21),
-      price: 0,
-      image: 'assets/images/rides/movera.png',
-      cancelled: true,
-    ),
-    SupportRide(
-      title: 'Bilia Länna Mercedes-Benz',
-      when: DateTime(2026, 6, 3, 16, 29),
-      price: 463,
-      image: 'assets/images/rides/xl.png',
-    ),
-    SupportRide(
-      title: 'Bilia Södertälje – Mercedes-Benz',
-      when: DateTime(2025, 10, 29, 15, 32),
-      price: 0,
-      image: 'assets/images/rides/premium.png',
-      failed: true,
-    ),
-  ];
+  static final List<SupportRide> rides = SupportRepository().rides();
 
   @override
   Widget build(BuildContext context) {
@@ -216,63 +177,6 @@ class SupportHome extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class SupportRide {
-  const SupportRide({
-    required this.title,
-    required this.when,
-    required this.price,
-    required this.image,
-    this.cancelled = false,
-    this.failed = false,
-    this.extra,
-  });
-
-  final String title;
-  final DateTime when;
-  final double price;
-  final String image;
-  final bool cancelled;
-  final bool failed;
-  final String? extra;
-
-  String get whenLabel {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hour = when.hour % 12 == 0 ? 12 : when.hour % 12;
-    final minute = when.minute.toString().padLeft(2, '0');
-    final ampm = when.hour >= 12 ? 'PM' : 'AM';
-    return '${months[when.month - 1]} ${when.day} · $hour:$minute $ampm';
-  }
-
-  String get longWhen {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
-    final hour = when.hour.toString().padLeft(2, '0');
-    final minute = when.minute.toString().padLeft(2, '0');
-    return '${when.day} ${months[when.month - 1]} · $hour:$minute · $priceLabel';
-  }
-
-  String get monthTitle {
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
-    ];
-    return '${months[when.month - 1]} ${when.year}';
-  }
-
-  String get priceLabel {
-    if (cancelled) {
-      return extra == null ? 'kr 0 · Cancelled' : 'kr 0 · Cancelled · $extra';
-    }
-    if (failed) return 'Failed';
-    return 'kr ${price.toStringAsFixed(0)}';
   }
 }
 

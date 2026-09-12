@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -171,6 +172,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                     CustomButton(
                       centerContent: "Continue",
                       onPressed: () {
+                        AuthController().signIn(provider: 'phone');
                         setState(() {
                           _showHome = true;
                         });

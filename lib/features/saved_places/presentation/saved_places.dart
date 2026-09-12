@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/saved_places/data/saved_places_repository.dart';
 import 'package:movera_rider/shared/models/saved_places.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -10,12 +11,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class SavedPlaces extends StatelessWidget {
   SavedPlaces({super.key});
-  List<SavedPlacesModel> savedPlaces = [
-    SavedPlacesModel(title: "Add Home", icon: Icons.house_rounded),
-    SavedPlacesModel(title: "Add Work", icon: Icons.work_outline_rounded),
-    SavedPlacesModel(title: "Add School", icon: Icons.bookmark_outline_rounded),
-    SavedPlacesModel(title: "Add Gym", icon: Icons.bookmark_outline_rounded),
-  ];
+  List<SavedPlacesModel> savedPlaces = SavedPlacesRepository().options();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
