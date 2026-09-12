@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -82,120 +83,36 @@ class _SelectRideState extends State<SelectRide>
   static const Color _field = Color(0xFFF6F5F1);
   static const Color _cta = Color(0xFF11181D);
 
-  static const List<_RideOption> _allRides = [
-    _RideOption(
-      id: 'movera',
-      image: 'assets/images/rides/movera.png',
-      name: 'Movera',
-      note: 'Affordable and convenient rides',
-      arrival: '8 min',
-      etaMin: 8,
-      price: 259,
-      seats: 4,
-      badge: 'RECOMMENDED',
-    ),
-    _RideOption(
-      id: 'comfort',
-      image: 'assets/images/rides/comfort.png',
-      name: 'Comfort',
-      note: 'Newer cars with extra legroom',
-      arrival: '11 min',
-      etaMin: 11,
-      price: 339,
-      seats: 4,
-    ),
-    _RideOption(
-      id: 'premium',
-      image: 'assets/images/rides/premium.png',
-      name: 'Premium',
-      note: 'Premium cars with top-rated drivers',
-      arrival: '11 min',
-      etaMin: 11,
-      price: 369,
-      seats: 4,
-    ),
-    _RideOption(
-      id: 'priority',
-      image: 'assets/images/rides/priority.png',
-      name: 'Priority',
-      note: 'More options, less waiting',
-      arrival: '6 min',
-      etaMin: 6,
-      price: 289,
-      seats: 4,
-      badge: 'FASTER',
-    ),
-    _RideOption(
-      id: 'xl',
-      image: 'assets/images/rides/xl.png',
-      name: 'Movera XL',
-      note: 'Cars for larger groups (6 people)',
-      arrival: '12 min',
-      etaMin: 12,
-      price: 399,
-      seats: 6,
-    ),
-    _RideOption(
-      id: 'electric',
-      image: 'assets/images/rides/electric.png',
-      name: 'Electric',
-      note: 'Quiet and fossil-free cars',
-      arrival: '9 min',
-      etaMin: 9,
-      price: 259,
-      seats: 4,
-      glyph: Icons.bolt_rounded,
-    ),
-    _RideOption(
-      id: 'pet',
-      image: 'assets/images/rides/pet.png',
-      name: 'Movera Pet',
-      note: 'Pet-friendly rides',
-      arrival: '10 min',
-      etaMin: 10,
-      price: 279,
-      seats: 4,
-      glyph: Icons.pets_rounded,
-    ),
-  ];
+  List<_RideOption> get _allRides {
+    return RideSelectionRepository().rides().map((ride) {
+      return _RideOption(
+        id: ride.id,
+        image: ride.image,
+        name: ride.name,
+        note: ride.note,
+        arrival: ride.arrival,
+        etaMin: ride.etaMin,
+        price: ride.price,
+        seats: ride.seats,
+        badge: ride.badge,
+        glyph: ride.glyph == 'bolt'
+            ? Icons.bolt_rounded
+            : ride.glyph == 'pets'
+                ? Icons.pets_rounded
+                : null,
+      );
+    }).toList();
+  }
 
-  final List<_PaymentOption> _payments = const [
-    _PaymentOption(
-      brand: 'wallet',
-      name: 'Movera Wallet',
-      detail: 'Pay from your balance',
-    ),
-    _PaymentOption(
-      brand: 'apple',
-      name: 'Apple Pay',
-      detail: 'Available by default',
-    ),
-    _PaymentOption(
-      brand: 'google',
-      name: 'Google Pay',
-      detail: 'Available by default',
-    ),
-    _PaymentOption(
-      brand: 'paypal',
-      name: 'PayPal',
-      detail: 'Pay for this ride',
-    ),
-    _PaymentOption(
-      brand: 'cards',
-      name: 'Card',
-      detail: 'Visa, Mastercard',
-    ),
-    _PaymentOption(
-      brand: 'swish',
-      name: 'Swish',
-      detail: 'Instant mobile payment',
-    ),
-    _PaymentOption(
-      brand: 'cash',
-      name: 'Cash',
-      detail: 'Pay the driver in cash',
-    ),
-  ];
+  List<_PaymentOption> get _payments {
+    return RideSelectionRepository().payments().map((item) {
+      return _PaymentOption(
+        brand: item.brand,
+        name: item.name,
+        detail: item.detail,
+      );
+    }).toList();
+  }
 
   String _selectedRideId = 'movera';
   int _selectedPayment = 1;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/promotions/presentation/promotions.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
@@ -208,7 +209,7 @@ class RiderSideMenu extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextWidget(
-                  text: "Ben Gleason",
+                  text: ProfileRepository().displayName(),
                   color: _ink,
                   fontSize: 18,
                   fontWeight: fwSemiBold,

@@ -4,6 +4,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/scheduled_rides/data/scheduled_rides_repository.dart';
 import 'package:movera_rider/shared/models/onboarding.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/ride_pending.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
@@ -22,29 +23,7 @@ class ScheduleConfirmBooking extends StatefulWidget {
 }
 
 class _ScheduleConfirmBookingState extends State<ScheduleConfirmBooking> {
-  List<OnBoardingModel> paymentMethods = [
-    OnBoardingModel(
-      image: AppAssets.wallet,
-      title: "\$7.00",
-      subTitle: "Wallet",
-    ),
-    OnBoardingModel(image: AppAssets.cash, title: "\$7.00", subTitle: "Cash"),
-    OnBoardingModel(
-      image: AppAssets.mastercard,
-      title: "\$7.00",
-      subTitle: "Master card",
-    ),
-    OnBoardingModel(
-      image: AppAssets.applepay,
-      title: "\$7.00",
-      subTitle: "Apple pay",
-    ),
-    OnBoardingModel(
-      image: AppAssets.paypal,
-      title: "\$7.00",
-      subTitle: "Paypal",
-    ),
-  ];
+  List<OnBoardingModel> paymentMethods = SchedulePaymentCatalog().methods();
   int selectedMethod = 0;
   @override
   Widget build(BuildContext context) {
