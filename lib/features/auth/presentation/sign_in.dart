@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/create_acc.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in_phone.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
@@ -77,6 +78,7 @@ class SignIn extends StatelessWidget {
               ),
               centerContent: "Continue with apple",
               onPressed: () {
+                AuthController().signIn(provider: 'apple');
                 Navigator.pushReplacement(
                   context,
                   BottomToTopTransition(const Home()),
@@ -96,6 +98,7 @@ class SignIn extends StatelessWidget {
               ),
               centerContent: "Continue with Google",
               onPressed: () {
+                AuthController().signIn(provider: 'google');
                 Navigator.pushReplacement(
                   context,
                   BottomToTopTransition(const Home()),

@@ -2084,10 +2084,9 @@ class _HomeState extends State<Home> {
                               AppScope.instance.mapLifecycle.created();
                               final target = _currentLatLng;
                               if (target != null) {
-                                controller.animateCamera(
-                                  CameraUpdate.newCameraPosition(
-                                    CameraPosition(target: target, zoom: 15),
-                                  ),
+                                AppScope.instance.maps.animateCamera(
+                                  GeoPoint(target.latitude, target.longitude),
+                                  zoom: 15,
                                 );
                               }
                             },

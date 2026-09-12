@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -13,72 +14,18 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sample notification data
-    final List<NotificationItem> notifications = [
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: false,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Your Ride has started",
-        subtitle: "Have a safe trip",
-        time: "2min ago",
-        isRead: false,
-      ),
-      NotificationItem(
-        icon: Icons.check_circle_outline,
-        title: "Trip Completed",
-        subtitle: "\$10.00 Paid",
-        time: "2min ago",
-        isRead: false,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: true,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: true,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: true,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: true,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: true,
-      ),
-      NotificationItem(
-        icon: Icons.directions_car,
-        title: "Driver assigned",
-        subtitle: "mac is on the way",
-        time: "2min ago",
-        isRead: true,
-      ),
-    ];
+    final List<NotificationItem> notifications =
+        NotificationsRepository().all().map((item) {
+      return NotificationItem(
+        icon: item.kind == 'check'
+            ? Icons.check_circle_outline
+            : Icons.directions_car,
+        title: item.title,
+        subtitle: item.subtitle,
+        time: item.time,
+        isRead: item.read,
+      );
+    }).toList();
 
     return Scaffold(
       backgroundColor: AppColor.secondary,

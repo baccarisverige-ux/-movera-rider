@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/ride_history/data/ride_history_repository.dart';
+import 'package:movera_rider/features/ride_history/domain/ride_history.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -10,78 +12,13 @@ class RideHistory extends StatefulWidget {
   State<RideHistory> createState() => _RideHistoryState();
 }
 
-class _HistoryRide {
-  const _HistoryRide({
-    required this.title,
-    required this.when,
-    required this.price,
-    required this.image,
-    this.cancelled = false,
-    this.featured = false,
-  });
-
-  final String title;
-  final DateTime when;
-  final double price;
-  final String image;
-  final bool cancelled;
-  final bool featured;
-}
-
 class _RideHistoryState extends State<RideHistory> {
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF778189);
   static const Color _line = Color(0xFFE7EBEE);
   static const Color _accent = Color(0xFF2D5878);
   static const Color _cta = Color(0xFF11181D);
-
-  static final List<_HistoryRide> _past = [
-    _HistoryRide(
-      title: 'Alby Centrum',
-      when: DateTime(2026, 9, 1, 15, 40),
-      price: 211,
-      image: 'assets/images/rides/movera.png',
-      featured: true,
-    ),
-    _HistoryRide(
-      title: 'Klockarvägen 37, Södertälje',
-      when: DateTime(2026, 8, 31, 17, 0),
-      price: 229,
-      image: 'assets/images/rides/comfort.png',
-    ),
-    _HistoryRide(
-      title: 'Alby Centrum',
-      when: DateTime(2026, 8, 24, 17, 31),
-      price: 157,
-      image: 'assets/images/rides/movera.png',
-    ),
-    _HistoryRide(
-      title: 'Alby Centrum',
-      when: DateTime(2026, 8, 24, 17, 22),
-      price: 0,
-      image: 'assets/images/rides/electric.png',
-      cancelled: true,
-    ),
-    _HistoryRide(
-      title: 'Klockarvägen 37, Södertälje',
-      when: DateTime(2026, 8, 17, 17, 10),
-      price: 199,
-      image: 'assets/images/rides/premium.png',
-    ),
-    _HistoryRide(
-      title: 'Bilia Länna Mercedes-Benz',
-      when: DateTime(2026, 6, 3, 16, 29),
-      price: 463,
-      image: 'assets/images/rides/xl.png',
-    ),
-    _HistoryRide(
-      title: 'Bilia Södertälje – Mercedes-Benz',
-      when: DateTime(2025, 10, 29, 14, 10),
-      price: 0,
-      image: 'assets/images/rides/movera.png',
-      cancelled: true,
-    ),
-  ];
+  final List<RideHistoryItem> _past = RideHistoryRepository().past();
 
   int _tab = 0;
 
@@ -101,7 +38,7 @@ class _RideHistoryState extends State<RideHistory> {
     );
   }
 
-  String _priceLabel(_HistoryRide ride) {
+  String _priceLabel(RideHistoryItem ride) {
     if (ride.cancelled) return 'kr 0 · Cancelled';
     return 'kr ${ride.price.toStringAsFixed(0)}';
   }
@@ -145,8 +82,8 @@ class _RideHistoryState extends State<RideHistory> {
     return '${months[when.month - 1]} ${when.year}';
   }
 
-  Map<String, List<_HistoryRide>> get _groupedPast {
-    final map = <String, List<_HistoryRide>>{};
+  Map<String, List<RideHistoryItem>> get _groupedPast {
+    final map = <String, List<RideHistoryItem>>{};
     for (final ride in _past) {
       if (ride.featured) continue;
       map.putIfAbsent(_monthTitle(ride.when), () => []).add(ride);
@@ -381,7 +318,7 @@ class _RideHistoryState extends State<RideHistory> {
     );
   }
 
-  Widget _featuredCard(_HistoryRide ride) {
+  Widget _featuredCard(RideHistoryItem ride) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -417,7 +354,7 @@ class _RideHistoryState extends State<RideHistory> {
     );
   }
 
-  Widget _rideRow(_HistoryRide ride) {
+  Widget _rideRow(RideHistoryItem ride) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
