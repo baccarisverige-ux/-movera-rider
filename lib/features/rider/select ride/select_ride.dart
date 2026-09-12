@@ -329,13 +329,21 @@ class _SelectRideState extends State<SelectRide>
 
   String _kr(double value) => 'kr ${value.toStringAsFixed(0)}';
 
-  double _minSheet(MediaQueryData media) =>
-      (432 + media.padding.bottom).clamp(390.0, media.size.height * 0.56);
+  double _minSheet(MediaQueryData media) {
+    final needed = 368 + media.padding.bottom;
+    final cap = media.size.height * 0.58;
+    return needed.clamp(320.0, cap < 360 ? 360.0 : cap);
+  }
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
-    final maxH = media.size.height - media.padding.top - 72;
-    return maxH < minH + 64 ? minH + 64 : maxH;
+    final maxH = media.size.height - media.padding.top - 108;
+    return maxH <= minH ? minH : maxH;
+  }
+
+  Widget _webSafe(Widget child) {
+    if (kIsWeb) return child;
+    return PointerInterceptor(child: child);
   }
 
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
@@ -676,10 +684,66 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
+  Widget _liveMap() {
+    return CustomGoogleMap(
+      initialPosition: CameraPosition(
+        target: widget.pickupPosition,
+        zoom: 13.2,
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 88, 12, 12),
+      markers: {
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: widget.pickupPosition,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+        ),
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: widget.destinationPosition,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+        ),
+      },
+      polylines: {
+        Polyline(
+          polylineId: const PolylineId('routeGlow'),
+          points: _routePoints(),
+          color: const Color(0x553B6BFF),
+          width: 10,
+          geodesic: true,
+        ),
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: _routePoints(),
+          color: const Color(0xFF3B6BFF),
+          width: 5,
+          geodesic: true,
+        ),
+      },
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+      mapToolbarEnabled: false,
+      compassEnabled: false,
+      trafficEnabled: false,
+      buildingsEnabled: false,
+      indoorViewEnabled: false,
+      onMapCreated: (controller) {
+        _mapController = controller;
+        Future<void>.delayed(const Duration(milliseconds: 280), _fitRoute);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final showLiveMap = _mapReady && !_mapParked;
+    // Flutter web maps are HtmlElementViews. They paint over the sheet and
+    // crash/grey-out this screen. Keep the live Google Map on native only.
+    final useLiveMap = !kIsWeb && _mapReady && !_mapParked;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F1),
       body: AnimatedBuilder(
@@ -689,188 +753,121 @@ class _SelectRideState extends State<SelectRide>
           final maxSheet = _maxSheet(media);
           final sheetHeight =
               minSheet + (maxSheet - minSheet) * _sheetSlide.value;
-          final mapHeight =
-              (media.size.height - sheetHeight).clamp(128.0, media.size.height);
           final collapsed = _sheetSlide.value < 0.38;
           final visibleRides = _rankedRides;
-          return Column(
+          return Stack(
             children: [
-              SizedBox(
-                height: mapHeight,
-                width: double.infinity,
-                child: ClipRect(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: showLiveMap
-                            ? CustomGoogleMap(
-                                initialPosition: CameraPosition(
-                                  target: widget.pickupPosition,
-                                  zoom: 13.2,
-                                ),
-                                padding: const EdgeInsets.fromLTRB(12, 88, 12, 12),
-                                markers: {
-                                  Marker(
-                                    markerId: const MarkerId('pickup'),
-                                    position: widget.pickupPosition,
-                                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                                      BitmapDescriptor.hueGreen,
-                                    ),
-                                  ),
-                                  Marker(
-                                    markerId: const MarkerId('destination'),
-                                    position: widget.destinationPosition,
-                                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                                      BitmapDescriptor.hueAzure,
-                                    ),
-                                  ),
-                                },
-                                polylines: {
-                                  Polyline(
-                                    polylineId: const PolylineId('routeGlow'),
-                                    points: _routePoints(),
-                                    color: const Color(0x553B6BFF),
-                                    width: 10,
-                                    geodesic: true,
-                                  ),
-                                  Polyline(
-                                    polylineId: const PolylineId('route'),
-                                    points: _routePoints(),
-                                    color: const Color(0xFF3B6BFF),
-                                    width: 5,
-                                    geodesic: true,
-                                  ),
-                                },
-                                myLocationEnabled: false,
-                                myLocationButtonEnabled: false,
-                                zoomControlsEnabled: false,
-                                mapToolbarEnabled: false,
-                                compassEnabled: false,
-                                trafficEnabled: false,
-                                buildingsEnabled: false,
-                                indoorViewEnabled: false,
-                                onMapCreated: (controller) {
-                                  _mapController = controller;
-                                  Future<void>.delayed(
-                                    const Duration(milliseconds: 280),
-                                    _fitRoute,
-                                  );
-                                },
-                              )
-                            : const _RouteCanvas(),
-                      ),
-                      Positioned(
-                        top: media.padding.top + 8,
-                        left: 16,
-                        right: 16,
-                        child: PointerInterceptor(child: _searchBar()),
-                      ),
-                      Positioned(
-                        top: media.padding.top + 66,
-                        left: 16,
-                        child: PointerInterceptor(
-                          child: _mapBadge(
-                            _pickupEtaLabel,
-                            const Color(0xFF1F8A4C),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: media.padding.top + 66,
-                        right: 16,
-                        child: PointerInterceptor(
-                          child: _mapBadge(
-                            _arriveLabel,
-                            const Color(0xFF3B6BFF),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              Positioned.fill(
+                child: useLiveMap ? _liveMap() : const _RouteCanvas(),
+              ),
+              Positioned(
+                top: media.padding.top + 8,
+                left: 16,
+                right: 16,
+                child: _webSafe(_searchBar()),
+              ),
+              Positioned(
+                top: media.padding.top + 66,
+                left: 16,
+                child: _webSafe(
+                  _mapBadge(_pickupEtaLabel, const Color(0xFF1F8A4C)),
                 ),
               ),
-              SizedBox(
+              Positioned(
+                top: media.padding.top + 66,
+                right: 16,
+                child: _webSafe(
+                  _mapBadge(_arriveLabel, const Color(0xFF3B6BFF)),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
                 height: sheetHeight,
-                width: double.infinity,
-                child: Material(
-                  color: Colors.white,
-                  elevation: 18,
-                  shadowColor: const Color(0xFF162C36).withOpacity(0.16),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onVerticalDragUpdate: (details) =>
-                            _onSheetDragUpdate(details, media),
-                        onVerticalDragEnd: _onSheetDragEnd,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            Container(
-                              width: 38,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: _line,
-                                borderRadius: BorderRadius.circular(8),
+                child: _webSafe(
+                  Material(
+                    color: Colors.white,
+                    elevation: 18,
+                    shadowColor: const Color(0xFF162C36).withOpacity(0.16),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onVerticalDragUpdate: (details) =>
+                              _onSheetDragUpdate(details, media),
+                          onVerticalDragEnd: _onSheetDragEnd,
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
+                              Container(
+                                width: 38,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: _line,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Choose your ride',
-                                      style: _text(
-                                        22,
-                                        weight: FontWeight.w700,
-                                        letterSpacing: -0.4,
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 14, 12, 0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Choose your ride',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: _text(
+                                          20,
+                                          weight: FontWeight.w700,
+                                          letterSpacing: -0.4,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  _priceStepper(),
-                                ],
+                                    const SizedBox(width: 8),
+                                    _priceStepper(),
+                                  ],
+                                ),
                               ),
-                            ),
-                            if (collapsed)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                                child: _rideTile(_selectedRide),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (!collapsed)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
-                          child: _filterRow(),
-                        ),
-                      if (!collapsed)
-                        Expanded(
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) =>
-                                _onListScroll(notification, media),
-                            child: ListView.builder(
-                              controller: _listController,
-                              physics: const BouncingScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
-                              ),
-                              padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-                              itemCount: visibleRides.length,
-                              itemBuilder: (context, index) =>
-                                  _rideTile(visibleRides[index]),
-                            ),
+                              if (collapsed)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                                  child: _rideTile(_selectedRide),
+                                ),
+                            ],
                           ),
-                        )
-                      else
-                        const Spacer(),
-                      _footer(media.padding.bottom),
-                    ],
+                        ),
+                        if (!collapsed)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                            child: _filterRow(),
+                          ),
+                        if (!collapsed)
+                          Expanded(
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (notification) =>
+                                  _onListScroll(notification, media),
+                              child: ListView.builder(
+                                controller: _listController,
+                                physics: const BouncingScrollPhysics(
+                                  parent: AlwaysScrollableScrollPhysics(),
+                                ),
+                                padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+                                itemCount: visibleRides.length,
+                                itemBuilder: (context, index) =>
+                                    _rideTile(visibleRides[index]),
+                              ),
+                            ),
+                          )
+                        else
+                          const Spacer(),
+                        _footer(media.padding.bottom),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1536,27 +1533,27 @@ class _RoutePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF2D5878).withOpacity(0.18)
+        ..color = const Color(0x553B6BFF)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
+        ..strokeWidth = 12
         ..strokeCap = StrokeCap.round,
     );
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF2D5878)
+        ..color = const Color(0xFF3B6BFF)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.5
+        ..strokeWidth = 5
         ..strokeCap = StrokeCap.round,
     );
 
     void pin(Offset c, Color color) {
-      canvas.drawCircle(c, 9, Paint()..color = color);
-      canvas.drawCircle(c, 4.2, Paint()..color = Colors.white);
+      canvas.drawCircle(c, 10, Paint()..color = color);
+      canvas.drawCircle(c, 4.4, Paint()..color = Colors.white);
     }
 
-    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1D252C));
-    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF2D5878));
+    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1F8A4C));
+    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF3B6BFF));
   }
 
   @override
