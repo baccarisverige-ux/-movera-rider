@@ -121,11 +121,13 @@ class FindingDriverController {
     Analytics.driverFound(rideId: ride.rideId);
     final id = ride.rideId;
     if (id != null) {
-      api.post(
-        '/api/v1/rides/$id/status',
-        body: {'status': RideStatus.driverAssigned.name},
-        idempotencyKey: newIdempotencyKey('ride-status'),
-      );
+      try {
+        api.post(
+          '/api/v1/rides/$id/status',
+          body: {'status': RideStatus.driverAssigned.name},
+          idempotencyKey: newIdempotencyKey('ride-status'),
+        );
+      } catch (_) {}
     }
     if (snapshot != null) {
       _store.save(

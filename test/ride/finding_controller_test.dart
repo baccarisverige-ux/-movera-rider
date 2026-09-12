@@ -23,6 +23,7 @@ RideSnapshot snap() => RideSnapshot(
     );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });

@@ -100,9 +100,13 @@ class RideRestoreCoordinator {
   }
 
   bool get atRoot {
-    final nav = moveraNavigatorKey.currentState;
-    if (nav == null) return true;
-    return !nav.canPop();
+    try {
+      final nav = moveraNavigatorKey.currentState;
+      if (nav == null) return true;
+      return !nav.canPop();
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<Widget?> resumeIfNeeded() async {

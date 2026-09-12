@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -15,6 +16,11 @@ class SecureTokenStore implements TokenStore {
 
   bool get _nativeSecure {
     if (kIsWeb) return false;
+    try {
+      WidgetsBinding.instance;
+    } catch (_) {
+      return false;
+    }
     return defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android;
   }
@@ -30,25 +36,46 @@ class SecureTokenStore implements TokenStore {
   }
 
   @override
-  Future<void> save({required String access, required String refresh}) {
+  Future<void> save({required String access, required String refresh}) async {
     if (kIsWeb) {
       AppLog.info(
         'auth.token.web',
         extra: {'note': 'web storage is not Keychain/Keystore'},
       );
     }
-    return _active.save(access: access, refresh: refresh);
+    try {
+      await _active.save(access: access, refresh: refresh);
+    } catch (_) {
+      await _memory.save(access: access, refresh: refresh);
+    }
   }
 
   @override
-  Future<String?> readAccess() => _active.readAccess();
+  Future<String?> readAccess() async {
+    try {
+      return await _active.readAccess();
+    } catch (_) {
+      return _memory.readAccess();
+    }
+  }
 
   @override
-  Future<String?> readRefresh() => _active.readRefresh();
+  Future<String?> readRefresh() async {
+    try {
+      return await _active.readRefresh();
+    } catch (_) {
+      return _memory.readRefresh();
+    }
+  }
 
   @override
-  Future<void> clear() => _active.clear();
-}
+  Future<void> clear() async {
+    try {
+      await _active.clear();
+    } catch (_) {
+      await _memory.clear();
+    }
+  }
 
 class _NativeSecureStore implements TokenStore {
   _NativeSecureStore(this._storage);

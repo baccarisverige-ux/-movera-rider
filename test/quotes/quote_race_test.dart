@@ -52,19 +52,19 @@ void main() {
       quotes: quotes,
     );
     final first = selection.beginQuotes();
+    final firstLoad = selection.loadQuotes(
+      generation: first,
+      pickup: 'A',
+      destination: 'B',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
     final second = selection.beginQuotes();
-    await Future.wait([
-      selection.loadQuotes(
-        generation: first,
-        pickup: 'A',
-        destination: 'B',
-      ),
-      selection.loadQuotes(
-        generation: second,
-        pickup: 'A',
-        destination: 'C',
-      ),
-    ]);
+    final secondLoad = selection.loadQuotes(
+      generation: second,
+      pickup: 'A',
+      destination: 'C',
+    );
+    await Future.wait([firstLoad, secondLoad]);
     expect(selection.offeredPrices['movera'], 259);
   });
 

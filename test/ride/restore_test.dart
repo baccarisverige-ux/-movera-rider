@@ -26,6 +26,7 @@ RideSnapshot snap(RideStatus status, {DateTime? savedAt}) {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('cold start finding driver', () {
     final c = RideRestoreCoordinator(reader: () async => snap(RideStatus.findingDriver));
     final page = c.pageFor(snap(RideStatus.findingDriver));
