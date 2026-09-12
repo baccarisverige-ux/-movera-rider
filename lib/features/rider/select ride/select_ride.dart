@@ -206,6 +206,10 @@ class _SelectRideState extends State<SelectRide>
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
   final ScrollController _listController = ScrollController();
+  double _dragLastY = 0;
+  double _dragVelocity = 0;
+  int _dragLastMs = 0;
+  bool _draggingSheet = false;
 
   @override
   void initState() {
@@ -351,19 +355,57 @@ class _SelectRideState extends State<SelectRide>
   }
 
   void _onSheetDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final target = velocity < -480
+    _snapSheet(details.primaryVelocity ?? 0);
+  }
+
+  void _snapSheet(double velocity) {
+    final target = velocity < -220
         ? 1.0
-        : velocity > 480
+        : velocity > 220
             ? 0.0
-            : _sheetSlide.value >= 0.42
+            : _sheetSlide.value >= 0.38
                 ? 1.0
                 : 0.0;
     if (target < 0.5) _pinSelectedToTop();
     _sheetSlide.animateTo(
       target,
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 480),
       curve: const Cubic(0.22, 1.0, 0.36, 1.0),
+    );
+  }
+
+  void _onSheetPointerDown(PointerDownEvent event) {
+    _draggingSheet = true;
+    _dragLastY = event.position.dy;
+    _dragLastMs = DateTime.now().millisecondsSinceEpoch;
+    _dragVelocity = 0;
+  }
+
+  void _onSheetPointerMove(PointerMoveEvent event, MediaQueryData media) {
+    if (!_draggingSheet) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final dy = event.position.dy - _dragLastY;
+    final dt = now - _dragLastMs;
+    if (dt > 0) _dragVelocity = dy / dt * 1000;
+    _dragLastY = event.position.dy;
+    _dragLastMs = now;
+    _nudgeSheet(dy, media);
+  }
+
+  void _onSheetPointerUp(PointerUpEvent event) {
+    if (!_draggingSheet) return;
+    _draggingSheet = false;
+    _snapSheet(_dragVelocity);
+  }
+
+  Widget _sheetDrag({required MediaQueryData media, required Widget child}) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _onSheetPointerDown,
+      onPointerMove: (event) => _onSheetPointerMove(event, media),
+      onPointerUp: _onSheetPointerUp,
+      onPointerCancel: (_) => _draggingSheet = false,
+      child: child,
     );
   }
 
@@ -772,11 +814,9 @@ class _SelectRideState extends State<SelectRide>
                     ),
                     Positioned.fill(
                       child: PointerInterceptor(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onVerticalDragUpdate: (details) =>
-                              _onSheetDragUpdate(details, media),
-                          onVerticalDragEnd: _onSheetDragEnd,
+                        child: _sheetDrag(
+                          media: media,
+                          child: const SizedBox.expand(),
                         ),
                       ),
                     ),
@@ -823,18 +863,8 @@ class _SelectRideState extends State<SelectRide>
                   clipBehavior: Clip.antiAlias,
                   child: Column(
                     children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onVerticalDragUpdate: (details) =>
-                            _onSheetDragUpdate(details, media),
-                        onVerticalDragEnd: _onSheetDragEnd,
-                        onTap: () {
-                          _sheetSlide.animateTo(
-                            collapsed ? 1 : 0,
-                            duration: const Duration(milliseconds: 480),
-                            curve: const Cubic(0.22, 1.0, 0.36, 1.0),
-                          );
-                        },
+                      _sheetDrag(
+                        media: media,
                         child: Column(
                           children: [
                             const SizedBox(height: 10),
