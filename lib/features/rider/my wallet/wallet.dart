@@ -21,7 +21,7 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _accent = Color(0xFF356879);
 
   bool _businessProfile = false;
-  String _selectedMethod = 'swish';
+  String _selectedMethod = 'apple';
   String? _voucherCode;
   List<Map<String, String>> _extraMethods = [];
 
@@ -51,7 +51,7 @@ class _WalletScreenState extends State<WalletScreen> {
     if (!mounted) return;
     setState(() {
       _selectedMethod =
-          prefs.getString('movera_default_payment') ?? 'swish';
+          prefs.getString('movera_default_payment') ?? 'apple';
       _businessProfile =
           prefs.getBool('movera_payment_business') ?? false;
       _voucherCode = prefs.getString('movera_voucher_code');
@@ -148,22 +148,10 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const SizedBox(height: 5),
                 _addMethodChoice(
-                  brand: 'swish',
-                  title: 'Swish',
-                  subtitle: 'Pay instantly with your mobile number',
-                  onTap: () => Navigator.pop(sheetContext, 'swish'),
-                ),
-                _addMethodChoice(
                   brand: 'cards',
                   title: 'Debit or credit card',
                   subtitle: 'Visa, Mastercard or Amex',
                   onTap: () => Navigator.pop(sheetContext, 'card'),
-                ),
-                _addMethodChoice(
-                  brand: 'cash',
-                  title: 'Cash',
-                  subtitle: 'Pay the driver in cash',
-                  onTap: () => Navigator.pop(sheetContext, 'cash'),
                 ),
                 _addMethodChoice(
                   brand: 'paypal',
@@ -187,8 +175,6 @@ class _WalletScreenState extends State<WalletScreen> {
     if (!mounted || method == null) return;
     if (method == 'card') {
       await _openCardForm();
-    } else if (method == 'swish' || method == 'cash') {
-      _selectMethod(method);
     } else {
       _addProvider(method);
     }
@@ -630,33 +616,9 @@ class _WalletScreenState extends State<WalletScreen> {
                       child: Column(
                         children: [
                           _paymentTile(
-                            id: 'swish',
-                            title: 'Swish',
-                            detail: 'Instant mobile payment',
-                            brand: 'swish',
-                          ),
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          _paymentTile(
-                            id: 'cards',
-                            title: 'Card',
-                            detail: 'Visa, Mastercard',
-                            brand: 'cards',
-                          ),
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          _paymentTile(
                             id: 'apple',
                             title: 'Apple Pay',
-                            detail: 'Fast checkout',
+                            detail: 'Available by default',
                             brand: 'apple',
                           ),
                           const Divider(
@@ -979,20 +941,6 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _brandMark(String brand) {
-    if (brand == 'swish') {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(11),
-        child: SizedBox(
-          width: 42,
-          height: 38,
-          child: SvgPicture.asset(
-            'assets/images/swish_brand.svg',
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
-    }
-
     Widget logo;
     Color background = Colors.white;
 

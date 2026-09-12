@@ -155,9 +155,21 @@ class _SelectRideState extends State<SelectRide> {
 
   final List<_PaymentOption> _payments = const [
     _PaymentOption(
-      brand: 'swish',
-      name: 'Swish',
-      detail: 'Instant mobile payment',
+      brand: 'apple',
+      name: 'Apple Pay',
+      detail: 'Available by default',
+      group: 'app',
+    ),
+    _PaymentOption(
+      brand: 'google',
+      name: 'Google Pay',
+      detail: 'Available by default',
+      group: 'app',
+    ),
+    _PaymentOption(
+      brand: 'paypal',
+      name: 'PayPal',
+      detail: 'Pay for this ride',
       group: 'app',
     ),
     _PaymentOption(
@@ -167,9 +179,9 @@ class _SelectRideState extends State<SelectRide> {
       group: 'app',
     ),
     _PaymentOption(
-      brand: 'apple',
-      name: 'Apple Pay',
-      detail: 'Fast checkout',
+      brand: 'swish',
+      name: 'Swish',
+      detail: 'Instant mobile payment',
       group: 'app',
     ),
     _PaymentOption(
@@ -177,6 +189,12 @@ class _SelectRideState extends State<SelectRide> {
       name: 'Cash',
       detail: 'Pay the driver in cash',
       group: 'driver',
+    ),
+    _PaymentOption(
+      brand: 'wallet',
+      name: 'Wallet',
+      detail: 'kr 7 available',
+      group: 'app',
     ),
   ];
 
@@ -420,12 +438,7 @@ class _SelectRideState extends State<SelectRide> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Choose how you want to pay',
-                  style: TextStyle(color: _muted, fontSize: 13.5),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'PAY IN THE APP',
+                  'PAYMENT METHODS',
                   style: TextStyle(
                     color: _muted,
                     fontSize: 10,
@@ -433,20 +446,8 @@ class _SelectRideState extends State<SelectRide> {
                     letterSpacing: 1.25,
                   ),
                 ),
-                const SizedBox(height: 8),
-                _paymentGroup(sheetContext, 'app'),
-                const SizedBox(height: 16),
-                const Text(
-                  'PAY THE DRIVER',
-                  style: TextStyle(
-                    color: _muted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _paymentGroup(sheetContext, 'driver'),
+                const SizedBox(height: 10),
+                _paymentGroup(sheetContext, 'all'),
               ],
             ),
           ),
@@ -879,8 +880,75 @@ class _SelectRideState extends State<SelectRide> {
     );
   }
 
-  Widget _footer(double bottomInset) {
+  Widget _paymentButton() {
     final method = _payments[_selectedPayment];
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: _showPaymentPicker,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.035),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _brandMark(method.brand),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      method.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      method.detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: method.brand == 'cash' ? _accent : _muted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: _muted,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _footer(double bottomInset) {
     final selected = _selectedRide;
     return Container(
       width: double.infinity,
@@ -888,46 +956,8 @@ class _SelectRideState extends State<SelectRide> {
       color: Colors.white,
       child: Column(
         children: [
-          InkWell(
-            onTap: _showPaymentPicker,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  _brandMark(method.brand),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              method.name,
-                              style: const TextStyle(
-                                color: _ink,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: _ink,
-                            ),
-                          ],
-                        ),
-                        const Text(
-                          'Personal ride',
-                          style: TextStyle(color: _muted, fontSize: 12.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
+          _paymentButton(),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -984,7 +1014,7 @@ class _SelectRideState extends State<SelectRide> {
   Widget _paymentGroup(BuildContext sheetContext, String group) {
     final indexes = [
       for (var i = 0; i < _payments.length; i++)
-        if (_payments[i].group == group) i,
+        if (group == 'all' || _payments[i].group == group) i,
     ];
     return Container(
       decoration: BoxDecoration(
@@ -1129,6 +1159,16 @@ class _SelectRideState extends State<SelectRide> {
         'assets/images/apple_pay_brand.svg',
         fit: BoxFit.contain,
       );
+    } else if (brand == 'google') {
+      logo = Transform.scale(
+        scale: 1.18,
+        child: Image.asset(
+          'assets/images/google_pay_brand.png',
+          fit: BoxFit.contain,
+        ),
+      );
+    } else if (brand == 'paypal') {
+      logo = Image.asset(AppAssets.paypal, fit: BoxFit.contain);
     } else if (brand == 'cards') {
       logo = Row(
         children: [
@@ -1139,18 +1179,20 @@ class _SelectRideState extends State<SelectRide> {
       );
     } else if (brand == 'cash') {
       background = const Color(0xFFEEF6F0);
-      logo = const Icon(Icons.payments_outlined, color: _accent, size: 16);
+      logo = const Icon(Icons.payments_outlined, color: Color(0xFF1F7A4D), size: 20);
     } else {
       logo = Image.asset(AppAssets.wallet, color: _ink, fit: BoxFit.contain);
     }
     return Container(
-      width: 28,
-      height: 22,
-      padding: const EdgeInsets.all(3),
+      width: 42,
+      height: 38,
+      padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _line),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: background == Colors.white ? _line : background,
+        ),
       ),
       child: logo,
     );
