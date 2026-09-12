@@ -157,7 +157,8 @@ jobs:
           function forbidOwner(actual, forbidden, label){
             if(actual && forbidden.includes(actual)) throw new Error(`${label} stale map owner ${actual}`);
           }
-          const stressPage=await context.newPage();
+          const stressContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          const stressPage=await stressContext.newPage();
           stressPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
           stressPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
           await stressPage.goto(base+`?mapstress=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
@@ -195,6 +196,7 @@ jobs:
           if(fatalErrors().length) throw new Error('Map stress fatal: '+fatalErrors().join(' | '));
           fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],waitingOwner,waitingGen},null,2));
           console.log('PASS: map stress Home→pickup→Select Ride→Finding→Waiting→resume with no fatal runtime errors');
+          await stressContext.close();
 
           await browser.close();
           JS

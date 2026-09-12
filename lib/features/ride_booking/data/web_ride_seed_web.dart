@@ -11,6 +11,21 @@ void registerWebQaHooks() {
       return _seed(raw.toDart).toJS;
     }).toJS,
   );
+  globalContext.setProperty(
+    'moveraClearActiveRide'.toJS,
+    (() {
+      return _clear().toJS;
+    }).toJS,
+  );
+}
+
+Future<JSString> _clear() async {
+  try {
+    await RideSnapshotStore.clear();
+    return 'ok'.toJS;
+  } catch (_) {
+    return 'error'.toJS;
+  }
 }
 
 Future<JSString> _seed(String raw) async {
