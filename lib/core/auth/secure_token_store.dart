@@ -5,14 +5,14 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 
 /// iOS Keychain / Android Keystore via flutter_secure_storage.
-/// Web and Linux CI: memory only — not equivalent to Keychain/Keystore.
+/// Web, tests, and Linux CI: memory only — not equivalent to Keychain/Keystore.
 class SecureTokenStore implements TokenStore {
   SecureTokenStore({TokenStore? override}) : _override = override;
 
   final TokenStore? _override;
   final MemoryTokenStore _memory = MemoryTokenStore();
-  static const _accessKey = 'movera_access_token';
-  static const _refreshKey = 'movera_refresh_token';
+  static const accessKey = 'movera_access_token';
+  static const refreshKey = 'movera_refresh_token';
 
   bool get _nativeSecure {
     if (kIsWeb) return false;
@@ -25,14 +25,14 @@ class SecureTokenStore implements TokenStore {
         defaultTargetPlatform == TargetPlatform.android;
   }
 
-  FlutterSecureStorage get _secure => const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
-      );
-
   TokenStore get _active {
     if (_override != null) return _override!;
     if (!_nativeSecure) return _memory;
-    return _NativeSecureStore(_secure);
+    return _NativeSecureStore(
+      const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      ),
+    );
   }
 
   @override
@@ -76,6 +76,7 @@ class SecureTokenStore implements TokenStore {
       await _memory.clear();
     }
   }
+}
 
 class _NativeSecureStore implements TokenStore {
   _NativeSecureStore(this._storage);
@@ -83,21 +84,21 @@ class _NativeSecureStore implements TokenStore {
 
   @override
   Future<void> save({required String access, required String refresh}) async {
-    await _storage.write(key: SecureTokenStore._accessKey, value: access);
-    await _storage.write(key: SecureTokenStore._refreshKey, value: refresh);
+    await _storage.write(key: SecureTokenStore.accessKey, value: access);
+    await _storage.write(key: SecureTokenStore.refreshKey, value: refresh);
   }
 
   @override
   Future<String?> readAccess() =>
-      _storage.read(key: SecureTokenStore._accessKey);
+      _storage.read(key: SecureTokenStore.accessKey);
 
   @override
   Future<String?> readRefresh() =>
-      _storage.read(key: SecureTokenStore._refreshKey);
+      _storage.read(key: SecureTokenStore.refreshKey);
 
   @override
   Future<void> clear() async {
-    await _storage.delete(key: SecureTokenStore._accessKey);
-    await _storage.delete(key: SecureTokenStore._refreshKey);
+    await _storage.delete(key: SecureTokenStore.accessKey);
+    await _storage.delete(key: SecureTokenStore.refreshKey);
   }
 }
