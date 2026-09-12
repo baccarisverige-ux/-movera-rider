@@ -117,12 +117,11 @@ jobs:
 
           async function seedRestore(page, snapshot, shotName){
             await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
-            await page.waitForTimeout(2500);
-            await page.evaluate((raw)=>{
-              localStorage.setItem('flutter.movera_active_ride', raw);
-            }, JSON.stringify(snapshot));
+            await page.waitForFunction(() => typeof window.moveraSeedActiveRide === 'function', null, {timeout:60000});
+            const seeded = await page.evaluate(async (raw) => await window.moveraSeedActiveRide(raw), JSON.stringify(snapshot));
+            if(seeded !== 'ok') throw new Error('moveraSeedActiveRide failed: '+seeded);
             await page.reload({waitUntil:'networkidle'});
-            await page.waitForTimeout(4000);
+            await page.waitForTimeout(4500);
             return await page.screenshot({path:`qa-${shotName}.png`,fullPage:true});
           }
           const findingSnap={
