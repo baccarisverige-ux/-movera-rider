@@ -13,6 +13,11 @@
       "visibility": "private"
     }
   },
+  "secrets": {
+    "MAPS1": {
+      "description": "Google Maps browser API key used by the Movera Rider web map. Use the same key configured for the live GitHub Pages deployment."
+    }
+  },
   "postCreateCommand": "flutter pub get && flutter doctor -v",
   "postStartCommand": "bash .devcontainer/start-web.sh",
   "customizations": {
