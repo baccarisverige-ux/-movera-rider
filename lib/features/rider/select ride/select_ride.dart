@@ -78,7 +78,7 @@ class _SelectRideState extends State<SelectRide> {
   static const List<_RideOption> _allRides = [
     _RideOption(
       id: 'movera',
-      image: 'assets/images/rides/movera.jpg',
+      image: 'assets/images/rides/movera.png',
       name: 'Movera',
       note: 'Affordable and convenient rides',
       arrival: '8 min',
@@ -89,7 +89,7 @@ class _SelectRideState extends State<SelectRide> {
     ),
     _RideOption(
       id: 'comfort',
-      image: 'assets/images/rides/comfort.jpg',
+      image: 'assets/images/rides/comfort.png',
       name: 'Comfort',
       note: 'Newer cars with extra legroom',
       arrival: '11 min',
@@ -99,7 +99,7 @@ class _SelectRideState extends State<SelectRide> {
     ),
     _RideOption(
       id: 'premium',
-      image: 'assets/images/rides/premium.jpg',
+      image: 'assets/images/rides/premium.png',
       name: 'Premium',
       note: 'Premium cars with top-rated drivers',
       arrival: '11 min',
@@ -109,7 +109,7 @@ class _SelectRideState extends State<SelectRide> {
     ),
     _RideOption(
       id: 'priority',
-      image: 'assets/images/rides/priority.jpg',
+      image: 'assets/images/rides/priority.png',
       name: 'Priority',
       note: 'More options, less waiting',
       arrival: '6 min',
@@ -120,7 +120,7 @@ class _SelectRideState extends State<SelectRide> {
     ),
     _RideOption(
       id: 'xl',
-      image: 'assets/images/rides/xl.jpg',
+      image: 'assets/images/rides/xl.png',
       name: 'Movera XL',
       note: 'Cars for larger groups (6 people)',
       arrival: '12 min',
@@ -130,7 +130,7 @@ class _SelectRideState extends State<SelectRide> {
     ),
     _RideOption(
       id: 'electric',
-      image: 'assets/images/rides/electric.jpg',
+      image: 'assets/images/rides/electric.png',
       name: 'Electric',
       note: 'Quiet and fossil-free cars',
       arrival: '9 min',
@@ -141,7 +141,7 @@ class _SelectRideState extends State<SelectRide> {
     ),
     _RideOption(
       id: 'pet',
-      image: 'assets/images/rides/pet.jpg',
+      image: 'assets/images/rides/pet.png',
       name: 'Movera Pet',
       note: 'Pet-friendly rides',
       arrival: '10 min',
@@ -645,13 +645,22 @@ class _SelectRideState extends State<SelectRide> {
             child: Row(
               children: [
                 SizedBox(
-                  width: 92,
-                  height: 62,
+                  width: 108,
+                  height: 72,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Positioned.fill(
-                        child: Image.asset(ride.image, fit: BoxFit.contain),
+                        child: Image.asset(
+                          ride.image,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.directions_car_filled_rounded,
+                            color: _muted,
+                            size: 36,
+                          ),
+                        ),
                       ),
                       if (ride.glyph != null)
                         Positioned(
