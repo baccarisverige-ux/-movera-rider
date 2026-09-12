@@ -277,7 +277,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       color: AppColor.title,
                       fontSize: 16,
                       fontWeight: fwBold,
-                      text: '\$${widget.price.toStringAsFixed(2)}',
+                      text: 'kr ${widget.price.toStringAsFixed(0)}',
                     ),
                   ],
                 ),
