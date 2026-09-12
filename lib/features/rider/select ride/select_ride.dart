@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -207,10 +206,6 @@ class _SelectRideState extends State<SelectRide>
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
   final ScrollController _listController = ScrollController();
-  BitmapDescriptor? _pickupIcon;
-  BitmapDescriptor? _destIcon;
-  String _pickupEtaLabel = '';
-  String _arriveLabel = '';
 
   @override
   void initState() {
@@ -232,7 +227,6 @@ class _SelectRideState extends State<SelectRide>
         if (mounted) setState(() => _mapReady = true);
       },
     );
-    _refreshRouteLabels();
   }
 
   @override
@@ -257,7 +251,6 @@ class _SelectRideState extends State<SelectRide>
         () => _allRides.firstWhere((ride) => ride.id == id).price,
       );
     });
-    _refreshRouteLabels();
     _pinSelectedToTop();
   }
 
@@ -433,92 +426,15 @@ class _SelectRideState extends State<SelectRide>
     return [start, curve, end];
   }
 
-  Future<void> _refreshRouteLabels() async {
-    final eta = _selectedRide.etaMin;
-    final pickupLabel = '$eta min';
+  String get _pickupEtaLabel => '${_selectedRide.etaMin} min';
+
+  String get _arriveLabel {
     final arrive = DateTime.now().add(
-      Duration(minutes: eta + _tripMinutes()),
+      Duration(minutes: _selectedRide.etaMin + _tripMinutes()),
     );
     final hour = arrive.hour.toString().padLeft(2, '0');
     final minute = arrive.minute.toString().padLeft(2, '0');
-    final destLabel = 'Arrive by $hour:$minute';
-    if (pickupLabel == _pickupEtaLabel &&
-        destLabel == _arriveLabel &&
-        _pickupIcon != null &&
-        _destIcon != null) {
-      return;
-    }
-    final pickupIcon = await _buildFlagMarker(
-      pickupLabel,
-      const Color(0xFF1F8A4C),
-    );
-    final destIcon = await _buildFlagMarker(
-      destLabel,
-      const Color(0xFF3B6BFF),
-    );
-    if (!mounted) return;
-    setState(() {
-      _pickupEtaLabel = pickupLabel;
-      _arriveLabel = destLabel;
-      _pickupIcon = pickupIcon;
-      _destIcon = destIcon;
-    });
-  }
-
-  Future<BitmapDescriptor> _buildFlagMarker(String text, Color color) async {
-    const pixelRatio = 3.0;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          height: 1,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    const pin = 22.0;
-    final pillW = painter.width + 22;
-    final pillH = 30.0;
-    final width = (pillW + 10) * pixelRatio;
-    final height = (pillH + pin) * pixelRatio;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.scale(pixelRatio);
-    final pill = RRect.fromLTRBR(
-      5,
-      0,
-      5 + pillW,
-      pillH,
-      const Radius.circular(15),
-    );
-    canvas.drawRRect(
-      pill,
-      Paint()
-        ..color = Colors.black.withOpacity(0.12)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
-    );
-    canvas.drawRRect(pill, Paint()..color = color);
-    painter.paint(
-      canvas,
-      Offset(5 + (pillW - painter.width) / 2, (pillH - painter.height) / 2),
-    );
-    final tip = Offset(5 + pillW / 2, pillH + pin - 2);
-    final stem = Path()
-      ..moveTo(5 + pillW / 2 - 7, pillH - 1)
-      ..lineTo(5 + pillW / 2 + 7, pillH - 1)
-      ..lineTo(tip.dx, tip.dy)
-      ..close();
-    canvas.drawPath(stem, Paint()..color = color);
-    canvas.drawCircle(tip, 3.2, Paint()..color = Colors.white);
-    final image = await recorder.endRecording().toImage(
-      width.ceil(),
-      height.ceil(),
-    );
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.fromBytes(bytes!.buffer.asUint8List());
+    return 'Arrive by $hour:$minute';
   }
 
   Future<void> _fitRoute() async {
@@ -780,20 +696,16 @@ class _SelectRideState extends State<SelectRide>
                       Marker(
                         markerId: const MarkerId('pickup'),
                         position: widget.pickupPosition,
-                        icon: _pickupIcon ??
-                            BitmapDescriptor.defaultMarkerWithHue(
-                              BitmapDescriptor.hueGreen,
-                            ),
-                        anchor: const Offset(0.5, 1),
+                        icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueGreen,
+                        ),
                       ),
                       Marker(
                         markerId: const MarkerId('destination'),
                         position: widget.destinationPosition,
-                        icon: _destIcon ??
-                            BitmapDescriptor.defaultMarkerWithHue(
-                              BitmapDescriptor.hueAzure,
-                            ),
-                        anchor: const Offset(0.5, 1),
+                        icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueAzure,
+                        ),
                       ),
                     },
                     polylines: {
@@ -835,6 +747,26 @@ class _SelectRideState extends State<SelectRide>
             left: 16,
             right: 16,
             child: PointerInterceptor(child: _searchBar()),
+          ),
+          Positioned(
+            top: media.padding.top + 66,
+            left: 16,
+            child: PointerInterceptor(
+              child: _mapBadge(
+                _pickupEtaLabel,
+                const Color(0xFF1F8A4C),
+              ),
+            ),
+          ),
+          Positioned(
+            top: media.padding.top + 66,
+            right: 16,
+            child: PointerInterceptor(
+              child: _mapBadge(
+                _arriveLabel,
+                const Color(0xFF3B6BFF),
+              ),
+            ),
           ),
           AnimatedBuilder(
             animation: _sheetSlide,
@@ -936,6 +868,22 @@ class _SelectRideState extends State<SelectRide>
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _mapBadge(String label, Color color) {
+    return Material(
+      color: color,
+      elevation: 6,
+      shadowColor: color.withOpacity(0.35),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Text(
+          label,
+          style: _text(12.5, weight: FontWeight.w700, color: Colors.white),
+        ),
       ),
     );
   }
