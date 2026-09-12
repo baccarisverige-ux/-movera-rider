@@ -225,6 +225,18 @@ class _SelectRideState extends State<SelectRide>
         if (mounted) setState(() => _mapReady = true);
       },
     );
+    _loadCatalogQuotes();
+  }
+
+  Future<void> _loadCatalogQuotes() async {
+    for (final ride in _allRides) {
+      final quote = await AppScope.instance.quotes.quote(
+        rideType: ride.id,
+        distanceMeters: 1,
+      );
+      _offeredPrices[ride.id] = quote.totalMinor / 100;
+    }
+    if (mounted) setState(() {});
   }
 
   @override

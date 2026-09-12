@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class RideSnapshot {
@@ -76,12 +76,12 @@ class RideSnapshotStore {
   static const _key = 'movera_active_ride';
 
   static Future<void> save(RideSnapshot snapshot) async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     await prefs.setString(_key, jsonEncode(snapshot.toJson()));
   }
 
   static Future<RideSnapshot?> read() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return null;
     try {
@@ -98,7 +98,7 @@ class RideSnapshotStore {
   }
 
   static Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     await prefs.remove(_key);
   }
 }
