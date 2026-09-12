@@ -246,7 +246,7 @@ class _WalletHomeState extends State<WalletHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F1),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -276,7 +276,7 @@ class _WalletHomeState extends State<WalletHome> {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 168,
+                height: 196,
                 width: double.infinity,
                 child: Image.asset(
                   'assets/images/wallet_rider_3d.jpg',
