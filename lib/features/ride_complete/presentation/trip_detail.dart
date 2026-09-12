@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -10,6 +11,7 @@ class RideCompletedTripDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trip = TripReceiptRepository().last();
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -44,7 +46,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                       fontWeight: fwMedium,
                     ),
                     TextWidget(
-                      text: "I11/Street 15 - h350",
+                      text: trip.pickup,
                       color: AppColor.subtitle,
                       fontSize: 14,
                       fontWeight: fwMedium,
@@ -63,7 +65,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                       fontWeight: fwMedium,
                     ),
                     TextWidget(
-                      text: "Skypulse solution",
+                      text: trip.destination,
                       color: AppColor.subtitle,
                       fontSize: 14,
                       fontWeight: fwMedium,
@@ -83,7 +85,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                       fontWeight: fwMedium,
                     ),
                     TextWidget(
-                      text: "\$10.12",
+                      text: trip.total,
                       color: AppColor.subtitle,
                       fontSize: 14,
                       fontWeight: fwMedium,
@@ -103,7 +105,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                       fontWeight: fwMedium,
                     ),
                     TextWidget(
-                      text: "Cash",
+                      text: trip.method,
                       color: AppColor.subtitle,
                       fontSize: 14,
                       fontWeight: fwMedium,

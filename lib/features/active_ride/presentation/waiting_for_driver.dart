@@ -6,6 +6,9 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -337,7 +340,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                               TextWidget(
                                 fontSize: 11,
                                 fontWeight: fwSemiBold,
-                                text: "5.0",
+                                text: DriverRepository().current().ratingLabel,
                                 color: AppColor.whiteText,
                               ),
                             ],
@@ -356,13 +359,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwSemiBold,
-                      text: "Merle Feeney",
+                      text: DriverRepository().current().name,
                       color: AppColor.title,
                     ),
                     TextWidget(
                       fontSize: 14,
                       fontWeight: fwMedium,
-                      text: "Top rated driver",
+                      text: DriverRepository().current().tagline,
                       color: AppColor.subtitle,
                     ),
                   ],
@@ -371,7 +374,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               Row(
                 children: [
                   InkWell(
-                    onTap: () {},
+                    onTap: () {
+                      SafetyController().record(SafetyKind.maskedCall);
+                    },
                     child: Container(
                       height: ResSize.h * 40,
                       width: ResSize.w * 40,

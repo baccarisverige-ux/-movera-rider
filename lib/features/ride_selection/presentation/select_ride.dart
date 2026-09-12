@@ -105,7 +105,13 @@ class _SelectRideState extends State<SelectRide>
   }
 
   List<_PaymentOption> get _payments {
-    return RideSelectionRepository().payments().map((item) {
+    final flags = AppScope.instance.flags;
+    return RideSelectionRepository().payments().where((item) {
+      if (item.brand == 'cash') return flags.enableCash;
+      if (item.brand == 'apple') return flags.enableApplePay;
+      if (item.brand == 'wallet') return flags.enableWallet;
+      return true;
+    }).map((item) {
       return _PaymentOption(
         brand: item.brand,
         name: item.name,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -11,6 +12,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final driver = DriverRepository().current();
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -37,7 +39,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
           14.height,
           Center(
             child: TextWidget(
-              text: "Merle Feeney",
+              text: driver.name,
               color: AppColor.title,
               fontSize: 20,
               fontWeight: fwSemiBold,
@@ -46,7 +48,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
           2.height,
           Center(
             child: TextWidget(
-              text: "Toyota HR-V . L-2323 F",
+              text: driver.vehicle,
               color: AppColor.title,
               fontSize: 14,
               fontWeight: fwMedium,
@@ -63,7 +65,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
                 fontWeight: fwMedium,
               ),
               TextWidget(
-                text: "#IL19051950015",
+                text: driver.rideNumber,
                 color: AppColor.subtitle,
                 fontSize: 14,
                 fontWeight: fwMedium,
@@ -81,7 +83,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
                 fontWeight: fwMedium,
               ),
               TextWidget(
-                text: "22 May, 2025 . 12:30 pm ",
+                text: driver.completedAt,
                 color: AppColor.subtitle,
                 fontSize: 14,
                 fontWeight: fwMedium,
