@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:ui' show Offset;
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_point.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/shared/services/device_heading.dart' as heading_service;
@@ -32,16 +35,28 @@ class HomeLocationController {
     required this.location,
     required this.geocoding,
     required this.motion,
-  });
+    Future<bool> Function()? startCompass,
+    double? Function()? readCompass,
+    void Function()? stopCompass,
+  })  : _startCompass = startCompass ?? heading_service.startHeadingTracking,
+        _readCompass = readCompass ?? heading_service.currentHeading,
+        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking;
 
   final LocationRepository location;
   final AppGeocoding geocoding;
   final MotionEngine motion;
+  final Future<bool> Function() _startCompass;
+  final double? Function() _readCompass;
+  final void Function() _stopCompass;
 
   final StaleGuard _geoGuard = StaleGuard();
   StreamSubscription<Position>? _positionSub;
   Timer? _headingTimer;
   Timer? _pulseTimer;
+  bool Function()? _headingMounted;
+  void Function(double heading)? _onHeading;
+  Future<bool>? _headingStartInFlight;
+  bool _compassStarted = false;
   bool hasCompassHeading = false;
   double heading = 0;
   double lastMapZoom = 13.0;
@@ -154,27 +169,65 @@ class HomeLocationController {
             position.heading.isFinite &&
             position.heading >= 0) {
           heading = position.heading;
+          reportPuckHeading(heading, compass: false);
         }
         onFix(latLng, heading);
       },
     );
   }
 
-  void startHeading({
+  /// Requests compass permission, then polls heading. Returns whether the
+  /// compass actually started. GPS course remains the fallback if this fails.
+  Future<bool> startHeading({
     required bool Function() isMounted,
     required void Function(double heading) onHeading,
-  }) {
-    heading_service.startHeadingTracking();
-    _headingTimer?.cancel();
+  }) async {
+    _headingMounted = isMounted;
+    _onHeading = onHeading;
+    final granted = await _ensureCompassStarted();
+    _ensureHeadingPoller();
+    return granted;
+  }
+
+  Future<bool> _ensureCompassStarted() {
+    if (_compassStarted) return Future.value(true);
+    return _headingStartInFlight ??= _openCompass();
+  }
+
+  Future<bool> _openCompass() async {
+    try {
+      final granted = await _startCompass();
+      _compassStarted = granted;
+      if (!granted) _headingStartInFlight = null;
+      return granted;
+    } catch (_) {
+      _compassStarted = false;
+      _headingStartInFlight = null;
+      return false;
+    }
+  }
+
+  void _ensureHeadingPoller() {
+    if (_headingTimer != null) return;
     _headingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      final next = heading_service.currentHeading();
-      if (next == null || !next.isFinite || !isMounted()) return;
-      var delta = (next - heading + 540) % 360 - 180;
-      if (delta.abs() < 0.5) return;
-      hasCompassHeading = true;
-      heading = (heading + delta * 0.32 + 360) % 360;
-      onHeading(heading);
+      pollHeading();
     });
+  }
+
+  /// Applies one compass sample. Public for tests so heading can be verified
+  /// without waiting on a real timer.
+  @visibleForTesting
+  void pollHeading() {
+    final mounted = _headingMounted;
+    if (mounted != null && !mounted()) return;
+    final next = _readCompass();
+    if (next == null || !next.isFinite) return;
+    final blended = blendHeading(heading, next);
+    if ((blended - heading).abs() < 0.01 && hasCompassHeading) return;
+    hasCompassHeading = true;
+    heading = blended;
+    reportPuckHeading(heading, compass: true);
+    _onHeading?.call(heading);
   }
 
   Future<LatLng?> latestFix() async {
@@ -189,6 +242,7 @@ class HomeLocationController {
         position.heading.isFinite &&
         position.heading >= 0) {
       heading = position.heading;
+      reportPuckHeading(heading, compass: false);
     }
     return target;
   }
@@ -207,15 +261,15 @@ class HomeLocationController {
     });
   }
 
-  void bindLiveLocation({
+  Future<void> bindLiveLocation({
     required bool Function() isMounted,
     required void Function(LatLng latLng, double heading) onFix,
     required void Function(double heading) onHeading,
     required void Function() onPulse,
-  }) {
+  }) async {
     startTracking(isMounted: isMounted, onFix: onFix);
-    startHeading(isMounted: isMounted, onHeading: onHeading);
     startPulse(isMounted: isMounted, onTick: onPulse);
+    await startHeading(isMounted: isMounted, onHeading: onHeading);
   }
 
   void clearOverlays() {
@@ -247,7 +301,12 @@ class HomeLocationController {
   void dispose() {
     _positionSub?.cancel();
     _headingTimer?.cancel();
+    _headingTimer = null;
     _pulseTimer?.cancel();
     _geoGuard.dispose();
+    _stopCompass();
+    _compassStarted = false;
+    _headingStartInFlight = null;
+    hasCompassHeading = false;
   }
 }

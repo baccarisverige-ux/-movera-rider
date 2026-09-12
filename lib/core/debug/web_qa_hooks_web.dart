@@ -25,4 +25,9 @@ void reportMapOwner(String? owner, int generation) {
   globalContext.setProperty('moveraMapGeneration'.toJS, generation.toJS);
 }
 
+void reportPuckHeading(double heading, {required bool compass}) {
+  globalContext.setProperty('moveraPuckHeading'.toJS, heading.toJS);
+  globalContext.setProperty('moveraCompassActive'.toJS, compass.toJS);
+}
+
 bool get debugHomeBuilt => _homeBuilt;

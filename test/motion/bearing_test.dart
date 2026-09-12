@@ -28,6 +28,13 @@ void main() {
     expect(normalizeHeading(-10), 350);
   });
 
+  test('blend 350 toward 10 steps through 0', () {
+    final next = blendHeading(350, 10);
+    expect(shortestTurn(350, next), greaterThan(0));
+    expect(next, greaterThan(350));
+    expect(next, lessThan(360));
+  });
+
   test('lerp heading 359 to 1 at t=1 is 1', () {
     expect(lerpHeading(359, 1, 1), closeTo(1, 0.01));
   });

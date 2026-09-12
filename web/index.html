@@ -129,38 +129,114 @@
 
     window.moveraDeviceHeading = null;
     window.moveraHeadingStarted = false;
-    window.moveraStartHeading = async function() {
-      try {
-        if (window.moveraHeadingStarted) return true;
-        if (typeof DeviceOrientationEvent === 'undefined') return false;
-        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-          var permission = await DeviceOrientationEvent.requestPermission();
-          if (permission !== 'granted') return false;
-        }
-        var updateHeading = function(event) {
-          var value = event.webkitCompassHeading;
-          if (typeof value !== 'number' && typeof event.alpha === 'number') {
-            value = (360 - event.alpha) % 360;
-            var screenAngle = 0;
-            if (screen.orientation && typeof screen.orientation.angle === 'number') {
-              screenAngle = screen.orientation.angle;
-            } else if (typeof window.orientation === 'number') {
-              screenAngle = window.orientation;
-            }
-            value = (value + screenAngle + 360) % 360;
-          }
-          if (typeof value === 'number' && isFinite(value)) {
-            window.moveraDeviceHeading = (value + 360) % 360;
-          }
-        };
-        window.addEventListener('deviceorientationabsolute', updateHeading, true);
-        window.addEventListener('deviceorientation', updateHeading, true);
-        window.moveraHeadingStarted = true;
-        return true;
-      } catch (_) {
-        return false;
-      }
+    window.moveraHeadingStartPromise = null;
+    window.moveraHeadingListenerCount = 0;
+    window.moveraHeadingPermission = 'auto';
+    window._moveraSawAbsolute = false;
+    window._moveraHeadingArmed = false;
+
+    window.moveraWrapHeading = function(value) {
+      var heading = Number(value) % 360;
+      if (heading < 0) heading += 360;
+      return heading;
     };
+
+    window.moveraScreenAngle = function() {
+      if (screen.orientation && typeof screen.orientation.angle === 'number') {
+        return screen.orientation.angle;
+      }
+      if (typeof window.orientation === 'number') return window.orientation;
+      return 0;
+    };
+
+    window.moveraHeadingFromEvent = function(event) {
+      var heading = null;
+      if (typeof event.webkitCompassHeading === 'number' && isFinite(event.webkitCompassHeading)) {
+        heading = event.webkitCompassHeading;
+      } else if (typeof event.alpha === 'number' && isFinite(event.alpha)) {
+        heading = 360 - event.alpha;
+      }
+      if (heading == null || !isFinite(heading)) return null;
+      return window.moveraWrapHeading(heading + window.moveraScreenAngle());
+    };
+
+    window._moveraOnOrientation = function(event) {
+      if (!event) return;
+      if (event.type === 'deviceorientationabsolute') {
+        window._moveraSawAbsolute = true;
+      } else if (window._moveraSawAbsolute && event.type === 'deviceorientation') {
+        return;
+      }
+      var heading = window.moveraHeadingFromEvent(event);
+      if (heading == null) return;
+      window.moveraDeviceHeading = heading;
+    };
+
+    window.moveraStopHeading = function() {
+      if (window._moveraOnOrientation) {
+        window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+        window.removeEventListener('deviceorientation', window._moveraOnOrientation, true);
+      }
+      window.moveraHeadingStarted = false;
+      window.moveraHeadingStartPromise = null;
+      window.moveraHeadingListenerCount = 0;
+      window._moveraSawAbsolute = false;
+    };
+
+    window.moveraInjectHeading = function(deg) {
+      var value = Number(deg);
+      if (!Number.isFinite(value)) return null;
+      window.moveraDeviceHeading = window.moveraWrapHeading(value);
+      return window.moveraDeviceHeading;
+    };
+
+    window.moveraStartHeading = async function() {
+      if (window.moveraHeadingStarted) return true;
+      if (window.moveraHeadingStartPromise) return window.moveraHeadingStartPromise;
+      window.moveraHeadingStartPromise = (async function() {
+        try {
+          if (typeof DeviceOrientationEvent === 'undefined' && window.moveraHeadingPermission !== 'granted') {
+            return false;
+          }
+          if (window.moveraHeadingPermission === 'denied') return false;
+          if (window.moveraHeadingPermission !== 'granted' &&
+              typeof DeviceOrientationEvent !== 'undefined' &&
+              typeof DeviceOrientationEvent.requestPermission === 'function') {
+            var permission = await DeviceOrientationEvent.requestPermission();
+            if (permission !== 'granted') return false;
+          }
+          window.removeEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+          window.removeEventListener('deviceorientation', window._moveraOnOrientation, true);
+          window.addEventListener('deviceorientationabsolute', window._moveraOnOrientation, true);
+          window.addEventListener('deviceorientation', window._moveraOnOrientation, true);
+          window.moveraHeadingListenerCount = 2;
+          window.moveraHeadingStarted = true;
+          return true;
+        } catch (_) {
+          return false;
+        }
+      })();
+      var started = await window.moveraHeadingStartPromise;
+      if (!started) window.moveraHeadingStartPromise = null;
+      return started;
+    };
+
+    // iPhone Safari only grants DeviceOrientationEvent from a real browser
+    // gesture. Flutter canvas taps are not trusted. First native touch/click
+    // on Home (including the existing recenter control) requests permission
+    // without adding a new UI.
+    window.moveraArmHeadingFromGesture = function() {
+      if (window._moveraHeadingArmed) return;
+      window._moveraHeadingArmed = true;
+      var arm = function() {
+        window.removeEventListener('touchend', arm, true);
+        window.removeEventListener('click', arm, true);
+        window.moveraStartHeading();
+      };
+      window.addEventListener('touchend', arm, true);
+      window.addEventListener('click', arm, true);
+    };
+    window.moveraArmHeadingFromGesture();
 
     window.moveraGeocodeAddress = async function(address) {
       var clean = String(address || '').trim();

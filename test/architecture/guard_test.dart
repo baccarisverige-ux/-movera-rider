@@ -128,6 +128,26 @@ void main() {
     expect(home.contains('HomeAddressRepository'), isFalse);
   });
 
+  test('web heading start is idempotent and gesture-armed', () {
+    final html = File('web/index.html').readAsStringSync();
+    expect(html.contains('moveraStartHeading'), isTrue);
+    expect(html.contains('moveraHeadingStartPromise'), isTrue);
+    expect(html.contains('moveraInjectHeading'), isTrue);
+    expect(html.contains('moveraStopHeading'), isTrue);
+    expect(html.contains('moveraArmHeadingFromGesture'), isTrue);
+    expect(html.contains("addEventListener('touchend', arm, true)"), isTrue);
+    expect(html.contains('DeviceOrientationEvent.requestPermission'), isTrue);
+    expect(html.contains('webkitCompassHeading'), isTrue);
+    expect(html.contains('moveraScreenAngle'), isTrue);
+  });
+
+  test('home does not add a compass permission screen', () {
+    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    expect(home.contains('Enable compass'), isFalse);
+    expect(home.contains('Motion permission'), isFalse);
+    expect(home.contains('Device orientation'), isFalse);
+  });
+
   test('select ride does not keep parallel quote expiry state', () {
     final ui = File(
       'lib/features/ride_selection/presentation/select_ride.dart',
@@ -136,3 +156,4 @@ void main() {
     expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
   });
 }
+

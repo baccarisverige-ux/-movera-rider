@@ -3,6 +3,9 @@ import 'dart:js_interop';
 @JS('moveraStartHeading')
 external JSPromise<JSBoolean> _startHeading();
 
+@JS('moveraStopHeading')
+external void _stopHeading();
+
 @JS('moveraDeviceHeading')
 external JSNumber? get _heading;
 
@@ -20,4 +23,10 @@ double? currentHeading() {
   } catch (_) {
     return null;
   }
+}
+
+void stopHeadingTracking() {
+  try {
+    _stopHeading();
+  } catch (_) {}
 }

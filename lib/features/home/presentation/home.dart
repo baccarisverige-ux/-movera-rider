@@ -219,6 +219,7 @@ class _HomeState extends State<Home> {
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
+    _startHeadingTracking();
   }
 
   @override
@@ -277,7 +278,7 @@ class _HomeState extends State<Home> {
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
-      _locationCtl.bindLiveLocation(
+      await _locationCtl.bindLiveLocation(
         isMounted: () => mounted,
         onFix: (latLng, heading) {
           _currentLatLng = latLng;
@@ -1766,8 +1767,8 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void _startHeadingTracking() {
-    _locationCtl.startHeading(
+  Future<bool> _startHeadingTracking() {
+    return _locationCtl.startHeading(
       isMounted: () => mounted,
       onHeading: (heading) {
         _locationHeading = heading;
@@ -1793,7 +1794,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _recenterOnUser() async {
-    _startHeadingTracking();
+    await _startHeadingTracking();
     AppScope.instance.maps.mode = CameraMode.followUser;
     var target = _currentLatLng;
     try {

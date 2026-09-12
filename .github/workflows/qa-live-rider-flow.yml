@@ -70,6 +70,40 @@ jobs:
 
           await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(5000); await dump('home'); const home=await shot('home');
           if(fatalErrors().length)throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
+
+          const headingOnce=await page.evaluate(async()=>await window.moveraStartHeading());
+          const headingTwice=await page.evaluate(async()=>await window.moveraStartHeading());
+          const headingListeners=await page.evaluate(()=>window.moveraHeadingListenerCount);
+          await page.evaluate(async()=>await window.moveraStartHeading());
+          const headingListenersAgain=await page.evaluate(()=>window.moveraHeadingListenerCount);
+          if(headingListenersAgain!==headingListeners) throw new Error('duplicate heading listeners: '+headingListeners+' -> '+headingListenersAgain);
+          const injected350=await page.evaluate(()=>window.moveraInjectHeading(350));
+          if(Number(injected350)!==350) throw new Error('inject 350 failed: '+injected350);
+          await page.waitForFunction(() => {
+            const h = window.moveraPuckHeading;
+            return typeof h === 'number' && (h >= 300 || h <= 20);
+          }, null, {timeout:8000});
+          const puck350=await page.evaluate(()=>window.moveraPuckHeading);
+          await page.evaluate(()=>window.moveraInjectHeading(10));
+          await page.waitForTimeout(500);
+          const puck10=await page.evaluate(()=>window.moveraPuckHeading);
+          if(typeof puck10!=='number') throw new Error('puck heading was not reported after inject');
+          if(puck10>40 && puck10<300) throw new Error('puck did not take shortest 350→10 turn: '+puck10);
+          const denied=await page.evaluate(async()=>{
+            window.moveraStopHeading();
+            window.moveraHeadingPermission='denied';
+            const ok=await window.moveraStartHeading();
+            const after=window.moveraHeadingListenerCount;
+            window.moveraHeadingPermission='auto';
+            const restored=await window.moveraStartHeading();
+            return {ok, after, restored};
+          });
+          if(denied.ok!==false) throw new Error('denied heading start should fail');
+          if(denied.after!==0) throw new Error('denied start registered listeners');
+          if(denied.restored!==true) throw new Error('heading start did not recover after denied');
+          fs.writeFileSync('qa-heading.json', JSON.stringify({headingOnce,headingTwice,headingListeners,headingListenersAgain,injected350,puck350,puck10,denied,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          if(fatalErrors().length)throw new Error('Fatal runtime error during heading QA: '+fatalErrors().join(' | '));
+          console.log('PASS: heading permission granted/denied, inject while GPS fixed, 350→10 shortest turn, no duplicate listeners');
           await page.mouse.click(28,56);await page.waitForTimeout(900);await shot('menu-open');
           if(fatalErrors().length)throw new Error('Fatal runtime error opening menu: '+fatalErrors().join(' | '));
           await page.mouse.click(120,210);await page.waitForTimeout(1200);await shot('history');
