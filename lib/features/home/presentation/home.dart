@@ -3751,7 +3751,9 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
         return;
       }
       final current = await AppScope.instance.location.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
       final target = LatLng(current.latitude, current.longitude);
       _position = target;
