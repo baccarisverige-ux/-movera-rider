@@ -4,9 +4,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
-import 'package:movera_rider/features/promotions/presentation/promotions.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
-import 'package:movera_rider/features/history/presentation/my_rides.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
@@ -78,32 +76,12 @@ class RiderSideMenu extends StatelessWidget {
                         },
                       ),
                       _buildMenuItem(
-                        icon: AppAssets.promotions,
-                        title: "Promotions",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(const Promotions()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
                         icon: AppAssets.payment,
                         title: "Payments",
                         onTap: () {
                           Navigator.push(
                             context,
                             RightToLeftTransition(const WalletScreen()),
-                          );
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: AppAssets.scheduledRides,
-                        title: "Scheduled Rides",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            RightToLeftTransition(MyRidesScreen()),
                           );
                         },
                       ),

@@ -109,7 +109,7 @@ jobs:
           await page.mouse.click(120,210);await page.waitForTimeout(1200);await shot('history');
           if(fatalErrors().length)throw new Error('Fatal runtime error on Ride History: '+fatalErrors().join(' | '));
           await page.mouse.click(28,56);await page.waitForTimeout(700);
-          await page.mouse.click(28,56);await page.waitForTimeout(900);await page.mouse.click(120,455);await page.waitForTimeout(1200);await shot('support');
+          await page.mouse.click(28,56);await page.waitForTimeout(900);await page.mouse.click(120,360);await page.waitForTimeout(1200);await shot('support');
           if(fatalErrors().length)throw new Error('Fatal runtime error on Support: '+fatalErrors().join(' | '));
           await page.mouse.click(28,56);await page.waitForTimeout(700);
           await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(4000);

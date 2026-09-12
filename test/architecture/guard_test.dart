@@ -157,6 +157,20 @@ void main() {
     expect(html.contains('moveraInstallHeadingOverlay'), isFalse);
   });
 
+  test('side menu does not list Promotions or Scheduled Rides', () {
+    final menu = File('lib/features/home/presentation/side_menu.dart').readAsStringSync();
+    expect(menu.contains('title: "Promotions"'), isFalse);
+    expect(menu.contains('title: "Scheduled Rides"'), isFalse);
+    expect(menu.contains('title: "Wallet"'), isTrue);
+    expect(menu.contains('title: "Ride History"'), isTrue);
+    expect(menu.contains('title: "Payments"'), isTrue);
+    expect(menu.contains('title: "Safety"'), isTrue);
+    expect(menu.contains('title: "Support"'), isTrue);
+    expect(menu.contains('title: "Invite Friends"'), isTrue);
+    expect(menu.contains('title: "About"'), isTrue);
+    expect(menu.contains('Become a driver'), isTrue);
+  });
+
   test('home does not add a compass permission screen', () {
     final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
     expect(home.contains('Enable compass'), isFalse);
