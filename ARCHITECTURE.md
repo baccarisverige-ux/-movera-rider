@@ -6,7 +6,7 @@ WaitingForDriver is the approved surface for assigned / arriving / in-progress.
 
 Web snapshot key: `flutter.movera_active_ride` (`RideSnapshotStore.key`).
 
-Final proof SHA: `dc46cda` (this document). Dart ownership SHA with 98 tests: `75442a3`. Live QA of the same tree: run `34710327313`.
+Final proof SHA: `a82b70b`. Architecture gates run `34711407327` (108 tests). Live QA run `34711407334`. Pages run `34711407331`.
 
 ## 20-phase completion pass
 
@@ -25,31 +25,31 @@ Final proof SHA: `dc46cda` (this document). Dart ownership SHA with 98 tests: `7
 | 11 Wallet `topUp` / `redeemVoucher` / `chargeRide` / `refund` | DONE AND WIRED | `WalletController`, `test/wallet/ops_test.dart` |
 | 12 Home promo from `PromotionsController` (“40% off your next ride”) | DONE AND WIRED | Home reads `_promos.homeCampaign()` |
 | 13 Double-book in-flight lock on finding + scheduled | DONE AND WIRED | `BookingCoordinator`, `test/booking/lock_test.dart` |
-| 14 `ScheduledRideSession` owns pickup/dropoff/stops/time/quote/booking | DONE AND WIRED | session capture methods; `test/ride/scheduled_session_test.dart` |
-| 15 Unit tests (restore, maps, quotes, wallet, finding, tokens, booking, guards) | DONE AND WIRED | Architecture gates `34709967017`: **98 tests passed** |
-| 16 Live QA scheduled Continue (test, not UI) | DONE AND WIRED | QA `34710327313` scheduled PASS |
+| 14 `ScheduledRideSession` owns pickup/dropoff/stops/time/quote/booking | DONE AND WIRED | capture on field change; timezone; default quote id; `confirm()` writes `bookingId`; `test/ride/scheduled_session_test.dart` |
+| 15 Unit tests (restore, maps, quotes, wallet, finding, tokens, booking, guards) | DONE AND WIRED | Architecture gates `34711407327`: **108 tests passed** |
+| 16 Live QA scheduled Continue (test, not UI) | DONE AND WIRED | QA `34711407334` scheduled PASS |
 | 17 Restore/reload QA seeds Finding + Waiting; first surface is not Home | DONE AND WIRED | QA: `moveraFirstSurface` finding/waiting; `moveraHomeBuilt` false |
-| 18 Map stress QA nested pickup + Select Ride + Finding + Waiting + resume | DONE AND WIRED | QA isolated context; owner stack tests |
-| 19 Analyzer + architecture gates CI | DONE AND WIRED | analyze `--no-fatal-infos --no-fatal-warnings` green (0 errors); 98 tests |
+| 18 Map stress QA nested pickup + Select Ride + Finding + Waiting + resume | DONE AND WIRED | QA isolated context; pickup pop/reopen; owner/generation after each step |
+| 19 Analyzer + architecture gates CI | DONE AND WIRED | analyze `--no-fatal-infos --no-fatal-warnings` green (0 errors, 93 legacy infos/warnings); 108 tests |
 | 20 Honest remaining mocks below | DONE AND WIRED | this file |
 
 ## Audit close-out (items 1–13)
 
 | ITEM | STATUS | PROOF |
 |---|---|---|
-| 1 Home thinned | DONE | Presentation no longer imports `HomeAddressRepository`. Places/GPS/heading/pulse live in `HomePlacesController` + `HomeLocationController`. Home keeps sheet/animation/map widget paint. |
+| 1 Home thinned | DONE | Presentation does not import `HomeAddressRepository`. Places/GPS/heading/pulse/overlay sets live in `HomePlacesController` + `HomeLocationController`. Home keeps sheet/animation/map widget paint. Nested pickup page stays in `home.dart` as presentation. No files deleted. |
 | 2 Select Ride single source of truth | DONE | No widget `_selectedRideId` / `_selectedPayment` / `_scheduledFor`. Controller owns ride, payment, quote ids, expiry, schedule. |
 | 3 Waiting driver data owned underneath | DONE | `DriverArrivalView` from `DriverArrivingController.arrival()`. Plate is not a widget literal. `initState` does not transition ride state. |
-| 4 Architecture guards strengthened | DONE | Presentation cannot import `features/*/data/`. No ApiClient/HTTP/SharedPreferences in presentation. Home/Select Ride/Waiting specific guards. |
+| 4 Architecture guards strengthened | DONE | Presentation cannot import `features/*/data/`. No ApiClient/HTTP/SharedPreferences in presentation. Home overlay sets, Select Ride, Waiting specific guards. |
 | 5 No Home flash on restore | DONE | Gate holds white until `root()`. QA asserts `moveraFirstSurface` is finding/waiting and `moveraHomeBuilt !== true`. |
-| 6 Full map stress sequence | DONE | Isolated browser context: Home → pickup → back → pickup → Select Ride → Finding → Waiting → visibility resume. |
+| 6 Full map stress sequence | DONE | Isolated browser context: Home → pickup → back → reopen → Select Ride → Finding → Waiting → visibility resume. Owner/generation asserted at each step. Finding/Waiting have no approved back control, so pop there is not forced. |
 | 7 Owner stack under nested nav | DONE | Older owner cannot detach newer; same-id reattach; camera no-op without controller; never `GoogleMapController.dispose()`. |
-| 8 Async/race behavior tests | DONE | Destination B wins; category change while quotes pending; double book; cancel vs assign; dispose vs event; wallet idempotent top-up. |
-| 9 Scheduled session fully written | DONE | Route/stops/time/note/payment/rideType captured from the live schedule screens. `confirm()` writes `bookingId`. |
+| 8 Async/race behavior tests | DONE | Destination B wins; category change while quotes pending; double book; cancel vs assign; dispose vs geocode/search/quote; resume then stale realtime; wallet idempotent top-up. |
+| 9 Scheduled session fully written | DONE | Route/stops captured as fields change; date/time writes `Europe/Stockholm`; note and payment captured on edit; `captureRideType` assigns `q_sched_*`; `confirm()` writes `bookingId`. |
 | 10 Driver repository is display source | DONE | `DriverArrivalView` exposes ETA, name, rating, tagline, plate, vehicle label, images. Visible values unchanged (`L - 2323 F`, Merle Feeney, 5.0, 5 mins). |
-| 11 Home redesign flexibility | DONE | GPS, geocoding, address persistence, restore, promotions, map attach live outside Home paint. Changing a card does not require rewriting those systems. |
-| 12 CI + live QA green | DONE | Gates 98 tests; Pages live; QA four PASS lines on `dc46cda`. |
-| 13 ARCHITECTURE.md matches reality | DONE | this file, written after green CI |
+| 11 Home redesign flexibility | DONE | GPS, geocoding, overlay paint model, address persistence, restore, promotions, map attach live outside Home pixel layout. Changing a card does not require rewriting those systems. Frozen UI paint remains in `home.dart`. |
+| 12 CI + live QA green | DONE | Gates 108 tests; Pages live; QA four PASS lines on `a82b70b`. |
+| 13 ARCHITECTURE.md matches reality | DONE | this file, written after green CI on `a82b70b` |
 
 ## How to replace mocks
 
@@ -119,7 +119,7 @@ https://baccarisverige-ux.github.io/-movera-rider/
 | 52 Design system | DONE AND WIRED | tokens; CustomBtn kept | — | NOT APPLICABLE BY APPROVED UI |
 | 53–55 Dispose/map park | DONE AND WIRED | owner detach; Home no longer disposes global map | — | No |
 | 56–58 Motion tests | DONE AND WIRED | `test/motion` | — | No |
-| 59 Tests | DONE AND WIRED | 98 unit tests + live QA | Broader device | No |
+| 59 Tests | DONE AND WIRED | 108 unit tests + live QA | Broader device | No |
 | 60–67 Errors/anti-abuse/analytics/IDs | DONE AND WIRED | tests + logs | — | No |
 | 68 Privacy | DONE AND WIRED | snapshot 20 min | — | No |
 | 69 Restore/reconnect | DONE AND WIRED | GET ride on reconnect | — | No |
