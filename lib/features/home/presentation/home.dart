@@ -384,15 +384,8 @@ class _HomeState extends State<Home> {
     }
   }
 
-  Future<String> _normaliseAddress(String input) async {
-    final clean = input.trim();
-    if (clean.isEmpty || clean == 'Current location') return clean;
-    final generation = _geoGuard.next();
-    final result = await AppScope.instance.geocoding.geocodeAddress(clean);
-    if (!_geoGuard.isCurrent(generation)) return clean;
-    return result?.address.trim().isNotEmpty == true
-        ? result!.address.trim()
-        : clean;
+  Future<String> _normaliseAddress(String input) {
+    return _locationCtl.normaliseAddress(input);
   }
 
   Future<void> _moveMapToAddress(String address) async {

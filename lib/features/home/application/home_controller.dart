@@ -42,6 +42,17 @@ class HomeLocationController {
   bool hasCompassHeading = false;
   double heading = 0;
 
+  Future<String> normaliseAddress(String input) async {
+    final clean = input.trim();
+    if (clean.isEmpty || clean == 'Current location') return clean;
+    final generation = _geoGuard.next();
+    final result = await geocoding.geocodeAddress(clean);
+    if (!_geoGuard.isCurrent(generation)) return clean;
+    return result?.address.trim().isNotEmpty == true
+        ? result!.address.trim()
+        : clean;
+  }
+
   Future<DetectedLocation> detectCurrent() async {
     var permission = await location.checkPermission();
     if (permission == LocationPermission.denied) {
