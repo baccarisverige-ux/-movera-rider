@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/auth/sign%20in/sign_in.dart';
+export 'package:movera_rider/features/auth/presentation/sign_in.dart';

@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
+export 'package:movera_rider/features/history/presentation/ride_history.dart';

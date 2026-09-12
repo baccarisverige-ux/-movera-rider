@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/waiting%20for%20driver/waiting_for_driver.dart';
+export 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';

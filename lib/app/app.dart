@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
-import 'package:movera_rider/features/rider/home/home.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
 
 class MoveraApp extends StatelessWidget {
   const MoveraApp({super.key});

@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
+export 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';

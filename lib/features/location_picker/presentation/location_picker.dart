@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/home/home.dart';
+export 'package:movera_rider/features/home/presentation/home.dart';

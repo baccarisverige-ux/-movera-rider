@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/ride%20completed/components/give_review.dart';
+export 'package:movera_rider/features/ride_complete/presentation/give_review.dart';

@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/my%20wallet/wallet.dart';
+export 'package:movera_rider/features/wallet/presentation/wallet.dart';

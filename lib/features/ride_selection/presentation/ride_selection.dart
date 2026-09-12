@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/rider/select%20ride/select_ride.dart';
+export 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';

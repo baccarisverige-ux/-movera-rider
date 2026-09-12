@@ -3,7 +3,7 @@
 Core maps/location/motion/api/realtime/auth/errors, ride state machine with
 validated transitions, wallet ledger, quote + payment repositories, design
 tokens, crash handlers, unit tests, architecture CI, and a mock `/api/v1`
-backend + SQL schema. Approved screens were not restyled or moved.
+backend + SQL schema. Approved screens were **moved** into feature folders. Visual design is unchanged.
 
 ## Brief 1–70 (code in this repo)
 
