@@ -1026,7 +1026,6 @@ class _WalletScreenState extends State<WalletScreen> {
     if (!mounted) return;
     setState(() {
       _voucherCode = offer.code;
-      if (next != null) _balance = next;
     });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
