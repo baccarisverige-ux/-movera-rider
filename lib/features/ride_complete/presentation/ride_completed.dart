@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
@@ -14,13 +12,22 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
-class RideCompleted extends StatelessWidget {
+class RideCompleted extends StatefulWidget {
   const RideCompleted({super.key});
 
   @override
+  State<RideCompleted> createState() => _RideCompletedState();
+}
+
+class _RideCompletedState extends State<RideCompleted> {
+  @override
+  void initState() {
+    super.initState();
+    ActiveRideController().markClosed();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    RideSnapshotStore.clear();
-    AppScope.instance.ride.restoreFromBackend(RideStatus.closed);
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(

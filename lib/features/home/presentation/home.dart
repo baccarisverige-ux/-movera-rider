@@ -277,7 +277,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _restoreActiveRide() async {
-    final snapshot = await RideSnapshotStore.read();
+    final snapshot = await AppScope.instance.ride.loadSnapshot();
     if (snapshot == null || !mounted) return;
     AppScope.instance.ride.restoreFromBackend(
       snapshot.status,
@@ -389,11 +389,11 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _moveMapToAddress(String address) async {
-    final result = await AppScope.instance.geocoding.geocodeAddress(address);
-    if (result == null) return;
-    final target = LatLng(result.latitude, result.longitude);
-    await _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: 15)),
+    final target = await _locationCtl.geocodeLatLng(address);
+    if (target == null) return;
+    await AppScope.instance.maps.animateCamera(
+      GeoPoint(target.latitude, target.longitude),
+      zoom: 15,
     );
   }
 
@@ -422,12 +422,9 @@ class _HomeState extends State<Home> {
       if (resolved.toLowerCase() == 'current location') {
         resolvedPickupPosition = _currentLatLng;
       } else {
-        final geocodedPickup = await AppScope.instance.geocoding.geocodeAddress(resolved);
+        final geocodedPickup = await _locationCtl.geocodeLatLng(resolved);
         if (geocodedPickup != null) {
-          resolvedPickupPosition = LatLng(
-            geocodedPickup.latitude,
-            geocodedPickup.longitude,
-          );
+          resolvedPickupPosition = geocodedPickup;
         }
       }
     }
@@ -514,15 +511,10 @@ class _HomeState extends State<Home> {
       final confirmedPickupPosition = pickupPosition;
       var resolvedDestination = destination;
       LatLng? destinationPosition;
-      final destinationResult = await AppScope.instance.geocoding.geocodeAddress(destination);
+      final destinationResult = await _locationCtl.geocodePlace(destination);
       if (destinationResult != null) {
-        resolvedDestination = destinationResult.address.trim().isNotEmpty
-            ? destinationResult.address.trim()
-            : destination;
-        destinationPosition = LatLng(
-          destinationResult.latitude,
-          destinationResult.longitude,
-        );
+        resolvedDestination = destinationResult.address;
+        destinationPosition = destinationResult.point;
       } else {
         final result = await _openPickupMapPicker(
           destination,
@@ -579,9 +571,8 @@ class _HomeState extends State<Home> {
     final cleanAddress = address.trim();
     if (cleanAddress.isNotEmpty &&
         cleanAddress.toLowerCase() != 'current location') {
-      final geocoded = await AppScope.instance.geocoding.geocodeAddress(cleanAddress);
-      if (geocoded != null)
-        initialPosition = LatLng(geocoded.latitude, geocoded.longitude);
+      final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
+      if (geocoded != null) initialPosition = geocoded;
     }
     if (!mounted) return null;
     return _withParkedHomeMap(() {
@@ -1211,16 +1202,14 @@ class _HomeState extends State<Home> {
                                     final destinationText =
                                         destinationController.text.trim();
                                     final geocodedDestination =
-                                        await AppScope.instance.geocoding.geocodeAddress(
+                                        await _locationCtl.geocodePlace(
                                           destinationText,
                                         );
                                     if (geocodedDestination != null) {
                                       destinationController.text =
                                           geocodedDestination.address;
-                                      exactDestinationPosition = LatLng(
-                                        geocodedDestination.latitude,
-                                        geocodedDestination.longitude,
-                                      );
+                                      exactDestinationPosition =
+                                          geocodedDestination.point;
                                     } else {
                                       final result = await _openPickupMapPicker(
                                         destinationText,

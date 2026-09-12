@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -189,8 +188,7 @@ class _RideCancellationDialogState extends State<RideCancellationDialog> {
             // Search again button
             InkWell(
               onTap: () {
-                Analytics.rideCancelled();
-                RideSnapshotStore.clear();
+                FindingDriverController().cancelSearch();
                 Navigator.of(context).popUntil((route) => route.isFirst);
               },
               child: Container(

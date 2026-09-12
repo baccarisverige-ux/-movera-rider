@@ -53,6 +53,21 @@ class HomeLocationController {
         : clean;
   }
 
+  Future<LatLng?> geocodeLatLng(String address) async {
+    final result = await geocoding.geocodeAddress(address);
+    if (result == null) return null;
+    return LatLng(result.latitude, result.longitude);
+  }
+
+  Future<({LatLng point, String address})?> geocodePlace(String address) async {
+    final result = await geocoding.geocodeAddress(address);
+    if (result == null) return null;
+    return (
+      point: LatLng(result.latitude, result.longitude),
+      address: result.address.trim().isNotEmpty ? result.address.trim() : address,
+    );
+  }
+
   Future<DetectedLocation> detectCurrent() async {
     var permission = await location.checkPermission();
     if (permission == LocationPermission.denied) {

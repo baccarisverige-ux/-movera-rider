@@ -12,8 +12,8 @@ class ActiveRideController {
     RideSnapshotStore.clear();
   }
 
-  void markCompleted() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.tripCompleted);
+  void markClosed() {
+    AppScope.instance.ride.restoreFromBackend(RideStatus.closed);
     RideSnapshotStore.clear();
   }
 }

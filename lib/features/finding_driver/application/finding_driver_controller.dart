@@ -50,6 +50,12 @@ class FindingDriverController {
     });
   }
 
+  void cancelSearch() {
+    Analytics.rideCancelled();
+    AppScope.instance.ride.restoreFromBackend(RideStatus.cancelledByRider);
+    RideSnapshotStore.clear();
+  }
+
   void dispose() {
     _tick?.cancel();
     _match?.cancel();

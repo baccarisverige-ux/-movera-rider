@@ -1,5 +1,6 @@
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
@@ -22,6 +23,8 @@ class RideSession {
     rideId = id ?? rideId;
     status = backendStatus;
   }
+
+  Future<RideSnapshot?> loadSnapshot() => RideSnapshotStore.read();
 
   void dispose() => stale.dispose();
 }

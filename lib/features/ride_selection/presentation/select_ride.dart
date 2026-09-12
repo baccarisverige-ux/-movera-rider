@@ -4,12 +4,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -577,27 +573,16 @@ class _SelectRideState extends State<SelectRide>
     final selected = _selectedRide;
     _withParkedMap(() async {
       if (!mounted) return;
-      final rideId = newRequestId();
-      Analytics.bookingSubmitted(rideId: rideId);
-      AppScope.instance.ride.restoreFromBackend(
-        RideStatus.findingDriver,
-        id: rideId,
-      );
-      await RideSnapshotStore.save(
-        RideSnapshot(
-          status: RideStatus.findingDriver,
-          savedAt: DateTime.now(),
-          pickupAddress: widget.pickupAddress,
-          destinationAddress: widget.destinationAddress,
-          pickupLat: widget.pickupPosition.latitude,
-          pickupLng: widget.pickupPosition.longitude,
-          destinationLat: widget.destinationPosition.latitude,
-          destinationLng: widget.destinationPosition.longitude,
-          rideType: selected.name,
-          price: _priceFor(selected),
-          paymentMethod: _payments[_selectedPayment].name,
-          rideId: rideId,
-        ),
+      await AppScope.instance.booking.submitFinding(
+        pickupAddress: widget.pickupAddress,
+        destinationAddress: widget.destinationAddress,
+        pickupLat: widget.pickupPosition.latitude,
+        pickupLng: widget.pickupPosition.longitude,
+        destinationLat: widget.destinationPosition.latitude,
+        destinationLng: widget.destinationPosition.longitude,
+        rideType: selected.name,
+        price: _priceFor(selected),
+        paymentMethod: _payments[_selectedPayment].name,
       );
       await Navigator.push(
         context,
