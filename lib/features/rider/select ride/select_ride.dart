@@ -337,7 +337,7 @@ class _SelectRideState extends State<SelectRide>
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
-    final maxH = media.size.height - media.padding.top - 108;
+    final maxH = media.size.height - media.padding.top - 176;
     return maxH <= minH ? minH : maxH;
   }
 
@@ -766,20 +766,27 @@ class _SelectRideState extends State<SelectRide>
                 right: 16,
                 child: _webSafe(_searchBar()),
               ),
-              Positioned(
-                top: media.padding.top + 66,
-                left: 16,
-                child: _webSafe(
-                  _mapBadge(_pickupEtaLabel, const Color(0xFF1F8A4C)),
+              if (sheetHeight < media.size.height - media.padding.top - 108)
+                Positioned(
+                  top: media.padding.top + 64,
+                  left: 16,
+                  right: 16,
+                  child: _webSafe(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _mapBadge(
+                          _pickupEtaLabel,
+                          const Color(0xFF1F8A4C),
+                        ),
+                        _mapBadge(
+                          _arriveLabel,
+                          const Color(0xFF3B6BFF),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              Positioned(
-                top: media.padding.top + 66,
-                right: 16,
-                child: _webSafe(
-                  _mapBadge(_arriveLabel, const Color(0xFF3B6BFF)),
-                ),
-              ),
               Positioned(
                 left: 0,
                 right: 0,
