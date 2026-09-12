@@ -5,6 +5,8 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class BookingCoordinator {
+  Future<String>? _inflight;
+
   Future<String> requestBooking({
     required String rideType,
     required String paymentMethod,
@@ -36,6 +38,36 @@ class BookingCoordinator {
   }
 
   Future<String> submitFinding({
+    required String pickupAddress,
+    required String destinationAddress,
+    required double pickupLat,
+    required double pickupLng,
+    required double destinationLat,
+    required double destinationLng,
+    required String rideType,
+    required double price,
+    required String paymentMethod,
+  }) async {
+    if (_inflight != null) return _inflight!;
+    _inflight = _submitFinding(
+      pickupAddress: pickupAddress,
+      destinationAddress: destinationAddress,
+      pickupLat: pickupLat,
+      pickupLng: pickupLng,
+      destinationLat: destinationLat,
+      destinationLng: destinationLng,
+      rideType: rideType,
+      price: price,
+      paymentMethod: paymentMethod,
+    );
+    try {
+      return await _inflight!;
+    } finally {
+      _inflight = null;
+    }
+  }
+
+  Future<String> _submitFinding({
     required String pickupAddress,
     required String destinationAddress,
     required double pickupLat,

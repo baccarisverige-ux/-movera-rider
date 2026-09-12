@@ -15,14 +15,13 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/location_picker/application/location_picker_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
-import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/promotions/application/promotions_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
@@ -80,7 +79,7 @@ class _HomeState extends State<Home> {
   double _lastMapZoom = 13.0;
   LatLng _lastMapTarget = const LatLng(59.3293, 18.0686);
   bool _showRecenterButton = true;
-  bool _promotionVisible = _promotionEnabled;
+  bool _promotionVisible = PromotionsController().homeCampaign().active;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
 
@@ -88,11 +87,9 @@ class _HomeState extends State<Home> {
   static const double _sheetPromoMinHeight = 244;
   static const double _sheetMaxHeight = 294;
 
-  // Campaign values are kept together so the admin service can replace them
-  // without changing the rider interface.
-  static const bool _promotionEnabled = true;
-  static const String _promotionId = 'next_ride_40_sep_2026';
-  static const String _promotionTitle = '40% off your next ride';
+  bool get _promotionEnabled => PromotionsController().homeCampaign().active;
+  String get _promotionId => PromotionsController().homeCampaign().id;
+  String get _promotionTitle => PromotionsController().homeCampaign().title;
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
   String? _pickupAddress;
@@ -218,9 +215,6 @@ class _HomeState extends State<Home> {
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
     _restoreAddressData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _restoreActiveRide();
-    });
   }
 
   @override
@@ -228,8 +222,7 @@ class _HomeState extends State<Home> {
     _sheetIdleTimer?.cancel();
     _locationPulseTimer?.cancel();
     _locationCtl.dispose();
-    AppScope.instance.mapLifecycle.dispose();
-    AppScope.instance.maps.detach();
+    AppScope.instance.maps.detach(owner: MapOwners.home);
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
       ..dispose();
@@ -274,38 +267,6 @@ class _HomeState extends State<Home> {
         work: _workAddress,
         recent: _recentAddresses,
         places: _savedPlaces.map((place) => place.toJson()).toList(),
-      ),
-    );
-  }
-
-  Future<void> _restoreActiveRide() async {
-    final snapshot = await AppScope.instance.ride.loadSnapshot();
-    if (snapshot == null || !mounted) return;
-    AppScope.instance.ride.restoreFromBackend(
-      snapshot.status,
-      id: snapshot.rideId,
-    );
-    if (snapshot.status != RideStatus.findingDriver &&
-        snapshot.status != RideStatus.driverAssigned &&
-        snapshot.status != RideStatus.driverArriving &&
-        snapshot.status != RideStatus.bookingRequested) {
-      return;
-    }
-    await Navigator.push(
-      context,
-      BottomToTopTransition(
-        FindingDrivers(
-          pickupAddress: snapshot.pickupAddress,
-          destinationAddress: snapshot.destinationAddress,
-          pickupPosition: LatLng(snapshot.pickupLat, snapshot.pickupLng),
-          destinationPosition: LatLng(
-            snapshot.destinationLat,
-            snapshot.destinationLng,
-          ),
-          rideType: snapshot.rideType,
-          price: snapshot.price,
-          paymentMethod: snapshot.paymentMethod,
-        ),
       ),
     );
   }
@@ -550,7 +511,7 @@ class _HomeState extends State<Home> {
     if (parkedNow) {
       setState(() => _homeMapParked = true);
       AppScope.instance.mapLifecycle.park();
-      AppScope.instance.maps.detach();
+      AppScope.instance.maps.detach(owner: MapOwners.home);
       _mapController = null;
       await Future<void>.delayed(const Duration(milliseconds: 80));
       if (!mounted) return null;
@@ -2089,7 +2050,10 @@ class _HomeState extends State<Home> {
                             onCameraMove: _handleMapCameraMove,
                             onMapCreated: (GoogleMapController controller) {
                               _mapController = controller;
-                              AppScope.instance.maps.attach(controller);
+                              AppScope.instance.maps.attach(
+                                controller,
+                                owner: MapOwners.home,
+                              );
                               AppScope.instance.mapLifecycle.created();
                               final target = _currentLatLng;
                               if (target != null) {
@@ -3628,6 +3592,7 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
   @override
   void dispose() {
     _pickup.dispose();
+    AppScope.instance.maps.detach(owner: MapOwners.pickup);
     super.dispose();
   }
 
@@ -3684,7 +3649,10 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
               myLocationEnabled: false,
               onMapCreated: (controller) {
                 _controller = controller;
-                AppScope.instance.maps.attach(controller);
+                AppScope.instance.maps.attach(
+                  controller,
+                  owner: MapOwners.pickup,
+                );
               },
               onCameraMove: (camera) => _position = camera.target,
               onCameraIdle: _resolveAddress,

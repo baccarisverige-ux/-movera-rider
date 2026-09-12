@@ -13,5 +13,6 @@ class DriverArrivingController {
   final ActiveRideController _ride;
 
   DriverProfile driver() => _store.driver();
+  String eta() => _store.eta();
   void markArriving() => _ride.markArriving();
 }

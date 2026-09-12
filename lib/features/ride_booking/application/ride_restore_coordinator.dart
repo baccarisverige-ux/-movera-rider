@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -16,6 +18,8 @@ class RideRestoreCoordinator {
 
   final Future<RideSnapshot?> Function() _reader;
   RestoredSurface showing = RestoredSurface.home;
+  int restores = 0;
+  void Function(Widget page)? onReplaceRoot;
 
   static final instance = RideRestoreCoordinator();
 
@@ -25,6 +29,7 @@ class RideRestoreCoordinator {
     }
     switch (snapshot.status) {
       case RideStatus.findingDriver:
+      case RideStatus.bookingRequested:
         return RestoredSurface.finding;
       case RideStatus.driverAssigned:
       case RideStatus.driverArriving:
@@ -45,6 +50,7 @@ class RideRestoreCoordinator {
   Widget pageFor(RideSnapshot? snapshot) {
     final surface = surfaceFor(snapshot);
     showing = surface;
+    restores += 1;
     if (snapshot == null || surface == RestoredSurface.home) {
       return const Home();
     }
@@ -82,7 +88,7 @@ class RideRestoreCoordinator {
     try {
       final snapshot = await _reader();
       AppLog.info(
-        'ride.restore',
+        'ride.restore.cold',
         extra: {'status': snapshot?.status.name ?? 'none'},
       );
       return pageFor(snapshot);
@@ -93,12 +99,24 @@ class RideRestoreCoordinator {
     }
   }
 
+  bool get atRoot {
+    final nav = moveraNavigatorKey.currentState;
+    if (nav == null) return true;
+    return !nav.canPop();
+  }
+
   Future<Widget?> resumeIfNeeded() async {
     final snapshot = await _reader();
+    final id = snapshot?.rideId;
+    if (id != null) {
+      await AppScope.instance.rideRealtime.reconnectAndResync(id);
+    }
+    if (!atRoot) return null;
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
-    if (next == RestoredSurface.home) return null;
-    return pageFor(snapshot);
+    final page = pageFor(snapshot);
+    onReplaceRoot?.call(page);
+    return page;
   }
 }
 

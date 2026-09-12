@@ -1,72 +1,66 @@
 # Movera Rider architecture
 
-Approved UI is frozen. This file describes **runtime wiring**, not folder names.
+Approved UI is frozen. Status is **runtime wiring**, not folder names.
 
-## Status legend
+WaitingForDriver is the approved surface for assigned / arriving / in-progress.
 
-- **DONE AND WIRED** — live screens depend on it
-- **INTENTIONALLY MOCK** — contract exists, mock transport
-- **BLOCKED BY EXTERNAL CREDENTIAL** — needs keys/URL/DSN
+Web snapshot key: `flutter.movera_active_ride` (`RideSnapshotStore.key`).
 
-## Points 1–70
-
-| POINT | STATUS | LIVE FILES USING IT | REMAINING WORK | BLOCKED BY CREDENTIALS? |
-|---|---|---|---|---|
-| 1 Clean architecture | DONE AND WIRED | `lib/features/*` | — | No |
-| 2 UI frozen | DONE AND WIRED | Home, Select Ride, maps, sheets | — | No |
-| 3 Legacy unused splash removed | DONE AND WIRED | git history | — | No |
-| 4 Ride state machine | DONE AND WIRED | `ride_transition.dart`, tests | — | No |
-| 5 Quotes/status contracts | DONE AND WIRED | `ApiQuoteRepository`, Select Ride | Swap transport to live URL | No (mock) |
-| 6 Modular mock `/api/v1` | INTENTIONALLY MOCK | `InProcessMockClient`, `backend/` | Real hosted API | Yes for production host |
-| 7 SQL schema | INTENTIONALLY MOCK | `backend/sql/0001_schema.sql` | Hosted Postgres | Yes |
-| 8 Structured API errors | DONE AND WIRED | `ApiClient`, `ApiError` | — | No |
-| 9 Idempotency-Key | DONE AND WIRED | booking, wallet, mock client | — | No |
-| 10 FareBreakdown | DONE AND WIRED | quote breakdown + `FareRules` | — | No |
-| 11 Promotion domain | DONE AND WIRED | `PromotionsController` | — | No |
-| 12 MapFacade/camera/markers/routing | DONE AND WIRED | `AppScope.map`, `RoutingService` | No visual polyline added | No |
-| 13 MapProvider | DONE AND WIRED | `GoogleMapProvider` | — | No |
-| 14–18 MotionEngine | DONE AND WIRED | Home location + tests | No new moving driver pin | No |
-| 19–22 Camera modes | DONE AND WIRED | `MapCameraController` | — | No |
-| 23–24 Realtime + backoff | DONE AND WIRED | `MockRideRealtime`, Finding Driver | Real websocket | Yes for live socket |
-| 25 StaleGuard | DONE AND WIRED | geocode, quotes, camera | — | No |
-| 26 Lifecycle restore | DONE AND WIRED | `RideRestoreGate`, `RideRestoreCoordinator` | — | No |
-| 27–30 Failures/logger/crash/zone | DONE AND WIRED | `bootstrap.dart`, `CrashReporter` | Sentry DSN | Yes for Sentry |
-| 31–33 ApiClient | DONE AND WIRED | in-process mock transport | Live base URL | Yes for prod URL |
-| 34 ConnectivityKind | DONE AND WIRED | typed status (logs/controllers, no new UI) | — | No |
-| 35 TokenStore | DONE AND WIRED | `SecureTokenStore` (web = memory, not Keychain) | Native plugin optional | No |
-| 36 No server secrets in Flutter | DONE AND WIRED | architecture tests | — | No |
-| 37 PaymentRepository + gateway | INTENTIONALLY MOCK | Wallet → `MockPaymentGateway` | Stripe/Swish | Yes |
-| 38 Wallet ledger | DONE AND WIRED | `WalletController` | — | No |
-| 39–42 Permissions, GPS, geocode, 320ms search | DONE AND WIRED | Home | — | No |
-| 43 Snapshot restore | DONE AND WIRED | restore coordinator | — | No |
-| 44 Scheduled rides | DONE AND WIRED | `ScheduledRideSession` → booking API | — | No |
-| 45 PushPayload | INTENTIONALLY MOCK | `NoopPushService` | FCM/APNs | Yes |
-| 46 FeatureFlags | DONE AND WIRED | Select Ride payments | — | No |
-| 47 Admin | BLOCKED | mock health list only | Separate admin app | Yes / separate repo |
-| 48 AppEnv | DONE AND WIRED | `env.dart` | Real URLs | Yes for prod |
-| 49 Immutable Ride/Quote/Driver | DONE AND WIRED | domain entities | — | No |
-| 50 RideNavigator | DONE AND WIRED | wraps BottomToTop/RightToLeft | Screens keep existing pushes | No |
-| 51 GetX | DONE AND WIRED | `GetMaterialApp` | — | No |
-| 52 Design system present | DONE AND WIRED | tokens; screens keep CustomBtn | Do not replace approved widgets | No |
-| 53–55 Tokens/dispose/map park | DONE AND WIRED | map lifecycle | — | No |
-| 56–58 Motion tests | DONE AND WIRED | `test/motion` | — | No |
-| 59 Tests | DONE AND WIRED | unit + launch integration | Broader device QA | No |
-| 60–67 Errors, anti-abuse, analytics, IDs, TLS comments | DONE AND WIRED | tests + logs | — | No |
-| 68 Privacy retention | DONE AND WIRED | snapshot `isFresh` 20 min | — | No |
-| 69 Restore/reconnect/smoother | DONE AND WIRED | restore + realtime resync | — | No |
-| 70 No redesign / no guessed deletes | DONE AND WIRED | this pass | — | No |
-
-## How to replace mocks later
+## How to replace mocks
 
 | Mock | Replace with |
 |---|---|
-| `InProcessMockClient` | `http.Client()` + real `AppEnv.apiBaseUrl` |
-| `MockRideRealtime` | authenticated WebSocket implementing `RideRealtime` |
-| `MockPaymentGateway` | Stripe/Swish adapter, same `PaymentGateway` |
-| `NoopPushService` | FCM/APNs `PushService` |
-| `CrashReporter` log-only | Sentry/Crashlytics behind same `record()` |
-| `SecureTokenStore` web memory | keep Keychain/Keystore on iOS/Android; web is not equivalent |
+| `InProcessMockClient` | `http.Client()` + live `AppEnv.apiBaseUrl` |
+| `MockRideRealtime` | WebSocket `RideRealtime` (reconnect still GET `/api/v1/rides/:id`) |
+| `MockPaymentGateway` | Stripe/Swish `PaymentGateway` |
+| `NoopPushService` | FCM/APNs |
+| `CrashReporter` | Sentry/Crashlytics `record()` |
+| `SecureTokenStore` | already Keychain/Keystore on iOS/Android; web stays memory |
 
-## Web token storage
+## Points 1–70
 
-Browser-backed or in-memory tokens are **not** iOS Keychain / Android Keystore. Tokens are never written to SharedPreferences, git, URLs, or logs.
+| POINT | STATUS | ACTUAL LIVE USAGE | REMAINING WORK | EXTERNAL BLOCKER |
+|---|---|---|---|---|
+| 1 Clean architecture | DONE AND WIRED | `lib/features/*/application|data|domain|presentation` | — | No |
+| 2 UI frozen | DONE AND WIRED | Home/Select Ride/Finding/Waiting | — | No |
+| 3 Legacy unused removed | DONE AND WIRED | git | — | No |
+| 4 Ride state machine | DONE AND WIRED | `ride_transition.dart` + tests | — | No |
+| 5 Quotes/status | DONE AND WIRED | Select Ride → `ApiQuoteRepository` → mock `/api/v1/quotes` | Live URL | INTENTIONALLY MOCK host |
+| 6 Modular mock API | INTENTIONALLY MOCK | `InProcessMockClient` + `backend/` | Hosted API | Yes |
+| 7 SQL schema | INTENTIONALLY MOCK | `backend/sql` | Postgres | Yes |
+| 8 Structured errors | DONE AND WIRED | `ApiClient`/`ApiError` | — | No |
+| 9 Idempotency | DONE AND WIRED | booking, wallet, mock client | — | No |
+| 10 Fare breakdown | DONE AND WIRED | quote + `FareRules` | — | No |
+| 11 Promotions | DONE AND WIRED | Home ticket from `PromotionsController.homeCampaign()` | — | No |
+| 12 Map facade | DONE AND WIRED | `MapFacade` upsert/drawRoute; Select Ride stores route; Home has no polyline | — | No |
+| 13 MapProvider | DONE AND WIRED | `GoogleMapProvider` owner stack | — | No |
+| 14–18 Motion | DONE AND WIRED | Home location + `test/motion` | No moving driver pin | NOT APPLICABLE BY APPROVED UI |
+| 19–22 Camera | DONE AND WIRED | `MapCameraController` | — | No |
+| 23–24 Realtime | DONE AND WIRED | `MockRideRealtime` + GET resync | Real websocket | INTENTIONALLY MOCK |
+| 25 StaleGuard | DONE AND WIRED | geocode, quotes, camera | — | No |
+| 26 Restore | DONE AND WIRED | `RideRestoreGate` cold start; resume only at root | — | No |
+| 27–30 Crash/zone | DONE AND WIRED | `bootstrap.dart` | Sentry DSN | BLOCKED |
+| 31–33 ApiClient | DONE AND WIRED | in-process mock default | Live URL | BLOCKED for prod URL |
+| 34 Connectivity | DONE AND WIRED | typed, logs only | No new banners | NOT APPLICABLE BY APPROVED UI |
+| 35 TokenStore | DONE AND WIRED | `flutter_secure_storage` iOS/Android; memory web/CI | — | No |
+| 36 No secrets in lib | DONE AND WIRED | architecture tests | — | No |
+| 37 Payments | INTENTIONALLY MOCK | `WalletController.topUp` → mock gateway | Stripe/Swish | Yes |
+| 38 Wallet ledger | DONE AND WIRED | topUp/redeemVoucher/chargeRide/refund | — | No |
+| 39–42 Location/search | DONE AND WIRED | Home + 320ms search | — | No |
+| 43 Snapshot restore | DONE AND WIRED | coordinator; Home restore removed | — | No |
+| 44 Scheduled rides | DONE AND WIRED | `ScheduledRideSession` → mock booking | — | No |
+| 45 Push | INTENTIONALLY MOCK | `NoopPushService` | FCM/APNs | Yes |
+| 46 Feature flags | DONE AND WIRED | Select Ride payments | — | No |
+| 47 Admin | BLOCKED BY EXTERNAL CREDENTIAL | health list only | Separate app | Yes |
+| 48 AppEnv | DONE AND WIRED | `env.dart` | Prod URL | Yes |
+| 49 Immutable entities | DONE AND WIRED | Ride/Quote/Driver | — | No |
+| 50 RideNavigator | DONE AND WIRED | wraps existing transitions | Screens keep BottomToTop | No |
+| 51 GetX | DONE AND WIRED | `GetMaterialApp` | — | No |
+| 52 Design system | DONE AND WIRED | tokens; CustomBtn kept | — | NOT APPLICABLE BY APPROVED UI |
+| 53–55 Dispose/map park | DONE AND WIRED | owner detach; Home no longer disposes global map | — | No |
+| 56–58 Motion tests | DONE AND WIRED | `test/motion` | — | No |
+| 59 Tests | DONE AND WIRED | unit + restore/realtime/quotes/maps | Broader device | No |
+| 60–67 Errors/anti-abuse/analytics/IDs | DONE AND WIRED | tests + logs | — | No |
+| 68 Privacy | DONE AND WIRED | snapshot 20 min | — | No |
+| 69 Restore/reconnect | DONE AND WIRED | GET ride on reconnect | — | No |
+| 70 No redesign | DONE AND WIRED | this pass | — | No |

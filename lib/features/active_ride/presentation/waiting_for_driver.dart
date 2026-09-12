@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
@@ -57,7 +58,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       zoom: 14.0,
     );
     _loadMarkers();
-    _ride.markArriving();
   }
 
   void _loadMarkers() {
@@ -75,6 +75,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         icon: BitmapDescriptor.defaultMarker,
       ),
     };
+  }
+
+  @override
+  void dispose() {
+    AppScope.instance.maps.detach(owner: MapOwners.waiting);
+    super.dispose();
   }
 
   @override
@@ -144,7 +150,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       ),
                       child: Center(
                         child: TextWidget(
-                          text: "5 mins",
+                          text: DriverArrivingController().eta(),
                           fontSize: 14,
                           fontWeight: fwMedium,
                           color: AppColor.whiteText,
@@ -195,7 +201,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 mapType: MapType.normal,
                 onMapCreated: (GoogleMapController controller) {
                   _mapController = controller;
-                  AppScope.instance.maps.attach(controller);
+                  AppScope.instance.maps.attach(
+                    controller,
+                    owner: MapOwners.waiting,
+                  );
                 },
                 onTap: (LatLng position) {
                   // Handle map tap events

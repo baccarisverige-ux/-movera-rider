@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
@@ -59,6 +60,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       controller.dispose();
     }
     sc.dispose();
+    AppScope.instance.maps.detach(owner: MapOwners.schedule);
     super.dispose();
   }
 
@@ -493,7 +495,10 @@ class _ScheduleRideState extends State<ScheduleRide> {
             mapType: MapType.normal,
             onMapCreated: (GoogleMapController controller) {
               _mapController = controller;
-              AppScope.instance.maps.attach(controller);
+              AppScope.instance.maps.attach(
+                controller,
+                owner: MapOwners.schedule,
+              );
             },
             onTap: (LatLng position) {
               // Handle map tap events

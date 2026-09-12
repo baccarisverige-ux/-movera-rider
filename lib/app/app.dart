@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
 import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
 
@@ -17,11 +18,12 @@ class MoveraApp extends StatelessWidget {
       builder: (_, child) {
         return GetMaterialApp(
           title: 'Movera',
+          navigatorKey: moveraNavigatorKey,
           locale: const Locale('en'),
           fallbackLocale: const Locale('en'),
           debugShowCheckedModeBanner: false,
           theme: moveraTheme(),
-          home: const RideRestoreGate(),
+          home: RideRestoreGate(key: RideRestoreGate.gateKey),
         );
       },
     );

@@ -54,10 +54,10 @@ class AppScope {
         pickup = PickupSession(),
         destination = DestinationSession(),
         booking = BookingCoordinator(),
-        routing = RoutingService(),
-        rideRealtime = MockRideRealtime() {
+        routing = RoutingService() {
     api = ApiClient(tokens: tokens);
     quotes = ApiQuoteRepository(api: api, fallback: CatalogQuoteRepository());
+    rideRealtime = MockRideRealtime(api: api);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search);
@@ -66,6 +66,7 @@ class AppScope {
       camera: camera,
       markers: markers,
       lifecycle: mapLifecycle,
+      routing: routing,
     );
   }
 
@@ -98,6 +99,6 @@ class AppScope {
   final BookingCoordinator booking;
   late final DestinationSearchController destinationSearch;
   final RoutingService routing;
-  final RideRealtime rideRealtime;
+  late final RideRealtime rideRealtime;
   FeatureFlags flags = FeatureFlags.current;
 }

@@ -7,15 +7,25 @@ import 'package:movera_rider/shared/models/onboarding.dart';
 class ScheduledRideSession {
   String pickup = 'Current location';
   String dropoff = '';
+  List<String> stops = [];
   DateTime? scheduledAt;
+  String timezone = 'Europe/Stockholm';
+  String note = '';
   String paymentMethod = 'Wallet';
+  String rideType = 'movera';
+  String? quoteId;
+  String? bookingId;
+  String submissionStatus = 'idle';
 
-  Future<String> confirm() {
-    return AppScope.instance.booking.requestBooking(
-      rideType: 'movera',
+  Future<String> confirm() async {
+    submissionStatus = 'submitting';
+    bookingId = await AppScope.instance.booking.requestBooking(
+      rideType: rideType,
       paymentMethod: paymentMethod,
       scheduledAt: scheduledAt?.toIso8601String(),
     );
+    submissionStatus = 'confirmed';
+    return bookingId!;
   }
 
   void markScheduled() {

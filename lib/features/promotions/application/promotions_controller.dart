@@ -6,4 +6,5 @@ class PromotionsController {
   final PromotionsRepository _store;
 
   List<PromoCardData> cards() => _store.cards();
+  HomeCampaign homeCampaign() => _store.homeCampaign();
 }

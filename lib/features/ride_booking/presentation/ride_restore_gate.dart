@@ -4,20 +4,40 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 class RideRestoreGate extends StatefulWidget {
   const RideRestoreGate({super.key});
 
+  static final gateKey = GlobalKey<RideRestoreGateState>();
+
+  static void show(Widget page) {
+    gateKey.currentState?.show(page);
+  }
+
   @override
-  State<RideRestoreGate> createState() => _RideRestoreGateState();
+  State<RideRestoreGate> createState() => RideRestoreGateState();
 }
 
-class _RideRestoreGateState extends State<RideRestoreGate> {
+class RideRestoreGateState extends State<RideRestoreGate> {
   Widget? _child;
+
+  void show(Widget page) {
+    if (!mounted) return;
+    setState(() => _child = page);
+  }
 
   @override
   void initState() {
     super.initState();
+    RideRestoreCoordinator.instance.onReplaceRoot = show;
     RideRestoreCoordinator.instance.root().then((page) {
       if (!mounted) return;
       setState(() => _child = page);
     });
+  }
+
+  @override
+  void dispose() {
+    if (identical(RideRestoreCoordinator.instance.onReplaceRoot, show)) {
+      RideRestoreCoordinator.instance.onReplaceRoot = null;
+    }
+    super.dispose();
   }
 
   @override

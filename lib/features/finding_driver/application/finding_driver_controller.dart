@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
@@ -11,17 +14,30 @@ class FindingDriverController {
   FindingDriverController({
     FindingDriverRepository? store,
     RideRealtime? realtime,
+    RideSession? ride,
+    ApiClient? api,
   })  : _store = store ?? FindingDriverRepository(),
-        _realtime = realtime ?? AppScope.instance.rideRealtime;
+        _realtime = realtime ?? AppScope.instance.rideRealtime,
+        _ride = ride,
+        _api = api;
 
   final FindingDriverRepository _store;
   final RideRealtime _realtime;
+  final RideSession? _ride;
+  final ApiClient? _api;
   Timer? _tick;
   StreamSubscription<RideRealtimeEvent>? _sub;
   bool _assigned = false;
   bool _cancelled = false;
+  bool _disposed = false;
   int _lastSequence = -1;
   RideSnapshot? _snapshot;
+  void Function()? _onMatched;
+
+  RideSession get ride => _ride ?? AppScope.instance.ride;
+  ApiClient get api => _api ?? AppScope.instance.api;
+
+  int get matchCount => _assigned ? 1 : 0;
 
   void startFrom({
     required String pickupAddress,
@@ -50,7 +66,7 @@ class FindingDriverController {
         rideType: rideType,
         price: price,
         paymentMethod: paymentMethod,
-        rideId: AppScope.instance.ride.rideId,
+        rideId: ride.rideId,
       ),
       onTick: onTick,
       onMatched: onMatched,
@@ -64,14 +80,20 @@ class FindingDriverController {
     required void Function() onMatched,
   }) {
     _snapshot = snapshot;
+    _onMatched = onMatched;
     _assigned = false;
     _cancelled = false;
+    _disposed = false;
     _lastSequence = -1;
-    AppScope.instance.ride.restoreFromBackend(RideStatus.findingDriver);
+    ride.restoreFromBackend(RideStatus.findingDriver);
     var remaining = seconds;
     _tick?.cancel();
     _sub?.cancel();
     _tick = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_disposed) {
+        timer.cancel();
+        return;
+      }
       if (remaining > 0) {
         remaining -= 1;
         onTick(remaining);
@@ -79,28 +101,32 @@ class FindingDriverController {
         timer.cancel();
       }
     });
-    final rideId = snapshot.rideId ?? AppScope.instance.ride.rideId ?? 'ride';
+    final rideId = snapshot.rideId ?? ride.rideId ?? 'ride';
     _sub = _realtime.subscribe(rideId).listen((event) {
-      if (_cancelled) return;
+      if (_disposed || _cancelled) return;
       if (event.sequence < _lastSequence) return;
-      if (event.sequence == _lastSequence &&
-          event.status == RideStatus.driverAssigned &&
-          _assigned) {
-        return;
-      }
+      if (_assigned && event.status == RideStatus.driverAssigned) return;
       _lastSequence = event.sequence;
       if (event.status == RideStatus.driverAssigned) {
-        _completeAssigned(onMatched);
+        _completeAssigned();
       }
     });
   }
 
-  void _completeAssigned(void Function() onMatched) {
-    if (_assigned || _cancelled) return;
+  void _completeAssigned() {
+    if (_assigned || _cancelled || _disposed) return;
     _assigned = true;
     final snapshot = _snapshot;
-    AppScope.instance.ride.restoreFromBackend(RideStatus.driverAssigned);
-    Analytics.driverFound(rideId: AppScope.instance.ride.rideId);
+    ride.restoreFromBackend(RideStatus.driverAssigned);
+    Analytics.driverFound(rideId: ride.rideId);
+    final id = ride.rideId;
+    if (id != null) {
+      api.post(
+        '/api/v1/rides/$id/status',
+        body: {'status': RideStatus.driverAssigned.name},
+        idempotencyKey: newIdempotencyKey('ride-status'),
+      );
+    }
     if (snapshot != null) {
       _store.save(
         RideSnapshot(
@@ -115,28 +141,29 @@ class FindingDriverController {
           rideType: snapshot.rideType,
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
-          rideId: AppScope.instance.ride.rideId,
+          rideId: ride.rideId,
         ),
       );
     }
-    onMatched();
+    _onMatched?.call();
   }
 
   void cancelSearch() {
     _cancelled = true;
     Analytics.rideCancelled();
-    AppScope.instance.ride.restoreFromBackend(RideStatus.cancelledByRider);
+    ride.restoreFromBackend(RideStatus.cancelledByRider);
     _store.clear();
     _realtime.unsubscribe();
   }
 
   Future<void> resync() async {
     final id = _snapshot?.rideId;
-    if (id == null || _cancelled) return;
+    if (id == null || _cancelled || _disposed) return;
     await _realtime.reconnectAndResync(id);
   }
 
   void dispose() {
+    _disposed = true;
     _tick?.cancel();
     _sub?.cancel();
     _realtime.unsubscribe();

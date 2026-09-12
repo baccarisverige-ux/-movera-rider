@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -117,6 +118,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   @override
   void dispose() {
     _match.dispose();
+    AppScope.instance.maps.detach(owner: MapOwners.finding);
     super.dispose();
   }
 
@@ -155,7 +157,10 @@ class _FindingDriversState extends State<FindingDrivers> {
               mapType: MapType.normal,
               onMapCreated: (GoogleMapController controller) {
                 _mapController = controller;
-                AppScope.instance.maps.attach(controller);
+                AppScope.instance.maps.attach(
+                  controller,
+                  owner: MapOwners.finding,
+                );
               },
               onTap: (LatLng position) {},
             ),

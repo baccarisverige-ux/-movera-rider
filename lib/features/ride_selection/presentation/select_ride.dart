@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -157,6 +158,7 @@ class _SelectRideState extends State<SelectRide>
   void dispose() {
     _sheetSlide.dispose();
     _mapController = null;
+    AppScope.instance.maps.detach(owner: MapOwners.selectRide);
     super.dispose();
   }
 
@@ -558,7 +560,35 @@ class _SelectRideState extends State<SelectRide>
                         indoorViewEnabled: false,
                         onMapCreated: (controller) {
                           _mapController = controller;
-                          AppScope.instance.maps.attach(controller);
+                          AppScope.instance.maps.attach(
+                            controller,
+                            owner: MapOwners.selectRide,
+                          );
+                          AppScope.instance.map.drawRoute(
+                            'select',
+                            GeoPoint(
+                              widget.pickupPosition.latitude,
+                              widget.pickupPosition.longitude,
+                            ),
+                            GeoPoint(
+                              widget.destinationPosition.latitude,
+                              widget.destinationPosition.longitude,
+                            ),
+                          );
+                          AppScope.instance.map.upsertMarker(
+                            'pickup',
+                            GeoPoint(
+                              widget.pickupPosition.latitude,
+                              widget.pickupPosition.longitude,
+                            ),
+                          );
+                          AppScope.instance.map.upsertMarker(
+                            'destination',
+                            GeoPoint(
+                              widget.destinationPosition.latitude,
+                              widget.destinationPosition.longitude,
+                            ),
+                          );
                           Future<void>.delayed(
                             const Duration(milliseconds: 280),
                             _fitRoute,

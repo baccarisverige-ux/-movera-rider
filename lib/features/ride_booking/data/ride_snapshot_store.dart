@@ -73,16 +73,18 @@ class RideSnapshot {
 }
 
 class RideSnapshotStore {
-  static const _key = 'movera_active_ride';
+  /// SharedPreferences key. On Flutter web this is `flutter.movera_active_ride`.
+  static const key = 'movera_active_ride';
+  static const webStorageKey = 'flutter.movera_active_ride';
 
   static Future<void> save(RideSnapshot snapshot) async {
     final prefs = await PreferencesStore.load();
-    await prefs.setString(_key, jsonEncode(snapshot.toJson()));
+    await prefs.setString(key, jsonEncode(snapshot.toJson()));
   }
 
   static Future<RideSnapshot?> read() async {
     final prefs = await PreferencesStore.load();
-    final raw = prefs.getString(_key);
+    final raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
@@ -99,6 +101,6 @@ class RideSnapshotStore {
 
   static Future<void> clear() async {
     final prefs = await PreferencesStore.load();
-    await prefs.remove(_key);
+    await prefs.remove(key);
   }
 }

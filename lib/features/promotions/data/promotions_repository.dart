@@ -6,6 +6,17 @@ class PromoCardData {
   final String image;
 }
 
+class HomeCampaign {
+  const HomeCampaign({
+    required this.id,
+    required this.title,
+    required this.active,
+  });
+  final String id;
+  final String title;
+  final bool active;
+}
+
 class PromotionsRepository {
   List<PromoCardData> cards() => const [
         PromoCardData(
@@ -17,4 +28,10 @@ class PromotionsRepository {
           image: AppAssets.promoCardImg,
         ),
       ];
+
+  HomeCampaign homeCampaign() => const HomeCampaign(
+        id: 'next_ride_40_sep_2026',
+        title: '40% off your next ride',
+        active: true,
+      );
 }

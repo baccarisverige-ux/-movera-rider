@@ -211,9 +211,12 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _saveBalance(double value) async {
-    await _wallet.setBalance(previous: _balance, next: value);
-    if (!mounted) return;
-    setState(() => _balance = value);
+    final next = await _wallet.topUp(
+      previous: _balance,
+      amount: value - _balance,
+    );
+    if (!mounted || next == null) return;
+    setState(() => _balance = next);
   }
 
   Future<void> _openAddFunds() async {
@@ -342,14 +345,12 @@ class _WalletHomeState extends State<WalletHome> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    await _wallet.saveVoucher(
-      code: offer.code,
-      amountKr: offer.amountKr,
-      expires: offer.expires,
-    );
-    await _saveBalance(_balance + offer.amountKr);
+    final next = await _wallet.redeemVoucher(previous: _balance, offer: offer);
     if (!mounted) return;
-    setState(() => _voucherCode = offer.code);
+    setState(() {
+      _voucherCode = offer.code;
+      if (next != null) _balance = next;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -1021,16 +1022,12 @@ class _WalletScreenState extends State<WalletScreen> {
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
     final current = await _wallet.loadBalance();
-    await _wallet.saveVoucher(
-      code: offer.code,
-      amountKr: offer.amountKr,
-      expires: offer.expires,
-    );
-    await _wallet.setBalance(
-      previous: current,
-      next: current + offer.amountKr,
-    );
-    setState(() => _voucherCode = offer.code);
+    final next = await _wallet.redeemVoucher(previous: current, offer: offer);
+    if (!mounted) return;
+    setState(() {
+      _voucherCode = offer.code;
+      if (next != null) _balance = next;
+    });
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -73,6 +73,14 @@ class InProcessMockClient extends http.BaseClient {
         ride['status'] = 'cancelledByRider';
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
+    } else if (path.startsWith('/api/v1/rides/') &&
+        path.endsWith('/status') &&
+        method == 'POST') {
+      final id = path.split('/')[4];
+      final ride = rides[id] ?? {'id': id};
+      ride['status'] = body['status'] ?? ride['status'];
+      rides[id] = ride;
+      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
     } else if (path.startsWith('/api/v1/rides/') && method == 'GET') {
       final id = path.split('/').last;
       final ride = rides[id];
@@ -116,9 +124,10 @@ class InProcessMockClient extends http.BaseClient {
     final rideType = body['rideType'] as String? ?? 'movera';
     final kr = CatalogQuoteRepository.pricesKr[rideType] ?? 259;
     final minor = kr * 100;
+    final id = 'q_${rideType}_${newRequestId()}';
     return {
-      'id': 'q_${rideType}_${newRequestId()}',
-      'quoteId': 'q_${rideType}_${newRequestId()}',
+      'id': id,
+      'quoteId': id,
       'rideType': rideType,
       'totalMinor': minor,
       'amountMinor': minor,
