@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -205,11 +203,6 @@ class _SelectRideState extends State<SelectRide>
   bool _mapParked = false;
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
-  final ScrollController _listController = ScrollController();
-  double _dragLastY = 0;
-  double _dragVelocity = 0;
-  int _dragLastMs = 0;
-  bool _draggingSheet = false;
 
   @override
   void initState() {
@@ -217,14 +210,10 @@ class _SelectRideState extends State<SelectRide>
     _sheetSlide = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
-      value: 0,
+      value: 1,
     );
-    _sheetSlide.addStatusListener((status) {
-      if (status == AnimationStatus.completed ||
-          status == AnimationStatus.dismissed) {
-        _pinSelectedToTop();
-      }
-    });
+    // Home already unmounted its map. Wait one frame so the platform view
+    // is gone before this screen creates the only live map.
     Future<void>.delayed(
       Duration(milliseconds: kIsWeb ? 280 : 80),
       () {
@@ -236,7 +225,6 @@ class _SelectRideState extends State<SelectRide>
   @override
   void dispose() {
     _sheetSlide.dispose();
-    _listController.dispose();
     _mapController = null;
     super.dispose();
   }
@@ -255,18 +243,16 @@ class _SelectRideState extends State<SelectRide>
         () => _allRides.firstWhere((ride) => ride.id == id).price,
       );
     });
-    _pinSelectedToTop();
   }
 
-  void _pinSelectedToTop() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_listController.hasClients) return;
-      _listController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 420),
-        curve: const Cubic(0.22, 1.0, 0.36, 1.0),
-      );
-    });
+  void _nudgePrice(int delta) {
+    final ride = _selectedRide;
+    final current = _priceFor(ride);
+    final minimum = (ride.price * 0.65).roundToDouble();
+    final maximum = (ride.price * 1.8).roundToDouble();
+    final next = (current + delta).clamp(minimum, maximum).roundToDouble();
+    if (next == current) return;
+    setState(() => _offeredPrices[ride.id] = next);
   }
 
   List<_RideOption> get _visibleRides {
@@ -282,13 +268,6 @@ class _SelectRideState extends State<SelectRide>
         break;
     }
     return rides;
-  }
-
-  List<_RideOption> get _rankedRides {
-    final rides = [..._visibleRides];
-    final selected = rides.where((ride) => ride.id == _selectedRideId);
-    final rest = rides.where((ride) => ride.id != _selectedRideId);
-    return [...selected, ...rest];
   }
 
   TextStyle _text(
@@ -323,147 +302,37 @@ class _SelectRideState extends State<SelectRide>
 
   String _kr(double value) => 'kr ${value.toStringAsFixed(0)}';
 
-  double _minSheet(MediaQueryData media) {
-    final needed = 338 + media.padding.bottom;
-    final cap = media.size.height * 0.46;
-    return needed.clamp(300.0, cap < 320 ? 320.0 : cap);
-  }
+  double _minSheet(MediaQueryData media) =>
+      (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
-    final maxH = media.size.height - media.padding.top - 228;
-    return maxH <= minH ? minH : maxH;
-  }
-
-  Widget _webSafe(Widget child) {
-    if (kIsWeb) return child;
-    return PointerInterceptor(child: child);
+    final maxH = media.size.height - media.padding.top - 72;
+    return maxH < minH + 64 ? minH + 64 : maxH;
   }
 
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    _nudgeSheet(details.primaryDelta ?? 0, media);
+    final range = _maxSheet(media) - _minSheet(media);
+    if (range <= 0) return;
+    final next =
+        (_sheetSlide.value - details.primaryDelta! / range).clamp(0.0, 1.0);
+    _sheetSlide.value = next;
   }
 
   void _onSheetDragEnd(DragEndDetails details) {
-    _snapSheet(details.primaryVelocity ?? 0);
-  }
-
-  void _snapSheet(double velocity) {
-    final target = velocity < -220
+    final velocity = details.primaryVelocity ?? 0;
+    final target = velocity < -480
         ? 1.0
-        : velocity > 220
+        : velocity > 480
             ? 0.0
-            : _sheetSlide.value >= 0.38
+            : _sheetSlide.value >= 0.42
                 ? 1.0
                 : 0.0;
-    if (target < 0.5) _pinSelectedToTop();
     _sheetSlide.animateTo(
       target,
-      duration: const Duration(milliseconds: 480),
+      duration: const Duration(milliseconds: 520),
       curve: const Cubic(0.22, 1.0, 0.36, 1.0),
     );
-  }
-
-  void _onSheetPointerDown(PointerDownEvent event) {
-    _draggingSheet = true;
-    _dragLastY = event.position.dy;
-    _dragLastMs = DateTime.now().millisecondsSinceEpoch;
-    _dragVelocity = 0;
-  }
-
-  void _onSheetPointerMove(PointerMoveEvent event, MediaQueryData media) {
-    if (!_draggingSheet) return;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final dy = event.position.dy - _dragLastY;
-    final dt = now - _dragLastMs;
-    if (dt > 0) _dragVelocity = dy / dt * 1000;
-    _dragLastY = event.position.dy;
-    _dragLastMs = now;
-    _nudgeSheet(dy, media);
-  }
-
-  void _onSheetPointerUp(PointerUpEvent event) {
-    if (!_draggingSheet) return;
-    _draggingSheet = false;
-    _snapSheet(_dragVelocity);
-  }
-
-  Widget _sheetDrag({required MediaQueryData media, required Widget child}) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: _onSheetPointerDown,
-      onPointerMove: (event) => _onSheetPointerMove(event, media),
-      onPointerUp: _onSheetPointerUp,
-      onPointerCancel: (_) => _draggingSheet = false,
-      child: child,
-    );
-  }
-
-  void _nudgeSheet(double primaryDelta, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
-    if (range <= 0) return;
-    _sheetSlide.value =
-        (_sheetSlide.value - primaryDelta / range).clamp(0.0, 1.0);
-  }
-
-  bool _onListScroll(ScrollNotification notification, MediaQueryData media) {
-    if (notification is OverscrollNotification) {
-      _nudgeSheet(-notification.overscroll, media);
-      if (_sheetSlide.value < 0.5) _pinSelectedToTop();
-      return true;
-    }
-    if (notification is ScrollUpdateNotification) {
-      final metrics = notification.metrics;
-      final delta = notification.scrollDelta ?? 0;
-      final atTop = metrics.pixels <= 0;
-      final atBottom = metrics.pixels >= metrics.maxScrollExtent - 1;
-      if (atTop && delta < 0) {
-        _nudgeSheet(-delta, media);
-        return true;
-      }
-      if (atBottom && delta > 0) {
-        _nudgeSheet(-delta, media);
-        return true;
-      }
-    }
-    return false;
-  }
-
-  int _tripMinutes() {
-    const earthKm = 6371.0;
-    final lat1 = widget.pickupPosition.latitude * math.pi / 180;
-    final lat2 = widget.destinationPosition.latitude * math.pi / 180;
-    final dLat =
-        (widget.destinationPosition.latitude - widget.pickupPosition.latitude) *
-            math.pi /
-            180;
-    final dLng = (widget.destinationPosition.longitude -
-            widget.pickupPosition.longitude) *
-        math.pi /
-        180;
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1) * math.cos(lat2) * math.sin(dLng / 2) * math.sin(dLng / 2);
-    final km = 2 * earthKm * math.asin(math.sqrt(a));
-    return (km / 32 * 60).clamp(10, 48).round();
-  }
-
-  List<LatLng> _routePoints() {
-    final start = widget.pickupPosition;
-    final end = widget.destinationPosition;
-    final mid = LatLng(
-      (start.latitude + end.latitude) / 2,
-      (start.longitude + end.longitude) / 2,
-    );
-    final dx = end.longitude - start.longitude;
-    final dy = end.latitude - start.latitude;
-    final mag = math.sqrt(dx * dx + dy * dy);
-    if (mag < 0.00001) return [start, end];
-    final bend = mag * 0.22;
-    final curve = LatLng(
-      mid.latitude + (-dx / mag) * bend,
-      mid.longitude + (dy / mag) * bend,
-    );
-    return [start, curve, end];
   }
 
   Future<void> _fitRoute() async {
@@ -705,68 +574,10 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  Widget _liveMap() {
-    return CustomGoogleMap(
-      initialPosition: CameraPosition(
-        target: widget.pickupPosition,
-        zoom: 13.2,
-      ),
-      padding: const EdgeInsets.fromLTRB(10, 72, 10, 10),
-      markers: {
-        Marker(
-          markerId: const MarkerId('pickup'),
-          position: widget.pickupPosition,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen,
-          ),
-        ),
-        Marker(
-          markerId: const MarkerId('destination'),
-          position: widget.destinationPosition,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueAzure,
-          ),
-        ),
-      },
-      polylines: {
-        Polyline(
-          polylineId: const PolylineId('routeGlow'),
-          points: _routePoints(),
-          color: const Color(0x553B6BFF),
-          width: 10,
-          geodesic: true,
-        ),
-        Polyline(
-          polylineId: const PolylineId('route'),
-          points: _routePoints(),
-          color: const Color(0xFF3B6BFF),
-          width: 5,
-          geodesic: true,
-        ),
-      },
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: false,
-      mapToolbarEnabled: false,
-      compassEnabled: false,
-      trafficEnabled: false,
-      buildingsEnabled: false,
-      indoorViewEnabled: false,
-      scrollGesturesEnabled: false,
-      zoomGesturesEnabled: false,
-      tiltGesturesEnabled: false,
-      rotateGesturesEnabled: false,
-      onMapCreated: (controller) {
-        _mapController = controller;
-        Future<void>.delayed(const Duration(milliseconds: 280), _fitRoute);
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final useLiveMap = _mapReady && !_mapParked;
+    final showLiveMap = _mapReady && !_mapParked;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F1),
       body: AnimatedBuilder(
@@ -776,103 +587,143 @@ class _SelectRideState extends State<SelectRide>
           final maxSheet = _maxSheet(media);
           final sheetHeight =
               minSheet + (maxSheet - minSheet) * _sheetSlide.value;
-          final mapHeight =
-              (media.size.height - sheetHeight).clamp(168.0, media.size.height);
           final collapsed = _sheetSlide.value < 0.38;
-          final visibleRides = _rankedRides;
-          return Column(
+          final visibleRides = collapsed
+              ? <_RideOption>[_selectedRide]
+              : _visibleRides;
+          return Stack(
             children: [
-              SizedBox(
-                height: mapHeight,
-                width: double.infinity,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Positioned.fill(
-                      child: useLiveMap ? _liveMap() : const _RouteCanvas(),
-                    ),
-                    Positioned.fill(
-                      child: PointerInterceptor(
-                        child: _sheetDrag(
-                          media: media,
-                          child: const SizedBox.expand(),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: sheetHeight,
+                child: showLiveMap
+                    ? CustomGoogleMap(
+                        initialPosition: CameraPosition(
+                          target: widget.pickupPosition,
+                          zoom: 13.2,
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      top: media.padding.top + 8,
-                      left: 16,
-                      right: 16,
-                      child: PointerInterceptor(child: _searchBar()),
-                    ),
-                  ],
-                ),
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('pickup'),
+                            position: widget.pickupPosition,
+                          ),
+                          Marker(
+                            markerId: const MarkerId('destination'),
+                            position: widget.destinationPosition,
+                          ),
+                        },
+                        polylines: {
+                          Polyline(
+                            polylineId: const PolylineId('route'),
+                            points: [
+                              widget.pickupPosition,
+                              widget.destinationPosition,
+                            ],
+                            color: _accent,
+                            width: 4,
+                          ),
+                        },
+                        myLocationEnabled: false,
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        compassEnabled: false,
+                        trafficEnabled: false,
+                        buildingsEnabled: false,
+                        indoorViewEnabled: false,
+                        onMapCreated: (controller) {
+                          _mapController = controller;
+                          Future<void>.delayed(
+                            const Duration(milliseconds: 280),
+                            _fitRoute,
+                          );
+                        },
+                      )
+                    : const _RouteCanvas(),
               ),
-              SizedBox(
+              Positioned(
+                top: media.padding.top + 8,
+                left: 16,
+                right: 16,
+                child: PointerInterceptor(child: _searchBar()),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
                 height: sheetHeight,
-                width: double.infinity,
                 child: PointerInterceptor(
                   child: Material(
-                  color: Colors.white,
-                  elevation: 18,
-                  shadowColor: const Color(0xFF162C36).withOpacity(0.16),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      _sheetDrag(
-                        media: media,
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            Container(
-                              width: 38,
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: _line,
-                                borderRadius: BorderRadius.circular(8),
+                    color: Colors.white,
+                    elevation: 18,
+                    shadowColor: const Color(0xFF162C36).withOpacity(0.16),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onVerticalDragUpdate: (details) =>
+                              _onSheetDragUpdate(details, media),
+                          onVerticalDragEnd: _onSheetDragEnd,
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
+                              Container(
+                                width: 38,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: _line,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
-                            ),
-                            if (collapsed)
                               Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(14, 12, 14, 0),
-                                child: _rideTile(_selectedRide),
+                                padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Choose your ride',
+                                        style: _text(
+                                          22,
+                                          weight: FontWeight.w700,
+                                          letterSpacing: -0.4,
+                                        ),
+                                      ),
+                                    ),
+                                    _priceStepper(),
+                                  ],
+                                ),
                               ),
-                            if (!collapsed)
-                              Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                                child: _filterRow(),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (!collapsed)
-                        Expanded(
-                          child: NotificationListener<ScrollNotification>(
-                            onNotification: (notification) =>
-                                _onListScroll(notification, media),
-                            child: ListView.builder(
-                              controller: _listController,
-                              physics: const BouncingScrollPhysics(
-                                parent: AlwaysScrollableScrollPhysics(),
-                              ),
-                              padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
-                              itemCount: visibleRides.length,
-                              itemBuilder: (context, index) =>
-                                  _rideTile(visibleRides[index]),
-                            ),
+                            ],
                           ),
-                        )
-                      else
-                        const Spacer(),
-                      _footer(media.padding.bottom),
-                    ],
+                        ),
+                        if (!collapsed)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+                            child: _filterRow(),
+                          )
+                        else
+                          const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.builder(
+                            physics: collapsed
+                                ? const NeverScrollableScrollPhysics()
+                                : const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+                            itemCount: visibleRides.length,
+                            itemBuilder: (context, index) =>
+                                _rideTile(visibleRides[index]),
+                          ),
+                        ),
+                        _footer(media.padding.bottom),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ),
             ],
@@ -917,6 +768,68 @@ class _SelectRideState extends State<SelectRide>
             ),
             const SizedBox(width: 8),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _priceStepper() {
+    final ride = _selectedRide;
+    final price = _priceFor(ride);
+    final minimum = (ride.price * 0.65).roundToDouble();
+    final maximum = (ride.price * 1.8).roundToDouble();
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: _field,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _stepperButton(
+            Icons.remove_rounded,
+            enabled: price > minimum,
+            onTap: () => _nudgePrice(-10),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              _kr(price),
+              style: _text(13.5, weight: FontWeight.w600),
+            ),
+          ),
+          _stepperButton(
+            Icons.add_rounded,
+            enabled: price < maximum,
+            onTap: () => _nudgePrice(10),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepperButton(
+    IconData icon, {
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: enabled ? onTap : null,
+          child: Icon(
+            icon,
+            size: 18,
+            color: enabled ? _ink : _muted.withOpacity(0.45),
+          ),
         ),
       ),
     );
@@ -1459,27 +1372,27 @@ class _RoutePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0x553B6BFF)
+        ..color = const Color(0xFF2D5878).withOpacity(0.18)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 12
+        ..strokeWidth = 10
         ..strokeCap = StrokeCap.round,
     );
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF3B6BFF)
+        ..color = const Color(0xFF2D5878)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 5
+        ..strokeWidth = 3.5
         ..strokeCap = StrokeCap.round,
     );
 
     void pin(Offset c, Color color) {
-      canvas.drawCircle(c, 10, Paint()..color = color);
-      canvas.drawCircle(c, 4.4, Paint()..color = Colors.white);
+      canvas.drawCircle(c, 9, Paint()..color = color);
+      canvas.drawCircle(c, 4.2, Paint()..color = Colors.white);
     }
 
-    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1F8A4C));
-    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF3B6BFF));
+    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1D252C));
+    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF2D5878));
   }
 
   @override
