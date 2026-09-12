@@ -1,5 +1,6 @@
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/auth/secure_token_store.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
@@ -11,11 +12,14 @@ import 'package:movera_rider/core/maps/map_camera_controller.dart';
 import 'package:movera_rider/core/maps/map_facade.dart';
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
+import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/permissions/permission_service.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/sockets/socket_client.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/destination/application/destination_session.dart';
@@ -23,7 +27,9 @@ import 'package:movera_rider/features/destination_search/application/destination
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 class AppScope {
@@ -33,10 +39,8 @@ class AppScope {
         markers = MarkerStore(),
         motion = MotionEngine(),
         ride = RideSession(),
-        api = ApiClient(),
-        tokens = MemoryTokenStore(),
+        tokens = SecureTokenStore(),
         realtime = RealtimeConnection(),
-        quotes = CatalogQuoteRepository(),
         payments = LocalPaymentRepository(),
         paymentGateway = MockPaymentGateway(),
         wallet = WalletLedger(),
@@ -49,7 +53,11 @@ class AppScope {
         crashes = const CrashReporter(),
         pickup = PickupSession(),
         destination = DestinationSession(),
-        booking = BookingCoordinator() {
+        booking = BookingCoordinator(),
+        routing = RoutingService(),
+        rideRealtime = MockRideRealtime() {
+    api = ApiClient(tokens: tokens);
+    quotes = ApiQuoteRepository(api: api, fallback: CatalogQuoteRepository());
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search);
@@ -70,11 +78,11 @@ class AppScope {
   late final MapFacade map;
   final MotionEngine motion;
   final RideSession ride;
-  final ApiClient api;
-  final MemoryTokenStore tokens;
+  late final ApiClient api;
+  final TokenStore tokens;
   final RealtimeConnection realtime;
   late final SocketClient sockets;
-  final CatalogQuoteRepository quotes;
+  late final QuoteRepository quotes;
   final LocalPaymentRepository payments;
   final MockPaymentGateway paymentGateway;
   final WalletLedger wallet;
@@ -89,5 +97,7 @@ class AppScope {
   final DestinationSession destination;
   final BookingCoordinator booking;
   late final DestinationSearchController destinationSearch;
+  final RoutingService routing;
+  final RideRealtime rideRealtime;
   FeatureFlags flags = FeatureFlags.current;
 }

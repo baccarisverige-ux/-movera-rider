@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:movera_rider/app/theme/app_theme.dart';
-import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gate.dart';
 
 class MoveraApp extends StatelessWidget {
   const MoveraApp({super.key});
@@ -21,7 +21,7 @@ class MoveraApp extends StatelessWidget {
           fallbackLocale: const Locale('en'),
           debugShowCheckedModeBanner: false,
           theme: moveraTheme(),
-          home: const Home(),
+          home: const RideRestoreGate(),
         );
       },
     );

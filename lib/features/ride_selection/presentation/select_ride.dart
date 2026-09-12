@@ -8,7 +8,6 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
-import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -85,7 +84,7 @@ class _SelectRideState extends State<SelectRide>
   static const Color _cta = Color(0xFF11181D);
 
   List<_RideOption> get _allRides {
-    return RideSelectionController().rides().map((ride) {
+    return _selection.rides().map((ride) {
       return _RideOption(
         id: ride.id,
         image: ride.image,
@@ -106,13 +105,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   List<_PaymentOption> get _payments {
-    final flags = AppScope.instance.flags;
-    return RideSelectionController().payments().where((item) {
-      if (item.brand == 'cash') return flags.enableCash;
-      if (item.brand == 'apple') return flags.enableApplePay;
-      if (item.brand == 'wallet') return flags.enableWallet;
-      return true;
-    }).map((item) {
+    return _selection.payments().map((item) {
       return _PaymentOption(
         brand: item.brand,
         name: item.name,
@@ -125,7 +118,7 @@ class _SelectRideState extends State<SelectRide>
   int _selectedPayment = 1;
   _RideFilter _filter = _RideFilter.recommended;
   DateTime? _scheduledFor;
-  final Map<String, double> _offeredPrices = {};
+  final RideSelectionController _selection = RideSelectionController();
   bool _mapReady = false;
   bool _mapParked = false;
   GoogleMapController? _mapController;
@@ -147,17 +140,16 @@ class _SelectRideState extends State<SelectRide>
         if (mounted) setState(() => _mapReady = true);
       },
     );
-    _loadCatalogQuotes();
+    _loadQuotes();
   }
 
-  Future<void> _loadCatalogQuotes() async {
-    for (final ride in _allRides) {
-      final quote = await AppScope.instance.quotes.quote(
-        rideType: ride.id,
-        distanceMeters: 1,
-      );
-      _offeredPrices[ride.id] = quote.totalMinor / 100;
-    }
+  Future<void> _loadQuotes() async {
+    final generation = _selection.beginQuotes();
+    await _selection.loadQuotes(
+      generation: generation,
+      pickup: widget.pickupAddress,
+      destination: widget.destinationAddress,
+    );
     if (mounted) setState(() {});
   }
 
@@ -172,28 +164,27 @@ class _SelectRideState extends State<SelectRide>
       _allRides.firstWhere((ride) => ride.id == _selectedRideId);
 
   double _priceFor(_RideOption ride) =>
-      _offeredPrices[ride.id] ?? ride.price;
+      _selection.priceFor(ride.id, ride.price);
 
   void _selectRide(String id) {
+    final catalog =
+        _allRides.firstWhere((ride) => ride.id == id).price;
     setState(() {
       _selectedRideId = id;
-      _offeredPrices.putIfAbsent(
-        id,
-        () => _allRides.firstWhere((ride) => ride.id == id).price,
-      );
+      _selection.selectRide(id, catalog);
     });
   }
 
   void _nudgePrice(int delta) {
     final ride = _selectedRide;
     final current = _priceFor(ride);
-    final next = FareController().nudge(
-      current: current,
+    final next = _selection.changeOffer(
+      id: ride.id,
       catalog: ride.price,
       delta: delta,
     );
     if (next == current) return;
-    setState(() => _offeredPrices[ride.id] = next);
+    setState(() {});
   }
 
   List<_RideOption> get _visibleRides {

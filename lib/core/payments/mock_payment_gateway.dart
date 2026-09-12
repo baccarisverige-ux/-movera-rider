@@ -3,6 +3,8 @@ import 'package:movera_rider/core/utils/request_id.dart';
 
 class MockPaymentGateway implements PaymentGateway {
   final Map<String, PaymentIntent> _intents = {};
+  final Set<String> _usedKeys = {};
+  bool failNext = false;
 
   @override
   Future<PaymentIntent> create({
@@ -10,6 +12,14 @@ class MockPaymentGateway implements PaymentGateway {
     required String currency,
     required String idempotencyKey,
   }) async {
+    if (failNext) {
+      failNext = false;
+      throw StateError('payment_failed');
+    }
+    if (_usedKeys.contains(idempotencyKey) && _intents.isNotEmpty) {
+      return _intents.values.last;
+    }
+    _usedKeys.add(idempotencyKey);
     final intent = PaymentIntent(
       id: 'pi_${newRequestId()}',
       amountMinor: amountMinor,

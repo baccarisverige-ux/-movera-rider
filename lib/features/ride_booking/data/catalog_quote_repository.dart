@@ -1,7 +1,7 @@
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
-/// Returns the same catalog fares the Select Ride UI already shows.
+/// Dev fallback only. Live Select Ride must go through [ApiQuoteRepository].
 class CatalogQuoteRepository implements QuoteRepository {
   static const pricesKr = <String, int>{
     'movera': 259,
@@ -17,16 +17,19 @@ class CatalogQuoteRepository implements QuoteRepository {
   Future<RideQuote> quote({
     required String rideType,
     required int distanceMeters,
+    int durationSeconds = 600,
+    String? pickup,
+    String? destination,
   }) async {
     final kr = pricesKr[rideType] ?? 259;
     return RideQuote(
-      id: 'q_$rideType',
+      id: 'q_fallback_$rideType',
       rideType: rideType,
       totalMinor: kr * 100,
       currency: 'SEK',
       expiresAt: DateTime.now().add(const Duration(minutes: 2)),
       baseMinor: kr * 100,
-      signedPayload: 'catalog',
+      signedPayload: 'fallback',
     );
   }
 }

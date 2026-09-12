@@ -14,6 +14,7 @@ class ScheduledRideSession {
     return AppScope.instance.booking.requestBooking(
       rideType: 'movera',
       paymentMethod: paymentMethod,
+      scheduledAt: scheduledAt?.toIso8601String(),
     );
   }
 

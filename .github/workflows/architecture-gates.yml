@@ -20,5 +20,5 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter analyze lib/app lib/core lib/features/ride_booking lib/features/wallet/domain lib/features/payments lib/features/promotions lib/features/fare lib/features/safety lib/shared/design_system lib/shared/formatters lib/shared/extensions lib/shared/accessibility
-      - run: flutter test test/motion test/ride test/wallet test/fare test/maps
+      - run: flutter analyze
+      - run: flutter test

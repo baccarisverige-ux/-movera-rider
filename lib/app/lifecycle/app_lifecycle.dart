@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
@@ -16,6 +17,10 @@ class AppLifecycleObserver with WidgetsBindingObserver {
           'app.resume.refresh',
           extra: {'ride': snapshot?.status.name ?? 'none'},
         );
+        final id = snapshot?.rideId;
+        if (id != null) {
+          AppScope.instance.rideRealtime.reconnectAndResync(id);
+        }
       });
     }
   }

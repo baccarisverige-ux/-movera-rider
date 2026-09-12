@@ -9,7 +9,21 @@ void main() {
     status = transitionRide(status, RideStatus.destinationSelected);
     status = transitionRide(status, RideStatus.quoteLoading);
     status = transitionRide(status, RideStatus.rideOptionsReady);
-    expect(status, RideStatus.rideOptionsReady);
+    status = transitionRide(status, RideStatus.rideSelected);
+    status = transitionRide(status, RideStatus.paymentSelected);
+    status = transitionRide(status, RideStatus.bookingRequested);
+    status = transitionRide(status, RideStatus.findingDriver);
+    status = transitionRide(status, RideStatus.driverAssigned);
+    status = transitionRide(status, RideStatus.driverArriving);
+    status = transitionRide(status, RideStatus.driverWaiting);
+    status = transitionRide(status, RideStatus.tripStarted);
+    status = transitionRide(status, RideStatus.tripInProgress);
+    status = transitionRide(status, RideStatus.tripCompleted);
+    status = transitionRide(status, RideStatus.paymentProcessing);
+    status = transitionRide(status, RideStatus.paymentFinalized);
+    status = transitionRide(status, RideStatus.ratingPending);
+    status = transitionRide(status, RideStatus.closed);
+    expect(status, RideStatus.closed);
   });
 
   test('rejects illegal jumps', () {
@@ -20,9 +34,19 @@ void main() {
   });
 
   test('terminal states cannot move', () {
-    expect(
-      () => transitionRide(RideStatus.closed, RideStatus.idle),
-      throwsA(isA<InvalidRideTransition>()),
-    );
+    for (final terminal in [
+      RideStatus.closed,
+      RideStatus.cancelledByRider,
+      RideStatus.cancelledByDriver,
+      RideStatus.cancelledBySystem,
+      RideStatus.noDriverFound,
+      RideStatus.paymentFailed,
+      RideStatus.bookingExpired,
+    ]) {
+      expect(
+        () => transitionRide(terminal, RideStatus.idle),
+        throwsA(isA<InvalidRideTransition>()),
+      );
+    }
   });
 }

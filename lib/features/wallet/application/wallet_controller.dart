@@ -1,4 +1,5 @@
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
@@ -35,13 +36,24 @@ class WalletController {
   }) async {
     final delta = next - previous;
     if (delta > 0) {
-      final intent = await AppScope.instance.paymentGateway.create(
-        amountMinor: (delta * 100).round(),
-        currency: 'SEK',
-        idempotencyKey: newIdempotencyKey('wallet'),
-      );
-      final status = await AppScope.instance.paymentGateway.confirm(intent.id);
-      if (status != 'succeeded') return;
+      try {
+        final intent = await AppScope.instance.paymentGateway.create(
+          amountMinor: (delta * 100).round(),
+          currency: 'SEK',
+          idempotencyKey: newIdempotencyKey('wallet'),
+        );
+        final status = await AppScope.instance.paymentGateway.confirm(intent.id);
+        if (status != 'succeeded') return;
+        Analytics.track('payment_succeeded', extra: {'intent': intent.id});
+      } catch (error, stack) {
+        Analytics.paymentFailed();
+        AppScope.instance.crashes.record(
+          error,
+          stack,
+          operation: 'wallet.topup',
+        );
+        return;
+      }
     }
     await _store.saveBalance(next);
     if (delta == 0) return;
