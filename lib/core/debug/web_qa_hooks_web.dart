@@ -44,6 +44,20 @@ void reportSafetySnapshot(String json) {
   globalContext.setProperty('moveraSafetySnapshotJson'.toJS, json.toJS);
 }
 
+void installSafetyQaOpener(void Function() open) {
+  globalContext.setProperty(
+    'moveraOpenSafety'.toJS,
+    (() {
+      try {
+        open();
+        return 'ok'.toJS;
+      } catch (_) {
+        return 'error'.toJS;
+      }
+    }).toJS,
+  );
+}
+
 String? pendingRideCheckType() {
   try {
     final value = globalContext.getProperty('_moveraPendingRideCheck'.toJS);

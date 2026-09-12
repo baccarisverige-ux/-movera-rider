@@ -350,6 +350,7 @@
       window._moveraPendingRideCheck = String(type || 'unexpectedStop');
       return true;
     };
+    window.moveraOpenSafety = window.moveraOpenSafety || function() { return 'not-ready'; };
     window.moveraSafetySnapshot = function() {
       try { return JSON.parse(window.moveraSafetySnapshotJson || '{}'); } catch (e) { return {}; }
     };

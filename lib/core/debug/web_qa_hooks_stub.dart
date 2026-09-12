@@ -9,6 +9,8 @@ void reportPuckHeading(double heading, {required bool compass}) {}
 
 void reportSafetySnapshot(String json) {}
 
+void installSafetyQaOpener(void Function() open) {}
+
 String? pendingRideCheckType() => null;
 
 void clearPendingRideCheck() {}

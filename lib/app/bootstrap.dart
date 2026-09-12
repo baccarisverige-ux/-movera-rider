@@ -4,13 +4,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
+import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerWebQaHooks();
+  installSafetyQaOpener(() {
+    final nav = moveraNavigatorKey.currentState;
+    if (nav == null) return;
+    nav.push(RightToLeftTransition(const SafetyHub()));
+  });
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
 
   FlutterError.onError = (details) {
