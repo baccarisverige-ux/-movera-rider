@@ -30,6 +30,22 @@ class ApiClient {
     return _send('POST', path, body: body, idempotencyKey: idempotencyKey);
   }
 
+  Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+    String? idempotencyKey,
+  }) {
+    return _send('PATCH', path, body: body, idempotencyKey: idempotencyKey);
+  }
+
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Map<String, dynamic>? body,
+    String? idempotencyKey,
+  }) {
+    return _send('DELETE', path, body: body, idempotencyKey: idempotencyKey);
+  }
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
@@ -51,9 +67,20 @@ class ApiClient {
       late http.Response response;
       if (method == 'GET') {
         response = await _getWithRetry(uri, headers);
-      } else {
+      } else if (method == 'DELETE') {
         response = await _client
-            .post(uri, headers: headers, body: jsonEncode(body ?? {}))
+            .send(
+              http.Request('DELETE', uri)..headers.addAll(headers),
+            )
+            .then(http.Response.fromStream)
+            .timeout(_timeout);
+      } else {
+        final request = http.Request(method, uri)
+          ..headers.addAll(headers)
+          ..body = jsonEncode(body ?? {});
+        response = await _client
+            .send(request)
+            .then(http.Response.fromStream)
             .timeout(_timeout);
       }
       AppLog.info(

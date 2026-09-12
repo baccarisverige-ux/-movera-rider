@@ -346,6 +346,14 @@
       return window.moveraDeviceHeading;
     };
 
+    window.moveraSimulateRideCheck = function(type) {
+      window._moveraPendingRideCheck = String(type || 'unexpectedStop');
+      return true;
+    };
+    window.moveraSafetySnapshot = function() {
+      try { return JSON.parse(window.moveraSafetySnapshotJson || '{}'); } catch (e) { return {}; }
+    };
+
     window.moveraNeedsOrientationPermission = function() {
       return typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function';

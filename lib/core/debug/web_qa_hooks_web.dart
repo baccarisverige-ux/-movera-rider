@@ -39,3 +39,21 @@ void reportPuckHeading(double heading, {required bool compass}) {
 }
 
 bool get debugHomeBuilt => _homeBuilt;
+
+void reportSafetySnapshot(String json) {
+  globalContext.setProperty('moveraSafetySnapshotJson'.toJS, json.toJS);
+}
+
+String? pendingRideCheckType() {
+  try {
+    final value = globalContext.getProperty('_moveraPendingRideCheck'.toJS);
+    if (value.isUndefined || value.isNull) return null;
+    return (value as JSString).toDart;
+  } catch (_) {
+    return null;
+  }
+}
+
+void clearPendingRideCheck() {
+  globalContext.setProperty('_moveraPendingRideCheck'.toJS, null);
+}

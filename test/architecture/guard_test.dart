@@ -173,6 +173,24 @@ void main() {
     expect(menu.contains('Become a driver'), isTrue);
   });
 
+  test('safety presentation stays off the data and platform layers', () {
+    for (final file in dartUnder('lib/features/safety/presentation')) {
+      final src = file.readAsStringSync();
+      expect(src.contains("package:http/http.dart"), isFalse, reason: file.path);
+      expect(src.contains('shared_preferences'), isFalse, reason: file.path);
+      expect(src.contains('ApiClient'), isFalse, reason: file.path);
+      expect(src.contains('PreferencesStore'), isFalse, reason: file.path);
+      expect(src.contains('url_launcher'), isFalse, reason: file.path);
+      expect(src.contains('tel:112'), isFalse, reason: file.path);
+      expect(src.contains('InProcessMockClient'), isFalse, reason: file.path);
+      expect(
+        src.contains("package:movera_rider/features/safety/data/"),
+        isFalse,
+        reason: file.path,
+      );
+    }
+  });
+
   test('home does not add a compass permission screen', () {
     final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
     expect(home.contains('Enable compass'), isFalse);

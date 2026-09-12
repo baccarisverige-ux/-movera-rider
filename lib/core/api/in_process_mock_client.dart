@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 
@@ -13,6 +14,7 @@ class InProcessMockClient extends http.BaseClient {
   final Duration latency;
   final Map<String, Map<String, dynamic>> idempotency = {};
   final Map<String, Map<String, dynamic>> rides = {};
+  final SafetyMockApi safety = safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
 
@@ -81,7 +83,7 @@ class InProcessMockClient extends http.BaseClient {
       ride['status'] = body['status'] ?? ride['status'];
       rides[id] = ride;
       payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
-    } else if (path.startsWith('/api/v1/rides/') && method == 'GET') {
+    } else if (path.startsWith('/api/v1/rides/') && method == 'GET' && path.split('/').length == 5) {
       final id = path.split('/').last;
       final ride = rides[id];
       if (ride == null) {
@@ -110,8 +112,19 @@ class InProcessMockClient extends http.BaseClient {
     } else if (path == '/health' && method == 'GET') {
       payload = {'ok': true, 'requestId': requestId};
     } else {
-      status = 404;
-      payload = {'code': 'NOT_FOUND', 'path': path, 'requestId': requestId};
+      final safetyHit = safety.handle(
+        method: method,
+        path: path,
+        body: body,
+        requestId: requestId,
+      );
+      if (safetyHit != null) {
+        status = safetyHit.status;
+        payload = safetyHit.payload;
+      } else {
+        status = 404;
+        payload = {'code': 'NOT_FOUND', 'path': path, 'requestId': requestId};
+      }
     }
 
     if (key != null && key.isNotEmpty && status < 400) {

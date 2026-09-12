@@ -1,5 +1,6 @@
 const http = require('http');
 const { quote } = require('./modules/pricing');
+const safety = require('./modules/safety');
 
 const idempotency = new Map();
 const rides = new Map();
@@ -51,16 +52,23 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (url.startsWith('/api/v1/rides/') && req.method === 'GET') {
-    const id = url.split('/').pop();
-    const ride = rides.get(id);
-    if (!ride) {
-      send(res, 404, { code: 'RIDE_NOT_FOUND', message: 'Ride not found' }, requestId);
+    const parts = url.split('/').filter(Boolean);
+    if (parts.length === 4) {
+      const id = parts[3];
+      const ride = rides.get(id);
+      if (!ride) {
+        send(res, 404, { code: 'RIDE_NOT_FOUND', message: 'Ride not found' }, requestId);
+        return;
+      }
+      send(res, 200, { code: 'OK', ride }, requestId);
       return;
     }
-    send(res, 200, { code: 'OK', ride }, requestId);
-    return;
   }
-  send(res, 404, { code: 'NOT_FOUND', message: 'Unknown route' }, requestId);
+  const body = await readBody(req);
+  const handled = await safety.handle(req, res, requestId, body);
+  if (handled === false) {
+    send(res, 404, { code: 'NOT_FOUND', message: 'Unknown route' }, requestId);
+  }
 });
 
 const port = process.env.PORT || 8787;

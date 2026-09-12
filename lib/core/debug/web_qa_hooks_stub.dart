@@ -6,3 +6,9 @@ void reportHomeBuilt() {}
 void reportMapOwner(String? owner, int generation) {}
 
 void reportPuckHeading(double heading, {required bool compass}) {}
+
+void reportSafetySnapshot(String json) {}
+
+String? pendingRideCheckType() => null;
+
+void clearPendingRideCheck() {}

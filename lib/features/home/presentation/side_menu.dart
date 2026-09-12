@@ -6,6 +6,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
+import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -203,13 +204,7 @@ class RiderSideMenu extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            RightToLeftTransition(
-              const HelpArticle(
-                title: 'Safety',
-                body:
-                    'Share your trip, call emergency services, and keep trusted contacts close. Movera Support can also help if a ride does not feel right.',
-              ),
-            ),
+            RightToLeftTransition(const SafetyHub()),
           );
         },
       ),

@@ -46,7 +46,12 @@ abstract final class AppLog {
       ..remove('accessToken')
       ..remove('refreshToken')
       ..remove('cardNumber')
-      ..remove('cvc');
+      ..remove('cvc')
+      ..remove('pin')
+      ..remove('phone')
+      ..remove('phoneE164')
+      ..remove('localPath')
+      ..remove('shareToken');
     debugPrint('[movera:${level.name}] $event $safe');
     if (error != null) debugPrint('  error=$error');
     if (stackTrace != null) debugPrint('$stackTrace');

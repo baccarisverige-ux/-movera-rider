@@ -8,6 +8,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
+import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
@@ -124,7 +125,16 @@ class RiderProfile extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                card(icon: AppAssets.safety, title: "Safety"),
+                card(
+                  icon: AppAssets.safety,
+                  title: "Safety",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      RightToLeftTransition(const SafetyHub()),
+                    );
+                  },
+                ),
                 15.width,
                 card(
                   icon: AppAssets.support,
