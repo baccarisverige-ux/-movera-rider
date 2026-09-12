@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
