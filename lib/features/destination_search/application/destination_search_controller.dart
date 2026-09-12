@@ -1,0 +1,3 @@
+class DestinationSearchController {
+  const DestinationSearchController();
+}

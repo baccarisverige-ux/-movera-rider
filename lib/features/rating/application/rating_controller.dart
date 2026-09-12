@@ -1,0 +1,3 @@
+class RatingController {
+  const RatingController();
+}

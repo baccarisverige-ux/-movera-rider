@@ -1,0 +1,3 @@
+class RideBookingController {
+  const RideBookingController();
+}

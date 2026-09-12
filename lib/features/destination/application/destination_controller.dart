@@ -1,0 +1,3 @@
+class DestinationController {
+  const DestinationController();
+}

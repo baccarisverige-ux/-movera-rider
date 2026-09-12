@@ -1,0 +1,3 @@
+class PickupController {
+  const PickupController();
+}

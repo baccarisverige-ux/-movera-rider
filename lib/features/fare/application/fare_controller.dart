@@ -1,0 +1,3 @@
+class FareController {
+  const FareController();
+}

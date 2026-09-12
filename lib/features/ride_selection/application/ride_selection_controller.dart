@@ -1,0 +1,3 @@
+class RideSelectionController {
+  const RideSelectionController();
+}

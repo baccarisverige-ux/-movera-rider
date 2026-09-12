@@ -1,0 +1,3 @@
+class RideHistoryController {
+  const RideHistoryController();
+}

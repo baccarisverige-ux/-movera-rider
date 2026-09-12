@@ -1,0 +1,3 @@
+class ScheduledRidesController {
+  const ScheduledRidesController();
+}

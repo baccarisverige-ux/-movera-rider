@@ -6,7 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
 
 class _VoucherOffer {
   const _VoucherOffer({
@@ -66,7 +66,7 @@ String _voucherDateLabel(DateTime date) {
 }
 
 Future<Set<String>> _usedVoucherCodes() async {
-  final prefs = await SharedPreferences.getInstance();
+  final prefs = await PreferencesStore.load();
   final raw = prefs.getString('movera_used_vouchers');
   if (raw == null || raw.isEmpty) return <String>{};
   try {
@@ -77,7 +77,7 @@ Future<Set<String>> _usedVoucherCodes() async {
 }
 
 Future<void> _markVoucherUsed(String code) async {
-  final prefs = await SharedPreferences.getInstance();
+  final prefs = await PreferencesStore.load();
   final used = await _usedVoucherCodes();
   used.add(code);
   await prefs.setString('movera_used_vouchers', jsonEncode(used.toList()));
@@ -257,7 +257,7 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _restore() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     if (!mounted) return;
     setState(() {
       _balance = prefs.getDouble(_balanceKey) ?? 0;
@@ -267,7 +267,7 @@ class _WalletHomeState extends State<WalletHome> {
 
   Future<void> _saveBalance(double value) async {
     final delta = value - _balance;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     await prefs.setDouble(_balanceKey, value);
     if (delta != 0) {
       AppScope.instance.wallet.add(
@@ -409,7 +409,7 @@ class _WalletHomeState extends State<WalletHome> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     await prefs.setString('movera_voucher_code', offer.code);
     await prefs.setInt('movera_voucher_amount', offer.amountKr);
     await prefs.setString('movera_voucher_expires', offer.expires.toIso8601String());
@@ -696,7 +696,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _restorePaymentSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     final savedMethods = prefs.getString('movera_payment_methods');
     if (!mounted) return;
     setState(() {
@@ -725,7 +725,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _savePaymentSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     await prefs.setString(
       'movera_default_payment',
       _selectedMethod,
@@ -1113,7 +1113,7 @@ class _WalletScreenState extends State<WalletScreen> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await PreferencesStore.load();
     final current = prefs.getDouble('movera_wallet_balance') ?? 0;
     await prefs.setDouble('movera_wallet_balance', current + offer.amountKr);
     await prefs.setString('movera_voucher_code', offer.code);

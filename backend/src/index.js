@@ -29,7 +29,7 @@ const server = http.createServer(async (req, res) => {
   const requestId = Math.random().toString(16).slice(2);
   const url = req.url.split('?')[0];
   if (url === '/health') {
-    send(res, 200, { ok: true, modules: ['auth', 'trips', 'pricing', 'payments', 'admin'] }, requestId);
+    send(res, 200, { ok: true, modules: ['auth', 'users', 'riders', 'drivers', 'vehicles', 'trips', 'dispatch', 'pricing', 'payments', 'promotions', 'locations', 'notifications', 'messaging', 'ratings', 'support', 'safety'] }, requestId);
     return;
   }
   if (url === '/api/v1/quotes' && req.method === 'POST') {

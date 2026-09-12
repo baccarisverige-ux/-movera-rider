@@ -1,0 +1,3 @@
+class ActiveRideController {
+  const ActiveRideController();
+}

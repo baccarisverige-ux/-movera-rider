@@ -1,0 +1,3 @@
+class MessagesController {
+  const MessagesController();
+}

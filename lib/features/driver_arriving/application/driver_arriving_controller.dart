@@ -1,0 +1,3 @@
+class DriverArrivingController {
+  const DriverArrivingController();
+}

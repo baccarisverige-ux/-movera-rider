@@ -22,7 +22,7 @@ import 'package:movera_rider/features/destination/application/destination_sessio
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
-import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 class AppScope {
@@ -35,7 +35,7 @@ class AppScope {
         api = ApiClient(),
         tokens = MemoryTokenStore(),
         realtime = RealtimeConnection(),
-        quotes = MockQuoteRepository(),
+        quotes = CatalogQuoteRepository(),
         payments = LocalPaymentRepository(),
         paymentGateway = MockPaymentGateway(),
         wallet = WalletLedger(),
@@ -72,7 +72,7 @@ class AppScope {
   final MemoryTokenStore tokens;
   final RealtimeConnection realtime;
   late final SocketClient sockets;
-  final MockQuoteRepository quotes;
+  final CatalogQuoteRepository quotes;
   final LocalPaymentRepository payments;
   final MockPaymentGateway paymentGateway;
   final WalletLedger wallet;

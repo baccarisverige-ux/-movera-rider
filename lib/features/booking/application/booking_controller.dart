@@ -1,0 +1,3 @@
+class BookingController {
+  const BookingController();
+}

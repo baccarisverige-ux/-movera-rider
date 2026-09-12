@@ -1,0 +1,3 @@
+class SupportController {
+  const SupportController();
+}

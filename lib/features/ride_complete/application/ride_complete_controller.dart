@@ -1,0 +1,3 @@
+class RideCompleteController {
+  const RideCompleteController();
+}
