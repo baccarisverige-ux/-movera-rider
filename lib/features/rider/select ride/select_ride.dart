@@ -731,6 +731,10 @@ class _SelectRideState extends State<SelectRide>
       trafficEnabled: false,
       buildingsEnabled: false,
       indoorViewEnabled: false,
+      scrollGesturesEnabled: false,
+      zoomGesturesEnabled: false,
+      tiltGesturesEnabled: false,
+      rotateGesturesEnabled: false,
       onMapCreated: (controller) {
         _mapController = controller;
         Future<void>.delayed(const Duration(milliseconds: 280), _fitRoute);
@@ -766,6 +770,16 @@ class _SelectRideState extends State<SelectRide>
                     Positioned.fill(
                       child: useLiveMap ? _liveMap() : const _RouteCanvas(),
                     ),
+                    Positioned.fill(
+                      child: PointerInterceptor(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onVerticalDragUpdate: (details) =>
+                              _onSheetDragUpdate(details, media),
+                          onVerticalDragEnd: _onSheetDragEnd,
+                        ),
+                      ),
+                    ),
                     Positioned(
                       top: media.padding.top + 8,
                       left: 16,
@@ -798,7 +812,8 @@ class _SelectRideState extends State<SelectRide>
               SizedBox(
                 height: sheetHeight,
                 width: double.infinity,
-                child: Material(
+                child: PointerInterceptor(
+                  child: Material(
                   color: Colors.white,
                   elevation: 18,
                   shadowColor: const Color(0xFF162C36).withOpacity(0.16),
@@ -851,14 +866,14 @@ class _SelectRideState extends State<SelectRide>
                                     const EdgeInsets.fromLTRB(14, 10, 14, 0),
                                 child: _rideTile(_selectedRide),
                               ),
+                            if (!collapsed)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                                child: _filterRow(),
+                              ),
                           ],
                         ),
                       ),
-                      if (!collapsed)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-                          child: _filterRow(),
-                        ),
                       if (!collapsed)
                         Expanded(
                           child: NotificationListener<ScrollNotification>(
@@ -881,6 +896,7 @@ class _SelectRideState extends State<SelectRide>
                       _footer(media.padding.bottom),
                     ],
                   ),
+                ),
                 ),
               ),
             ],
