@@ -142,6 +142,16 @@ void main() {
     expect(html.contains('DeviceOrientationEvent.requestPermission().then'), isTrue);
     expect(html.contains('webkitCompassHeading'), isTrue);
     expect(html.contains('moveraScreenAngle'), isTrue);
+    expect(html.contains('moveraHeadingDebug'), isTrue);
+    expect(html.contains('moveraHeadingSnapshot'), isTrue);
+    expect(html.contains('moveraBrokenStage'), isTrue);
+    expect(html.contains('in-app WKWebView'), isTrue);
+    // A failed first gesture must not permanently block a later real tap.
+    expect(
+      html.contains('if (window.moveraHeadingStarted || window._moveraGestureAsked) return;'),
+      isFalse,
+    );
+    expect(html.contains("addEventListener('pagehide'"), isFalse);
   });
 
   test('home does not add a compass permission screen', () {

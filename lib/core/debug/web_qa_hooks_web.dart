@@ -28,6 +28,14 @@ void reportMapOwner(String? owner, int generation) {
 void reportPuckHeading(double heading, {required bool compass}) {
   globalContext.setProperty('moveraPuckHeading'.toJS, heading.toJS);
   globalContext.setProperty('moveraCompassActive'.toJS, compass.toJS);
+  try {
+    final debug = globalContext.getProperty('moveraHeadingDebug'.toJS);
+    if (debug.isUndefined || debug.isNull) return;
+    final object = debug as JSObject;
+    object.setProperty('dartHeading'.toJS, heading.toJS);
+    object.setProperty('dartCompassActive'.toJS, compass.toJS);
+    object.setProperty('puckHeading'.toJS, heading.toJS);
+  } catch (_) {}
 }
 
 bool get debugHomeBuilt => _homeBuilt;
