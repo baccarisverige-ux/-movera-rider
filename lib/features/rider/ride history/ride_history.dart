@@ -32,7 +32,8 @@ class _RideHistoryState extends State<RideHistory> {
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF778189);
   static const Color _line = Color(0xFFE7EBEE);
-  static const Color _cta = Color(0xFF1F8A4C);
+  static const Color _accent = Color(0xFF2D5878);
+  static const Color _cta = Color(0xFF11181D);
 
   static final List<_HistoryRide> _past = [
     _HistoryRide(
@@ -292,7 +293,7 @@ class _RideHistoryState extends State<RideHistory> {
             height: 3,
             width: selected ? 78 : 0,
             decoration: BoxDecoration(
-              color: _cta,
+              color: _accent,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -324,7 +325,7 @@ class _RideHistoryState extends State<RideHistory> {
             onTap: _showHowItWorks,
             child: Text(
               'Learn how it works',
-              style: _text(15, weight: FontWeight.w600, color: _cta),
+              style: _text(15, weight: FontWeight.w600, color: _accent),
             ),
           ),
           const Spacer(),
@@ -546,7 +547,7 @@ class _CalendarMark extends StatelessWidget {
                         return Container(
                           decoration: BoxDecoration(
                             color: index == 5
-                                ? const Color(0xFF1F8A4C)
+                                ? const Color(0xFF2D5878)
                                 : const Color(0xFFF1F3F4),
                             borderRadius: BorderRadius.circular(5),
                           ),
@@ -563,7 +564,7 @@ class _CalendarMark extends StatelessWidget {
             top: 18,
             child: CircleAvatar(
               radius: 28,
-              backgroundColor: Color(0xFF1F8A4C),
+              backgroundColor: Color(0xFF2D5878),
               child: Icon(Icons.schedule_rounded, color: Colors.white, size: 30),
             ),
           ),
