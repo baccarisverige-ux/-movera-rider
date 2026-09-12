@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 
 class HowMoveraProtectsPage extends StatelessWidget {
@@ -31,10 +32,13 @@ class HowMoveraProtectsPage extends StatelessWidget {
     return SafetyScaffold(
       title: 'How Movera protects you',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
+          const Center(child: SafetyMark(SafetyMarks.protect, size: 72)),
+          const SizedBox(height: 16),
           Text(
             'Learn about our safety features.',
+            textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 18),

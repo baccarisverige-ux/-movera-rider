@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 
 class SafetyUi {
   static const ink = Color(0xFF1C2329);
-  static const muted = Color(0xFF7A858E);
+  static const muted = Color(0xFF7A746C);
   static const accent = Color(0xFF2D5878);
-  static const canvas = Color(0xFFF3F5F6);
-  static const card = Color(0xFFFFFFFF);
-  static const line = Color(0xFFE8ECF0);
+  static const canvas = Color(0xFFF6F3EE);
+  static const card = Color(0xFFFBF9F6);
+  static const well = Color(0xFFF0EBE3);
+  static const line = Color(0xFFE6DFD6);
   static const danger = Color(0xFFB42318);
 
   static TextStyle text(
@@ -26,17 +28,11 @@ class SafetyUi {
     );
   }
 
-  static BoxDecoration cardDecoration({double radius = 22}) {
+  static BoxDecoration cardDecoration({double radius = 24}) {
     return BoxDecoration(
       color: card,
       borderRadius: BorderRadius.circular(radius),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.035),
-          blurRadius: 18,
-          offset: const Offset(0, 6),
-        ),
-      ],
+      border: Border.all(color: line),
     );
   }
 }
@@ -47,11 +43,13 @@ class SafetyScaffold extends StatelessWidget {
     required this.title,
     required this.child,
     this.footer,
+    this.showTitle = true,
   });
 
   final String title;
   final Widget child;
   final Widget? footer;
+  final bool showTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -69,12 +67,13 @@ class SafetyScaffold extends StatelessWidget {
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                     color: SafetyUi.ink,
                   ),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: SafetyUi.text(17, weight: FontWeight.w600),
+                  if (showTitle)
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: SafetyUi.text(17, weight: FontWeight.w600),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -87,10 +86,33 @@ class SafetyScaffold extends StatelessWidget {
   }
 }
 
+class SafetyMarkWell extends StatelessWidget {
+  const SafetyMarkWell(this.asset, {super.key, this.size = 52, this.markSize = 34});
+
+  final String asset;
+  final double size;
+  final double markSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: SafetyUi.well,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SafetyUi.line),
+      ),
+      alignment: Alignment.center,
+      child: SafetyMark(asset, size: markSize),
+    );
+  }
+}
+
 class SafetyRow extends StatelessWidget {
   const SafetyRow({
     super.key,
-    required this.icon,
+    required this.mark,
     required this.title,
     required this.subtitle,
     this.status,
@@ -98,7 +120,7 @@ class SafetyRow extends StatelessWidget {
     this.showDivider = true,
   });
 
-  final IconData icon;
+  final String mark;
   final String title;
   final String subtitle;
   final String? status;
@@ -112,16 +134,16 @@ class SafetyRow extends StatelessWidget {
         InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
+            padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
             child: Row(
               children: [
-                Icon(icon, size: 22, color: SafetyUi.ink.withOpacity(0.78)),
-                const SizedBox(width: 16),
+                SafetyMarkWell(mark),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: SafetyUi.text(16, weight: FontWeight.w500)),
+                      Text(title, style: SafetyUi.text(15.5, weight: FontWeight.w500)),
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
@@ -132,19 +154,108 @@ class SafetyRow extends StatelessWidget {
                 ),
                 if (status != null) ...[
                   const SizedBox(width: 8),
-                  Text(status!, style: SafetyUi.text(13, color: SafetyUi.accent, weight: FontWeight.w500)),
+                  Text(
+                    status!,
+                    style: SafetyUi.text(12.5, color: SafetyUi.accent, weight: FontWeight.w500),
+                  ),
                 ],
-                const Icon(Icons.chevron_right_rounded, color: SafetyUi.muted),
+                const Icon(Icons.chevron_right_rounded, color: SafetyUi.muted, size: 22),
               ],
             ),
           ),
         ),
         if (showDivider)
           const Padding(
-            padding: EdgeInsets.only(left: 56),
+            padding: EdgeInsets.only(left: 80),
             child: Divider(height: 1, color: SafetyUi.line),
           ),
       ],
+    );
+  }
+}
+
+class SafetyPinCadre extends StatelessWidget {
+  const SafetyPinCadre({
+    super.key,
+    required this.pin,
+    required this.caption,
+  });
+
+  final String pin;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final digits = (pin.length >= 4 ? pin.substring(0, 4) : pin.padRight(4)).split('');
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: SafetyUi.ink.withOpacity(0.16)),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 26),
+        decoration: BoxDecoration(
+          color: SafetyUi.card,
+          borderRadius: BorderRadius.circular(27),
+          border: Border.all(color: SafetyUi.ink.withOpacity(0.22)),
+        ),
+        child: Column(
+          children: [
+            const SafetyMark(SafetyMarks.pin, size: 54),
+            const SizedBox(height: 14),
+            Text(
+              'YOUR PIN',
+              style: SafetyUi.text(
+                11,
+                weight: FontWeight.w600,
+                color: SafetyUi.muted,
+                letterSpacing: 2.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < digits.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  _PinDigit(digits[i]),
+                ],
+              ],
+            ),
+            const SizedBox(height: 18),
+            Text(
+              caption,
+              textAlign: TextAlign.center,
+              style: SafetyUi.text(13, color: SafetyUi.muted, height: 1.45),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PinDigit extends StatelessWidget {
+  const _PinDigit(this.value);
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 66,
+      decoration: BoxDecoration(
+        color: SafetyUi.well,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SafetyUi.ink.withOpacity(0.12)),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        value,
+        style: SafetyUi.text(28, weight: FontWeight.w500, letterSpacing: 0.4),
+      ),
     );
   }
 }

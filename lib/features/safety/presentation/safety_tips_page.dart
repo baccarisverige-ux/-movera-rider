@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 
 class SafetyTipsPage extends StatelessWidget {
@@ -16,10 +17,13 @@ class SafetyTipsPage extends StatelessWidget {
     return SafetyScaffold(
       title: 'Safety tips',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
+          const Center(child: SafetyMark(SafetyMarks.tips, size: 72)),
+          const SizedBox(height: 16),
           Text(
             'Simple advice for a safer ride.',
+            textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 18),

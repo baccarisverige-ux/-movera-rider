@@ -4,6 +4,7 @@ import 'package:movera_rider/features/safety/presentation/emergency_contacts_pag
 import 'package:movera_rider/features/safety/presentation/how_movera_protects_page.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/safety/presentation/ride_check_page.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_tips_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
@@ -48,50 +49,54 @@ class _SafetyHubState extends State<SafetyHub> {
   Widget build(BuildContext context) {
     return SafetyScaffold(
       title: 'Safety',
+      showTitle: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
-          Text('Safety', style: SafetyUi.text(32, weight: FontWeight.w700, letterSpacing: -0.7)),
+          const SizedBox(height: 8),
+          const Center(child: SafetyMark(SafetyMarks.shield, size: 96)),
+          const SizedBox(height: 18),
+          Text(
+            'Safety',
+            textAlign: TextAlign.center,
+            style: SafetyUi.text(30, weight: FontWeight.w600, letterSpacing: -0.6),
+          ),
           const SizedBox(height: 8),
           Text(
-            'Your safety, before and during every ride.',
+            'Quiet protection for every ride.',
+            textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.4),
           ),
-          const SizedBox(height: 28),
-          Text('Safety preferences', style: SafetyUi.text(16, weight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text(
-            'Choose how Movera helps protect your rides.',
-            style: SafetyUi.text(13.5, color: SafetyUi.muted),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 32),
+          Text('Safety preferences', style: SafetyUi.text(13, weight: FontWeight.w600, letterSpacing: 0.4, color: SafetyUi.muted)),
+          const SizedBox(height: 10),
           Container(
             decoration: SafetyUi.cardDecoration(),
             child: Column(
               children: [
                 SafetyRow(
-                  icon: Icons.pin_outlined,
+                  mark: SafetyMarks.pin,
                   title: 'PIN verification',
                   subtitle: 'Verify your ride before it starts.',
                   status: _ctl.pinStatusLabel(),
                   onTap: () => _open(PinVerificationPage(controller: _ctl)),
                 ),
                 SafetyRow(
-                  icon: Icons.group_outlined,
+                  mark: SafetyMarks.contacts,
                   title: 'Emergency contacts',
                   subtitle: 'Choose trusted contacts for emergencies.',
                   status: _ctl.contactsStatusLabel(),
                   onTap: () => _open(EmergencyContactsPage(controller: _ctl)),
                 ),
                 SafetyRow(
-                  icon: Icons.ios_share_outlined,
+                  mark: SafetyMarks.share,
                   title: 'Share trip status',
                   subtitle: 'Let people you trust follow your ride.',
                   status: _ctl.shareStatusLabel(),
                   onTap: () => _open(TripSharePage(controller: _ctl)),
                 ),
                 SafetyRow(
-                  icon: Icons.health_and_safety_outlined,
+                  mark: SafetyMarks.rideCheck,
                   title: 'RideCheck',
                   subtitle: 'Get help if a ride stops unexpectedly or goes off route.',
                   status: _ctl.rideCheckStatusLabel(),
@@ -102,20 +107,20 @@ class _SafetyHubState extends State<SafetyHub> {
             ),
           ),
           const SizedBox(height: 28),
-          Text('Safety resources', style: SafetyUi.text(16, weight: FontWeight.w700)),
-          const SizedBox(height: 14),
+          Text('Safety resources', style: SafetyUi.text(13, weight: FontWeight.w600, letterSpacing: 0.4, color: SafetyUi.muted)),
+          const SizedBox(height: 10),
           Container(
             decoration: SafetyUi.cardDecoration(),
             child: Column(
               children: [
                 SafetyRow(
-                  icon: Icons.lightbulb_outline_rounded,
+                  mark: SafetyMarks.tips,
                   title: 'Safety tips',
                   subtitle: 'Simple advice for a safer ride.',
                   onTap: () => _open(const SafetyTipsPage()),
                 ),
                 SafetyRow(
-                  icon: Icons.verified_user_outlined,
+                  mark: SafetyMarks.protect,
                   title: 'How Movera protects you',
                   subtitle: 'Learn about our safety features.',
                   onTap: () => _open(const HowMoveraProtectsPage()),

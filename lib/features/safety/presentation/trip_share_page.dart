@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 
 class TripSharePage extends StatefulWidget {
@@ -37,10 +38,13 @@ class _TripSharePageState extends State<TripSharePage> {
     return SafetyScaffold(
       title: 'Share trip status',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
+          const Center(child: SafetyMark(SafetyMarks.share, size: 72)),
+          const SizedBox(height: 16),
           Text(
             'Share your active ride with people you trust.',
+            textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 20),

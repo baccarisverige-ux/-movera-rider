@@ -18,6 +18,7 @@ import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
+import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -64,6 +65,19 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: SafetyHub(controller: ctl)));
     await tester.pumpAndSettle();
     expect(find.text('Safety preferences'), findsOneWidget);
+  });
+
+  testWidgets('PIN page shows a framed 4-digit cadre', (tester) async {
+    final ctl = buildController();
+    await ctl.load();
+    await tester.pumpWidget(MaterialApp(home: PinVerificationPage(controller: ctl)));
+    await tester.pumpAndSettle();
+    expect(find.text('YOUR PIN'), findsOneWidget);
+    expect(find.text('Verify rides with a PIN'), findsOneWidget);
+    expect(find.text('Change PIN'), findsOneWidget);
+    for (final digit in ctl.pin.pin.split('')) {
+      expect(find.text(digit), findsWidgets);
+    }
   });
 
   test('PIN generate enable disable rotate persist and verify', () async {

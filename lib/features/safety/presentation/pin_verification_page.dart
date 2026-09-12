@@ -34,6 +34,8 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: SafetyUi.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           title: Text('Change PIN?', style: SafetyUi.text(18, weight: FontWeight.w600)),
           content: Text(
             'Movera will create a new 4-digit PIN. Share it with your driver only when the ride begins.',
@@ -61,7 +63,7 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
     return SafetyScaffold(
       title: 'PIN verification',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
           Text(
             'Add an extra check before your ride begins. Your driver must confirm your PIN before starting the trip.',
@@ -70,7 +72,7 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
           const SizedBox(height: 22),
           Container(
             decoration: SafetyUi.cardDecoration(),
-            padding: const EdgeInsets.fromLTRB(18, 8, 12, 8),
+            padding: const EdgeInsets.fromLTRB(18, 10, 12, 10),
             child: Row(
               children: [
                 Expanded(
@@ -84,40 +86,24 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
               ],
             ),
           ),
-          const SizedBox(height: 18),
-          Container(
-            decoration: SafetyUi.cardDecoration(),
-            padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
-            child: Column(
-              children: [
-                Text('Your PIN', style: SafetyUi.text(13, color: SafetyUi.muted)),
-                const SizedBox(height: 10),
-                Text(
-                  pin.split('').join('  '),
-                  style: SafetyUi.text(34, weight: FontWeight.w700, letterSpacing: 2),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _ctl.preferences.pinRequired
-                      ? 'Share this PIN with your driver when the trip starts.'
-                      : 'PIN is saved. Turn on verification to use it on rides.',
-                  textAlign: TextAlign.center,
-                  style: SafetyUi.text(13, color: SafetyUi.muted, height: 1.4),
-                ),
-              ],
-            ),
+          const SizedBox(height: 22),
+          SafetyPinCadre(
+            pin: pin,
+            caption: _ctl.preferences.pinRequired
+                ? 'Share this PIN with your driver when the trip starts.'
+                : 'PIN is saved. Turn on verification to use it on rides.',
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           SizedBox(
             height: 52,
             child: OutlinedButton(
               onPressed: _confirmRotate,
               style: OutlinedButton.styleFrom(
-                foregroundColor: SafetyUi.accent,
-                side: const BorderSide(color: Color(0xFFD5DEE5)),
+                foregroundColor: SafetyUi.ink,
+                side: const BorderSide(color: SafetyUi.line),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: Text('Change PIN', style: SafetyUi.text(15.5, weight: FontWeight.w600, color: SafetyUi.accent)),
+              child: Text('Change PIN', style: SafetyUi.text(15.5, weight: FontWeight.w600)),
             ),
           ),
         ],

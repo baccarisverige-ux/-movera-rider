@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
@@ -70,10 +71,13 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
         ),
       ),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
         children: [
+          const Center(child: SafetyMark(SafetyMarks.contacts, size: 72)),
+          const SizedBox(height: 16),
           Text(
             'Add people you trust so they can be reached quickly when you need help.',
+            textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 20),

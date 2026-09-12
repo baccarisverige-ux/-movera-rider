@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 
 class RideCheckPage extends StatefulWidget {
@@ -35,10 +36,13 @@ class _RideCheckPageState extends State<RideCheckPage> {
     return SafetyScaffold(
       title: 'RideCheck',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
+          const Center(child: SafetyMark(SafetyMarks.rideCheck, size: 72)),
+          const SizedBox(height: 16),
           Text(
             'Movera can check on you when a ride appears to stop unexpectedly or move significantly off route.',
+            textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
           const SizedBox(height: 20),
