@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/history/data/scheduled_ride_cards.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -14,7 +15,8 @@ class ConfirmedsRide extends StatelessWidget {
     return SizedBox(
       child: Column(
         children: [
-          ...List.generate(2, (index) {
+          ...List.generate(ScheduledRideCatalog().confirmed().length, (index) {
+            final ride = ScheduledRideCatalog().confirmed()[index];
             return Padding(
               padding: EdgeInsets.only(top: index == 0 ? 0 : ResSize.h * 16),
               child: Column(
@@ -37,7 +39,7 @@ class ConfirmedsRide extends StatelessWidget {
                                     Row(
                                       children: [
                                         TextWidget(
-                                          text: "BMW X7",
+                                          text: ride.car,
                                           color: AppColor.title,
                                           fontSize: 20,
                                           fontWeight: fwBold,
@@ -55,7 +57,7 @@ class ConfirmedsRide extends StatelessWidget {
                                             ),
                                           ),
                                           child: TextWidget(
-                                            text: "Confirmed",
+                                            text: ride.status,
                                             color: AppColor.whiteText,
                                             fontSize: 12,
                                             fontWeight: fwBold,
@@ -65,7 +67,7 @@ class ConfirmedsRide extends StatelessWidget {
                                     ),
                                     6.height,
                                     TextWidget(
-                                      text: "10 Jun 25, 10:30 am",
+                                      text: ride.when,
                                       color: AppColor.subtitle,
                                       fontSize: 14,
                                       fontWeight: fwSemiBold,

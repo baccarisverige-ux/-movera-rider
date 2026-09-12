@@ -1,19 +1,17 @@
-class SavedPlace {
-  const SavedPlace({
-    required this.id,
-    required this.label,
-    required this.address,
+class PlaceShortcut {
+  const PlaceShortcut({
+    required this.title,
+    required this.subtitle,
+    required this.kind,
   });
 
-  final String id;
-  final String label;
-  final String address;
+  final String title;
+  final String subtitle;
+  final String kind;
+}
 
-  factory SavedPlace.fromDto(Map<String, dynamic> dto) {
-    return SavedPlace(
-      id: dto['id'] as String? ?? '',
-      label: dto['label'] as String? ?? '',
-      address: dto['address'] as String? ?? '',
-    );
-  }
+class SavedPlaceOption {
+  const SavedPlaceOption({required this.title, required this.kind});
+  final String title;
+  final String kind;
 }

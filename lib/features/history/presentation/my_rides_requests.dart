@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/history/data/scheduled_ride_cards.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -11,6 +12,7 @@ class RequestsRide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ride = ScheduledRideCatalog().pending();
     return SizedBox(
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
@@ -27,7 +29,7 @@ class RequestsRide extends StatelessWidget {
                       Row(
                         children: [
                           TextWidget(
-                            text: "BMW X7",
+                            text: ride.car,
                             color: AppColor.title,
                             fontSize: 20,
                             fontWeight: fwBold,
@@ -43,7 +45,7 @@ class RequestsRide extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: TextWidget(
-                              text: "Pending",
+                              text: ride.status,
                               color: AppColor.title,
                               fontSize: 12,
                               fontWeight: fwBold,
@@ -53,7 +55,7 @@ class RequestsRide extends StatelessWidget {
                       ),
                       6.height,
                       TextWidget(
-                        text: "10 Jun 25, 10:30 am",
+                        text: ride.when,
                         color: AppColor.subtitle,
                         fontSize: 14,
                         fontWeight: fwSemiBold,
