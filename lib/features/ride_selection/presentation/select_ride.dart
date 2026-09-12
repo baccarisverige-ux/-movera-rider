@@ -662,6 +662,7 @@ class _SelectRideState extends State<SelectRide>
                         indoorViewEnabled: false,
                         onMapCreated: (controller) {
                           _mapController = controller;
+                          AppScope.instance.maps.attach(controller);
                           Future<void>.delayed(
                             const Duration(milliseconds: 280),
                             _fitRoute,

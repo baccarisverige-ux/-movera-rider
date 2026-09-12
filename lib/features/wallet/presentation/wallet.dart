@@ -7,7 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 import 'package:movera_rider/features/wallet/data/voucher_catalog.dart';
-import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 
 typedef _VoucherOffer = VoucherOffer;
 
@@ -175,7 +175,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _muted = Color(0xFF7B8388);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF2D5878);
-  static const _balanceKey = 'movera_wallet_balance';
+  final _store = WalletStore();
 
   double _balance = 0;
   String? _voucherCode;
@@ -201,18 +201,18 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _restore() async {
-    final prefs = await PreferencesStore.load();
+    final balance = await _store.loadBalance();
+    final voucher = await _store.loadVoucherCode();
     if (!mounted) return;
     setState(() {
-      _balance = prefs.getDouble(_balanceKey) ?? 0;
-      _voucherCode = prefs.getString('movera_voucher_code');
+      _balance = balance;
+      _voucherCode = voucher;
     });
   }
 
   Future<void> _saveBalance(double value) async {
     final delta = value - _balance;
-    final prefs = await PreferencesStore.load();
-    await prefs.setDouble(_balanceKey, value);
+    await _store.saveBalance(value);
     if (delta != 0) {
       AppScope.instance.wallet.add(
         WalletEntry(
@@ -353,10 +353,11 @@ class _WalletHomeState extends State<WalletHome> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    final prefs = await PreferencesStore.load();
-    await prefs.setString('movera_voucher_code', offer.code);
-    await prefs.setInt('movera_voucher_amount', offer.amountKr);
-    await prefs.setString('movera_voucher_expires', offer.expires.toIso8601String());
+    await _store.saveVoucher(
+      code: offer.code,
+      amountKr: offer.amountKr,
+      expires: offer.expires,
+    );
     await _saveBalance(_balance + offer.amountKr);
     if (!mounted) return;
     setState(() => _voucherCode = offer.code);
@@ -613,6 +614,7 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _surface = Color(0xFFF4F5F4);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
+  final _store = WalletStore();
 
   bool _businessProfile = false;
   String _selectedMethod = 'apple';
@@ -640,53 +642,25 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _restorePaymentSettings() async {
-    final prefs = await PreferencesStore.load();
-    final savedMethods = prefs.getString('movera_payment_methods');
+    final saved = await _store.loadPayments();
     if (!mounted) return;
     setState(() {
-      _selectedMethod =
-          prefs.getString('movera_default_payment') ?? 'apple';
-      _businessProfile =
-          prefs.getBool('movera_payment_business') ?? false;
-      _voucherCode = prefs.getString('movera_voucher_code');
-      if (savedMethods != null) {
-        try {
-          final decoded = jsonDecode(savedMethods) as List<dynamic>;
-          _extraMethods = decoded
-              .whereType<Map>()
-              .map(
-                (item) => item.map(
-                  (key, value) =>
-                      MapEntry(key.toString(), value.toString()),
-                ),
-              )
-              .toList();
-        } catch (_) {
-          _extraMethods = [];
-        }
-      }
+      _selectedMethod = saved.defaultMethod;
+      _businessProfile = saved.business;
+      _voucherCode = saved.voucherCode;
+      _extraMethods = saved.extraMethods;
     });
   }
 
   Future<void> _savePaymentSettings() async {
-    final prefs = await PreferencesStore.load();
-    await prefs.setString(
-      'movera_default_payment',
-      _selectedMethod,
+    await _store.savePayments(
+      WalletPaymentSettings(
+        defaultMethod: _selectedMethod,
+        business: _businessProfile,
+        voucherCode: _voucherCode,
+        extraMethods: _extraMethods,
+      ),
     );
-    await prefs.setBool(
-      'movera_payment_business',
-      _businessProfile,
-    );
-    await prefs.setString(
-      'movera_payment_methods',
-      jsonEncode(_extraMethods),
-    );
-    if (_voucherCode == null || _voucherCode!.isEmpty) {
-      await prefs.remove('movera_voucher_code');
-    } else {
-      await prefs.setString('movera_voucher_code', _voucherCode!);
-    }
   }
 
   void _selectMethod(String id) {
@@ -1057,10 +1031,13 @@ class _WalletScreenState extends State<WalletScreen> {
     final offer = await showAddVoucherSheet(context);
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
-    final prefs = await PreferencesStore.load();
-    final current = prefs.getDouble('movera_wallet_balance') ?? 0;
-    await prefs.setDouble('movera_wallet_balance', current + offer.amountKr);
-    await prefs.setString('movera_voucher_code', offer.code);
+    final current = await _store.loadBalance();
+    await _store.saveBalance(current + offer.amountKr);
+    await _store.saveVoucher(
+      code: offer.code,
+      amountKr: offer.amountKr,
+      expires: offer.expires,
+    );
     setState(() => _voucherCode = offer.code);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
