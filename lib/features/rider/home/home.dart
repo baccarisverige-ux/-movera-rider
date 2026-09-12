@@ -20,6 +20,7 @@ import 'package:movera_rider/features/rider/ride%20history/ride_history.dart';
 import 'package:movera_rider/features/rider/select%20ride/select_ride.dart';
 import 'package:movera_rider/features/rider/saved%20places/add%20place/add_place.dart';
 import 'package:movera_rider/features/rider/schedule%20ride/schedule_ride.dart';
+import 'package:movera_rider/features/rider/side%20menu/side_menu.dart';
 import 'package:movera_rider/features/rider/support/support.dart';
 import 'package:movera_rider/shared/services/location_address.dart'
     as address_service;
