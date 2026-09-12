@@ -283,7 +283,23 @@ class _WalletHomeState extends State<WalletHome> {
                   fit: BoxFit.contain,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
+              Center(
+                child: Text(
+                  'Pay the driver on the terminal',
+                  textAlign: TextAlign.center,
+                  style: _style(13.5, weight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Center(
+                child: Text(
+                  'Tap card, Swish or wallet when you arrive.',
+                  textAlign: TextAlign.center,
+                  style: _style(11.5, color: _muted),
+                ),
+              ),
+              const SizedBox(height: 16),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
