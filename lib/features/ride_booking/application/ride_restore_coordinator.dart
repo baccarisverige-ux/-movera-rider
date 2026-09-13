@@ -27,6 +27,12 @@ class RideRestoreCoordinator {
 
   static final instance = RideRestoreCoordinator();
 
+  void goHome() {
+    showing = RestoredSurface.home;
+    reportRestoreSurface(RestoredSurface.home.name);
+    onReplaceRoot?.call(const Home());
+  }
+
   RestoredSurface surfaceFor(RideSnapshot? snapshot) {
     if (snapshot == null || snapshot.status.isTerminal || !snapshot.isFresh) {
       return RestoredSurface.home;

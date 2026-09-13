@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 abstract final class RideNavigator {
@@ -12,7 +14,13 @@ abstract final class RideNavigator {
   }
 
   static void home(BuildContext context) {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    RideRestoreCoordinator.instance.goHome();
+    final nav =
+        moveraNavigatorKey.currentState ??
+        Navigator.maybeOf(context, rootNavigator: true);
+    if (nav != null && nav.canPop()) {
+      nav.popUntil((route) => route.isFirst);
+    }
   }
 
   static const names = AppRoutes;

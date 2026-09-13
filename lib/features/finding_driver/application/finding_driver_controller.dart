@@ -268,7 +268,7 @@ class FindingDriverController {
     _onMatched?.call();
   }
 
-  void cancelSearch({String? reasonId}) {
+  Future<void> cancelSearch({String? reasonId}) async {
     if (_cancelled || _disposed) return;
     _cancelled = true;
     _tick?.cancel();
@@ -284,7 +284,7 @@ class FindingDriverController {
     }
     ride.restoreFromBackend(RideStatus.cancelledByRider);
     final id = _snapshot?.rideId ?? ride.rideId;
-    unawaited(_store.clear());
+    await _store.clear();
     _realtime.cancelRide();
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));

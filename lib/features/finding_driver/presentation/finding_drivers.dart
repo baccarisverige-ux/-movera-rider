@@ -50,6 +50,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   final FindingDriverController _match = FindingDriverController();
   final PanelController _panel = PanelController();
   bool _mapParked = false;
+  bool _leaving = false;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -131,15 +132,20 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _confirmCancel() async {
+    if (_leaving) return;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: _match.isDelayed,
       phase: CancelPhase.searching,
     );
-    if (outcome.cancelled && mounted) {
-      _match.cancelSearch(reasonId: outcome.reasonId);
-      RideNavigator.home(context);
-    }
+    if (!outcome.cancelled || !mounted) return;
+    _leaving = true;
+    await _match.cancelSearch(reasonId: outcome.reasonId);
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) RideNavigator.home(context);
+    });
   }
 
   Future<void> _openDetails() async {
@@ -205,7 +211,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     final progress = (_match.elapsedSeconds / 90).clamp(0.08, 0.86);
     final minHeight = _match.showPriceBump ? 540.0 : 300.0;
     return PopScope(
-      canPop: false,
+      canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmCancel();
       },

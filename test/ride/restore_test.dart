@@ -78,6 +78,17 @@ void main() {
     );
   });
 
+  test('goHome replaces a restored finding surface', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    Widget? shown;
+    c.onReplaceRoot = (page) => shown = page;
+    c.pageFor(snap(RideStatus.findingDriver));
+    expect(c.showing, RestoredSurface.finding);
+    c.goHome();
+    expect(c.showing, RestoredSurface.home);
+    expect(shown, isA<Home>());
+  });
+
   test('resume is idempotent when already showing', () async {
     final snapshot = snap(RideStatus.findingDriver);
     final c = RideRestoreCoordinator(reader: () async => snapshot);
