@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -444,18 +445,16 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                           height: 1.55,
                         ),
                       ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 118,
+                        child: Image.asset(
+                          'assets/images/schedule_timeline_exact_v3.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 118,
-                  child: Image.asset(
-                    'assets/images/schedule_timeline_exact_v3.png',
-                    fit: BoxFit.contain,
                   ),
                 ),
               ),
@@ -659,38 +658,44 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _line)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: PointerInterceptor(
-          child: SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () {
-                _commitSchedule();
-                if (widget.popOnConfirm) {
-                  Navigator.pop(context, _selectedDateTime);
-                  return;
-                }
-                widget.onConfirm();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _ink,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+    return PointerInterceptor(
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          10,
+          20,
+          16 + bottom + (kIsWeb ? 28 : 0),
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: _line)),
+        ),
+        child: Material(
+          color: _ink,
+          borderRadius: BorderRadius.circular(17),
+          child: InkWell(
+            onTap: () {
+              _commitSchedule();
+              if (widget.popOnConfirm) {
+                Navigator.pop(context, _selectedDateTime);
+                return;
+              }
+              widget.onConfirm();
+            },
+            borderRadius: BorderRadius.circular(17),
+            child: SizedBox(
+              height: 52,
+              child: Center(
+                child: Text(
+                  'Continue',
+                  style: _style(
+                    14,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              child: Text(
-                'Continue',
-                style: _style(14, weight: FontWeight.w600, color: Colors.white),
               ),
             ),
           ),

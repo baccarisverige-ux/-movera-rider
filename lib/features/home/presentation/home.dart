@@ -1982,8 +1982,13 @@ class _HomeState extends State<Home> {
     _animateHomeSheetTo(target, duration: MoveraDurations.large);
   }
 
-  void _openSchedule() {
-    Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
+  Future<void> _openSchedule() async {
+    await _withParkedHomeMap(() {
+      return Navigator.push(
+        context,
+        BottomToTopTransition(const ScheduleRide()),
+      );
+    });
   }
 
   void _openRideHistory() {

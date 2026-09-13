@@ -354,26 +354,28 @@ class _ScheduleRideState extends State<ScheduleRide> {
               ),
               child: SafeArea(
                 top: false,
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    onPressed: canContinue ? goToNextStep : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _scheduleInk,
-                      disabledBackgroundColor: _scheduleInk.withOpacity(0.18),
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                child: PointerInterceptor(
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: canContinue ? goToNextStep : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _scheduleInk,
+                        disabledBackgroundColor: _scheduleInk.withOpacity(0.18),
+                        foregroundColor: Colors.white,
+                        disabledForegroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      'Next',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                      child: Text(
+                        'Next',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
