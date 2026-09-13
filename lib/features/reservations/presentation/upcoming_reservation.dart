@@ -229,20 +229,10 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     style: reservationText(18, weight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
-                  _KnowRow(
-                    asset: AppAssets.hourGlass,
-                    title: 'Waiting time',
-                    body: policy.waitingSummary,
-                  ),
-                  _KnowRow(
-                    asset: AppAssets.cancelation,
-                    title: 'Cancellation',
-                    body: policy.cancellationSummary,
-                  ),
-                  _KnowRow(
-                    asset: AppAssets.totalAmount,
-                    title: 'Pricing',
-                    body: policy.pricingSummary,
+                  _KnowCard(
+                    waiting: policy.waitingSummary,
+                    cancellation: policy.cancellationSummary,
+                    pricing: policy.pricingSummary,
                   ),
                   const SizedBox(height: 8),
                   GestureDetector(
@@ -532,41 +522,98 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _KnowRow extends StatelessWidget {
-  const _KnowRow({
-    required this.asset,
+class _KnowCard extends StatelessWidget {
+  const _KnowCard({
+    required this.waiting,
+    required this.cancellation,
+    required this.pricing,
+  });
+
+  final String waiting;
+  final String cancellation;
+  final String pricing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: kReservationLine),
+      ),
+      child: Column(
+        children: [
+          _KnowItem(index: '01', title: 'Waiting time', body: waiting),
+          const Divider(
+            height: 1,
+            indent: 20,
+            endIndent: 20,
+            color: kReservationLine,
+          ),
+          _KnowItem(index: '02', title: 'Cancellation', body: cancellation),
+          const Divider(
+            height: 1,
+            indent: 20,
+            endIndent: 20,
+            color: kReservationLine,
+          ),
+          _KnowItem(index: '03', title: 'Pricing', body: pricing),
+        ],
+      ),
+    );
+  }
+}
+
+class _KnowItem extends StatelessWidget {
+  const _KnowItem({
+    required this.index,
     required this.title,
     required this.body,
   });
 
-  final String asset;
+  final String index;
   final String title;
   final String body;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MoveraGlyph(asset: asset),
-          const SizedBox(width: 12),
+          SizedBox(
+            width: 28,
+            child: Text(
+              index,
+              style: reservationText(
+                12,
+                weight: FontWeight.w600,
+                color: kReservationAccent,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: reservationText(14.5, weight: FontWeight.w700),
+                  title.toUpperCase(),
+                  style: reservationText(
+                    11,
+                    weight: FontWeight.w600,
+                    color: kReservationInk,
+                    letterSpacing: 1.1,
+                  ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 6),
                 Text(
                   body,
                   style: reservationText(
                     13,
                     color: kReservationMuted,
-                    height: 1.4,
+                    height: 1.45,
                   ),
                 ),
               ],

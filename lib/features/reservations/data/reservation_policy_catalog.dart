@@ -8,11 +8,11 @@ class ReservationPolicyCatalog {
     assignmentDisclaimer:
         'Driver details will appear here once a driver is assigned. Movera does not promise a specific assignment time in this prototype.',
     waitingSummary:
-        'Waiting time included with a scheduled ride will be confirmed in Movera terms when they are published.',
+        'Be ready at pickup. Included waiting follows Movera scheduled ride terms.',
     cancellationSummary:
-        'You can cancel a reservation from this screen. Any fee is defined in Movera scheduled ride terms, which are not final yet.',
+        'Cancel from this screen. Any fee follows the scheduled ride terms.',
     pricingSummary:
-        'The reserved price covers this category and route. It may change if pickup, destination, or timing changes.',
+        'The reserved amount is for this category and route, and updates if the trip changes.',
     sections: [
       ReservationPolicySection(
         title: 'Reservation pricing',
