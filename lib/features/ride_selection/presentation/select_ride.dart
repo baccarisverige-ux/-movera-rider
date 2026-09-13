@@ -10,6 +10,8 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
@@ -103,8 +105,8 @@ class _SelectRideState extends State<SelectRide>
         glyph: ride.glyph == 'bolt'
             ? Icons.bolt_rounded
             : ride.glyph == 'pets'
-                ? Icons.pets_rounded
-                : null,
+            ? Icons.pets_rounded
+            : null,
       );
     }).toList();
   }
@@ -136,12 +138,9 @@ class _SelectRideState extends State<SelectRide>
     );
     // Home already unmounted its map. Wait one frame so the platform view
     // is gone before this screen creates the only live map.
-    Future<void>.delayed(
-      Duration(milliseconds: kIsWeb ? 280 : 80),
-      () {
-        if (mounted) setState(() => _mapReady = true);
-      },
-    );
+    Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
+      if (mounted) setState(() => _mapReady = true);
+    });
     _loadQuotes();
   }
 
@@ -170,8 +169,7 @@ class _SelectRideState extends State<SelectRide>
       _selection.priceFor(ride.id, ride.price);
 
   void _selectRide(String id) {
-    final catalog =
-        _allRides.firstWhere((ride) => ride.id == id).price;
+    final catalog = _allRides.firstWhere((ride) => ride.id == id).price;
     setState(() {
       _selection.selectRide(id, catalog);
     });
@@ -248,8 +246,10 @@ class _SelectRideState extends State<SelectRide>
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
     final range = _maxSheet(media) - _minSheet(media);
     if (range <= 0) return;
-    final next =
-        (_sheetSlide.value - details.primaryDelta! / range).clamp(0.0, 1.0);
+    final next = (_sheetSlide.value - details.primaryDelta! / range).clamp(
+      0.0,
+      1.0,
+    );
     _sheetSlide.value = next;
   }
 
@@ -258,10 +258,10 @@ class _SelectRideState extends State<SelectRide>
     final target = velocity < -480
         ? 1.0
         : velocity > 480
-            ? 0.0
-            : _sheetSlide.value >= 0.42
-                ? 1.0
-                : 0.0;
+        ? 0.0
+        : _sheetSlide.value >= 0.42
+        ? 1.0
+        : 0.0;
     _sheetSlide.animateTo(
       target,
       duration: MoveraMotion.of(context, MoveraDurations.large),
@@ -323,13 +323,9 @@ class _SelectRideState extends State<SelectRide>
     );
     if (time == null || !mounted) return;
     setState(() {
-      _selection.scheduleFor(DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      ));
+      _selection.scheduleFor(
+        DateTime(date.year, date.month, date.day, time.hour, time.minute),
+      );
     });
   }
 
@@ -462,7 +458,46 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  Future<void> _bookScheduled() async {
+    final selected = _selectedRide;
+    final when = _selection.scheduledFor;
+    if (when == null) return;
+    final created = await AppScope.instance.reservations.create(
+      ReservationDraft(
+        scheduledPickupAt: when,
+        estimatedDropoffAt: when.add(Duration(minutes: selected.etaMin)),
+        pickup: ReservationPlace(
+          label: widget.pickupAddress,
+          lat: widget.pickupPosition.latitude,
+          lng: widget.pickupPosition.longitude,
+        ),
+        destination: ReservationPlace(
+          label: widget.destinationAddress,
+          lat: widget.destinationPosition.latitude,
+          lng: widget.destinationPosition.longitude,
+        ),
+        categoryId: selected.id,
+        categoryName: selected.name,
+        categoryImage: selected.image,
+        passengerCount: selected.seats,
+        price: _priceFor(selected),
+        paymentMethod: _payments[_selection.selectedPayment].name,
+      ),
+    );
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      BottomToTopTransition(
+        RideScheduledPage(reservationId: created.reservationId),
+      ),
+    );
+  }
+
   void _book() {
+    if (_selection.isScheduled) {
+      _bookScheduled();
+      return;
+    }
     final selected = _selectedRide;
     showQuickRideNotesSheet(context).then((notes) {
       if (!mounted || notes == null) return;
@@ -638,7 +673,12 @@ class _SelectRideState extends State<SelectRide>
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  16,
+                                  16,
+                                  0,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -947,10 +987,7 @@ class _SelectRideState extends State<SelectRide>
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Text(
-                            ride.arrival,
-                            style: _text(12.5, color: _muted),
-                          ),
+                          Text(ride.arrival, style: _text(12.5, color: _muted)),
                           const SizedBox(width: 8),
                           const Icon(
                             Icons.person_outline_rounded,
@@ -968,7 +1005,11 @@ class _SelectRideState extends State<SelectRide>
                         ride.note,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: _text(12.5, color: _muted, weight: FontWeight.w400),
+                        style: _text(
+                          12.5,
+                          color: _muted,
+                          weight: FontWeight.w400,
+                        ),
                       ),
                       if (ride.badge != null) ...[
                         const SizedBox(height: 8),
@@ -1149,7 +1190,10 @@ class _SelectRideState extends State<SelectRide>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(method.name, style: _text(14.5, weight: FontWeight.w600)),
+                    Text(
+                      method.name,
+                      style: _text(14.5, weight: FontWeight.w600),
+                    ),
                     Text(
                       selected ? 'Default for rides' : method.detail,
                       style: _text(
@@ -1167,10 +1211,17 @@ class _SelectRideState extends State<SelectRide>
                 decoration: BoxDecoration(
                   color: selected ? _ink : Colors.transparent,
                   shape: BoxShape.circle,
-                  border: Border.all(color: selected ? _ink : _line, width: 1.4),
+                  border: Border.all(
+                    color: selected ? _ink : _line,
+                    width: 1.4,
+                  ),
                 ),
                 child: selected
-                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 15)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      )
                     : null,
               ),
             ],
@@ -1253,7 +1304,9 @@ class _SelectRideState extends State<SelectRide>
         children: [
           Expanded(child: Image.asset(AppAssets.visa, fit: BoxFit.contain)),
           const SizedBox(width: 2),
-          Expanded(child: Image.asset(AppAssets.mastercard, fit: BoxFit.contain)),
+          Expanded(
+            child: Image.asset(AppAssets.mastercard, fit: BoxFit.contain),
+          ),
         ],
       );
     } else if (brand == 'cash') {
@@ -1287,7 +1340,10 @@ class _RouteCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CustomPaint(painter: _RoutePainter(), child: SizedBox.expand());
+    return const CustomPaint(
+      painter: _RoutePainter(),
+      child: SizedBox.expand(),
+    );
   }
 }
 
@@ -1307,7 +1363,12 @@ class _RoutePainter extends CustomPainter {
     final water = Paint()..color = const Color(0xFFC9D9D4).withOpacity(0.7);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.width * 0.08, size.height * 0.18, size.width * 0.38, 28),
+        Rect.fromLTWH(
+          size.width * 0.08,
+          size.height * 0.18,
+          size.width * 0.38,
+          28,
+        ),
         const Radius.circular(20),
       ),
       water,
