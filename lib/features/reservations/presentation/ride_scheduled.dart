@@ -3,9 +3,9 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
-import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -74,13 +74,19 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
     );
   }
 
-  Future<void> _openDetails(Reservation ride) async {
+  Future<void> _planReturn(Reservation ride) async {
     await Navigator.push(
       context,
       RightToLeftTransition(
-        UpcomingReservationPage(
-          reservationId: ride.reservationId,
+        PlanReturnRidePage(
+          origin: ride,
           controller: _reservations,
+          onScheduled: (context, id) => RideScheduledPage.open(
+            context,
+            reservationId: id,
+            controller: _reservations,
+            replace: true,
+          ),
         ),
       ),
     );
@@ -163,52 +169,63 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                     borderRadius: BorderRadius.circular(24),
                     side: const BorderSide(color: kReservationLine),
                   ),
-                  child: InkWell(
-                    onTap: () => _openDetails(ride),
-                    borderRadius: BorderRadius.circular(24),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                      child: Column(
-                        children: [
-                          ReservationFact(
-                            asset: AppAssets.scheduleCalendar,
-                            label: 'Pickup',
-                            value:
-                                '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      children: [
+                        Text(
+                          ride.categoryName,
+                          style: reservationText(18, weight: FontWeight.w700),
+                        ),
+                        Text(
+                          ReservationFormat.price(ride),
+                          style: reservationText(
+                            15,
+                            weight: FontWeight.w600,
+                            color: kReservationMuted,
                           ),
-                          ReservationFact(
-                            asset: AppAssets.gps,
-                            label: 'From',
-                            value: ReservationFormat.shortPlace(
-                              ride.pickup.label,
-                            ),
+                        ),
+                        const SizedBox(height: 8),
+                        ReservationFact(
+                          asset: AppAssets.scheduleCalendar,
+                          label: 'Pickup',
+                          value:
+                              '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                        ),
+                        ReservationFact(
+                          asset: AppAssets.gps,
+                          label: 'From',
+                          value: ReservationFormat.shortPlace(
+                            ride.pickup.label,
                           ),
-                          ReservationFact(
-                            asset: AppAssets.location,
-                            label: 'To',
-                            value: ReservationFormat.shortPlace(
-                              ride.destination.label,
-                            ),
+                        ),
+                        ReservationFact(
+                          asset: AppAssets.location,
+                          label: 'To',
+                          value: ReservationFormat.shortPlace(
+                            ride.destination.label,
                           ),
-                          ReservationFact(
-                            asset: AppAssets.payment,
-                            label: 'Payment',
-                            value: ride.paymentMethod,
-                            trailing: ReservationPaymentMark(
-                              method: ride.paymentMethod,
-                            ),
+                        ),
+                        ReservationFact(
+                          asset: AppAssets.payment,
+                          label: 'Payment',
+                          value: ride.paymentMethod,
+                          trailing: ReservationPaymentMark(
+                            method: ride.paymentMethod,
                           ),
-                          if (ride.hasPreferences)
-                            ReservationFact(
-                              asset: AppAssets.note,
-                              label: 'Preferences',
-                              value: ride.note!.trim(),
-                            ),
-                        ],
-                      ),
+                        ),
+                        if (ride.hasPreferences)
+                          ReservationFact(
+                            asset: AppAssets.note,
+                            label: 'Preferences',
+                            value: ride.note!.trim(),
+                          ),
+                      ],
                     ),
                   ),
                 ),
+                const SizedBox(height: 14),
+                _ReturnRow(onTap: () => _planReturn(ride)),
               ],
             ),
           ),
@@ -233,6 +250,57 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReturnRow extends StatelessWidget {
+  const _ReturnRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: const BorderSide(color: kReservationLine),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Row(
+            children: [
+              Image.asset(
+                AppAssets.calender,
+                width: 52,
+                height: 52,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Plan a return ride',
+                      style: reservationText(15, weight: FontWeight.w700),
+                    ),
+                    Text(
+                      'Choose category, then confirm a new reservation',
+                      style: reservationText(12.5, color: kReservationMuted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: kReservationMuted),
+            ],
+          ),
+        ),
       ),
     );
   }

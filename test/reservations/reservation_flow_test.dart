@@ -67,6 +67,13 @@ void main() {
     expect(find.text('Driver pending'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     expect(find.text('Edit reservation'), findsOneWidget);
+    expect(find.text('Movera'), findsWidgets);
+    expect(find.text('Pickup'), findsOneWidget);
+    expect(find.text('From'), findsOneWidget);
+    expect(find.text('To'), findsOneWidget);
+    expect(find.text('Payment'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Plan a return ride'), 400);
+    expect(find.text('Plan a return ride'), findsOneWidget);
     expect(find.text('Bags · Pet'), findsOneWidget);
     expect(find.text('Your reservation is confirmed'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
