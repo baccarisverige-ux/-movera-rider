@@ -10,6 +10,7 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
@@ -42,6 +43,7 @@ class SelectRide extends StatefulWidget {
     this.note,
     this.reservations,
     this.onScheduled,
+    this.pickupAlreadyConfirmed = false,
   });
 
   /// Return-ride entry: same category cards, scheduled mode, reverse route.
@@ -99,6 +101,7 @@ class SelectRide extends StatefulWidget {
   final ReservationController? reservations;
   final Future<void> Function(BuildContext context, String reservationId)?
   onScheduled;
+  final bool pickupAlreadyConfirmed;
 
   @override
   State<SelectRide> createState() => _SelectRideState();
@@ -192,6 +195,9 @@ class _SelectRideState extends State<SelectRide>
   );
   bool _mapReady = false;
   bool _mapParked = false;
+  bool _pickupConfirmed = false;
+  late String _pickupAddress;
+  late LatLng _pickupPosition;
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
 
@@ -201,6 +207,9 @@ class _SelectRideState extends State<SelectRide>
   @override
   void initState() {
     super.initState();
+    _pickupAddress = widget.pickupAddress;
+    _pickupPosition = widget.pickupPosition;
+    _pickupConfirmed = widget.pickupAlreadyConfirmed;
     _sheetSlide = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 520),
@@ -390,8 +399,43 @@ class _SelectRideState extends State<SelectRide>
       if (!mounted) return;
       final when = await ScheduleDateTimeSelector.choose(context);
       if (when == null || !mounted) return;
+      if (!_pickupConfirmed) {
+        final spot = await Navigator.of(context).push<ConfirmPickupResult>(
+          RightToLeftTransition(
+            ConfirmPickupSpot(
+              initialPosition: _pickupPosition,
+              initialAddress: _pickupAddress,
+              scheduledSummary:
+                  '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
+              confirmLabel: 'Confirm pickup spot',
+            ),
+          ),
+        );
+        if (spot == null || !mounted) return;
+        _pickupAddress = spot.address;
+        _pickupPosition = spot.position;
+        _pickupConfirmed = true;
+      }
       setState(() => _selection.scheduleFor(when));
     });
+  }
+
+  String _month(DateTime when) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[when.month - 1];
   }
 
   Future<void> _showBookingPicker() async {
@@ -534,21 +578,40 @@ class _SelectRideState extends State<SelectRide>
     if (_selection.scheduledFor == null || !mounted) return;
     await _withParkedMap(() async {
       if (!mounted) return;
+      if (!_pickupConfirmed) {
+        final when = _selection.scheduledFor;
+        final spot = await Navigator.of(context).push<ConfirmPickupResult>(
+          RightToLeftTransition(
+            ConfirmPickupSpot(
+              initialPosition: _pickupPosition,
+              initialAddress: _pickupAddress,
+              scheduledSummary: when == null
+                  ? null
+                  : '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
+              confirmLabel: 'Confirm pickup spot',
+            ),
+          ),
+        );
+        if (spot == null || !mounted) return;
+        _pickupAddress = spot.address;
+        _pickupPosition = spot.position;
+        _pickupConfirmed = true;
+      }
       final created = await ScheduledRideCheckout.run(
         context,
         reservations: _reservations,
         selection: _selection,
         pickup: ReservationPlace(
-          label: widget.pickupAddress,
-          lat: widget.pickupPosition.latitude,
-          lng: widget.pickupPosition.longitude,
+          label: _pickupAddress,
+          lat: _pickupPosition.latitude,
+          lng: _pickupPosition.longitude,
         ),
         destination: ReservationPlace(
           label: widget.destinationAddress,
           lat: widget.destinationPosition.latitude,
           lng: widget.destinationPosition.longitude,
         ),
-        pickupPosition: widget.pickupPosition,
+        pickupPosition: _pickupPosition,
         note: widget.note,
         parentReservationId: widget.parentReservationId,
         editingReservationId: widget.editingReservationId,

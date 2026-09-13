@@ -8,6 +8,8 @@ class ScheduledRideSession {
   String pickup = 'Current location';
   String dropoff = '';
   List<String> stops = [];
+  double? pickupLat;
+  double? pickupLng;
   DateTime? scheduledAt;
   String timezone = 'Europe/Stockholm';
   String note = '';
@@ -25,6 +27,12 @@ class ScheduledRideSession {
     this.pickup = pickup;
     this.dropoff = dropoff;
     this.stops = List<String>.from(stops);
+  }
+
+  void capturePickupPoint(double lat, double lng, {String? address}) {
+    pickupLat = lat;
+    pickupLng = lng;
+    if (address != null && address.trim().isNotEmpty) pickup = address.trim();
   }
 
   void captureSchedule(DateTime at, {String timezone = 'Europe/Stockholm'}) {
@@ -47,8 +55,9 @@ class ScheduledRideSession {
 
   Future<String> confirm({Future<String> Function()? book}) async {
     submissionStatus = 'submitting';
-    bookingId = await (book ??
-        () => AppScope.instance.booking.requestBooking(
+    bookingId =
+        await (book ??
+            () => AppScope.instance.booking.requestBooking(
               rideType: rideType,
               paymentMethod: paymentMethod,
               scheduledAt: scheduledAt?.toIso8601String(),
@@ -68,9 +77,9 @@ class ScheduledRidesController {
     CancelReasonCatalog? reasons,
     SchedulePaymentCatalog? payments,
     ScheduledRideCatalog? cards,
-  })  : _reasons = reasons ?? CancelReasonCatalog(),
-        _payments = payments ?? SchedulePaymentCatalog(),
-        _cards = cards ?? ScheduledRideCatalog();
+  }) : _reasons = reasons ?? CancelReasonCatalog(),
+       _payments = payments ?? SchedulePaymentCatalog(),
+       _cards = cards ?? ScheduledRideCatalog();
 
   final CancelReasonCatalog _reasons;
   final SchedulePaymentCatalog _payments;

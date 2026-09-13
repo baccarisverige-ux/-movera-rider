@@ -136,7 +136,9 @@ void showCancelRideReasonDialog(BuildContext context) {
                             fontSize: 12,
                             height: ResSize.h * 38,
                             onPressed: () {
-                              Navigator.of(context).popUntil((route) => route.isFirst);
+                              Navigator.of(
+                                context,
+                              ).popUntil((route) => route.isFirst);
                             },
                           ),
                         ),

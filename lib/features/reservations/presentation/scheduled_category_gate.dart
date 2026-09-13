@@ -19,7 +19,9 @@ Future<void> openScheduledCategorySelector(
       ? 'Current location'
       : session.pickup.trim();
   final destinationLabel = session.dropoff.trim();
-  final pickupPosition = await resolveScheduledPoint(pickupLabel);
+  final pickupPosition = session.pickupLat != null && session.pickupLng != null
+      ? LatLng(session.pickupLat!, session.pickupLng!)
+      : await resolveScheduledPoint(pickupLabel);
   final destinationPosition = await resolveScheduledPoint(destinationLabel);
   if (!context.mounted) return;
 
@@ -39,6 +41,7 @@ Future<void> openScheduledCategorySelector(
         initialRideId: initialRideId ?? session.rideType,
         note: session.note.trim().isEmpty ? null : session.note.trim(),
         editingReservationId: editingReservationId,
+        pickupAlreadyConfirmed: true,
         onScheduled: editingReservationId == null
             ? (context, id) => RideScheduledPage.open(
                 context,

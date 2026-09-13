@@ -6,6 +6,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class ConfirmPickupResult {
   const ConfirmPickupResult({required this.position, required this.address});
@@ -235,26 +236,31 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      ConfirmPickupResult(position: _center, address: _address),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF11181D),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                PointerInterceptor(
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(
+                        context,
+                        ConfirmPickupResult(
+                          position: _center,
+                          address: _address,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      widget.confirmLabel,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: Colors.white,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF11181D),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        widget.confirmLabel,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),

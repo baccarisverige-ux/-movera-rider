@@ -154,6 +154,18 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                     height: 1.45,
                   ),
                 ),
+                if (!ride.status.hasDriver && !ride.status.isCancelled) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    ReservationFormat.notifyWhenAssigned,
+                    textAlign: TextAlign.center,
+                    style: reservationText(
+                      13.5,
+                      color: kReservationMuted,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Center(child: ReservationDriverBadge(ride: ride)),
                 const SizedBox(height: 22),

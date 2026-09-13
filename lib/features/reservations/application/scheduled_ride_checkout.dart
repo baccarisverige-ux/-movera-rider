@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
-import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_booked_popup.dart';
 import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
-/// Confirm pickup → review → create/update. Never Finding Driver.
+/// Create or update after pickup is already confirmed. Never Finding Driver.
 class ScheduledRideCheckout {
   static ReservationDraft draftFrom({
     required RideSelectionController selection,
@@ -59,28 +57,12 @@ class ScheduledRideCheckout {
     if (selection.entersFindingDriver || !selection.createsReservation) {
       throw StateError('scheduled checkout cannot enter Finding Driver');
     }
-    final ride = selection.rideById(selection.selectedRideId);
-    final when = selection.scheduledFor;
-    if (when == null) return null;
-
-    final spot = await Navigator.of(context).push<ConfirmPickupResult>(
-      RightToLeftTransition(
-        ConfirmPickupSpot(
-          initialPosition: pickupPosition,
-          initialAddress: pickup.label,
-          scheduledSummary:
-              '${ReservationFormat.weekdayDate(when)} · ${ReservationFormat.time(when)}',
-          categoryName: ride.name,
-          confirmLabel: 'Confirm pickup spot',
-        ),
-      ),
-    );
-    if (spot == null || !context.mounted) return null;
+    if (selection.scheduledFor == null) return null;
 
     final confirmedPickup = ReservationPlace(
-      label: spot.address,
-      lat: spot.position.latitude,
-      lng: spot.position.longitude,
+      label: pickup.label,
+      lat: pickup.lat ?? pickupPosition.latitude,
+      lng: pickup.lng ?? pickupPosition.longitude,
       subtitle: pickup.subtitle,
     );
     final draft = draftFrom(
@@ -113,19 +95,7 @@ class ScheduledRideCheckout {
       );
     }
 
-    final accepted = await Navigator.of(context).push<bool>(
-      BottomToTopTransition(
-        ReservationReviewPage(
-          draft: draft,
-          ctaLabel: ScheduledRideBooking.ctaLabel(
-            selection.bookingMode,
-            ride.name,
-          ),
-        ),
-      ),
-    );
-    if (accepted != true || !context.mounted) return null;
-    return ScheduledRideBooking.confirm(
+    final created = await ScheduledRideBooking.confirm(
       reservations: reservations,
       selection: selection,
       pickup: confirmedPickup,
@@ -134,5 +104,9 @@ class ScheduledRideCheckout {
       parentReservationId: parentReservationId,
       price: draft.price,
     );
+    if (context.mounted) {
+      await showReservationBookedPopup(context);
+    }
+    return created;
   }
 }

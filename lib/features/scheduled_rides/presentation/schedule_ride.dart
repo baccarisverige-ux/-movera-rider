@@ -12,10 +12,12 @@ import 'package:movera_rider/features/scheduled_rides/application/scheduled_ride
 import 'package:movera_rider/features/scheduled_rides/presentation/confirm_booking.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/add_note.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -113,9 +115,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
     );
   }
 
-  void goToNextStep() {
+  Future<void> goToNextStep() async {
     FocusScope.of(context).unfocus();
     _syncRouteToSession();
+    if (currentStep == 0) {
+      await _confirmPickupThenCalendar();
+      return;
+    }
     if (currentStep >= 1) {
       openScheduledCategorySelector(
         context,
@@ -123,9 +129,32 @@ class _ScheduleRideState extends State<ScheduleRide> {
         editingReservationId: widget.editing?.reservationId,
         initialRideId: widget.editing?.categoryId,
       );
-      return;
     }
-    setState(() => currentStep += 1);
+  }
+
+  Future<void> _confirmPickupThenCalendar() async {
+    final start = await resolveScheduledPoint(_pickupController.text);
+    if (!mounted) return;
+    final spot = await Navigator.of(context).push<ConfirmPickupResult>(
+      RightToLeftTransition(
+        ConfirmPickupSpot(
+          initialPosition: start,
+          initialAddress: _pickupController.text.trim().isEmpty
+              ? 'Current location'
+              : _pickupController.text.trim(),
+          confirmLabel: 'Confirm pickup spot',
+        ),
+      ),
+    );
+    if (spot == null || !mounted) return;
+    _pickupController.text = spot.address;
+    _session.capturePickupPoint(
+      spot.position.latitude,
+      spot.position.longitude,
+      address: spot.address,
+    );
+    _syncRouteToSession();
+    setState(() => currentStep = 1);
   }
 
   void goToPreviousStep() {

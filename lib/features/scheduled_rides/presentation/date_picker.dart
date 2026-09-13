@@ -6,6 +6,7 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 import 'package:syncfusion_flutter_datepicker/datepicker.dart';
+
 // ignore: depend_on_referenced_packages
 
 class CustomDatePicker extends StatelessWidget {

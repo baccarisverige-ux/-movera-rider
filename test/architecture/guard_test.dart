@@ -397,6 +397,7 @@ void main() {
         'lib/features/scheduled_rides/presentation/schedule_ride.dart',
       ).readAsStringSync();
       expect(schedule.contains('Plan your ride'), isTrue);
+      expect(schedule.contains('ConfirmPickupSpot'), isTrue);
       expect(schedule.contains('ScheduleDateTimeSelector'), isTrue);
       expect(schedule.contains('openScheduledCategorySelector'), isTrue);
       expect(schedule.contains('ScheduleAddNote'), isTrue);
@@ -447,14 +448,14 @@ void main() {
     },
   );
 
-  test('scheduled checkout uses shared confirm pickup then review', () {
+  test('scheduled checkout confirms after pickup is already set', () {
     final checkout = File(
       'lib/features/reservations/application/scheduled_ride_checkout.dart',
     ).readAsStringSync();
-    expect(checkout.contains('ConfirmPickupSpot'), isTrue);
-    expect(checkout.contains('Confirm pickup spot'), isTrue);
-    expect(checkout.contains('ReservationReviewPage'), isTrue);
+    expect(checkout.contains('ConfirmPickupSpot'), isFalse);
+    expect(checkout.contains('ReservationReviewPage'), isFalse);
     expect(checkout.contains('ReviewChangesPage'), isTrue);
+    expect(checkout.contains('showReservationBookedPopup'), isTrue);
     expect(checkout.contains('ScheduledRideBooking.confirm'), isTrue);
     expect(checkout.contains('FindingDrivers'), isFalse);
     expect(checkout.contains('submitFinding'), isFalse);

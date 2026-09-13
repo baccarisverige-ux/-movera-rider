@@ -187,9 +187,7 @@ class _ScheduleAddNoteState extends State<ScheduleAddNote> {
                             : _noteController.text;
                         showTextField = false;
                       });
-                      widget.session?.captureNote(
-                        _noteController.text.trim(),
-                      );
+                      widget.session?.captureNote(_noteController.text.trim());
                     },
                   ),
                 ),
@@ -297,9 +295,7 @@ class _ScheduleAddNoteState extends State<ScheduleAddNote> {
                             : typed;
                         showTextField = false;
                       });
-                      widget.session?.captureNote(
-                        typed.isEmpty ? '' : typed,
-                      );
+                      widget.session?.captureNote(typed.isEmpty ? '' : typed);
                       widget.onConfirm();
                     },
                     child: Container(

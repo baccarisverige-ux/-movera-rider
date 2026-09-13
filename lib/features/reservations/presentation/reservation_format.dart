@@ -45,8 +45,11 @@ abstract final class ReservationFormat {
   }
 
   static String scheduledReady(DateTime when) {
-    return "We'll keep your reservation ready for ${weekdayDate(when)} at ${time(when)}. Driver details will appear here when a driver is assigned.";
+    return "We'll keep your reservation ready for ${weekdayDate(when)} at ${time(when)}.";
   }
+
+  static const String notifyWhenAssigned =
+      "We'll notify you as soon as a driver is assigned.";
 
   static String kr(double amount) => 'kr ${amount.toStringAsFixed(0)}';
 
