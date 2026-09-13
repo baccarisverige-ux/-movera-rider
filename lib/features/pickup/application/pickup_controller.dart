@@ -56,5 +56,14 @@ class PickupMapController {
     return LatLng(current.latitude, current.longitude);
   }
 
+  Future<PickupMapFix?> search(String query) async {
+    final result = await geocoding.geocodeAddress(query);
+    if (result == null) return null;
+    return PickupMapFix(
+      position: LatLng(result.latitude, result.longitude),
+      address: result.address,
+    );
+  }
+
   void dispose() => _stale.dispose();
 }

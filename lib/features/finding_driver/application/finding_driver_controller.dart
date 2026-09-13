@@ -7,6 +7,7 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -51,6 +52,7 @@ class FindingDriverController {
     required String rideType,
     required double price,
     required String paymentMethod,
+    RideNotes notes = RideNotes.empty,
     required void Function(int remaining) onTick,
     required void Function() onMatched,
   }) {
@@ -69,6 +71,7 @@ class FindingDriverController {
         price: price,
         paymentMethod: paymentMethod,
         rideId: ride.rideId,
+        notes: notes,
       ),
       onTick: onTick,
       onMatched: onMatched,
@@ -153,6 +156,7 @@ class FindingDriverController {
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
           rideId: ride.rideId,
+          notes: snapshot.notes,
         ),
       );
     }

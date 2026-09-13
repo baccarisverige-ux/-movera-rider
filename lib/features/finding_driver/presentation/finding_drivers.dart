@@ -1,20 +1,18 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
-import 'package:movera_rider/features/finding_driver/presentation/cancel_ride.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
-import 'package:movera_rider/shared/widgets/custom_btn.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class FindingDrivers extends StatefulWidget {
@@ -27,6 +25,7 @@ class FindingDrivers extends StatefulWidget {
     required this.rideType,
     required this.price,
     required this.paymentMethod,
+    this.notes = RideNotes.empty,
   });
 
   final String pickupAddress;
@@ -36,53 +35,59 @@ class FindingDrivers extends StatefulWidget {
   final String rideType;
   final double price;
   final String paymentMethod;
+  final RideNotes notes;
 
   @override
   State<FindingDrivers> createState() => _FindingDriversState();
 }
 
 class _FindingDriversState extends State<FindingDrivers> {
-  GoogleMapController? _mapController;
   Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
   int remainingSeconds = 12;
   final FindingDriverController _match = FindingDriverController();
+  final PanelController _panel = PanelController();
+  bool _mapParked = false;
 
+  late String _pickupAddress;
+  late LatLng _pickupPosition;
   late final CameraPosition _initialPosition;
 
   @override
   void initState() {
     super.initState();
-    _initialPosition = CameraPosition(
-      target: widget.pickupPosition,
-      zoom: 14.0,
-    );
-    _loadMarkers();
+    _pickupAddress = widget.pickupAddress;
+    _pickupPosition = widget.pickupPosition;
+    _initialPosition = CameraPosition(target: _pickupPosition, zoom: 14.0);
+    _loadMapBits();
     _match.startFrom(
-      pickupAddress: widget.pickupAddress,
+      pickupAddress: _pickupAddress,
       destinationAddress: widget.destinationAddress,
-      pickupLat: widget.pickupPosition.latitude,
-      pickupLng: widget.pickupPosition.longitude,
+      pickupLat: _pickupPosition.latitude,
+      pickupLng: _pickupPosition.longitude,
       destinationLat: widget.destinationPosition.latitude,
       destinationLng: widget.destinationPosition.longitude,
       rideType: widget.rideType,
       price: widget.price,
       paymentMethod: widget.paymentMethod,
+      notes: widget.notes,
       onTick: (remaining) {
         if (mounted) setState(() => remainingSeconds = remaining);
       },
       onMatched: () {
         if (!mounted) return;
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           BottomToTopTransition(
             WaitingForDriver(
-              pickupAddress: widget.pickupAddress,
+              pickupAddress: _pickupAddress,
               destinationAddress: widget.destinationAddress,
-              pickupPosition: widget.pickupPosition,
+              pickupPosition: _pickupPosition,
               destinationPosition: widget.destinationPosition,
               rideType: widget.rideType,
               price: widget.price,
               paymentMethod: widget.paymentMethod,
+              notes: widget.notes,
             ),
           ),
         );
@@ -90,29 +95,107 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
   }
 
-  String _formatTime(int seconds) {
-    int minutes = seconds ~/ 60;
-    int secs = seconds % 60;
-    String minStr = minutes.toString().padLeft(2, '0');
-    String secStr = secs.toString().padLeft(2, '0');
-    return "$minStr:$secStr";
-  }
-
-  void _loadMarkers() {
+  void _loadMapBits() {
     _markers = {
       Marker(
         markerId: const MarkerId('pickup'),
-        position: widget.pickupPosition,
-        infoWindow: InfoWindow(title: widget.pickupAddress),
-        icon: BitmapDescriptor.defaultMarker,
+        position: _pickupPosition,
+        infoWindow: InfoWindow(title: _pickupAddress),
       ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
         infoWindow: InfoWindow(title: widget.destinationAddress),
-        icon: BitmapDescriptor.defaultMarker,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      ),
+      Marker(
+        markerId: const MarkerId('car-a'),
+        position: LatLng(_pickupPosition.latitude + 0.0021, _pickupPosition.longitude - 0.0014),
+        rotation: 42,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+      ),
+      Marker(
+        markerId: const MarkerId('car-b'),
+        position: LatLng(_pickupPosition.latitude - 0.0016, _pickupPosition.longitude + 0.0022),
+        rotation: 210,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+      ),
+      Marker(
+        markerId: const MarkerId('car-c'),
+        position: LatLng(_pickupPosition.latitude + 0.0008, _pickupPosition.longitude + 0.0018),
+        rotation: 128,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
       ),
     };
+    _polylines = {
+      Polyline(
+        polylineId: const PolylineId('route'),
+        points: [_pickupPosition, widget.destinationPosition],
+        color: const Color(0xFF1D252C),
+        width: 4,
+      ),
+    };
+  }
+
+  Future<void> _confirmCancel() async {
+    final keep = await showCancelRideSheet(
+      context,
+      takingLonger: remainingSeconds <= 4,
+    );
+    if (!keep && mounted) {
+      _match.cancelSearch();
+      RideNavigator.home(context);
+    }
+  }
+
+  Future<void> _openDetails() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) => RideDetailsSheet(
+        pickupAddress: _pickupAddress,
+        destinationAddress: widget.destinationAddress,
+        rideType: widget.rideType,
+        price: widget.price,
+        paymentMethod: widget.paymentMethod,
+        notes: widget.notes,
+        canEditPickup: true,
+        onEditPickup: () async {
+          Navigator.pop(sheetContext);
+          AppScope.instance.maps.detach(owner: MapOwners.finding);
+          setState(() => _mapParked = true);
+          await Future<void>.delayed(const Duration(milliseconds: 90));
+          if (!mounted) return;
+          final result = await Navigator.push<ConfirmPickupResult>(
+            context,
+            RightToLeftTransition(
+              ConfirmPickupSpot(
+                initialPosition: _pickupPosition,
+                initialAddress: _pickupAddress,
+              ),
+            ),
+          );
+          if (!mounted) return;
+          setState(() {
+            _mapParked = false;
+            if (result != null) {
+              _pickupAddress = result.address;
+              _pickupPosition = result.position;
+              _loadMapBits();
+            }
+          });
+        },
+        onEditDestination: () => Navigator.pop(sheetContext),
+        onCancelTrip: () {
+          Navigator.pop(sheetContext);
+          _confirmCancel();
+        },
+      ),
+    );
   }
 
   @override
@@ -124,234 +207,188 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SlidingUpPanel(
-        color: AppColor.white,
-        backdropColor: Colors.transparent,
-        margin: EdgeInsets.all(0),
-        minHeight: ResSize.h * 80,
-        padding: EdgeInsets.symmetric(vertical: ResSize.h * 16),
-        boxShadow: [],
-        isDraggable: true,
-        defaultPanelState: PanelState.CLOSED,
-        maxHeight: ResSize.h * 454,
-        parallaxEnabled: false,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-        panelBuilder: (ScrollController sc) => panelColumn(sc, context),
-        body: Stack(
-          children: [
-            CustomGoogleMap(
-              initialPosition: _initialPosition,
-              markers: _markers,
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              compassEnabled: false,
-              trafficEnabled: false,
-              buildingsEnabled: true,
-              indoorViewEnabled: false,
-              mapType: MapType.normal,
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                AppScope.instance.maps.attach(
-                  controller,
-                  owner: MapOwners.finding,
-                );
-              },
-              onTap: (LatLng position) {},
-            ),
-            Align(
-              alignment: Alignment.center,
-              child: Image.asset(
-                AppAssets.selectedLocation,
-                height: ResSize.h * 167,
+    final progress = remainingSeconds <= 0 ? 1.0 : 1 - (remainingSeconds / 12);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmCancel();
+      },
+      child: Scaffold(
+        body: SlidingUpPanel(
+          controller: _panel,
+          color: Colors.white,
+          backdropColor: Colors.transparent,
+          minHeight: 292,
+          maxHeight: 460,
+          isDraggable: true,
+          defaultPanelState: PanelState.CLOSED,
+          parallaxEnabled: false,
+          boxShadow: const [],
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          panelBuilder: (sc) => _panelBody(sc, progress),
+          body: Stack(
+            children: [
+              if (!_mapParked)
+                CustomGoogleMap(
+                  initialPosition: _initialPosition,
+                  markers: _markers,
+                  polylines: _polylines,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  compassEnabled: false,
+                  trafficEnabled: false,
+                  buildingsEnabled: true,
+                  indoorViewEnabled: false,
+                  mapType: MapType.normal,
+                  padding: const EdgeInsets.only(bottom: 292),
+                  onMapCreated: (controller) {
+                    AppScope.instance.maps.attach(
+                      controller,
+                      owner: MapOwners.finding,
+                    );
+                  },
+                ),
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      _roundBtn(Icons.keyboard_arrow_down_rounded, () {
+                        if (_panel.isAttached && _panel.isPanelOpen) {
+                          _panel.close();
+                        } else {
+                          _confirmCancel();
+                        }
+                      }),
+                      const Spacer(),
+                      SafetyKitMapButton(rideId: _match.ride.rideId),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget panelColumn(ScrollController sc, BuildContext context) {
+  Widget _panelBody(ScrollController sc, double progress) {
     return SingleChildScrollView(
       controller: sc,
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextWidget(
-                          color: AppColor.title,
-                          fontSize: 16,
-                          fontWeight: fwSemiBold,
-                          text: "5+ cars nearby",
-                        ),
-                        TextWidget(
-                          color: AppColor.title,
-                          fontSize: 12,
-                          fontWeight: fwNormal,
-                          text: "Finding a driver for you",
-                        ),
-                      ],
-                    ),
-                    10.width,
-                    Image.asset(
-                      AppAssets.driversImages,
-                      height: ResSize.h * 25,
-                    ),
-                  ],
-                ),
-
-                // ⏱ Dynamic timer text here
-                TextWidget(
-                  color: AppColor.title,
-                  fontSize: 16,
-                  fontWeight: fwNormal,
-                  text: _formatTime(remainingSeconds),
-                ),
-              ],
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7EBEE),
+                borderRadius: BorderRadius.circular(99),
+              ),
             ),
           ),
-          3.height,
+          const SizedBox(height: 16),
+          Text(
+            'Ride requested',
+            style: GoogleFonts.poppins(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1D252C),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            remainingSeconds <= 4
+                ? "We'll update you as soon as we can"
+                : 'Finding drivers nearby',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF778189),
+            ),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.08, 1),
+              minHeight: 4,
+              backgroundColor: const Color(0xFFEAF2F8),
+              color: const Color(0xFF2D5878),
+            ),
+          ),
+          const SizedBox(height: 16),
           Container(
-            height: ResSize.h * 4,
-            width: double.infinity,
-            color: const Color(0xffFAFAFA),
-          ),
-          16.height,
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE7EBEE)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
               children: [
-                TextWidget(
-                  color: AppColor.subtitle,
-                  fontSize: 12,
-                  fontWeight: fwSemiBold,
-                  text: "Pickup from  ",
-                ),
-                TextWidget(
-                  color: AppColor.title,
-                  fontSize: 14,
-                  fontWeight: fwSemiBold,
-                  text: widget.pickupAddress,
-                ),
-                16.height,
-                Divider(color: AppColor.border, thickness: 0.3, height: 0),
-                16.height,
-                TextWidget(
-                  color: AppColor.subtitle,
-                  fontSize: 12,
-                  fontWeight: fwSemiBold,
-                  text: "Drop off location",
-                ),
-                TextWidget(
-                  color: AppColor.title,
-                  fontSize: 14,
-                  fontWeight: fwSemiBold,
-                  text: widget.destinationAddress,
-                ),
-                16.height,
-                Divider(color: AppColor.border, thickness: 0.3, height: 0),
-                16.height,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextWidget(
-                      color: AppColor.title,
-                      fontSize: 16,
-                      fontWeight: fwBold,
-                      text: "Ride Cost",
-                    ),
-                    TextWidget(
-                      color: AppColor.title,
-                      fontSize: 16,
-                      fontWeight: fwBold,
-                      text: 'kr ${widget.price.toStringAsFixed(0)}',
-                    ),
-                  ],
-                ),
-                16.height,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextWidget(
-                      color: AppColor.title,
-                      fontSize: 16,
-                      fontWeight: fwBold,
-                      text: "Payment Method",
-                    ),
-                    Row(
-                      children: [
-                        Transform.scale(
-                          scale: 1.2,
-                          child: Image.asset(
-                            AppAssets.wallet2,
-                            color: AppColor.title,
-                            height: ResSize.h * 22,
-                          ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${widget.rideType} details',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: const Color(0xFF778189),
                         ),
-                        6.width,
-                        TextWidget(
-                          color: AppColor.title,
-                          fontSize: 16,
-                          fontWeight: fwBold,
-                          text: widget.paymentMethod,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Meet at your pickup spot on $_pickupAddress',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF1D252C),
+                          height: 1.3,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        widget.paymentMethod,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF2D5878),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                16.height,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextWidget(
-                      color: AppColor.title,
-                      fontSize: 16,
-                      fontWeight: fwBold,
-                      text: "Ride Type",
-                    ),
-                    TextWidget(
-                      color: AppColor.title,
-                      fontSize: 16,
-                      fontWeight: fwBold,
-                      text: widget.rideType,
-                    ),
-                  ],
-                ),
-                36.height,
-
-                // Cancel Request Button
-                CustomButton(
-                  textColor: AppColor.black,
-                  btncolor: const Color(0xffE0E0E0),
-                  centerContent: "Cancel request",
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => RideCancellationDialog(),
-                    );
-                  },
+                IconButton(
+                  onPressed: _openDetails,
+                  icon: const Icon(Icons.more_horiz_rounded),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          SafetyKitSheetRow(rideId: _match.ride.rideId),
         ],
+      ),
+    );
+  }
+
+  Widget _roundBtn(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, size: 22, color: const Color(0xFF1D252C)),
+        ),
       ),
     );
   }

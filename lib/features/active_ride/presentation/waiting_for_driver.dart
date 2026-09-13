@@ -9,10 +9,13 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_arriving_controller.dart';
 import 'package:movera_rider/features/driver_arriving/domain/driver_arrival_view.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
+import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
-import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -30,6 +33,7 @@ class WaitingForDriver extends StatefulWidget {
     required this.rideType,
     required this.price,
     required this.paymentMethod,
+    this.notes = RideNotes.empty,
   });
 
   final String pickupAddress;
@@ -39,6 +43,7 @@ class WaitingForDriver extends StatefulWidget {
   final String rideType;
   final double price;
   final String paymentMethod;
+  final RideNotes notes;
 
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
@@ -61,6 +66,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       zoom: 14.0,
     );
     _loadMarkers();
+    SafetyController.shared.load();
   }
 
   void _loadMarkers() {
@@ -88,7 +94,17 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final keep = await showCancelRideSheet(context, takingLonger: false);
+        if (!keep && mounted) {
+          _ride.markCancelled();
+          RideNavigator.home(context);
+        }
+      },
+      child: Scaffold(
       body: SlidingUpPanel(
         color: AppColor.white,
         backdropColor: Colors.transparent,
@@ -261,9 +277,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   ),
                 ),
               ),
+              const SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(0, 8, 12, 0),
+                    child: SafetyKitMapButton(),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -309,6 +335,66 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               ],
             ),
           ),
+          12.height,
+          const SafetyKitSheetRow(),
+          if (!widget.notes.isEmpty) ...[
+            12.height,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final label in widget.notes.selected)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResSize.w * 10,
+                      vertical: ResSize.h * 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xffF2F5F7),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: TextWidget(
+                      text: label,
+                      fontSize: 12,
+                      fontWeight: fwMedium,
+                      color: AppColor.title,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (SafetyController.shared.preferences.pinRequired) ...[
+            12.height,
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: ResSize.w * 16,
+                vertical: ResSize.h * 12,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: const Color(0xffF2F5F7),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextWidget(
+                    text: 'Show this PIN to your driver',
+                    fontSize: 12,
+                    fontWeight: fwMedium,
+                    color: AppColor.subtitle,
+                  ),
+                  4.height,
+                  TextWidget(
+                    text: SafetyController.shared.pin.pin,
+                    fontSize: 22,
+                    fontWeight: fwBold,
+                    color: AppColor.title,
+                  ),
+                ],
+              ),
+            ),
+          ],
           12.height,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,12 +699,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 8.height,
 
                 InkWell(
-                  onTap: () {
-                    _ride.markCancelled();
-                    Navigator.push(
+                  onTap: () async {
+                    final keep = await showCancelRideSheet(
                       context,
-                      BottomToTopTransition(RideCompleted()),
+                      takingLonger: false,
                     );
+                    if (!keep && mounted) {
+                      _ride.markCancelled();
+                      RideNavigator.home(context);
+                    }
                   },
                   child: Row(
                     children: [

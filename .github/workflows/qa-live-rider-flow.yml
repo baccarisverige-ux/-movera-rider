@@ -169,7 +169,8 @@ jobs:
           if(fatalErrors().length)throw new Error('Fatal runtime error scheduling ride: '+fatalErrors().join(' | '));
 
           // The pinned production footer keeps the final CTA visible at the bottom.
-          await page.mouse.click(195,808);await page.waitForTimeout(5000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
+          await page.mouse.click(195,808);await page.waitForTimeout(900);
+          await page.mouse.click(195,808);await page.waitForTimeout(4000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
           if(fatalErrors().length)throw new Error('Fatal runtime error after final booking CTA: '+fatalErrors().join(' | '));
 
           console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
@@ -259,7 +260,8 @@ jobs:
           forbidOwner(selectOwner, ['waiting','finding'], 'select-ride');
           await stressPage.mouse.click(285,743); await stressPage.waitForTimeout(650);
           await stressPage.mouse.click(195,702); await stressPage.waitForTimeout(700);
-          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(5000);
+          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(900);
+          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(4000);
           await stressPage.screenshot({path:'qa-map-stress-finding.png',fullPage:true});
           const findingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
           const findingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);

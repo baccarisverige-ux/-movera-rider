@@ -71,6 +71,7 @@ class RideRestoreCoordinator {
           rideType: snapshot.rideType,
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
+          notes: snapshot.notes,
         );
       case RestoredSurface.waiting:
         return WaitingForDriver(
@@ -81,6 +82,7 @@ class RideRestoreCoordinator {
           rideType: snapshot.rideType,
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
+          notes: snapshot.notes,
         );
       case RestoredSurface.complete:
         return const RideCompleted();

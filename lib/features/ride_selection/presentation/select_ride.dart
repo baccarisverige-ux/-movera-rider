@@ -10,6 +10,7 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -465,33 +466,38 @@ class _SelectRideState extends State<SelectRide>
 
   void _book() {
     final selected = _selectedRide;
-    _withParkedMap(() async {
-      if (!mounted) return;
-      await BookingController().submitFinding(
-        pickupAddress: widget.pickupAddress,
-        destinationAddress: widget.destinationAddress,
-        pickupLat: widget.pickupPosition.latitude,
-        pickupLng: widget.pickupPosition.longitude,
-        destinationLat: widget.destinationPosition.latitude,
-        destinationLng: widget.destinationPosition.longitude,
-        rideType: selected.name,
-        price: _priceFor(selected),
-        paymentMethod: _payments[_selection.selectedPayment].name,
-      );
-      await Navigator.push(
-        context,
-        BottomToTopTransition(
-          FindingDrivers(
-            pickupAddress: widget.pickupAddress,
-            destinationAddress: widget.destinationAddress,
-            pickupPosition: widget.pickupPosition,
-            destinationPosition: widget.destinationPosition,
-            rideType: selected.name,
-            price: _priceFor(selected),
-            paymentMethod: _payments[_selection.selectedPayment].name,
+    showQuickRideNotesSheet(context).then((notes) {
+      if (!mounted || notes == null) return;
+      _withParkedMap(() async {
+        if (!mounted) return;
+        await BookingController().submitFinding(
+          pickupAddress: widget.pickupAddress,
+          destinationAddress: widget.destinationAddress,
+          pickupLat: widget.pickupPosition.latitude,
+          pickupLng: widget.pickupPosition.longitude,
+          destinationLat: widget.destinationPosition.latitude,
+          destinationLng: widget.destinationPosition.longitude,
+          rideType: selected.name,
+          price: _priceFor(selected),
+          paymentMethod: _payments[_selection.selectedPayment].name,
+        );
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          BottomToTopTransition(
+            FindingDrivers(
+              pickupAddress: widget.pickupAddress,
+              destinationAddress: widget.destinationAddress,
+              pickupPosition: widget.pickupPosition,
+              destinationPosition: widget.destinationPosition,
+              rideType: selected.name,
+              price: _priceFor(selected),
+              paymentMethod: _payments[_selection.selectedPayment].name,
+              notes: notes,
+            ),
           ),
-        ),
-      );
+        );
+      });
     });
   }
 

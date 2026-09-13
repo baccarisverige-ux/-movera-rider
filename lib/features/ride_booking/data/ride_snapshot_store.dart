@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class RideSnapshot {
@@ -17,6 +18,7 @@ class RideSnapshot {
     required this.price,
     required this.paymentMethod,
     this.rideId,
+    this.notes = RideNotes.empty,
   });
 
   final RideStatus status;
@@ -31,9 +33,42 @@ class RideSnapshot {
   final double price;
   final String paymentMethod;
   final String? rideId;
+  final RideNotes notes;
 
   bool get isFresh =>
       DateTime.now().difference(savedAt) < const Duration(minutes: 20);
+
+  RideSnapshot copyWith({
+    RideStatus? status,
+    DateTime? savedAt,
+    String? pickupAddress,
+    String? destinationAddress,
+    double? pickupLat,
+    double? pickupLng,
+    double? destinationLat,
+    double? destinationLng,
+    String? rideType,
+    double? price,
+    String? paymentMethod,
+    String? rideId,
+    RideNotes? notes,
+  }) {
+    return RideSnapshot(
+      status: status ?? this.status,
+      savedAt: savedAt ?? this.savedAt,
+      pickupAddress: pickupAddress ?? this.pickupAddress,
+      destinationAddress: destinationAddress ?? this.destinationAddress,
+      pickupLat: pickupLat ?? this.pickupLat,
+      pickupLng: pickupLng ?? this.pickupLng,
+      destinationLat: destinationLat ?? this.destinationLat,
+      destinationLng: destinationLng ?? this.destinationLng,
+      rideType: rideType ?? this.rideType,
+      price: price ?? this.price,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      rideId: rideId ?? this.rideId,
+      notes: notes ?? this.notes,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'status': status.name,
@@ -48,6 +83,7 @@ class RideSnapshot {
         'price': price,
         'paymentMethod': paymentMethod,
         'rideId': rideId,
+        'notes': notes.toJson(),
       };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -68,6 +104,11 @@ class RideSnapshot {
       price: (json['price'] as num?)?.toDouble() ?? 0,
       paymentMethod: json['paymentMethod'] as String? ?? 'Apple Pay',
       rideId: json['rideId'] as String?,
+      notes: RideNotes.fromJson(
+        json['notes'] is Map
+            ? Map<String, dynamic>.from(json['notes'] as Map)
+            : null,
+      ),
     );
   }
 }
