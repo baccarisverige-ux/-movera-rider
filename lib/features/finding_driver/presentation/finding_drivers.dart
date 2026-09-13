@@ -170,7 +170,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           setState(() => _mapParked = true);
           await Future<void>.delayed(const Duration(milliseconds: 90));
           if (!mounted) return;
-          final result = await Navigator.push<ConfirmPickupResult>(
+          final result = await Navigator.push(
             context,
             RightToLeftTransition(
               ConfirmPickupSpot(
@@ -182,7 +182,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           if (!mounted) return;
           setState(() {
             _mapParked = false;
-            if (result != null) {
+            if (result is ConfirmPickupResult) {
               _pickupAddress = result.address;
               _pickupPosition = result.position;
               _loadMapBits();
