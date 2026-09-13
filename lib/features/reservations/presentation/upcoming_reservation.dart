@@ -373,7 +373,7 @@ class _JourneyCard extends StatelessWidget {
       child: Column(
         children: [
           _DetailRow(
-            iconAsset: AppAssets.dateTime,
+            iconAsset: AppAssets.scheduleCalendar,
             label: 'Scheduled for',
             value:
                 '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
@@ -383,14 +383,14 @@ class _JourneyCard extends StatelessWidget {
           ),
           const Divider(height: 1, indent: 52, color: kReservationLine),
           _DetailRow(
-            iconAsset: AppAssets.gpsFill,
+            iconAsset: AppAssets.gps,
             label: 'Pickup at',
             value: ride.pickup.label,
             caption: ride.pickup.subtitle,
           ),
           const Divider(height: 1, indent: 52, color: kReservationLine),
           _DetailRow(
-            iconAsset: AppAssets.locationFill,
+            iconAsset: AppAssets.location,
             label: 'Dropoff at',
             value: ride.destination.label,
             caption: ride.destination.subtitle,

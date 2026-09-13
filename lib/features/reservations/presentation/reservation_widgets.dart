@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 
@@ -438,8 +440,8 @@ class MoveraGlyph extends StatelessWidget {
   const MoveraGlyph({
     super.key,
     required this.asset,
-    this.size = 36,
-    this.glyph = 20,
+    this.size = 32,
+    this.glyph = 22,
   });
 
   final String asset;
@@ -452,13 +454,12 @@ class MoveraGlyph extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: kReservationSoft,
-        borderRadius: BorderRadius.circular(10),
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColor.liteBlue,
       ),
       child: Image.asset(
         asset,
-        width: glyph,
         height: glyph,
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
@@ -480,34 +481,52 @@ class ReservationPaymentMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: kReservationSoft,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Image.asset(
-        _assetFor(method),
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) =>
-            Image.asset(AppAssets.payment, fit: BoxFit.contain),
-      ),
-    );
-  }
-
-  static String _assetFor(String method) {
     final lower = method.toLowerCase();
-    if (lower.contains('apple')) return AppAssets.applepay;
-    if (lower.contains('google')) return 'assets/images/google_pay_brand.png';
-    if (lower.contains('paypal')) return AppAssets.paypal;
-    if (lower.contains('visa')) return AppAssets.visa;
-    if (lower.contains('master') || lower.contains('card')) {
-      return AppAssets.mastercard;
+    Widget logo;
+    Color background = Colors.white;
+    if (lower.contains('apple')) {
+      logo = SvgPicture.asset(
+        'assets/images/apple_pay_brand.svg',
+        fit: BoxFit.contain,
+      );
+    } else if (lower.contains('google')) {
+      logo = Image.asset(
+        'assets/images/google_pay_brand.png',
+        fit: BoxFit.contain,
+      );
+    } else if (lower.contains('swish')) {
+      logo = SvgPicture.asset(
+        'assets/images/swish_brand.svg',
+        fit: BoxFit.cover,
+      );
+    } else if (lower.contains('paypal')) {
+      logo = Image.asset(AppAssets.paypal, fit: BoxFit.contain);
+    } else if (lower.contains('visa')) {
+      logo = Image.asset(AppAssets.visa, fit: BoxFit.contain);
+    } else if (lower.contains('master') || lower.contains('card')) {
+      logo = Image.asset(AppAssets.mastercard, fit: BoxFit.contain);
+    } else if (lower.contains('cash')) {
+      background = const Color(0xFFEEF6F0);
+      logo = const Icon(
+        Icons.payments_outlined,
+        color: Color(0xFF1F7A4D),
+        size: 20,
+      );
+    } else {
+      logo = Image.asset(AppAssets.wallet, fit: BoxFit.contain);
     }
-    if (lower.contains('cash')) return AppAssets.cash;
-    return AppAssets.payment;
+    return Container(
+      width: 42,
+      height: 38,
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: background == Colors.white ? kReservationLine : background,
+        ),
+      ),
+      child: logo,
+    );
   }
 }
