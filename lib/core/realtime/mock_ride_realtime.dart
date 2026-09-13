@@ -51,7 +51,7 @@ class MockRideRealtime implements RideRealtime {
 
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
-    if (_rideId == rideId && !disposed && lastStatus.isMatched) {
+    if (_rideId == rideId && !disposed && !cancelled && lastStatus.isMatched) {
       return _controller.stream;
     }
     _assign?.cancel();
@@ -111,7 +111,7 @@ class MockRideRealtime implements RideRealtime {
     double? longitude,
     int? etaSeconds,
   }) {
-    if (_rideId == null || disposed) return;
+    if (_rideId == null || disposed || cancelled) return;
     _sequence = sequence ?? _sequence + 1;
     lastStatus = status;
     if (driver != null) lastDriver = driver;
@@ -151,14 +151,22 @@ class MockRideRealtime implements RideRealtime {
       _progress = min(1, _progress + 0.12);
       final pickupLat = _pickupLat;
       final pickupLng = _pickupLng;
-      if (pickupLat == null || pickupLng == null || lastLat == null || lastLng == null) {
+      if (pickupLat == null ||
+          pickupLng == null ||
+          lastLat == null ||
+          lastLng == null) {
         return;
       }
       lastLat = lastLat! + (pickupLat - lastLat!) * 0.18;
       lastLng = lastLng! + (pickupLng - lastLng!) * 0.18;
       lastLocationAt = DateTime.now();
       var status = RideStatus.driverArriving;
-      final distance = DriverEta.metersBetween(lastLat!, lastLng!, pickupLat, pickupLng);
+      final distance = DriverEta.metersBetween(
+        lastLat!,
+        lastLng!,
+        pickupLat,
+        pickupLng,
+      );
       if (distance < 50) {
         status = RideStatus.driverWaiting;
       }
@@ -230,11 +238,12 @@ class MockRideRealtime implements RideRealtime {
             (value) => value.name == raw['status'],
             orElse: () => status,
           );
-          lastDriver = MatchedDriver.fromJson(
-            raw['driver'] is Map
-                ? Map<String, dynamic>.from(raw['driver'] as Map)
-                : null,
-          ) ??
+          lastDriver =
+              MatchedDriver.fromJson(
+                raw['driver'] is Map
+                    ? Map<String, dynamic>.from(raw['driver'] as Map)
+                    : null,
+              ) ??
               lastDriver;
         }
       } catch (_) {}
@@ -252,7 +261,9 @@ class MockRideRealtime implements RideRealtime {
   @override
   void cancelRide() {
     cancelled = true;
+    lastStatus = RideStatus.cancelledByRider;
     _gps?.cancel();
+    _gps = null;
     unsubscribe();
   }
 

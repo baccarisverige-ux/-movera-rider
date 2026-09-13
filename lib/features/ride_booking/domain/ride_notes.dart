@@ -24,12 +24,7 @@ class RideNotes {
     ];
   }
 
-  RideNotes copyWith({
-    bool? bags,
-    bool? pet,
-    bool? baby,
-    bool? child,
-  }) {
+  RideNotes copyWith({bool? bags, bool? pet, bool? baby, bool? child}) {
     return RideNotes(
       bags: bags ?? this.bags,
       pet: pet ?? this.pet,
@@ -54,11 +49,11 @@ class RideNotes {
   }
 
   Map<String, dynamic> toJson() => {
-        'bags': bags,
-        'pet': pet,
-        'baby': baby,
-        'child': child,
-      };
+    'bags': bags,
+    'pet': pet,
+    'baby': baby,
+    'child': child,
+  };
 
   factory RideNotes.fromJson(Map<String, dynamic>? json) {
     if (json == null) return empty;

@@ -55,6 +55,7 @@ class _FindingDriversState extends State<FindingDrivers>
   final FindingDriverController _match = FindingDriverController();
   bool _mapParked = false;
   bool _leaving = false;
+  bool _cancelSheetOpen = false;
   bool _overlayOn = false;
   late final AnimationController _sheetSlide;
 
@@ -93,23 +94,8 @@ class _FindingDriversState extends State<FindingDrivers>
         _syncSheetOverlay();
       },
       onMatched: () {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          BottomToTopTransition(
-            WaitingForDriver(
-              pickupAddress: _pickupAddress,
-              destinationAddress: widget.destinationAddress,
-              pickupPosition: _pickupPosition,
-              destinationPosition: widget.destinationPosition,
-              rideType: widget.rideType,
-              price: _match.currentPrice,
-              paymentMethod: widget.paymentMethod,
-              notes: widget.notes,
-              driver: _match.matchedDriver,
-            ),
-          ),
-        );
+        if (!mounted || _leaving || _cancelSheetOpen) return;
+        _openWaiting();
       },
     );
   }
@@ -147,21 +133,46 @@ class _FindingDriversState extends State<FindingDrivers>
     };
   }
 
+  void _openWaiting() {
+    if (!mounted || _leaving) return;
+    Navigator.pushReplacement(
+      context,
+      BottomToTopTransition(
+        WaitingForDriver(
+          pickupAddress: _pickupAddress,
+          destinationAddress: widget.destinationAddress,
+          pickupPosition: _pickupPosition,
+          destinationPosition: widget.destinationPosition,
+          rideType: widget.rideType,
+          price: _match.currentPrice,
+          paymentMethod: widget.paymentMethod,
+          notes: widget.notes,
+          driver: _match.matchedDriver,
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmCancel() async {
     if (_leaving) return;
+    _cancelSheetOpen = true;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: _match.isDelayed,
       phase: CancelPhase.searching,
     );
-    if (!outcome.cancelled || !mounted) return;
+    if (!mounted) {
+      _cancelSheetOpen = false;
+      return;
+    }
+    _cancelSheetOpen = false;
+    if (!outcome.cancelled) {
+      if (_match.matchCount == 1) _openWaiting();
+      return;
+    }
     _leaving = true;
     await _match.cancelSearch(reasonId: outcome.reasonId);
-    if (!mounted) return;
-    setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) RideNavigator.home(context);
-    });
+    RideNavigator.home(context);
   }
 
   Future<void> _openDetails() async {

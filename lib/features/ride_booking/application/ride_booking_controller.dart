@@ -3,7 +3,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 
 class RideBookingController {
   RideBookingController({RideBookingRepository? store})
-      : _store = store ?? RideBookingRepository();
+    : _store = store ?? RideBookingRepository();
   final RideBookingRepository _store;
 
   Future<RideSnapshot?> restore() => _store.restore();

@@ -80,22 +80,22 @@ class RideSnapshot {
   }
 
   Map<String, dynamic> toJson() => {
-        'status': status.name,
-        'savedAt': savedAt.toIso8601String(),
-        'pickupAddress': pickupAddress,
-        'destinationAddress': destinationAddress,
-        'pickupLat': pickupLat,
-        'pickupLng': pickupLng,
-        'destinationLat': destinationLat,
-        'destinationLng': destinationLng,
-        'rideType': rideType,
-        'price': price,
-        'paymentMethod': paymentMethod,
-        'rideId': rideId,
-        'notes': notes.toJson(),
-        if (driver != null) 'driver': driver!.toJson(),
-        if (cancellationReason != null) 'cancellationReason': cancellationReason,
-      };
+    'status': status.name,
+    'savedAt': savedAt.toIso8601String(),
+    'pickupAddress': pickupAddress,
+    'destinationAddress': destinationAddress,
+    'pickupLat': pickupLat,
+    'pickupLng': pickupLng,
+    'destinationLat': destinationLat,
+    'destinationLng': destinationLng,
+    'rideType': rideType,
+    'price': price,
+    'paymentMethod': paymentMethod,
+    'rideId': rideId,
+    'notes': notes.toJson(),
+    if (driver != null) 'driver': driver!.toJson(),
+    if (cancellationReason != null) 'cancellationReason': cancellationReason,
+  };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
     final statusName = json['status'] as String?;
@@ -103,7 +103,8 @@ class RideSnapshot {
     if (status.isEmpty) return null;
     return RideSnapshot(
       status: status.first,
-      savedAt: DateTime.tryParse(json['savedAt'] as String? ?? '') ??
+      savedAt:
+          DateTime.tryParse(json['savedAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       pickupAddress: json['pickupAddress'] as String? ?? '',
       destinationAddress: json['destinationAddress'] as String? ?? '',
@@ -121,7 +122,9 @@ class RideSnapshot {
             : null,
       ),
       driver: json['driver'] is Map
-          ? MatchedDriver.fromJson(Map<String, dynamic>.from(json['driver'] as Map))
+          ? MatchedDriver.fromJson(
+              Map<String, dynamic>.from(json['driver'] as Map),
+            )
           : null,
       cancellationReason: json['cancellationReason'] as String?,
     );

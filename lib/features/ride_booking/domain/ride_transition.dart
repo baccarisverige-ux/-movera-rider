@@ -18,7 +18,10 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.quoteLoading,
     RideStatus.idle,
   },
-  RideStatus.rideSelected: {RideStatus.paymentSelected, RideStatus.rideOptionsReady},
+  RideStatus.rideSelected: {
+    RideStatus.paymentSelected,
+    RideStatus.rideOptionsReady,
+  },
   RideStatus.paymentSelected: {
     RideStatus.bookingRequested,
     RideStatus.rideSelected,
@@ -64,7 +67,10 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.tripCompleted,
     RideStatus.cancelledBySystem,
   },
-  RideStatus.tripCompleted: {RideStatus.paymentProcessing, RideStatus.paymentFailed},
+  RideStatus.tripCompleted: {
+    RideStatus.paymentProcessing,
+    RideStatus.paymentFailed,
+  },
   RideStatus.paymentProcessing: {
     RideStatus.paymentFinalized,
     RideStatus.paymentFailed,

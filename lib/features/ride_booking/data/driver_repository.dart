@@ -24,14 +24,14 @@ class DriverProfile {
 
 class DriverRepository {
   DriverProfile current() => const DriverProfile(
-        name: 'Merle Feeney',
-        tagline: 'Top rated driver',
-        vehicle: 'Toyota HR-V . L-2323 F',
-        plate: 'L - 2323 F',
-        rideNumber: '#IL19051950015',
-        ratingLabel: '5.0',
-        completedAt: '22 May, 2025 . 12:30 pm ',
-      );
+    name: 'Merle Feeney',
+    tagline: 'Top rated driver',
+    vehicle: 'Toyota HR-V . L-2323 F',
+    plate: 'L - 2323 F',
+    rideNumber: '#IL19051950015',
+    ratingLabel: '5.0',
+    completedAt: '22 May, 2025 . 12:30 pm ',
+  );
 }
 
 class TripReceipt {
@@ -50,9 +50,9 @@ class TripReceipt {
 
 class TripReceiptRepository {
   TripReceipt last() => const TripReceipt(
-        pickup: 'I11/Street 15 - h350',
-        destination: 'Skypulse solution',
-        total: '\$10.12',
-        method: 'Cash',
-      );
+    pickup: 'I11/Street 15 - h350',
+    destination: 'Skypulse solution',
+    total: '\$10.12',
+    method: 'Cash',
+  );
 }

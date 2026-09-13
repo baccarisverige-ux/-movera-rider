@@ -78,6 +78,8 @@ void main() {
     rt.emit(RideStatus.driverAssigned, sequence: 9);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(matches, 0);
+    expect(ride.suppressRestore, isTrue);
+    expect(await RideSnapshotStore.read(), isNull);
     controller.dispose();
     rt.dispose();
   });

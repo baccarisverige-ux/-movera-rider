@@ -13,11 +13,13 @@ abstract final class RideNavigator {
     return Navigator.push(context, RightToLeftTransition(page));
   }
 
-  static void home(BuildContext context) {
+  static void home(BuildContext? context) {
     RideRestoreCoordinator.instance.goHome();
     final nav =
         moveraNavigatorKey.currentState ??
-        Navigator.maybeOf(context, rootNavigator: true);
+        (context != null
+            ? Navigator.maybeOf(context, rootNavigator: true)
+            : null);
     if (nav != null && nav.canPop()) {
       nav.popUntil((route) => route.isFirst);
     }

@@ -45,9 +45,6 @@ class RideRestoreGateState extends State<RideRestoreGate> {
   @override
   Widget build(BuildContext context) {
     return _child ??
-        const ColoredBox(
-          color: Color(0xFFFFFFFF),
-          child: SizedBox.expand(),
-        );
+        const ColoredBox(color: Color(0xFFFFFFFF), child: SizedBox.expand());
   }
 }

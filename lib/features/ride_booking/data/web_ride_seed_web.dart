@@ -32,9 +32,7 @@ Future<JSString> _seed(String raw) async {
   try {
     final decoded = jsonDecode(raw);
     if (decoded is! Map) return 'bad'.toJS;
-    final snapshot = RideSnapshot.fromJson(
-      Map<String, dynamic>.from(decoded),
-    );
+    final snapshot = RideSnapshot.fromJson(Map<String, dynamic>.from(decoded));
     if (snapshot == null) return 'invalid'.toJS;
     await RideSnapshotStore.save(snapshot);
     return 'ok'.toJS;

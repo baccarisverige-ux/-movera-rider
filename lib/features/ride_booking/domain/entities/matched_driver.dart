@@ -50,24 +50,25 @@ class MatchedDriver {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'firstName': firstName,
-        if (rating != null) 'rating': rating,
-        if (tripCount != null) 'tripCount': tripCount,
-        if (vehicleMake != null) 'vehicleMake': vehicleMake,
-        if (vehicleModel != null) 'vehicleModel': vehicleModel,
-        if (vehicleColor != null) 'vehicleColor': vehicleColor,
-        if (plate != null) 'plate': plate,
-        if (photoAsset != null) 'photoAsset': photoAsset,
-        if (vehicleImageAsset != null) 'vehicleImageAsset': vehicleImageAsset,
-        if (languages.isNotEmpty) 'languages': languages,
-        if (yearsOnMovera != null) 'yearsOnMovera': yearsOnMovera,
-      };
+    'id': id,
+    'firstName': firstName,
+    if (rating != null) 'rating': rating,
+    if (tripCount != null) 'tripCount': tripCount,
+    if (vehicleMake != null) 'vehicleMake': vehicleMake,
+    if (vehicleModel != null) 'vehicleModel': vehicleModel,
+    if (vehicleColor != null) 'vehicleColor': vehicleColor,
+    if (plate != null) 'plate': plate,
+    if (photoAsset != null) 'photoAsset': photoAsset,
+    if (vehicleImageAsset != null) 'vehicleImageAsset': vehicleImageAsset,
+    if (languages.isNotEmpty) 'languages': languages,
+    if (yearsOnMovera != null) 'yearsOnMovera': yearsOnMovera,
+  };
 
   static MatchedDriver? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
     final id = json['id'] as String? ?? '';
-    final firstName = json['firstName'] as String? ?? json['name'] as String? ?? '';
+    final firstName =
+        json['firstName'] as String? ?? json['name'] as String? ?? '';
     if (id.isEmpty || firstName.isEmpty) return null;
     final langs = json['languages'];
     return MatchedDriver(

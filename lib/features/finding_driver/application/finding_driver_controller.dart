@@ -252,8 +252,15 @@ class FindingDriverController {
     if (_assigned || _cancelled || _disposed) return;
     _assigned = true;
     final snapshot = _snapshot;
+    final matched = _onMatched;
+    if (_cancelled || _disposed) return;
     ride.restoreFromBackend(RideStatus.driverAssigned);
     Analytics.driverFound(rideId: ride.rideId);
+    if (_cancelled || _disposed) {
+      ride.restoreFromBackend(RideStatus.cancelledByRider);
+      unawaited(_store.clear());
+      return;
+    }
     if (snapshot != null) {
       _store.save(
         snapshot.copyWith(
@@ -265,12 +272,17 @@ class FindingDriverController {
       );
     }
     _reportQa();
-    _onMatched?.call();
+    if (_cancelled || _disposed) {
+      unawaited(_store.clear());
+      return;
+    }
+    matched?.call();
   }
 
   Future<void> cancelSearch({String? reasonId}) async {
     if (_cancelled || _disposed) return;
     _cancelled = true;
+    _onMatched = null;
     _tick?.cancel();
     _tick = null;
     _sub?.cancel();

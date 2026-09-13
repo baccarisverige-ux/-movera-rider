@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -15,7 +17,7 @@ enum RestoredSurface { home, finding, waiting, complete }
 
 class RideRestoreCoordinator {
   RideRestoreCoordinator({RideSnapshotStoreReader? reader})
-      : _reader = reader ?? RideSnapshotStore.read;
+    : _reader = reader ?? RideSnapshotStore.read;
 
   final Future<RideSnapshot?> Function() _reader;
   RestoredSurface showing = RestoredSurface.home;
@@ -30,6 +32,11 @@ class RideRestoreCoordinator {
   void goHome() {
     showing = RestoredSurface.home;
     reportRestoreSurface(RestoredSurface.home.name);
+    unawaited(() async {
+      try {
+        await RideSnapshotStore.clear();
+      } catch (_) {}
+    }());
     onReplaceRoot?.call(const Home());
   }
 
@@ -140,6 +147,7 @@ class RideRestoreCoordinator {
       } catch (_) {}
     }
     if (!atRoot) return null;
+    if (AppScope.instance.ride.suppressRestore) return null;
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
     final page = pageFor(snapshot);

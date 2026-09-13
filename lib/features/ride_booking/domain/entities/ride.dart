@@ -1,4 +1,3 @@
-
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class Ride {

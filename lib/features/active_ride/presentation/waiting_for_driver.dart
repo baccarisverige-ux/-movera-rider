@@ -133,12 +133,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
     if (!outcome.cancelled || !mounted) return;
     _leaving = true;
+    _tracking.dispose();
     await _ride.markCancelled(reasonId: outcome.reasonId);
-    if (!mounted) return;
-    setState(() {});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) RideNavigator.home(context);
-    });
+    RideNavigator.home(context);
   }
 
   void _openProfile() {

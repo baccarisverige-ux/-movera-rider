@@ -12,16 +12,21 @@ class RideSession {
   RideStatus status = RideStatus.idle;
   RideQuote? quote;
   final stale = StaleGuard();
+  bool suppressRestore = false;
 
   RideStatus apply(RideStatus next) {
     status = transitionRide(status, next);
-    AppLog.info('ride.transition', extra: {'to': status.name, 'rideId': rideId});
+    AppLog.info(
+      'ride.transition',
+      extra: {'to': status.name, 'rideId': rideId},
+    );
     return status;
   }
 
   void restoreFromBackend(RideStatus backendStatus, {String? id}) {
     rideId = id ?? rideId;
     status = backendStatus;
+    suppressRestore = backendStatus.isTerminal;
   }
 
   Future<RideSnapshot?> loadSnapshot() => RideSnapshotStore.read();

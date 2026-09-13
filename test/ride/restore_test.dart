@@ -7,6 +7,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 RideSnapshot snap(RideStatus status, {DateTime? savedAt}) {
   return RideSnapshot(
@@ -27,19 +28,25 @@ RideSnapshot snap(RideStatus status, {DateTime? savedAt}) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
   test('cold start finding driver', () {
-    final c = RideRestoreCoordinator(reader: () async => snap(RideStatus.findingDriver));
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.findingDriver),
+    );
     final page = c.pageFor(snap(RideStatus.findingDriver));
     expect(page, isA<FindingDrivers>());
     expect(c.showing, RestoredSurface.finding);
   });
 
   test('cold start delayed search stays on finding', () {
-    final c = RideRestoreCoordinator(reader: () async => snap(RideStatus.searchDelayed));
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.searchDelayed),
+    );
     expect(c.pageFor(snap(RideStatus.searchDelayed)), isA<FindingDrivers>());
     expect(c.showing, RestoredSurface.finding);
   });
-
 
   test('cold start assigned', () {
     final c = RideRestoreCoordinator(reader: () async => null);

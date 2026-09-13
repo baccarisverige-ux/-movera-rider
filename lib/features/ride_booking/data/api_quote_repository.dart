@@ -6,10 +6,8 @@ import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.da
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
 class ApiQuoteRepository implements QuoteRepository {
-  ApiQuoteRepository({
-    required this.api,
-    QuoteRepository? fallback,
-  }) : fallback = fallback ?? CatalogQuoteRepository();
+  ApiQuoteRepository({required this.api, QuoteRepository? fallback})
+    : fallback = fallback ?? CatalogQuoteRepository();
 
   final ApiClient api;
   final QuoteRepository fallback;
@@ -55,25 +53,29 @@ class ApiQuoteRepository implements QuoteRepository {
         totalMinor: total.round(),
         currency: (map['currency'] ?? 'SEK').toString(),
         expiresAt: expires ?? DateTime.now().add(const Duration(minutes: 2)),
-        baseMinor: (map['breakdown'] is Map
-                ? (map['breakdown']['baseMinor'] as num?)
-                : null)
-            ?.round() ??
+        baseMinor:
+            (map['breakdown'] is Map
+                    ? (map['breakdown']['baseMinor'] as num?)
+                    : null)
+                ?.round() ??
             total.round(),
-        distanceMinor: (map['breakdown'] is Map
-                ? (map['breakdown']['distanceMinor'] as num?)
-                : null)
-            ?.round() ??
+        distanceMinor:
+            (map['breakdown'] is Map
+                    ? (map['breakdown']['distanceMinor'] as num?)
+                    : null)
+                ?.round() ??
             0,
-        timeMinor: (map['breakdown'] is Map
-                ? (map['breakdown']['timeMinor'] as num?)
-                : null)
-            ?.round() ??
+        timeMinor:
+            (map['breakdown'] is Map
+                    ? (map['breakdown']['timeMinor'] as num?)
+                    : null)
+                ?.round() ??
             0,
-        bookingFeeMinor: (map['breakdown'] is Map
-                ? (map['breakdown']['bookingFeeMinor'] as num?)
-                : null)
-            ?.round() ??
+        bookingFeeMinor:
+            (map['breakdown'] is Map
+                    ? (map['breakdown']['bookingFeeMinor'] as num?)
+                    : null)
+                ?.round() ??
             0,
         signedPayload: map['signedPayload'] as String? ?? 'mock-api',
       );
