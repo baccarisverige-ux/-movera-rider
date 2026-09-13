@@ -56,15 +56,20 @@ class SearchCopy {
   static bool isDelayed(int elapsedSeconds) =>
       elapsedSeconds >= delayedAfter.inSeconds;
 
+  /// Copy is keyed off **phase-local** elapsed, not a global modulo.
+  /// 0–19 initial, 20–59 waiting, 60+ delayed starting at delayed[0].
   static SearchCopy forElapsed(int elapsedSeconds) {
-    final bucket = isDelayed(elapsedSeconds)
-        ? delayed
-        : elapsedSeconds < 20
-            ? initial
-            : waiting;
-    final step = elapsedSeconds <= 0
-        ? 0
-        : elapsedSeconds ~/ rotateEvery.inSeconds;
-    return bucket[step % bucket.length];
+    if (elapsedSeconds >= delayedAfter.inSeconds) {
+      final step =
+          (elapsedSeconds - delayedAfter.inSeconds) ~/ rotateEvery.inSeconds;
+      return delayed[step % delayed.length];
+    }
+    if (elapsedSeconds >= 20) {
+      final step = (elapsedSeconds - 20) ~/ rotateEvery.inSeconds;
+      return waiting[step % waiting.length];
+    }
+    final elapsed = elapsedSeconds <= 0 ? 0 : elapsedSeconds;
+    final step = elapsed ~/ rotateEvery.inSeconds;
+    return initial[step % initial.length];
   }
 }

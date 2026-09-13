@@ -47,6 +47,13 @@ void main() {
     expect(eta.headline(status: RideStatus.driverWaiting), 'Driver has arrived');
   });
 
+  test('close GPS does not declare arrived without driverWaiting', () {
+    const eta = DriverEta(seconds: 30, distanceMeters: 40, stale: false);
+    expect(eta.headline(status: RideStatus.driverAssigned), 'Driver is almost there');
+    expect(eta.headline(status: RideStatus.driverArriving), 'Driver is almost there');
+    expect(eta.headline(status: RideStatus.driverWaiting), 'Driver has arrived');
+  });
+
   test('matched driver omits fields that are not supplied', () {
     const driver = MatchedDriver(id: 'd1', firstName: 'Alex', plate: 'MVR 421');
     expect(driver.ratingLabel, isNull);

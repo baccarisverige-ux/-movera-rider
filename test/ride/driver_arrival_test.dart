@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 
 void main() {
@@ -20,5 +21,16 @@ void main() {
     expect(driver.tripsLabel, '1284 trips');
     expect(driver.yearsOnMovera, isNull);
     expect(driver.languages, isEmpty);
+  });
+
+  test('prototype mock driver is the centralized Linnea payload', () {
+    const driver = MockRideRealtime.mockDriver;
+    expect(driver.firstName, 'Linnea');
+    expect(driver.rating, 4.97);
+    expect(driver.vehicleMake, 'Volvo');
+    expect(driver.vehicleModel, 'XC60');
+    expect(driver.plate, 'MVR 418');
+    expect(driver.vehicleLabel, 'Black Volvo XC60');
+    expect(driver.ratingLabel, '4.97');
   });
 }

@@ -24,10 +24,15 @@ void main() {
   });
 
   test('assignment after cancellation is ignored by cancelled flag', () async {
-    final rt = MockRideRealtime(assignAfter: Duration.zero);
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     rt.subscribe('r1');
-    rt.unsubscribe();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(rt.lastStatus, RideStatus.findingDriver);
+    rt.cancelRide();
     expect(rt.cancelled, isTrue);
+    rt.assignNow();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(rt.lastStatus, RideStatus.findingDriver);
     rt.dispose();
   });
 

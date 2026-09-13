@@ -10,19 +10,19 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 RideSnapshot snap({double price = 259}) => RideSnapshot(
-      status: RideStatus.findingDriver,
-      savedAt: DateTime.now(),
-      pickupAddress: 'A',
-      destinationAddress: 'B',
-      pickupLat: 59.3,
-      pickupLng: 18.0,
-      destinationLat: 59.4,
-      destinationLng: 18.1,
-      rideType: 'Movera',
-      price: price,
-      paymentMethod: 'Apple Pay',
-      rideId: 'r1',
-    );
+  status: RideStatus.findingDriver,
+  savedAt: DateTime.now(),
+  pickupAddress: 'A',
+  destinationAddress: 'B',
+  pickupLat: 59.3,
+  pickupLng: 18.0,
+  destinationLat: 59.4,
+  destinationLng: 18.1,
+  rideType: 'Movera',
+  price: price,
+  paymentMethod: 'Apple Pay',
+  rideId: 'r1',
+);
 
 FindingDriverController controllerOf(
   MockRideRealtime rt,
@@ -135,24 +135,27 @@ void main() {
     rt.dispose();
   });
 
-  test('assignment after cancel does not match when event arrives later', () async {
-    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
-    final ride = RideSession()..rideId = 'r1';
-    var matches = 0;
-    final controller = controllerOf(rt, ride);
-    controller.start(
-      snapshot: snap(),
-      onTick: (_) {},
-      onMatched: () => matches += 1,
-    );
-    controller.cancelSearch();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
-    rt.emit(RideStatus.driverAssigned, sequence: 20);
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    expect(matches, 0);
-    controller.dispose();
-    rt.dispose();
-  });
+  test(
+    'assignment after cancel does not match when event arrives later',
+    () async {
+      final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+      final ride = RideSession()..rideId = 'r1';
+      var matches = 0;
+      final controller = controllerOf(rt, ride);
+      controller.start(
+        snapshot: snap(),
+        onTick: (_) {},
+        onMatched: () => matches += 1,
+      );
+      controller.cancelSearch();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      rt.emit(RideStatus.driverAssigned, sequence: 20);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(matches, 0);
+      controller.dispose();
+      rt.dispose();
+    },
+  );
 
   test('resume resync then older realtime assignment is ignored', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
@@ -192,11 +195,7 @@ void main() {
       delayedAfter: Duration.zero,
       api: api,
     );
-    controller.start(
-      snapshot: snap(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
     expect(controller.showPriceBump, isTrue);
     final ok = await controller.confirmPriceIncrease(20);
     expect(ok, isTrue);
@@ -215,11 +214,7 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     final controller = controllerOf(rt, ride, delayedAfter: Duration.zero);
-    controller.start(
-      snapshot: snap(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
     controller.dismissPriceBump();
     expect(controller.currentPrice, 259);
     expect(controller.showPriceBump, isFalse);
@@ -232,15 +227,73 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     final controller = controllerOf(rt, ride);
-    controller.start(
-      snapshot: snap(),
-      onTick: (_) {},
-      onMatched: () {},
-    );
+    controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
     controller.debugAdvance(61);
     expect(controller.isDelayed, isTrue);
     expect(controller.copy.headline, "It's busier than usual");
     expect(controller.matchCount, 0);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test(
+    'local cancel succeeds when adapter 404s and ignores later assignment',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final httpClient = InProcessMockClient();
+      final api = ApiClient(client: httpClient);
+      final rt = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        api: api,
+      );
+      final ride = RideSession()..rideId = 'r1';
+      var matches = 0;
+      final store = FindingDriverRepository();
+      await store.save(snap());
+      expect(await RideSnapshotStore.read(), isNotNull);
+      final controller = FindingDriverController(
+        realtime: rt,
+        ride: ride,
+        store: store,
+        api: api,
+      );
+      controller.start(
+        snapshot: snap(),
+        onTick: (_) {},
+        onMatched: () => matches += 1,
+      );
+      controller.cancelSearch(reasonId: 'wait_too_long');
+      expect(ride.status, RideStatus.cancelledByRider);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(await RideSnapshotStore.read(), isNull);
+      rt.emit(RideStatus.driverAssigned, sequence: 9);
+      rt.assignNow();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(matches, 0);
+      expect(controller.matchCount, 0);
+      controller.dispose();
+      rt.dispose();
+    },
+  );
+
+  test('assignment uses the centralized mock driver payload', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    var matches = 0;
+    final controller = controllerOf(rt, ride);
+    controller.start(
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () => matches += 1,
+    );
+    rt.assignNow();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(matches, 1);
+    expect(controller.matchedDriver?.firstName, 'Linnea');
+    expect(controller.matchedDriver?.plate, 'MVR 418');
+    expect(controller.matchedDriver?.rating, 4.97);
+    expect(controller.matchedDriver?.vehicleModel, 'XC60');
+    expect(controller.matchedDriver?.vehicleMake, 'Volvo');
     controller.dispose();
     rt.dispose();
   });
