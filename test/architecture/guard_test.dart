@@ -355,7 +355,8 @@ void main() {
     final now = src.substring(nowStart);
     expect(now.contains('FindingDrivers'), isTrue);
     expect(now.contains('submitFinding'), isTrue);
-    expect(now.contains('showQuickRideNotesSheet'), isTrue);
+    expect(now.contains('showQuickRideNotesSheet'), isFalse);
+    expect(src.contains('showQuickRideNotesSheet'), isTrue);
     expect(now.contains('ScheduledRideBooking.confirm'), isFalse);
     expect(now.contains('_reservations.create'), isFalse);
     final home = File(

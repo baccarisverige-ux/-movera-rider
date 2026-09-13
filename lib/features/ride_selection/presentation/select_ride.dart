@@ -19,6 +19,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -198,6 +199,7 @@ class _SelectRideState extends State<SelectRide>
   bool _mapParked = false;
   bool _overlayOn = false;
   bool _pickupConfirmed = false;
+  RideNotes _notes = RideNotes.empty;
   late String _pickupAddress;
   late LatLng _pickupPosition;
   GoogleMapController? _mapController;
@@ -619,7 +621,7 @@ class _SelectRideState extends State<SelectRide>
           lng: widget.destinationPosition.longitude,
         ),
         pickupPosition: _pickupPosition,
-        note: widget.note,
+        note: _driverNote(widget.note),
         parentReservationId: widget.parentReservationId,
         editingReservationId: widget.editingReservationId,
         original: widget.editingReservationId == null
@@ -636,6 +638,21 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
+  String? _driverNote(String? extra) {
+    final parts = <String>[
+      if (extra != null && extra.trim().isNotEmpty) extra.trim(),
+      ..._notes.selected,
+    ];
+    if (parts.isEmpty) return extra;
+    return parts.join(' · ');
+  }
+
+  Future<void> _openNotes() async {
+    final next = await showQuickRideNotesSheet(context, initial: _notes);
+    if (!mounted || next == null) return;
+    setState(() => _notes = next);
+  }
+
   void _book() {
     if (_selection.bookingMode == BookingMode.scheduled) {
       _bookScheduled();
@@ -646,40 +663,37 @@ class _SelectRideState extends State<SelectRide>
 
   void _bookNow() {
     final selected = _selectedRide;
-    showQuickRideNotesSheet(context).then((notes) {
-      if (!mounted || notes == null) return;
-      _withParkedMap(() async {
-        if (!mounted) return;
-        await BookingController().submitFinding(
-          pickupAddress: widget.pickupAddress,
-          destinationAddress: widget.destinationAddress,
-          pickupLat: widget.pickupPosition.latitude,
-          pickupLng: widget.pickupPosition.longitude,
-          destinationLat: widget.destinationPosition.latitude,
-          destinationLng: widget.destinationPosition.longitude,
-          rideType: selected.name,
-          price: _priceFor(selected),
-          paymentMethod: _payments[_selection.selectedPayment].name,
-        );
-        if (!mounted) return;
-        SheetCoordinator.instance.open(RideSheet.finding);
-        await Navigator.push(
-          context,
-          BottomToTopTransition(
-            FindingDrivers(
-              pickupAddress: widget.pickupAddress,
-              destinationAddress: widget.destinationAddress,
-              pickupPosition: widget.pickupPosition,
-              destinationPosition: widget.destinationPosition,
-              rideType: selected.name,
-              price: _priceFor(selected),
-              paymentMethod: _payments[_selection.selectedPayment].name,
-              notes: notes,
-            ),
+    _withParkedMap(() async {
+      if (!mounted) return;
+      await BookingController().submitFinding(
+        pickupAddress: widget.pickupAddress,
+        destinationAddress: widget.destinationAddress,
+        pickupLat: widget.pickupPosition.latitude,
+        pickupLng: widget.pickupPosition.longitude,
+        destinationLat: widget.destinationPosition.latitude,
+        destinationLng: widget.destinationPosition.longitude,
+        rideType: selected.name,
+        price: _priceFor(selected),
+        paymentMethod: _payments[_selection.selectedPayment].name,
+      );
+      if (!mounted) return;
+      SheetCoordinator.instance.open(RideSheet.finding);
+      await Navigator.push(
+        context,
+        BottomToTopTransition(
+          FindingDrivers(
+            pickupAddress: widget.pickupAddress,
+            destinationAddress: widget.destinationAddress,
+            pickupPosition: widget.pickupPosition,
+            destinationPosition: widget.destinationPosition,
+            rideType: selected.name,
+            price: _priceFor(selected),
+            paymentMethod: _payments[_selection.selectedPayment].name,
+            notes: _notes,
           ),
-        );
-        SheetCoordinator.instance.close(RideSheet.finding);
-      });
+        ),
+      );
+      SheetCoordinator.instance.close(RideSheet.finding);
     });
   }
 
@@ -1209,6 +1223,8 @@ class _SelectRideState extends State<SelectRide>
       child: Column(
         children: [
           _paymentButton(),
+          const SizedBox(height: 8),
+          _notesButton(),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -1257,6 +1273,82 @@ class _SelectRideState extends State<SelectRide>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _notesButton() {
+    final title = _notes.isEmpty
+        ? 'Anything we should know?'
+        : _notes.selected.join(' · ');
+    final detail = _notes.isEmpty
+        ? 'Optional. Your driver will see this'
+        : 'Saved for this ride';
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: _openNotes,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 86,
+                height: 36,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    for (var i = 0; i < 4; i++)
+                      Positioned(
+                        left: i * 16.0,
+                        child: Image.asset(
+                          [
+                            AppAssets.noteBags,
+                            AppAssets.notePet,
+                            AppAssets.noteBaby,
+                            AppAssets.noteChild,
+                          ][i],
+                          height: 36,
+                          width: 36,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _text(15, weight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      detail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _text(12, color: _muted),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
+            ],
+          ),
+        ),
       ),
     );
   }

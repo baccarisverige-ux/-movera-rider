@@ -8,16 +8,21 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-Future<RideNotes?> showQuickRideNotesSheet(BuildContext context) {
+Future<RideNotes?> showQuickRideNotesSheet(
+  BuildContext context, {
+  RideNotes initial = RideNotes.empty,
+}) {
   SheetCoordinator.instance.open(RideSheet.notes);
   return MoveraSheet.show<RideNotes>(
     context: context,
-    builder: (_) => const QuickRideNotesSheet(),
+    builder: (_) => QuickRideNotesSheet(initial: initial),
   ).whenComplete(() => SheetCoordinator.instance.close(RideSheet.notes));
 }
 
 class QuickRideNotesSheet extends StatefulWidget {
-  const QuickRideNotesSheet({super.key});
+  const QuickRideNotesSheet({super.key, this.initial = RideNotes.empty});
+
+  final RideNotes initial;
 
   @override
   State<QuickRideNotesSheet> createState() => _QuickRideNotesSheetState();
@@ -25,6 +30,12 @@ class QuickRideNotesSheet extends StatefulWidget {
 
 class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
   RideNotes _notes = RideNotes.empty;
+
+  @override
+  void initState() {
+    super.initState();
+    _notes = widget.initial;
+  }
 
   TextStyle _text(
     double size, {
@@ -160,7 +171,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
                   ),
                 ),
                 child: Text(
-                  'Find driver',
+                  'Save',
                   style: _text(
                     16,
                     weight: FontWeight.w600,
