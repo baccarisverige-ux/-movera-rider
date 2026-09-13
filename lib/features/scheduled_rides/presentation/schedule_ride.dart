@@ -17,6 +17,7 @@ import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class ScheduleRide extends StatefulWidget {
   const ScheduleRide({super.key, this.editing});
@@ -441,7 +442,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: _buildPanelContent());
+    return PointerInterceptor(child: Scaffold(body: _buildPanelContent()));
   }
 
   Widget verticleCircle({

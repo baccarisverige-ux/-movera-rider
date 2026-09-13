@@ -386,9 +386,12 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _chooseLater() async {
-    final when = await ScheduleDateTimeSelector.choose(context);
-    if (when == null || !mounted) return;
-    setState(() => _selection.scheduleFor(when));
+    await _withParkedMap(() async {
+      if (!mounted) return;
+      final when = await ScheduleDateTimeSelector.choose(context);
+      if (when == null || !mounted) return;
+      setState(() => _selection.scheduleFor(when));
+    });
   }
 
   Future<void> _showBookingPicker() async {

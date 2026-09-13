@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback onConfirm;
@@ -395,66 +396,72 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         ? _selectedDateTime.add(const Duration(minutes: 20))
         : _selectedDateTime.subtract(const Duration(minutes: 20));
 
-    return Material(
-      color: Colors.white,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _header(context),
-                    const SizedBox(height: 30),
-                    Text(
-                      'When should we\npick you up?',
-                      style: _style(29, weight: FontWeight.w700, height: 1.16),
-                    ),
-                    const SizedBox(height: 9),
-                    Text(
-                      'Choose a date and time for your scheduled ride.',
-                      style: _style(
-                        12.5,
-                        weight: FontWeight.w400,
-                        color: _muted,
+    return PointerInterceptor(
+      child: Material(
+        color: Colors.white,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _header(context),
+                      const SizedBox(height: 30),
+                      Text(
+                        'When should we\npick you up?',
+                        style: _style(
+                          29,
+                          weight: FontWeight.w700,
+                          height: 1.16,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-                    _modeSelector(),
-                    const SizedBox(height: 18),
-                    _selectionCard(),
-                    const SizedBox(height: 18),
-                    _estimateRow(estimatedTime),
-                    const SizedBox(height: 25),
-                    Text(
-                      'You can cancel without a fee before a driver is assigned. Final terms are shown before booking.',
-                      style: _style(
-                        10.5,
-                        weight: FontWeight.w400,
-                        color: _muted,
-                        height: 1.55,
+                      const SizedBox(height: 9),
+                      Text(
+                        'Choose a date and time for your scheduled ride.',
+                        style: _style(
+                          12.5,
+                          weight: FontWeight.w400,
+                          color: _muted,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 28),
+                      _modeSelector(),
+                      const SizedBox(height: 18),
+                      _selectionCard(),
+                      const SizedBox(height: 18),
+                      _estimateRow(estimatedTime),
+                      const SizedBox(height: 25),
+                      Text(
+                        'You can cancel without a fee before a driver is assigned. Final terms are shown before booking.',
+                        style: _style(
+                          10.5,
+                          weight: FontWeight.w400,
+                          color: _muted,
+                          height: 1.55,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
-              child: SizedBox(
-                width: double.infinity,
-                height: 118,
-                child: Image.asset(
-                  'assets/images/schedule_timeline_exact_v3.png',
-                  fit: BoxFit.contain,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 6),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 118,
+                  child: Image.asset(
+                    'assets/images/schedule_timeline_exact_v3.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
-            ),
-            _continueButton(),
-          ],
+              _continueButton(),
+            ],
+          ),
         ),
       ),
     );
@@ -660,30 +667,31 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       ),
       child: SafeArea(
         top: false,
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: () {
-              _commitSchedule();
-              if (widget.popOnConfirm) {
-                Navigator.pop(context, _selectedDateTime);
-                return;
-              }
-              widget.onConfirm();
-            },
-
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _ink,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(17),
+        child: PointerInterceptor(
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () {
+                _commitSchedule();
+                if (widget.popOnConfirm) {
+                  Navigator.pop(context, _selectedDateTime);
+                  return;
+                }
+                widget.onConfirm();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _ink,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(17),
+                ),
               ),
-            ),
-            child: Text(
-              'Continue',
-              style: _style(14, weight: FontWeight.w600, color: Colors.white),
+              child: Text(
+                'Continue',
+                style: _style(14, weight: FontWeight.w600, color: Colors.white),
+              ),
             ),
           ),
         ),
