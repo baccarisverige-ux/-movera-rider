@@ -7,6 +7,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/confirm_booking.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/add_note.dart';
@@ -64,6 +65,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       if (editing.hasPreferences) _session.captureNote(editing.note!.trim());
     }
     _loadMarkers();
+    setWebOverlayOpen(true);
     _pickupController.addListener(_syncRouteToSession);
     _dropoffController.addListener(_syncRouteToSession);
     _syncRouteToSession();
@@ -80,6 +82,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       controller.dispose();
     }
     sc.dispose();
+    setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.schedule);
     super.dispose();
   }

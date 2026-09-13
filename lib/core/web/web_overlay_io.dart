@@ -1,0 +1,1 @@
+void webSetOverlayOpen(bool open) {}

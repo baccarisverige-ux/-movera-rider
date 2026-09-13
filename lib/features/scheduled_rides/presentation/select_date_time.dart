@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -53,10 +54,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   late DateTime _selectedDateTime;
   bool _pickupMode = true;
+  bool _continuing = false;
 
   @override
   void initState() {
     super.initState();
+    setWebOverlayOpen(true);
     final existing = widget.session?.scheduledAt;
     if (existing != null) {
       _selectedDateTime = existing;
@@ -68,6 +71,24 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       );
     }
     _commitSchedule();
+  }
+
+  @override
+  void dispose() {
+    setWebOverlayOpen(false);
+    super.dispose();
+  }
+
+  void _goNext() {
+    if (_continuing) return;
+    _continuing = true;
+    _commitSchedule();
+    if (widget.popOnConfirm) {
+      Navigator.pop(context, _selectedDateTime);
+      return;
+    }
+    setState(() {});
+    widget.onConfirm();
   }
 
   void _commitSchedule() {
@@ -660,43 +681,31 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   Widget _continueButton() {
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return PointerInterceptor(
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.fromLTRB(
-          20,
-          10,
-          20,
-          16 + bottom + (kIsWeb ? 28 : 0),
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: _line)),
-        ),
-        child: Material(
-          color: _ink,
-          borderRadius: BorderRadius.circular(17),
-          child: InkWell(
-            onTap: () {
-              _commitSchedule();
-              if (widget.popOnConfirm) {
-                Navigator.pop(context, _selectedDateTime);
-                return;
-              }
-              widget.onConfirm();
-            },
-            borderRadius: BorderRadius.circular(17),
-            child: SizedBox(
-              height: 52,
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: _style(
-                    14,
-                    weight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+      child: Listener(
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (_) => _goNext(),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(
+            20,
+            10,
+            20,
+            16 + bottom + (kIsWeb ? 28 : 0),
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: _line)),
+          ),
+          child: Container(
+            height: 52,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _ink,
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Text(
+              _continuing ? 'Continuing…' : 'Continue',
+              style: _style(14, weight: FontWeight.w600, color: Colors.white),
             ),
           ),
         ),

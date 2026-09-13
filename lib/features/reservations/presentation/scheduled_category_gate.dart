@@ -60,14 +60,18 @@ Future<LatLng> resolveScheduledPoint(String label) async {
   final clean = label.trim();
   if (clean.isEmpty || clean.toLowerCase() == 'current location') {
     try {
-      final pos = await AppScope.instance.location.getCurrentPosition();
+      final pos = await AppScope.instance.location.getCurrentPosition().timeout(
+        const Duration(milliseconds: 600),
+      );
       return LatLng(pos.latitude, pos.longitude);
     } catch (_) {
       return kScheduledFallbackPoint;
     }
   }
   try {
-    final result = await AppScope.instance.geocoding.geocodeAddress(clean);
+    final result = await AppScope.instance.geocoding
+        .geocodeAddress(clean)
+        .timeout(const Duration(milliseconds: 900));
     if (result != null) {
       return LatLng(result.latitude, result.longitude);
     }
