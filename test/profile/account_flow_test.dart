@@ -29,7 +29,7 @@ void main() {
 
   testWidgets('account hub is Movera not Uber', (tester) async {
     await pumpPhone(tester, AccountHomePage(controller: controller()));
-    expect(find.text('Movera account'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 const Color kAccountInk = Color(0xFF172127);
 const Color kAccountMuted = Color(0xFF7B858B);
-const Color kAccountLine = Color(0xFFE6E9EB);
+const Color kAccountLine = Color(0xFFE4E7E8);
 const Color kAccountSoft = Color(0xFFF5F6F6);
 const Color kAccountCta = Color(0xFF11181D);
 const Color kAccountAccent = Color(0xFF356879);
@@ -15,180 +16,238 @@ TextStyle accountText(
   FontWeight weight = FontWeight.w400,
   Color color = kAccountInk,
   double? height,
+  double? letterSpacing,
 }) {
   return GoogleFonts.poppins(
     fontSize: size,
     fontWeight: weight,
     color: color,
     height: height,
+    letterSpacing: letterSpacing,
   );
 }
 
 class AccountScaffold extends StatelessWidget {
-  const AccountScaffold({
-    super.key,
-    required this.title,
-    required this.child,
-    this.actions = const [],
-  });
+  const AccountScaffold({super.key, required this.child, this.title});
 
-  final String title;
   final Widget child;
-  final List<Widget> actions;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          SizedBox(height: top + 4),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 12, 8),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: kAccountInk),
-                ),
-                Expanded(
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: accountText(16, weight: FontWeight.w600),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: kAccountInk,
+                    ),
                   ),
-                ),
-                ...actions,
-                if (actions.isEmpty) const SizedBox(width: 48),
-              ],
+                  if (title != null)
+                    Expanded(
+                      child: Text(
+                        title!,
+                        style: accountText(17, weight: FontWeight.w600),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(child: child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AccountHeadline extends StatelessWidget {
+  const AccountHeadline(this.title, {super.key, this.body});
+
+  final String title;
+  final String? body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: accountText(
+              32,
+              weight: FontWeight.w700,
+              letterSpacing: -0.7,
             ),
           ),
-          Expanded(child: child),
+          if (body != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              body!,
+              style: accountText(15, color: kAccountMuted, height: 1.4),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class AccountSection extends StatelessWidget {
-  const AccountSection(this.label, {super.key});
+class AccountGlyph extends StatelessWidget {
+  const AccountGlyph({super.key, required this.asset, this.size = 44});
 
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
-      child: Text(label, style: accountText(20, weight: FontWeight.w700)),
-    );
-  }
-}
-
-class AccountRow extends StatelessWidget {
-  const AccountRow({
-    super.key,
-    required this.title,
-    this.body,
-    this.trailing,
-    this.onTap,
-    this.danger = false,
-  });
-
-  final String title;
-  final String? body;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final bool danger;
+  final String asset;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    return PointerInterceptor(
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: accountText(
-                        15,
-                        weight: FontWeight.w600,
-                        color: danger ? const Color(0xFFB42318) : kAccountInk,
-                      ),
-                    ),
-                    if (body != null && body!.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        body!,
-                        style: accountText(
-                          13,
-                          color: kAccountMuted,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              trailing ??
-                  (onTap == null
-                      ? const SizedBox.shrink()
-                      : const Icon(
-                          Icons.chevron_right_rounded,
-                          color: kAccountMuted,
-                        )),
-            ],
-          ),
-        ),
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColor.liteBlue,
+      ),
+      child: Image.asset(
+        asset,
+        height: size * 0.58,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
       ),
     );
   }
 }
 
-class AccountCardButton extends StatelessWidget {
-  const AccountCardButton({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+class AccountGroup extends StatelessWidget {
+  const AccountGroup({super.key, required this.children});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: PointerInterceptor(
-        child: Material(
-          color: kAccountSoft,
-          borderRadius: BorderRadius.circular(18),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: kAccountLine),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
+class AccountTile extends StatelessWidget {
+  const AccountTile({
+    super.key,
+    required this.title,
+    this.body,
+    this.asset,
+    this.trailing,
+    this.onTap,
+    this.danger = false,
+    this.showDivider = true,
+  });
+
+  final String title;
+  final String? body;
+  final String? asset;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool danger;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        PointerInterceptor(
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(18),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+              child: Row(
                 children: [
-                  Icon(icon, size: 26, color: kAccountInk),
-                  const SizedBox(height: 8),
-                  Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: accountText(12, weight: FontWeight.w600),
+                  if (asset != null) ...[
+                    AccountGlyph(asset: asset!),
+                    const SizedBox(width: 14),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: accountText(
+                            15.5,
+                            weight: FontWeight.w600,
+                            color: danger
+                                ? const Color(0xFFB42318)
+                                : kAccountInk,
+                          ),
+                        ),
+                        if (body != null && body!.isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            body!,
+                            style: accountText(
+                              13,
+                              color: kAccountMuted,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
+                  trailing ??
+                      (onTap == null
+                          ? const SizedBox.shrink()
+                          : const Icon(
+                              Icons.chevron_right_rounded,
+                              color: kAccountMuted,
+                            )),
                 ],
               ),
             ),
           ),
         ),
+        if (showDivider)
+          const Divider(height: 1, indent: 72, color: kAccountLine),
+      ],
+    );
+  }
+}
+
+class AccountHero extends StatelessWidget {
+  const AccountHero({super.key, required this.asset, this.height = 108});
+
+  final String asset;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Image.asset(
+        asset,
+        height: height,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => const SizedBox(height: 40),
       ),
     );
   }
@@ -209,13 +268,13 @@ class AccountFillButton extends StatelessWidget {
     return PointerInterceptor(
       child: SizedBox(
         width: double.infinity,
-        height: 52,
+        height: 54,
         child: Material(
           color: kAccountCta,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: Center(
               child: Text(
                 label,
@@ -254,7 +313,7 @@ Future<String?> showAccountTextEditor(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: accountText(20, weight: FontWeight.w700)),
+            Text(title, style: accountText(22, weight: FontWeight.w700)),
             const SizedBox(height: 14),
             TextField(
               controller: controller,
@@ -265,7 +324,7 @@ Future<String?> showAccountTextEditor(
                 filled: true,
                 fillColor: kAccountSoft,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -303,18 +362,21 @@ Future<String?> showAccountChoice(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Text(
                 title,
-                style: accountText(20, weight: FontWeight.w700),
+                style: accountText(22, weight: FontWeight.w700),
               ),
             ),
             for (final option in options)
-              AccountRow(
-                title: option,
+              ListTile(
+                title: Text(
+                  option,
+                  style: accountText(15.5, weight: FontWeight.w600),
+                ),
                 trailing: option == selected
                     ? const Icon(Icons.check_rounded, color: kAccountAccent)
-                    : const SizedBox.shrink(),
+                    : null,
                 onTap: () => Navigator.pop(context, option),
               ),
           ],
@@ -333,20 +395,21 @@ class AccountLegalPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final terms = kind == 'terms';
     return AccountScaffold(
-      title: terms ? 'Terms' : 'Privacy notice',
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          Text(
-            terms ? 'Movera terms for riders' : 'Movera privacy notice',
-            style: accountText(24, weight: FontWeight.w700),
+          AccountHeadline(
+            terms ? 'Terms' : 'Privacy notice',
+            body: terms
+                ? 'How Movera rides and reservations work.'
+                : 'What we keep, and how you control it.',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           Text(
             terms
                 ? 'Book now and scheduled rides are separate. A reservation keeps the same ID if you edit it. Cancel before pickup according to the waiting window on the reservation.'
                 : 'Movera stores the name, phone, email, and places you save so we can run your trips. You can change communication preferences any time. Location is used for pickup, tracking, and safety tools while a ride is active.',
-            style: accountText(14.5, color: kAccountMuted, height: 1.5),
+            style: accountText(15, color: kAccountMuted, height: 1.5),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
@@ -39,65 +40,76 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
   Widget build(BuildContext context) {
     final ride = _profile.profile;
     return AccountScaffold(
-      title: 'Account check',
       child: ListView(
+        padding: const EdgeInsets.only(bottom: 36),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-            child: Text(
-              'A few steps keep this Movera account easy to recover.',
-              style: accountText(14, color: kAccountMuted, height: 1.45),
-            ),
+          const AccountHero(asset: AppAssets.verify, height: 108),
+          const AccountHeadline(
+            'Account check',
+            body: 'A few steps keep this Movera account easy to recover.',
           ),
-          AccountRow(
-            title: 'Phone number',
-            body: ride.phoneVerified ? ride.phone : 'Add a phone number',
-            trailing: Icon(
-              ride.phoneVerified
-                  ? Icons.check_circle_rounded
-                  : Icons.circle_outlined,
-              color: ride.phoneVerified ? kAccountAccent : kAccountMuted,
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(PersonalInfoPage(controller: _profile)),
-              );
-            },
-          ),
-          AccountRow(
-            title: '2-step verification',
-            body: ride.twoStepEnabled ? 'On' : 'Turn on an extra sign-in check',
-            trailing: Icon(
-              ride.twoStepEnabled
-                  ? Icons.check_circle_rounded
-                  : Icons.circle_outlined,
-              color: ride.twoStepEnabled ? kAccountAccent : kAccountMuted,
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(SecurityPage(controller: _profile)),
-              );
-            },
-          ),
-          AccountRow(
-            title: 'Recovery phone',
-            body: ride.recoveryPhone ?? 'Add a backup number',
-            trailing: Icon(
-              (ride.recoveryPhone ?? '').isNotEmpty
-                  ? Icons.check_circle_rounded
-                  : Icons.circle_outlined,
-              color: (ride.recoveryPhone ?? '').isNotEmpty
-                  ? kAccountAccent
-                  : kAccountMuted,
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(SecurityPage(controller: _profile)),
-              );
-            },
+          const SizedBox(height: 18),
+          AccountGroup(
+            children: [
+              AccountTile(
+                asset: AppAssets.phone,
+                title: 'Phone number',
+                body: ride.phoneVerified ? ride.phone : 'Add a phone number',
+                trailing: Icon(
+                  ride.phoneVerified
+                      ? Icons.check_circle_rounded
+                      : Icons.circle_outlined,
+                  color: ride.phoneVerified ? kAccountAccent : kAccountMuted,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    RightToLeftTransition(
+                      PersonalInfoPage(controller: _profile),
+                    ),
+                  );
+                },
+              ),
+              AccountTile(
+                asset: AppAssets.verify,
+                title: '2-step verification',
+                body: ride.twoStepEnabled
+                    ? 'On'
+                    : 'Turn on an extra sign-in check',
+                trailing: Icon(
+                  ride.twoStepEnabled
+                      ? Icons.check_circle_rounded
+                      : Icons.circle_outlined,
+                  color: ride.twoStepEnabled ? kAccountAccent : kAccountMuted,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    RightToLeftTransition(SecurityPage(controller: _profile)),
+                  );
+                },
+              ),
+              AccountTile(
+                asset: AppAssets.mobile,
+                title: 'Recovery phone',
+                body: ride.recoveryPhone ?? 'Add a backup number',
+                showDivider: false,
+                trailing: Icon(
+                  (ride.recoveryPhone ?? '').isNotEmpty
+                      ? Icons.check_circle_rounded
+                      : Icons.circle_outlined,
+                  color: (ride.recoveryPhone ?? '').isNotEmpty
+                      ? kAccountAccent
+                      : kAccountMuted,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    RightToLeftTransition(SecurityPage(controller: _profile)),
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),
