@@ -14,6 +14,7 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/scheduled_pickup_picker.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -347,4 +348,61 @@ void main() {
       expect(AppScope.instance.ride.status, RideStatus.idle);
     },
   );
+
+  testWidgets('When should we pick you up Continue returns a scheduled time', (
+    tester,
+  ) async {
+    DateTime? picked;
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  picked = await ScheduleDateTimeSelector.choose(context);
+                },
+                child: const Text('open calendar'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.text('open calendar'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining('When should we'), findsOneWidget);
+    expect(find.text('Pick up at'), findsOneWidget);
+    expect(find.text('Arrive by'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(picked, isNotNull);
+    expect(picked!.isAfter(DateTime.now()), isTrue);
+
+    final selection = RideSelectionController();
+    expect(selection.bookingMode.ctaLabel('Movera'), 'Select Movera');
+    selection.scheduleFor(picked);
+    expect(selection.bookingMode.ctaLabel('Movera'), 'Schedule Movera');
+    expect(selection.entersFindingDriver, isFalse);
+  });
+
+  test('Book for later keeps the addresses already entered', () {
+    const pickup = 'Klockarvägen 37';
+    const dropoff = 'Arlanda Express';
+    final selection = RideSelectionController(bookingMode: BookingMode.now);
+    expect(selection.bookingMode.ctaLabel('Movera'), 'Select Movera');
+    expect(selection.entersFindingDriver, isTrue);
+    selection.scheduleFor(DateTime(2026, 9, 23, 15, 50));
+    expect(selection.bookingMode, BookingMode.scheduled);
+    expect(selection.bookingMode.ctaLabel('Movera'), 'Schedule Movera');
+    expect(selection.entersFindingDriver, isFalse);
+    expect(pickup, 'Klockarvägen 37');
+    expect(dropoff, 'Arlanda Express');
+  });
 }

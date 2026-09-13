@@ -23,10 +23,14 @@ class RideScheduledPage extends StatefulWidget {
     required String reservationId,
     ReservationController? controller,
     bool replace = false,
+    bool untilHome = false,
   }) {
     final route = BottomToTopTransition(
       RideScheduledPage(reservationId: reservationId, controller: controller),
     );
+    if (untilHome) {
+      return Navigator.pushAndRemoveUntil(context, route, (r) => r.isFirst);
+    }
     if (replace) {
       return Navigator.pushReplacement(context, route);
     }

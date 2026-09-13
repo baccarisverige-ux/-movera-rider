@@ -15,7 +15,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
-import 'package:movera_rider/features/ride_selection/presentation/scheduled_pickup_picker.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -384,7 +384,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _chooseLater() async {
-    final when = await chooseScheduledPickup(context);
+    final when = await ScheduleDateTimeSelector.choose(context);
     if (when == null || !mounted) return;
     setState(() => _selection.scheduleFor(when));
   }

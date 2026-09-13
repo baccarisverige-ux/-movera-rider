@@ -11,6 +11,7 @@ import 'package:movera_rider/features/scheduled_rides/application/scheduled_ride
 import 'package:movera_rider/features/scheduled_rides/presentation/confirm_booking.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/add_note.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
+import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -99,6 +100,10 @@ class _ScheduleRideState extends State<ScheduleRide> {
   void goToNextStep() {
     FocusScope.of(context).unfocus();
     _syncRouteToSession();
+    if (currentStep >= 1) {
+      openScheduledCategorySelector(context, session: _session);
+      return;
+    }
     setState(() => currentStep += 1);
   }
 

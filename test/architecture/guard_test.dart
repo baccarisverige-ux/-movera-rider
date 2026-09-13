@@ -348,7 +348,8 @@ void main() {
     expect(scheduled.contains('submitFinding'), isFalse);
     expect(scheduled.contains('ScheduledRideBooking.confirm'), isTrue);
     expect(scheduled.contains('_reservations.create'), isFalse);
-    expect(src.contains('chooseScheduledPickup'), isTrue);
+    expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
+    expect(src.contains('_chooseLater'), isTrue);
     final now = src.substring(nowStart);
     expect(now.contains('FindingDrivers'), isTrue);
     expect(now.contains('submitFinding'), isTrue);
@@ -386,7 +387,30 @@ void main() {
     ).readAsStringSync();
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
     expect(home.contains('const ScheduleRide()'), isTrue);
+    expect(home.contains('_handleDestinationTap'), isTrue);
   });
+
+  test(
+    'Later/Schedule ride goes Plan your ride → calendar → shared categories',
+    () {
+      final schedule = File(
+        'lib/features/scheduled_rides/presentation/schedule_ride.dart',
+      ).readAsStringSync();
+      expect(schedule.contains('Plan your ride'), isTrue);
+      expect(schedule.contains('ScheduleDateTimeSelector'), isTrue);
+      expect(schedule.contains('openScheduledCategorySelector'), isTrue);
+      expect(schedule.contains('ScheduleAddNote'), isTrue);
+      expect(schedule.contains('ScheduleConfirmBooking'), isTrue);
+      final gate = File(
+        'lib/features/reservations/presentation/scheduled_category_gate.dart',
+      ).readAsStringSync();
+      expect(gate.contains('bookingMode: BookingMode.scheduled'), isTrue);
+      expect(gate.contains('lockBookingMode: true'), isTrue);
+      expect(gate.contains('FindingDrivers'), isFalse);
+      expect(gate.contains('SelectRide('), isTrue);
+      expect(gate.contains('untilHome: true'), isTrue);
+    },
+  );
 
   test(
     'scheduled booking flow test proves CTA, Ride scheduled, and no Finding Driver',
@@ -403,6 +427,8 @@ void main() {
       expect(src.contains('Connecting you with nearby drivers'), isTrue);
       expect(src.contains('ScheduledRideBooking.confirm'), isTrue);
       expect(src.contains('chooseScheduledPickup'), isTrue);
+      expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
+      expect(src.contains('When should we pick you up Continue'), isTrue);
       expect(src.contains('return ride must not exist before confirm'), isTrue);
     },
   );

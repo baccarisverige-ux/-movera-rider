@@ -10,6 +10,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback? onBack;
   final Widget body;
   final ScheduledRideSession? session;
+  final bool popOnConfirm;
 
   const ScheduleDateTimeSelector({
     super.key,
@@ -17,7 +18,25 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     required this.onConfirm,
     this.onBack,
     this.session,
+    this.popOnConfirm = false,
   });
+
+  /// Same "When should we pick you up?" screen, used when Book now
+  /// switches to Book for later on the category cards.
+  static Future<DateTime?> choose(BuildContext context, {DateTime? initial}) {
+    final session = ScheduledRideSession();
+    if (initial != null) session.captureSchedule(initial);
+    return Navigator.of(context).push<DateTime>(
+      MaterialPageRoute(
+        builder: (_) => ScheduleDateTimeSelector(
+          body: const SizedBox.shrink(),
+          session: session,
+          popOnConfirm: true,
+          onConfirm: () {},
+        ),
+      ),
+    );
+  }
 
   @override
   State<ScheduleDateTimeSelector> createState() =>
@@ -133,8 +152,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         child: CalendarDatePicker(
                           initialDate: draftDate,
                           firstDate: DateTime.now(),
-                          lastDate:
-                              DateTime.now().add(const Duration(days: 365)),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 365),
+                          ),
                           onDateChanged: (date) {
                             setSheetState(() => draftDate = date);
                           },
@@ -156,8 +176,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                           child: _sheetAction(
                             label: 'Done',
                             filled: true,
-                            onTap: () =>
-                                Navigator.pop(sheetContext, draftDate),
+                            onTap: () => Navigator.pop(sheetContext, draftDate),
                           ),
                         ),
                       ],
@@ -186,9 +205,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   Future<void> _chooseTime() async {
     var draftHour = _selectedDateTime.hour;
     var draftMinute = (_selectedDateTime.minute ~/ 5) * 5;
-    final hourController = FixedExtentScrollController(
-      initialItem: draftHour,
-    );
+    final hourController = FixedExtentScrollController(initialItem: draftHour);
     final minuteController = FixedExtentScrollController(
       initialItem: draftMinute ~/ 5,
     );
@@ -264,18 +281,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                               itemBuilder: (_, index) => Center(
                                 child: Text(
                                   index.toString().padLeft(2, '0'),
-                                  style: _style(
-                                    20,
-                                    weight: FontWeight.w600,
-                                  ),
+                                  style: _style(20, weight: FontWeight.w600),
                                 ),
                               ),
                             ),
                           ),
-                          Text(
-                            ':',
-                            style: _style(20, weight: FontWeight.w700),
-                          ),
+                          Text(':', style: _style(20, weight: FontWeight.w700)),
                           Expanded(
                             child: CupertinoPicker.builder(
                               scrollController: minuteController,
@@ -290,10 +301,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                               itemBuilder: (_, index) => Center(
                                 child: Text(
                                   (index * 5).toString().padLeft(2, '0'),
-                                  style: _style(
-                                    20,
-                                    weight: FontWeight.w600,
-                                  ),
+                                  style: _style(20, weight: FontWeight.w600),
                                 ),
                               ),
                             ),
@@ -320,10 +328,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         filled: true,
                         onTap: () => Navigator.pop(
                           sheetContext,
-                          TimeOfDay(
-                            hour: draftHour,
-                            minute: draftMinute,
-                          ),
+                          TimeOfDay(hour: draftHour, minute: draftMinute),
                         ),
                       ),
                     ),
@@ -401,11 +406,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                     const SizedBox(height: 30),
                     Text(
                       'When should we\npick you up?',
-                      style: _style(
-                        29,
-                        weight: FontWeight.w700,
-                        height: 1.16,
-                      ),
+                      style: _style(29, weight: FontWeight.w700, height: 1.16),
                     ),
                     const SizedBox(height: 9),
                     Text(
@@ -432,7 +433,6 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         height: 1.55,
                       ),
                     ),
-
                   ],
                 ),
               ),
@@ -467,19 +467,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             child: const SizedBox(
               width: 42,
               height: 42,
-              child: Icon(
-                Icons.arrow_back_rounded,
-                color: _ink,
-                size: 22,
-              ),
+              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
             ),
           ),
         ),
         const Spacer(),
-        Text(
-          'Schedule ride',
-          style: _style(12, weight: FontWeight.w600),
-        ),
+        Text('Schedule ride', style: _style(12, weight: FontWeight.w600)),
         const Spacer(),
         const SizedBox(width: 42),
       ],
@@ -609,16 +602,17 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                 style: _style(11, weight: FontWeight.w500, color: _muted),
               ),
               const Spacer(),
-              Text(
-                value,
-                style: _style(13, weight: FontWeight.w600),
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: _style(13, weight: FontWeight.w600),
+                ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: _muted,
-                size: 20,
-              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted, size: 20),
             ],
           ),
         ),
@@ -667,6 +661,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
           child: ElevatedButton(
             onPressed: () {
               _commitSchedule();
+              if (widget.popOnConfirm) {
+                Navigator.pop(context, _selectedDateTime);
+                return;
+              }
               widget.onConfirm();
             },
 
@@ -680,11 +678,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             ),
             child: Text(
               'Continue',
-              style: _style(
-                14,
-                weight: FontWeight.w600,
-                color: Colors.white,
-              ),
+              style: _style(14, weight: FontWeight.w600, color: Colors.white),
             ),
           ),
         ),
