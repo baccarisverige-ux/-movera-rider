@@ -152,6 +152,10 @@ class AppAssets {
       'assets/images/earning_stats_card_img.png';
   static const String pinVerification = 'assets/images/pin_verification.png';
   static const String verify = 'assets/images/verify.png';
+  static const String noteBags = 'assets/images/notes/bags.png';
+  static const String notePet = 'assets/images/notes/pet.png';
+  static const String noteBaby = 'assets/images/notes/baby.png';
+  static const String noteChild = 'assets/images/notes/child.png';
   static const String verifyCrntSession =
       'assets/images/verify_crnt_session.png';
   static const String dontVerify = 'assets/images/dont_verify.png';

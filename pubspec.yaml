@@ -97,6 +97,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/images/rides/
+    - assets/images/notes/
     - assets/images/schedule_timeline_white.png
 
   # An image asset can refer to one or more resolution-specific "variants", see

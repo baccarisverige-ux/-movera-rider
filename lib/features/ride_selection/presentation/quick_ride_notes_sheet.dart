@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 Future<RideNotes?> showQuickRideNotesSheet(BuildContext context) {
   SheetCoordinator.instance.open(RideSheet.notes);
@@ -37,130 +40,189 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
 
   void _submit() => Navigator.pop(context, _notes);
 
+  bool _on(String key) => switch (key) {
+    'bags' => _notes.bags,
+    'pet' => _notes.pet,
+    'baby' => _notes.baby,
+    _ => _notes.child,
+  };
+
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
     const items = [
-      (key: 'bags', label: 'Bags', icon: Icons.luggage_outlined),
-      (key: 'pet', label: 'Pet', icon: Icons.pets_outlined),
-      (key: 'baby', label: 'Baby', icon: Icons.child_care_outlined),
-      (key: 'child', label: 'Child', icon: Icons.escalator_warning_outlined),
+      (key: 'bags', label: 'Bags', art: AppAssets.noteBags),
+      (key: 'pet', label: 'Pet', art: AppAssets.notePet),
+      (key: 'baby', label: 'Baby', art: AppAssets.noteBaby),
+      (key: 'child', label: 'Child', art: AppAssets.noteChild),
     ];
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE7EBEE),
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text('Anything we should know?', style: _text(20, weight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text(
-            'Optional. Your driver will see this.',
-            style: _text(13, color: const Color(0xFF778189)),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final item in items)
-                _Chip(
-                  label: item.label,
-                  icon: item.icon,
-                  selected: switch (item.key) {
-                    'bags' => _notes.bags,
-                    'pet' => _notes.pet,
-                    'baby' => _notes.baby,
-                    _ => _notes.child,
-                  },
-                  onTap: () => setState(() => _notes = _notes.toggle(item.key)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: TextButton(
-              onPressed: () => Navigator.pop(context, RideNotes.empty),
-              child: Text(
-                'None / Skip',
-                style: _text(14, weight: FontWeight.w600, color: const Color(0xFF778189)),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: FilledButton(
-              onPressed: _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF11181D),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
+    return PointerInterceptor(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE7EBEE),
+                  borderRadius: BorderRadius.circular(99),
                 ),
               ),
-              child: Text('Find driver', style: _text(16, weight: FontWeight.w600, color: Colors.white)),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              'Anything we should know?',
+              style: _text(22, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Optional. Your driver will see this.',
+              style: _text(13.5, color: const Color(0xFF778189)),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _NoteTile(
+                    label: items[0].label,
+                    art: items[0].art,
+                    selected: _on(items[0].key),
+                    onTap: () =>
+                        setState(() => _notes = _notes.toggle(items[0].key)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _NoteTile(
+                    label: items[1].label,
+                    art: items[1].art,
+                    selected: _on(items[1].key),
+                    onTap: () =>
+                        setState(() => _notes = _notes.toggle(items[1].key)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _NoteTile(
+                    label: items[2].label,
+                    art: items[2].art,
+                    selected: _on(items[2].key),
+                    onTap: () =>
+                        setState(() => _notes = _notes.toggle(items[2].key)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _NoteTile(
+                    label: items[3].label,
+                    art: items[3].art,
+                    selected: _on(items[3].key),
+                    onTap: () =>
+                        setState(() => _notes = _notes.toggle(items[3].key)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context, RideNotes.empty),
+                child: Text(
+                  'None / Skip',
+                  style: _text(
+                    14,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFF778189),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton(
+                onPressed: _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF11181D),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                child: Text(
+                  'Find driver',
+                  style: _text(
+                    16,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
+class _NoteTile extends StatelessWidget {
+  const _NoteTile({
     required this.label,
-    required this.icon,
+    required this.art,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final IconData icon;
+  final String art;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? const Color(0xFFEAF2F8) : const Color(0xFFF6F8FA),
-      borderRadius: BorderRadius.circular(16),
+      color: selected ? AppColor.liteBlue : Colors.white,
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: MoveraMotion.selection(
           selected: selected,
           child: Container(
-            width: 84,
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: selected ? const Color(0xFF2D5878) : const Color(0xFFE7EBEE),
+                color: selected
+                    ? const Color(0xFF2D5878)
+                    : const Color(0xFFE7EBEE),
+                width: selected ? 1.5 : 1,
               ),
             ),
             child: Column(
               children: [
-                Icon(icon, size: 22, color: const Color(0xFF1D252C)),
-                const SizedBox(height: 6),
+                Image.asset(
+                  art,
+                  height: 72,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                ),
+                const SizedBox(height: 8),
                 Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF1D252C),
                   ),

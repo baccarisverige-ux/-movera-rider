@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
@@ -119,7 +120,9 @@ class _FindingDriversState extends State<FindingDrivers> {
           markerId: MarkerId('nearby-${vehicle.id}'),
           position: LatLng(vehicle.latitude, vehicle.longitude),
           rotation: vehicle.bearing,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueViolet,
+          ),
         ),
     };
     _polylines = {
@@ -223,7 +226,8 @@ class _FindingDriversState extends State<FindingDrivers> {
           parallaxEnabled: false,
           boxShadow: const [],
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          panelBuilder: (sc) => _panelBody(sc, progress, copy.headline, copy.subtitle),
+          panelBuilder: (sc) =>
+              _panelBody(sc, progress, copy.headline, copy.subtitle),
           body: Stack(
             children: [
               if (!_mapParked)
@@ -271,7 +275,10 @@ class _FindingDriversState extends State<FindingDrivers> {
                 bottom: minHeight + 16,
                 child: _roundBtn(Icons.my_location_rounded, () {
                   AppScope.instance.camera.focusOnPickup(
-                    GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+                    GeoPoint(
+                      _pickupPosition.latitude,
+                      _pickupPosition.longitude,
+                    ),
                   );
                 }),
               ),
@@ -305,6 +312,17 @@ class _FindingDriversState extends State<FindingDrivers> {
             ),
           ),
           const SizedBox(height: 16),
+          if (!_match.showPriceBump) ...[
+            Center(
+              child: Image.asset(
+                AppAssets.scheduleRideCar,
+                height: 92,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(
             headline,
             style: GoogleFonts.poppins(
