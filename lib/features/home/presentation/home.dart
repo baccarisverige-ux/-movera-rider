@@ -25,6 +25,7 @@ import 'package:movera_rider/features/location_picker/application/location_picke
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/promotions/application/promotions_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
+import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
@@ -2017,11 +2018,13 @@ class _HomeState extends State<Home> {
   }
 
   void _openAccount() {
-    _animateHomeSheetTo(
-      SheetOffset.absolute(_sheetMinPixels),
-      duration: const Duration(milliseconds: 320),
+    unawaited(
+      _withParkedHomeMap(() {
+        return Navigator.of(
+          context,
+        ).push(RightToLeftTransition(const AccountHomePage()));
+      }),
     );
-    _profilePanelController.open();
   }
 
   @override

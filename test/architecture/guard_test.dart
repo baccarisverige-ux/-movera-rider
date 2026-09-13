@@ -392,6 +392,8 @@ void main() {
     expect(home.contains('HomeReservationChrono'), isTrue);
     expect(home.contains('_PickupMapPickerPage'), isFalse);
     expect(home.contains('ConfirmPickupSpot.open'), isTrue);
+    expect(home.contains('AccountHomePage'), isTrue);
+    expect(home.contains('Uber account'), isFalse);
   });
 
   test(

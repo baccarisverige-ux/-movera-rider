@@ -26,6 +26,7 @@ import 'package:movera_rider/features/destination/application/destination_sessio
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
+import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
@@ -56,7 +57,8 @@ class AppScope {
       destination = DestinationSession(),
       booking = BookingCoordinator(),
       routing = RoutingService(),
-      reservations = ReservationController() {
+      reservations = ReservationController(),
+      profile = ProfileController() {
     api = ApiClient(tokens: tokens);
     quotes = ApiQuoteRepository(api: api, fallback: CatalogQuoteRepository());
     rideRealtime = MockRideRealtime(api: api);
@@ -103,5 +105,6 @@ class AppScope {
   final RoutingService routing;
   late final RideRealtime rideRealtime;
   final ReservationController reservations;
+  final ProfileController profile;
   FeatureFlags flags = FeatureFlags.current;
 }

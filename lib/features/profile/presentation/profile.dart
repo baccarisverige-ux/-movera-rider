@@ -181,30 +181,30 @@ class RiderProfile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Column(
-      children: [
-        Container(
-          height: ResSize.h * 35,
-          width: ResSize.w * 35,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0xffEEEEEE),
-          ),
-          child: Center(
-            child: Image.asset(
-              icon!,
-              height: ResSize.h * 20,
-              color: AppColor.black,
+        children: [
+          Container(
+            height: ResSize.h * 35,
+            width: ResSize.w * 35,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xffEEEEEE),
+            ),
+            child: Center(
+              child: Image.asset(
+                icon!,
+                height: ResSize.h * 20,
+                color: AppColor.black,
+              ),
             ),
           ),
-        ),
-        7.height,
-        TextWidget(
-          text: title,
-          fontSize: 14,
-          fontWeight: fwNormal,
-          color: AppColor.subtitle,
-        ),
-      ],
+          7.height,
+          TextWidget(
+            text: title,
+            fontSize: 14,
+            fontWeight: fwNormal,
+            color: AppColor.subtitle,
+          ),
+        ],
       ),
     );
   }
