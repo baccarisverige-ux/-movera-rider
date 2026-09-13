@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
@@ -53,6 +54,11 @@ class ReviewChangesPage extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
               children: [
+                const ReservationHeroArt(
+                  asset: AppAssets.scheduleRideCar,
+                  height: 92,
+                ),
+                const SizedBox(height: 12),
                 Text(
                   'Check the updated trip details and price before confirming.',
                   style: reservationText(

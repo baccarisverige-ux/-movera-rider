@@ -31,7 +31,8 @@ class AppAssets {
   static const String about = 'assets/icons/about.png';
   static const String driverIcon = 'assets/icons/driver_icon.png';
   static const String calendar2 = 'assets/icons/calendar2.png';
-  static const String scheduleCalendar = 'assets/icons/schedule_calendar_v3.png';
+  static const String scheduleCalendar =
+      'assets/icons/schedule_calendar_v3.png';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';
@@ -128,6 +129,8 @@ class AppAssets {
   static const String applepay = 'assets/images/applepay.png';
   static const String paypal = 'assets/images/paypal.png';
   static const String scheduleRideCar = 'assets/images/schedule_ride_car.png';
+  static const String scheduleTimeline =
+      'assets/images/schedule_timeline_white_v2.png';
   static const String rideSummaryImg = 'assets/images/ride_summary_img.png';
   static const String rideSummaryCar = 'assets/images/ride_summary_car.png';
   static const String rideConfirmedImg = 'assets/images/ride_confirmed_img.png';

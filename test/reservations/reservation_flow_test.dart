@@ -64,6 +64,7 @@ void main() {
     );
     expect(find.text('Your ride is scheduled'), findsOneWidget);
     expect(find.textContaining('ready for'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Plan a return ride'), 400);
     expect(find.text('Plan a return ride'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('View reservation'), 400);
     expect(find.text('View reservation'), findsOneWidget);
@@ -188,6 +189,7 @@ void main() {
     expect(find.text('Confirm changes'), findsOneWidget);
     expect(find.text('Keep current reservation'), findsOneWidget);
     expect(find.textContaining('40 kr more'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('No additional change charge'), 300);
     expect(find.text('No additional change charge'), findsOneWidget);
     expect(find.textContaining('Uber'), findsNothing);
     await tester.tap(find.text('Keep current reservation'));

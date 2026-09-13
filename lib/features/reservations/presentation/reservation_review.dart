@@ -19,38 +19,33 @@ class ReservationReviewPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final minutes = draft.estimatedDropoffAt
+        ?.difference(draft.scheduledPickupAt)
+        .inMinutes;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
           SizedBox(height: top + 4),
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context, false),
-                icon: const Icon(Icons.close_rounded, color: kReservationInk),
-              ),
-              Expanded(
-                child: Text(
-                  'SCHEDULE',
-                  textAlign: TextAlign.center,
-                  style: reservationText(
-                    10,
-                    weight: FontWeight.w600,
-                    color: kReservationMuted,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 48),
-            ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: () => Navigator.pop(context, false),
+              icon: const Icon(Icons.close_rounded, color: kReservationInk),
+            ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               children: [
+                const ReservationHeroArt(
+                  asset: AppAssets.scheduleTimeline,
+                  height: 128,
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Your scheduled ride',
+                  textAlign: TextAlign.center,
                   style: reservationText(
                     28,
                     weight: FontWeight.w700,
@@ -60,6 +55,7 @@ class ReservationReviewPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Review the details before you schedule your ride.',
+                  textAlign: TextAlign.center,
                   style: reservationText(
                     14.5,
                     color: kReservationMuted,
@@ -67,12 +63,59 @@ class ReservationReviewPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 22),
-                ReservationDraftCard(draft: draft),
+                ReservationHeroArt(asset: draft.categoryImage, height: 86),
+                const SizedBox(height: 4),
+                Text(
+                  draft.categoryName,
+                  textAlign: TextAlign.center,
+                  style: reservationText(18, weight: FontWeight.w700),
+                ),
+                Text(
+                  minutes == null
+                      ? ReservationFormat.kr(draft.price)
+                      : '${minutes} min  ·  ${ReservationFormat.kr(draft.price)}',
+                  textAlign: TextAlign.center,
+                  style: reservationText(14, color: kReservationMuted),
+                ),
                 const SizedBox(height: 18),
+                ReservationFact(
+                  asset: AppAssets.scheduleCalendar,
+                  label: 'Pickup date',
+                  value: ReservationFormat.longDate(draft.scheduledPickupAt),
+                ),
+                ReservationFact(
+                  asset: AppAssets.time,
+                  label: 'Pickup time',
+                  value: ReservationFormat.time(draft.scheduledPickupAt),
+                ),
+                ReservationFact(
+                  asset: AppAssets.gps,
+                  label: 'Pickup',
+                  value: draft.pickup.label,
+                ),
+                ReservationFact(
+                  asset: AppAssets.location,
+                  label: 'Destination',
+                  value: draft.destination.label,
+                ),
+                ReservationFact(
+                  asset: AppAssets.payment,
+                  label: 'Payment',
+                  value: draft.paymentMethod,
+                  trailing: ReservationPaymentMark(method: draft.paymentMethod),
+                ),
+                if (draft.note != null && draft.note!.trim().isNotEmpty)
+                  ReservationFact(
+                    asset: AppAssets.note,
+                    label: 'Preferences',
+                    value: draft.note!.trim(),
+                  ),
+                const SizedBox(height: 12),
                 GestureDetector(
                   onTap: () => ScheduledRideTermsPage.open(context),
                   child: Text(
                     'View scheduled ride terms',
+                    textAlign: TextAlign.center,
                     style: reservationText(
                       14.5,
                       weight: FontWeight.w600,
@@ -84,7 +127,7 @@ class ReservationReviewPage extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(22, 8, 22, 16 + bottom),
+            padding: EdgeInsets.fromLTRB(24, 8, 24, 16 + bottom),
             child: SizedBox(
               width: double.infinity,
               height: 54,
@@ -122,124 +165,6 @@ class ReservationDraftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: kReservationLine),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 22,
-            offset: Offset(0, 9),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 72,
-                height: 48,
-                child: Image.asset(
-                  draft.categoryImage,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Image.asset(
-                    AppAssets.scheduleRideCar,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      draft.categoryName,
-                      style: reservationText(16, weight: FontWeight.w700),
-                    ),
-                    Text(
-                      draft.estimatedDropoffAt == null
-                          ? draft.paymentMethod
-                          : '${draft.estimatedDropoffAt!.difference(draft.scheduledPickupAt).inMinutes} min  ·  ${draft.paymentMethod}',
-                      style: reservationText(12.5, color: kReservationMuted),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                ReservationFormat.kr(draft.price),
-                style: reservationText(16, weight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Divider(color: kReservationLine),
-          _row(
-            asset: AppAssets.scheduleCalendar,
-            label: 'Pickup date',
-            value: ReservationFormat.longDate(draft.scheduledPickupAt),
-          ),
-          _row(
-            asset: AppAssets.time,
-            label: 'Pickup time',
-            value: ReservationFormat.time(draft.scheduledPickupAt),
-          ),
-          _row(
-            asset: AppAssets.gps,
-            label: 'Pickup',
-            value: draft.pickup.label,
-          ),
-          _row(
-            asset: AppAssets.location,
-            label: 'Destination',
-            value: draft.destination.label,
-          ),
-          if (draft.note != null && draft.note!.trim().isNotEmpty)
-            _row(
-              asset: AppAssets.note,
-              label: 'Preferences',
-              value: draft.note!.trim(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _row({
-    required String asset,
-    required String label,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MoveraGlyph(asset: asset),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: reservationText(12, color: kReservationMuted),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: reservationText(15, weight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return ReservationHeroArt(asset: draft.categoryImage, height: 80);
   }
 }

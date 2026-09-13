@@ -131,38 +131,76 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
               children: [
+                const ReservationHeroArt(asset: AppAssets.sucess, height: 78),
+                const SizedBox(height: 8),
                 Text(
                   'Your ride is scheduled',
+                  textAlign: TextAlign.center,
                   style: reservationText(
-                    32,
+                    28,
                     weight: FontWeight.w700,
-                    height: 1.1,
+                    height: 1.15,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   ReservationFormat.scheduledReady(ride.scheduledPickupAt),
+                  textAlign: TextAlign.center,
                   style: reservationText(
-                    15,
+                    14.5,
                     color: kReservationMuted,
-                    height: 1.4,
+                    height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 22),
-                _ReservationCard(
-                  ride: ride,
-                  onEdit: () => _editReservation(ride),
-                ),
-                const SizedBox(height: 28),
-                Text(
-                  'Need another ride?',
-                  style: reservationText(18, weight: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                _ReturnRow(onTap: () => _planReturn(ride)),
                 const SizedBox(height: 10),
+                Center(child: ReservationDriverBadge(ride: ride)),
+                const SizedBox(height: 22),
+                ReservationHeroArt(asset: ride.categoryImage, height: 80),
+                const SizedBox(height: 6),
+                Text(
+                  ride.categoryName,
+                  textAlign: TextAlign.center,
+                  style: reservationText(20, weight: FontWeight.w700),
+                ),
+                Text(
+                  ReservationFormat.price(ride),
+                  textAlign: TextAlign.center,
+                  style: reservationText(16, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 18),
+                ReservationFact(
+                  asset: AppAssets.scheduleCalendar,
+                  label: 'Pickup',
+                  value:
+                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                ),
+                ReservationFact(
+                  asset: AppAssets.gps,
+                  label: 'From',
+                  value: ride.pickup.label,
+                ),
+                ReservationFact(
+                  asset: AppAssets.location,
+                  label: 'To',
+                  value: ride.destination.label,
+                ),
+                ReservationFact(
+                  asset: AppAssets.payment,
+                  label: 'Payment',
+                  value: ride.paymentMethod,
+                  trailing: ReservationPaymentMark(method: ride.paymentMethod),
+                ),
+                if (ride.hasPreferences)
+                  ReservationFact(
+                    asset: AppAssets.note,
+                    label: 'Preferences',
+                    value: ride.note!.trim(),
+                  ),
+                const SizedBox(height: 18),
+                _ReturnRow(onTap: () => _planReturn(ride)),
+                const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => _openDetails(ride),
                   child: Text(
@@ -174,100 +212,17 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                     ),
                   ),
                 ),
+                if (ride.status.canEdit)
+                  TextButton(
+                    onPressed: () => _editReservation(ride),
+                    child: Text(
+                      'Edit',
+                      style: reservationText(15, weight: FontWeight.w600),
+                    ),
+                  ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReservationCard extends StatelessWidget {
-  const _ReservationCard({required this.ride, required this.onEdit});
-
-  final Reservation ride;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: kReservationLine),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 22,
-            offset: Offset(0, 9),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 72,
-                height: 48,
-                child: Image.asset(
-                  ride.categoryImage,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.directions_car_filled_rounded,
-                    size: 32,
-                    color: kReservationAccent,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: ReservationDriverBadge(ride: ride),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  ReservationFormat.cardDate(ride.scheduledPickupAt),
-                  style: reservationText(20, weight: FontWeight.w700),
-                ),
-              ),
-              MoveraReserveBadge(when: ride.scheduledPickupAt),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            ReservationFormat.pickupAt(ride.scheduledPickupAt),
-            style: reservationText(13.5, color: kReservationMuted),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${ride.pickup.label}  →  ${ride.destination.label}',
-            style: reservationText(14, weight: FontWeight.w600, height: 1.35),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${ride.categoryName}  ·  ${ReservationFormat.price(ride)}  ·  ${ride.paymentMethod}',
-            style: reservationText(13.5, color: kReservationMuted),
-          ),
-          if (ride.hasPreferences) ...[
-            const SizedBox(height: 2),
-            Text(
-              ride.note!.trim(),
-              style: reservationText(13.5, color: kReservationMuted),
-            ),
-          ],
-          const SizedBox(height: 16),
-          ReservationEditChip(onTap: onEdit),
         ],
       ),
     );
@@ -283,15 +238,20 @@ class _ReturnRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: kReservationSoft,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
           child: Row(
             children: [
-              const MoveraGlyph(asset: AppAssets.scheduleCalendar),
+              Image.asset(
+                AppAssets.calender,
+                width: 46,
+                height: 46,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

@@ -145,8 +145,35 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     height: 1.4,
                   ),
                 ),
-                const SizedBox(height: 22),
-                _HeroCard(ride: ride),
+                const SizedBox(height: 18),
+                ReservationHeroArt(asset: ride.categoryImage, height: 100),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ride.categoryName,
+                            style: reservationText(20, weight: FontWeight.w700),
+                          ),
+                          Text(
+                            '${ride.passengerCount} seats  ·  ${ride.paymentMethod}',
+                            style: reservationText(
+                              12.5,
+                              color: kReservationMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      ReservationFormat.price(ride),
+                      style: reservationText(18, weight: FontWeight.w700),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 ReservationStatusBanner(
                   title: ReservationFormat.statusTitle(ride),
@@ -161,11 +188,32 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   _DriverCard(driver: ride.driver!),
                 ],
                 const SizedBox(height: 22),
-                _JourneyCard(ride: ride),
+                ReservationFact(
+                  asset: AppAssets.scheduleCalendar,
+                  label: 'Scheduled for',
+                  value:
+                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                ),
+                ReservationFact(
+                  asset: AppAssets.gps,
+                  label: 'Pickup at',
+                  value: ride.pickup.label,
+                ),
+                ReservationFact(
+                  asset: AppAssets.location,
+                  label: 'Dropoff at',
+                  value: ride.destination.label,
+                ),
+                ReservationFact(
+                  asset: AppAssets.payment,
+                  label: 'Payment method',
+                  value: ride.paymentMethod,
+                  trailing: ReservationPaymentMark(method: ride.paymentMethod),
+                ),
                 if (ride.hasPreferences) ...[
                   const SizedBox(height: 12),
-                  _DetailRow(
-                    iconAsset: AppAssets.note,
+                  ReservationFact(
+                    asset: AppAssets.note,
                     label: 'Preferences',
                     value: ride.note!.trim(),
                   ),
@@ -189,8 +237,11 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                         padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
                         child: Row(
                           children: [
-                            const MoveraGlyph(
-                              asset: AppAssets.scheduleCalendar,
+                            Image.asset(
+                              AppAssets.calender,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.contain,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -282,131 +333,6 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   }
 }
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({required this.ride});
-
-  final Reservation ride;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: kReservationLine),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 22,
-            offset: Offset(0, 9),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 88,
-            height: 56,
-            child: Image.asset(
-              ride.categoryImage,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Image.asset(
-                AppAssets.scheduleRideCar,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.directions_car_filled_rounded,
-                  size: 36,
-                  color: kReservationAccent,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ride.categoryName,
-                  style: reservationText(18, weight: FontWeight.w700),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${ride.passengerCount} seats  ·  ${ride.paymentMethod}',
-                  style: reservationText(12.5, color: kReservationMuted),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            ReservationFormat.price(ride),
-            style: reservationText(16, weight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _JourneyCard extends StatelessWidget {
-  const _JourneyCard({required this.ride});
-
-  final Reservation ride;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: kReservationLine),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 22,
-            offset: Offset(0, 9),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          _DetailRow(
-            iconAsset: AppAssets.scheduleCalendar,
-            label: 'Scheduled for',
-            value:
-                '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
-            caption: ride.estimatedDropoffAt == null
-                ? null
-                : ReservationFormat.dropoffAt(ride.estimatedDropoffAt!),
-          ),
-          const Divider(height: 1, indent: 52, color: kReservationLine),
-          _DetailRow(
-            iconAsset: AppAssets.gps,
-            label: 'Pickup at',
-            value: ride.pickup.label,
-            caption: ride.pickup.subtitle,
-          ),
-          const Divider(height: 1, indent: 52, color: kReservationLine),
-          _DetailRow(
-            iconAsset: AppAssets.location,
-            label: 'Dropoff at',
-            value: ride.destination.label,
-            caption: ride.destination.subtitle,
-          ),
-          const Divider(height: 1, indent: 52, color: kReservationLine),
-          _DetailRow(
-            paymentMethod: ride.paymentMethod,
-            label: 'Payment method',
-            value: ride.paymentMethod,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DriverCard extends StatelessWidget {
   const _DriverCard({required this.driver});
 
@@ -462,60 +388,6 @@ class _DriverCard extends StatelessWidget {
               driver.rating!.toStringAsFixed(2),
               style: reservationText(14, weight: FontWeight.w600),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-    this.iconAsset,
-    this.paymentMethod,
-    this.caption,
-  });
-
-  final String? iconAsset;
-  final String? paymentMethod;
-  final String label;
-  final String value;
-  final String? caption;
-
-  @override
-  Widget build(BuildContext context) {
-    final mark = paymentMethod != null
-        ? ReservationPaymentMark(method: paymentMethod!)
-        : MoveraGlyph(asset: iconAsset ?? AppAssets.note);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          mark,
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: reservationText(12.5, color: kReservationMuted),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: reservationText(16, weight: FontWeight.w600),
-                ),
-                if (caption != null && caption!.isNotEmpty)
-                  Text(
-                    caption!,
-                    style: reservationText(13, color: kReservationMuted),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );

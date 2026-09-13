@@ -436,6 +436,80 @@ class ReservationEditButton extends StatelessWidget {
   }
 }
 
+class ReservationHeroArt extends StatelessWidget {
+  const ReservationHeroArt({super.key, required this.asset, this.height = 148});
+
+  final String asset;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Image.asset(
+        asset,
+        height: height,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => Image.asset(
+          AppAssets.scheduleRideCar,
+          height: height,
+          fit: BoxFit.contain,
+        ),
+      ),
+    );
+  }
+}
+
+class ReservationFact extends StatelessWidget {
+  const ReservationFact({
+    super.key,
+    required this.asset,
+    required this.label,
+    required this.value,
+    this.trailing,
+  });
+
+  final String asset;
+  final String label;
+  final String value;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MoveraGlyph(asset: asset),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: reservationText(12, color: kReservationMuted),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: reservationText(
+                    15.5,
+                    weight: FontWeight.w600,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
 class MoveraGlyph extends StatelessWidget {
   const MoveraGlyph({
     super.key,
