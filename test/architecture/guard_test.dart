@@ -8,28 +8,37 @@ void main() {
       .whereType<File>()
       .where((f) => f.path.endsWith('.dart'));
 
-  Iterable<File> presentation() => dartUnder('lib/features')
-      .where((f) => f.path.contains('/presentation/'));
+  Iterable<File> presentation() =>
+      dartUnder('lib/features').where((f) => f.path.contains('/presentation/'));
 
   test('presentation does not import raw http or shared_preferences', () {
     for (final file in presentation()) {
       final src = file.readAsStringSync();
-      expect(src.contains("package:http/http.dart"), isFalse, reason: file.path);
+      expect(
+        src.contains("package:http/http.dart"),
+        isFalse,
+        reason: file.path,
+      );
       expect(
         src.contains("package:shared_preferences/shared_preferences.dart"),
         isFalse,
         reason: file.path,
       );
       expect(src.contains('sk_live'), isFalse, reason: file.path);
-      expect(src.contains("package:movera_rider/core/api/api_client.dart"), isFalse,
-          reason: file.path);
+      expect(
+        src.contains("package:movera_rider/core/api/api_client.dart"),
+        isFalse,
+        reason: file.path,
+      );
     }
   });
 
   test('no SharedPreferences token storage', () {
     final token = File('lib/core/auth/token_store.dart').readAsStringSync();
     expect(token.contains("package:shared_preferences"), isFalse);
-    final secure = File('lib/core/auth/secure_token_store.dart').readAsStringSync();
+    final secure = File(
+      'lib/core/auth/secure_token_store.dart',
+    ).readAsStringSync();
     expect(secure.contains("package:shared_preferences"), isFalse);
   });
 
@@ -44,13 +53,19 @@ void main() {
 
   test('obsolete confirming and cancel dialogs are gone', () {
     expect(
-      File('lib/features/finding_driver/presentation/cancel_ride.dart').existsSync(),
+      File(
+        'lib/features/finding_driver/presentation/cancel_ride.dart',
+      ).existsSync(),
       isFalse,
     );
     for (final file in dartUnder('lib')) {
       final src = file.readAsStringSync();
       expect(src.contains('Confirming your ride'), isFalse, reason: file.path);
-      expect(src.contains('RideCancellationDialog'), isFalse, reason: file.path);
+      expect(
+        src.contains('RideCancellationDialog'),
+        isFalse,
+        reason: file.path,
+      );
     }
   });
 
@@ -58,11 +73,7 @@ void main() {
     for (final file in dartUnder('lib')) {
       if (file.path.contains('movera_sheet.dart')) continue;
       final src = file.readAsStringSync();
-      expect(
-        src.contains('showModalBottomSheet'),
-        isFalse,
-        reason: file.path,
-      );
+      expect(src.contains('showModalBottomSheet'), isFalse, reason: file.path);
     }
   });
 
@@ -84,15 +95,18 @@ void main() {
     expect(src.contains('MockRideRealtime'), isFalse);
   });
 
-
   test('home does not own ride restoration', () {
-    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
     expect(home.contains('_restoreActiveRide'), isFalse);
     expect(home.contains('RideSnapshotStore'), isFalse);
   });
 
   test('home does not draw a trip polyline', () {
-    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
     expect(home.contains('Polyline('), isFalse);
     expect(home.contains('polylines:'), isFalse);
   });
@@ -107,9 +121,15 @@ void main() {
   test('never disposes GoogleMapController', () {
     for (final file in dartUnder('lib')) {
       final src = file.readAsStringSync();
-      expect(src.contains('GoogleMapController.dispose'), isFalse, reason: file.path);
       expect(
-        RegExp(r'_mapController\?\.dispose|_mapController\.dispose').hasMatch(src),
+        src.contains('GoogleMapController.dispose'),
+        isFalse,
+        reason: file.path,
+      );
+      expect(
+        RegExp(
+          r'_mapController\?\.dispose|_mapController\.dispose',
+        ).hasMatch(src),
         isFalse,
         reason: file.path,
       );
@@ -124,9 +144,7 @@ void main() {
   });
 
   test('presentation does not import feature data repositories', () {
-    final banned = RegExp(
-      r'package:movera_rider/features/[^/]+/data/',
-    );
+    final banned = RegExp(r'package:movera_rider/features/[^/]+/data/');
     for (final file in presentation()) {
       final src = file.readAsStringSync();
       expect(banned.hasMatch(src), isFalse, reason: file.path);
@@ -144,7 +162,9 @@ void main() {
   });
 
   test('home does not import address repository', () {
-    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
     expect(home.contains('home_repository.dart'), isFalse);
     expect(home.contains('HomeAddressRepository'), isFalse);
   });
@@ -168,9 +188,10 @@ void main() {
     expect(ui.contains('Confirming your ride'), isFalse);
   });
 
-
   test('home does not own map overlay set fields', () {
-    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
     expect(home.contains('Set<Marker> _markers ='), isFalse);
     expect(home.contains('Set<Circle> _locationCircles ='), isFalse);
     expect(home.contains('Set<Polygon> _locationDirection ='), isFalse);
@@ -188,7 +209,10 @@ void main() {
     expect(html.contains("addEventListener('pointerdown', arm, true)"), isTrue);
     expect(html.contains("addEventListener('touchstart', arm, true)"), isTrue);
     expect(html.contains("addEventListener('touchend', arm, true)"), isTrue);
-    expect(html.contains('DeviceOrientationEvent.requestPermission().then'), isTrue);
+    expect(
+      html.contains('DeviceOrientationEvent.requestPermission().then'),
+      isTrue,
+    );
     expect(html.contains('webkitCompassHeading'), isTrue);
     expect(html.contains('moveraScreenAngle'), isTrue);
     expect(html.contains('moveraHeadingDebug'), isTrue);
@@ -197,7 +221,9 @@ void main() {
     expect(html.contains('in-app WKWebView'), isTrue);
     // A failed first gesture must not permanently block a later real tap.
     expect(
-      html.contains('if (window.moveraHeadingStarted || window._moveraGestureAsked) return;'),
+      html.contains(
+        'if (window.moveraHeadingStarted || window._moveraGestureAsked) return;',
+      ),
       isFalse,
     );
     expect(html.contains("addEventListener('pagehide'"), isFalse);
@@ -207,7 +233,9 @@ void main() {
   });
 
   test('side menu does not list Promotions or Scheduled Rides', () {
-    final menu = File('lib/features/home/presentation/side_menu.dart').readAsStringSync();
+    final menu = File(
+      'lib/features/home/presentation/side_menu.dart',
+    ).readAsStringSync();
     expect(menu.contains('Promotions'), isFalse);
     expect(menu.contains('Scheduled Rides'), isFalse);
     expect(menu.contains('Subscriptions'), isFalse);
@@ -225,7 +253,11 @@ void main() {
   test('safety presentation stays off the data and platform layers', () {
     for (final file in dartUnder('lib/features/safety/presentation')) {
       final src = file.readAsStringSync();
-      expect(src.contains("package:http/http.dart"), isFalse, reason: file.path);
+      expect(
+        src.contains("package:http/http.dart"),
+        isFalse,
+        reason: file.path,
+      );
       expect(src.contains('shared_preferences'), isFalse, reason: file.path);
       expect(src.contains('ApiClient'), isFalse, reason: file.path);
       expect(src.contains('PreferencesStore'), isFalse, reason: file.path);
@@ -241,7 +273,9 @@ void main() {
   });
 
   test('home does not add a compass permission screen', () {
-    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
     expect(home.contains('Enable compass'), isFalse);
     expect(home.contains('Motion permission'), isFalse);
     expect(home.contains('Device orientation'), isFalse);
@@ -254,5 +288,48 @@ void main() {
     expect(ui.contains('Map<String, DateTime> _quoteExpires'), isFalse);
     expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
   });
-}
 
+  test('reservation presentation stays off the data layer and Uber copy', () {
+    for (final file in dartUnder('lib/features/reservations/presentation')) {
+      final src = file.readAsStringSync();
+      expect(
+        src.contains("package:movera_rider/features/reservations/data/"),
+        isFalse,
+        reason: file.path,
+      );
+      expect(src.contains('UberX'), isFalse, reason: file.path);
+      expect(src.contains('Uber '), isFalse, reason: file.path);
+      expect(src.contains('SEK 160'), isFalse, reason: file.path);
+      expect(src.contains('SEK 240'), isFalse, reason: file.path);
+      expect(
+        src.contains("We'll send your driver by"),
+        isFalse,
+        reason: file.path,
+      );
+      expect(src.contains('showModalBottomSheet'), isFalse, reason: file.path);
+    }
+  });
+
+  test('old scheduled confirmation is not deleted during migration', () {
+    expect(
+      File(
+        'lib/features/scheduled_rides/presentation/ride_confirmed.dart',
+      ).existsSync(),
+      isTrue,
+    );
+    expect(
+      File(
+        'lib/features/scheduled_rides/presentation/confirm_booking.dart',
+      ).readAsStringSync().contains('ScheduleRidePending'),
+      isTrue,
+    );
+  });
+
+  test('on-demand finding driver is not rewritten by reservations', () {
+    final finding = File(
+      'lib/features/finding_driver/presentation/finding_drivers.dart',
+    ).readAsStringSync();
+    expect(finding.contains('ReservationController'), isFalse);
+    expect(finding.contains('createReservation'), isFalse);
+  });
+}
