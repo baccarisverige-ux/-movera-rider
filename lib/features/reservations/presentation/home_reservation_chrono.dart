@@ -8,6 +8,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -29,13 +30,50 @@ class HomeReservationChrono extends StatefulWidget {
 
 class _HomeReservationChronoState extends State<HomeReservationChrono> {
   Timer? _tick;
+  String? _openedLiveId;
 
   @override
   void initState() {
     super.initState();
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
+      unawaited(_onTick());
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_onTick());
+    });
+  }
+
+  Future<void> _onTick() async {
+    await _reservations.startLiveIfDue(now: _now);
+    if (mounted) setState(() {});
+    _openLiveIfNeeded();
+  }
+
+  void _openLiveIfNeeded() {
+    final ride = _nextRide();
+    if (ride == null || !ride.revealsDriver) return;
+    if (_openedLiveId == ride.reservationId) return;
+    if (!mounted) return;
+    _openedLiveId = ride.reservationId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ReservationLiveRide.open(context, ride);
+    });
+  }
+
+  void _openRide(Reservation ride) {
+    if (ride.revealsDriver) {
+      ReservationLiveRide.open(context, ride);
+      return;
+    }
+    Navigator.of(context).push(
+      RightToLeftTransition(
+        UpcomingReservationPage(
+          reservationId: ride.reservationId,
+          controller: _reservations,
+        ),
+      ),
+    );
   }
 
   @override
@@ -79,16 +117,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
             button: true,
             label: 'Reservation in $compact',
             child: GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  RightToLeftTransition(
-                    UpcomingReservationPage(
-                      reservationId: ride.reservationId,
-                      controller: _reservations,
-                    ),
-                  ),
-                );
-              },
+              onTap: () => _openRide(ride),
               child: SizedBox(
                 width: 54,
                 height: 54,

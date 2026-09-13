@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 
 class ReservationController extends ChangeNotifier {
@@ -66,6 +67,24 @@ class ReservationController extends ChangeNotifier {
     final updated = await _store.assignDriver(reservationId, driver: driver);
     notifyListeners();
     return updated;
+  }
+
+  Future<void> startLiveIfDue({DateTime? now}) async {
+    final clock = now ?? DateTime.now();
+    var changed = false;
+    for (final ride in upcoming()) {
+      if (ride.revealsDriver) continue;
+      if (ride.scheduledPickupAt.difference(clock).inMinutes > 2) continue;
+      if (!ride.driverAssigned) {
+        await _store.assignDriver(ride.reservationId);
+      }
+      await _store.updateReservation(
+        ride.reservationId,
+        const ReservationPatch(status: ReservationStatus.driverEnRoute),
+      );
+      changed = true;
+    }
+    if (changed) notifyListeners();
   }
 
   Future<Reservation> planReturn(

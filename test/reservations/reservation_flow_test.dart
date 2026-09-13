@@ -7,6 +7,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
 import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
@@ -172,12 +173,21 @@ void main() {
       find.text('Driver details appear when your driver is on the way.'),
       findsOneWidget,
     );
-    await c.update(
-      'rsv_ui',
-      const ReservationPatch(status: ReservationStatus.driverEnRoute),
-    );
-    await tester.pump();
-    expect(find.text('Linnea'), findsOneWidget);
+  });
+
+  test('pickup time starts the live driver-on-the-way state', () async {
+    final c = await seeded();
+    await c.startLiveIfDue(now: DateTime(2026, 9, 23, 6, 55));
+    final ride = c.byId('rsv_ui')!;
+    expect(ride.status, ReservationStatus.driverEnRoute);
+    expect(ride.revealsDriver, isTrue);
+    expect(ride.driver?.firstName, 'Linnea');
+    final page = ReservationLiveRide.pageFor(ride);
+    expect(page.pickupAddress, 'Klockarvägen 37');
+    expect(page.destinationAddress, 'Arlanda Express');
+    expect(page.rideType, 'Movera');
+    expect(page.driver?.firstName, 'Linnea');
+    expect(page.driver?.plate, 'MOVERA 1');
   });
 
   testWidgets('assigned driver updates the same history card', (tester) async {

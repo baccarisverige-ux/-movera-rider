@@ -361,6 +361,7 @@ void main() {
     ).readAsStringSync();
     expect(home.contains('RideScheduledPage.open'), isTrue);
     expect(home.contains('FindingDrivers'), isFalse);
+    expect(home.contains('WaitingForDriver'), isFalse);
   });
 
   test('return ride reuses the shared SelectRide category selector', () {

@@ -6,6 +6,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_edit_sheets.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_ride_terms.dart';
@@ -29,12 +30,14 @@ class UpcomingReservationPage extends StatefulWidget {
 
 class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   late final ReservationController _reservations;
+  bool _handedOff = false;
 
   @override
   void initState() {
     super.initState();
     _reservations = widget.controller ?? AppScope.instance.reservations;
     _reservations.addListener(_refresh);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handoffIfLive());
   }
 
   @override
@@ -45,6 +48,14 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
 
   void _refresh() {
     if (mounted) setState(() {});
+    _handoffIfLive();
+  }
+
+  void _handoffIfLive() {
+    final ride = _reservations.byId(widget.reservationId);
+    if (ride == null || !ride.revealsDriver || _handedOff || !mounted) return;
+    _handedOff = true;
+    ReservationLiveRide.open(context, ride, replace: true);
   }
 
   Future<void> _editReservation(Reservation ride) async {
