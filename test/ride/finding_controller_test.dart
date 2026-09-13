@@ -4,6 +4,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -27,7 +28,7 @@ RideSnapshot snap({double price = 259}) => RideSnapshot(
 FindingDriverController controllerOf(
   MockRideRealtime rt,
   RideSession ride, {
-  Duration delayedAfter = const Duration(seconds: 60),
+  Duration delayedAfter = SearchCopy.delayedAfter,
   ApiClient? api,
 }) {
   return FindingDriverController(
@@ -228,7 +229,7 @@ void main() {
     final ride = RideSession()..rideId = 'r1';
     final controller = controllerOf(rt, ride);
     controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
-    controller.debugAdvance(61);
+    controller.debugAdvance(2);
     expect(controller.isDelayed, isTrue);
     expect(controller.copy.headline, "It's busier than usual");
     expect(controller.matchCount, 0);
