@@ -7,6 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -195,7 +196,7 @@ class _SelectRideState extends State<SelectRide>
   );
   bool _mapReady = false;
   bool _mapParked = false;
-  bool _sheetDragging = false;
+  bool _overlayOn = false;
   bool _pickupConfirmed = false;
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -216,6 +217,8 @@ class _SelectRideState extends State<SelectRide>
       duration: const Duration(milliseconds: 520),
       value: 1,
     );
+    _sheetSlide.addListener(_syncSheetOverlay);
+    _syncSheetOverlay();
     if (widget.initialRideId != null) {
       final ride = _selection.rideById(widget.initialRideId!);
       _selection.selectRide(ride.id, ride.price);
@@ -245,10 +248,19 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
     _mapController = null;
+    setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.selectRide);
     super.dispose();
+  }
+
+  void _syncSheetOverlay() {
+    final cover = _sheetSlide.value > 0.05;
+    if (cover == _overlayOn) return;
+    _overlayOn = cover;
+    setWebOverlayOpen(cover);
   }
 
   _RideOption get _selectedRide =>
@@ -333,9 +345,6 @@ class _SelectRideState extends State<SelectRide>
   }
 
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    if (!_sheetDragging) {
-      setState(() => _sheetDragging = true);
-    }
     final range = _maxSheet(media) - _minSheet(media);
     if (range <= 0) return;
     final next = (_sheetSlide.value - details.primaryDelta! / range).clamp(
@@ -354,17 +363,11 @@ class _SelectRideState extends State<SelectRide>
         : _sheetSlide.value >= 0.42
         ? 1.0
         : 0.0;
-    _sheetSlide
-        .animateTo(
-          target,
-          duration: MoveraMotion.of(context, MoveraDurations.large),
-          curve: MoveraCurves.snap,
-        )
-        .whenComplete(() {
-          if (mounted && _sheetDragging) {
-            setState(() => _sheetDragging = false);
-          }
-        });
+    _sheetSlide.animateTo(
+      target,
+      duration: MoveraMotion.of(context, MoveraDurations.large),
+      curve: MoveraCurves.snap,
+    );
   }
 
   Future<void> _fitRoute() async {
@@ -684,89 +687,94 @@ class _SelectRideState extends State<SelectRide>
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final showLiveMap = _mapReady && !_mapParked;
+    final minSheet = _minSheet(media);
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5F1),
       body: Stack(
         children: [
-          Positioned.fill(
-            child: showLiveMap
-                ? CustomGoogleMap(
-                    key: const ValueKey('select-ride-map'),
-                    initialPosition: CameraPosition(
-                      target: widget.pickupPosition,
-                      zoom: 13.2,
-                    ),
-                    markers: {
-                      Marker(
-                        markerId: const MarkerId('pickup'),
-                        position: widget.pickupPosition,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: minSheet,
+            child: RepaintBoundary(
+              child: showLiveMap
+                  ? CustomGoogleMap(
+                      key: const ValueKey('select-ride-map'),
+                      initialPosition: CameraPosition(
+                        target: widget.pickupPosition,
+                        zoom: 13.2,
                       ),
-                      Marker(
-                        markerId: const MarkerId('destination'),
-                        position: widget.destinationPosition,
-                      ),
-                    },
-                    polylines: {
-                      Polyline(
-                        polylineId: const PolylineId('route'),
-                        points: [
-                          widget.pickupPosition,
-                          widget.destinationPosition,
-                        ],
-                        color: _accent,
-                        width: 4,
-                      ),
-                    },
-                    myLocationEnabled: false,
-                    myLocationButtonEnabled: false,
-                    zoomControlsEnabled: false,
-                    mapToolbarEnabled: false,
-                    compassEnabled: false,
-                    trafficEnabled: false,
-                    buildingsEnabled: false,
-                    indoorViewEnabled: false,
-                    scrollGesturesEnabled: !_sheetDragging,
-                    zoomGesturesEnabled: !_sheetDragging,
-                    tiltGesturesEnabled: false,
-                    rotateGesturesEnabled: false,
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                      AppScope.instance.maps.attach(
-                        controller,
-                        owner: MapOwners.selectRide,
-                      );
-                      AppScope.instance.map.drawRoute(
-                        'select',
-                        GeoPoint(
-                          widget.pickupPosition.latitude,
-                          widget.pickupPosition.longitude,
+                      markers: {
+                        Marker(
+                          markerId: const MarkerId('pickup'),
+                          position: widget.pickupPosition,
                         ),
-                        GeoPoint(
-                          widget.destinationPosition.latitude,
-                          widget.destinationPosition.longitude,
+                        Marker(
+                          markerId: const MarkerId('destination'),
+                          position: widget.destinationPosition,
                         ),
-                      );
-                      AppScope.instance.map.upsertMarker(
-                        'pickup',
-                        GeoPoint(
-                          widget.pickupPosition.latitude,
-                          widget.pickupPosition.longitude,
+                      },
+                      polylines: {
+                        Polyline(
+                          polylineId: const PolylineId('route'),
+                          points: [
+                            widget.pickupPosition,
+                            widget.destinationPosition,
+                          ],
+                          color: _accent,
+                          width: 4,
                         ),
-                      );
-                      AppScope.instance.map.upsertMarker(
-                        'destination',
-                        GeoPoint(
-                          widget.destinationPosition.latitude,
-                          widget.destinationPosition.longitude,
-                        ),
-                      );
-                      Future<void>.delayed(
-                        const Duration(milliseconds: 280),
-                        _fitRoute,
-                      );
-                    },
-                  )
-                : const _RouteCanvas(),
+                      },
+                      myLocationEnabled: false,
+                      myLocationButtonEnabled: false,
+                      zoomControlsEnabled: false,
+                      mapToolbarEnabled: false,
+                      compassEnabled: false,
+                      trafficEnabled: false,
+                      buildingsEnabled: false,
+                      indoorViewEnabled: false,
+                      tiltGesturesEnabled: false,
+                      rotateGesturesEnabled: false,
+                      onMapCreated: (controller) {
+                        _mapController = controller;
+                        AppScope.instance.maps.attach(
+                          controller,
+                          owner: MapOwners.selectRide,
+                        );
+                        AppScope.instance.map.drawRoute(
+                          'select',
+                          GeoPoint(
+                            widget.pickupPosition.latitude,
+                            widget.pickupPosition.longitude,
+                          ),
+                          GeoPoint(
+                            widget.destinationPosition.latitude,
+                            widget.destinationPosition.longitude,
+                          ),
+                        );
+                        AppScope.instance.map.upsertMarker(
+                          'pickup',
+                          GeoPoint(
+                            widget.pickupPosition.latitude,
+                            widget.pickupPosition.longitude,
+                          ),
+                        );
+                        AppScope.instance.map.upsertMarker(
+                          'destination',
+                          GeoPoint(
+                            widget.destinationPosition.latitude,
+                            widget.destinationPosition.longitude,
+                          ),
+                        );
+                        Future<void>.delayed(
+                          const Duration(milliseconds: 280),
+                          _fitRoute,
+                        );
+                      },
+                    )
+                  : const _RouteCanvas(),
+            ),
           ),
           Positioned(
             top: media.padding.top + 8,

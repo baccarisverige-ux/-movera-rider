@@ -177,7 +177,7 @@ void main() {
     expect(ui.contains('int _selectedPayment'), isFalse);
     expect(ui.contains('DateTime? _scheduledFor'), isFalse);
     expect(ui.contains('ValueKey(\'select-ride-map\')'), isTrue);
-    expect(ui.contains('bottom: sheetHeight,\n                child: showLiveMap'), isFalse);
+    expect(ui.contains('bottom: minSheet'), isTrue);
   });
 
   test('waiting screen does not hardcode driver plate', () {
