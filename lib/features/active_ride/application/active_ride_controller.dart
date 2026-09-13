@@ -15,12 +15,12 @@ class ActiveRideController {
     AppScope.instance.ride.restoreFromBackend(RideStatus.driverArriving);
   }
 
-  void markCancelled({String? reasonId}) {
+  Future<void> markCancelled({String? reasonId}) async {
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
     ride.restoreFromBackend(RideStatus.cancelledByRider);
     AppScope.instance.rideRealtime.cancelRide();
-    unawaited(_store.clear());
+    await _store.clear();
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));
     }

@@ -62,6 +62,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   late final CameraPosition _initialPosition;
   Timer? _suggestTick;
   int _suggest = 0;
+  bool _leaving = false;
 
   @override
   void initState() {
@@ -109,15 +110,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   Future<void> _confirmCancel() async {
+    if (_leaving) return;
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
       phase: CancelPhase.matched,
     );
-    if (outcome.cancelled && mounted) {
-      _ride.markCancelled(reasonId: outcome.reasonId);
-      RideNavigator.home(context);
-    }
+    if (!outcome.cancelled || !mounted) return;
+    _leaving = true;
+    await _ride.markCancelled(reasonId: outcome.reasonId);
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) RideNavigator.home(context);
+    });
   }
 
   void _openProfile() {
@@ -173,7 +179,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             ? 'Driver details will appear when matching confirms them.'
             : 'Leave now to meet ${driver.firstName}');
     return PopScope(
-      canPop: false,
+      canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         await _confirmCancel();
