@@ -3,6 +3,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 
 class SecurityPage extends StatefulWidget {
@@ -59,13 +60,13 @@ class _SecurityPageState extends State<SecurityPage> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 36),
         children: [
-          const AccountHero(asset: AppAssets.pinVerification, height: 112),
+          const AccountHero(asset: AppAssets.pinVerification, height: 96),
           const AccountHeadline('Security', body: 'How you sign in to Movera.'),
           const SizedBox(height: 18),
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.access,
+                mark: const AccountMarkWell(AccountMarks.pin),
                 title: 'Passkeys',
                 body: ride.passkeyEnabled
                     ? 'Ready on this device'
@@ -77,7 +78,7 @@ class _SecurityPageState extends State<SecurityPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.setting,
+                mark: const AccountLineWell(AccountLine.key),
                 title: 'Password',
                 body: _passwordLine(ride.passwordUpdatedAt),
                 onTap: () async {
@@ -94,7 +95,7 @@ class _SecurityPageState extends State<SecurityPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.flash,
+                mark: const AccountMarkWell(AccountMarks.check),
                 title: 'Authenticator',
                 body: ride.authenticatorEnabled
                     ? 'One-time codes are on'
@@ -108,7 +109,7 @@ class _SecurityPageState extends State<SecurityPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.verify,
+                mark: const AccountMarkWell(AccountMarks.shield),
                 title: '2-step verification',
                 body: ride.twoStepEnabled
                     ? 'On  ·  extra check after password'
@@ -122,7 +123,7 @@ class _SecurityPageState extends State<SecurityPage> {
                 ),
               ),
               AccountTile(
-                asset: AppAssets.phone,
+                mark: const AccountLineWell(AccountLine.phone),
                 title: 'Recovery phone',
                 body: ride.recoveryPhone ?? 'Add a backup number',
                 showDivider: false,
@@ -155,7 +156,7 @@ class _SecurityPageState extends State<SecurityPage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.google,
+                mark: _BrandWell(AppAssets.google),
                 title: 'Google',
                 body: ride.googleConnected ? 'Connected' : 'Not connected',
                 trailing: TextButton(
@@ -171,7 +172,7 @@ class _SecurityPageState extends State<SecurityPage> {
                 ),
               ),
               AccountTile(
-                asset: AppAssets.apple,
+                mark: _BrandWell(AppAssets.apple),
                 title: 'Apple',
                 body: ride.appleConnected ? 'Connected' : 'Not connected',
                 showDivider: false,
@@ -239,6 +240,27 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 }
 
+class _BrandWell extends StatelessWidget {
+  const _BrandWell(this.asset);
+
+  final String asset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kAccountLine),
+      ),
+      child: Image.asset(asset, height: 22, fit: BoxFit.contain),
+    );
+  }
+}
+
 class _LoginTile extends StatelessWidget {
   const _LoginTile({required this.session, required this.showDivider});
 
@@ -248,7 +270,7 @@ class _LoginTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AccountTile(
-      asset: AppAssets.mobile,
+      mark: const AccountLineWell(AccountLine.device),
       title: session.device,
       body: session.current
           ? 'This session  ·  ${session.place}'

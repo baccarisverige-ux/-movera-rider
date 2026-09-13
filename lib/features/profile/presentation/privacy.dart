@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -41,7 +41,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 36),
         children: [
-          const AccountHero(asset: AppAssets.privacyPolicy, height: 96),
+          const AccountHero(asset: AccountMarks.lock, height: 96),
           const AccountHeadline(
             'Privacy',
             body: 'What Movera keeps, and how we reach you.',
@@ -50,7 +50,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.document,
+                mark: const AccountLineWell(AccountLine.document),
                 title: 'Privacy notice',
                 body: 'What we store and how you control it',
                 showDivider: false,
@@ -80,7 +80,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.sound,
+                mark: const AccountLineWell(AccountLine.bell),
                 title: 'Ride updates',
                 body: 'Pickup, driver, and reservation alerts',
                 trailing: Switch.adaptive(
@@ -91,7 +91,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 ),
               ),
               AccountTile(
-                asset: AppAssets.message,
+                mark: const AccountLineWell(AccountLine.mail),
                 title: 'Email',
                 body: 'Receipts and account notes',
                 trailing: Switch.adaptive(
@@ -102,7 +102,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 ),
               ),
               AccountTile(
-                asset: AppAssets.promotions,
+                mark: const AccountMarkWell(AccountMarks.tips),
                 title: 'Offers',
                 body: 'Occasional Movera news. Off by default',
                 showDivider: false,

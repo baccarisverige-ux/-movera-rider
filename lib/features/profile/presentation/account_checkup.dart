@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
@@ -43,7 +43,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 36),
         children: [
-          const AccountHero(asset: AppAssets.verify, height: 108),
+          const AccountHero(asset: AccountMarks.check, height: 108),
           const AccountHeadline(
             'Account check',
             body: 'A few steps keep this Movera account easy to recover.',
@@ -52,7 +52,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.phone,
+                mark: const AccountLineWell(AccountLine.phone),
                 title: 'Phone number',
                 body: ride.phoneVerified ? ride.phone : 'Add a phone number',
                 trailing: Icon(
@@ -71,7 +71,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.verify,
+                mark: const AccountMarkWell(AccountMarks.shield),
                 title: '2-step verification',
                 body: ride.twoStepEnabled
                     ? 'On'
@@ -90,7 +90,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.mobile,
+                mark: const AccountLineWell(AccountLine.phone),
                 title: 'Recovery phone',
                 body: ride.recoveryPhone ?? 'Add a backup number',
                 showDivider: false,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -104,33 +103,6 @@ class AccountHeadline extends StatelessWidget {
   }
 }
 
-class AccountGlyph extends StatelessWidget {
-  const AccountGlyph({super.key, required this.asset, this.size = 44});
-
-  final String asset;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColor.liteBlue,
-      ),
-      child: Image.asset(
-        asset,
-        height: size * 0.58,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-      ),
-    );
-  }
-}
-
 class AccountGroup extends StatelessWidget {
   const AccountGroup({super.key, required this.children});
 
@@ -156,7 +128,7 @@ class AccountTile extends StatelessWidget {
     super.key,
     required this.title,
     this.body,
-    this.asset,
+    this.mark,
     this.trailing,
     this.onTap,
     this.danger = false,
@@ -165,7 +137,7 @@ class AccountTile extends StatelessWidget {
 
   final String title;
   final String? body;
-  final String? asset;
+  final Widget? mark;
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool danger;
@@ -182,10 +154,7 @@ class AccountTile extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
               child: Row(
                 children: [
-                  if (asset != null) ...[
-                    AccountGlyph(asset: asset!),
-                    const SizedBox(width: 14),
-                  ],
+                  if (mark != null) ...[mark!, const SizedBox(width: 14)],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,7 +196,7 @@ class AccountTile extends StatelessWidget {
           ),
         ),
         if (showDivider)
-          const Divider(height: 1, indent: 72, color: kAccountLine),
+          const Divider(height: 1, indent: 78, color: kAccountLine),
       ],
     );
   }

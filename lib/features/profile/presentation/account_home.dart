@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
+import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
@@ -97,19 +98,19 @@ class _AccountHomePageState extends State<AccountHomePage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.profile_2user,
+                mark: const AccountMarkWell(AccountMarks.person),
                 title: 'Personal info',
                 body: 'Name, phone, email, language',
                 onTap: () => _open(PersonalInfoPage(controller: _profile)),
               ),
               AccountTile(
-                asset: AppAssets.verify,
+                mark: const AccountMarkWell(AccountMarks.shield),
                 title: 'Security',
                 body: 'Passkeys, 2-step, devices',
                 onTap: () => _open(SecurityPage(controller: _profile)),
               ),
               AccountTile(
-                asset: AppAssets.privacyPolicy,
+                mark: const AccountMarkWell(AccountMarks.lock),
                 title: 'Privacy',
                 body: 'How Movera uses your data',
                 showDivider: false,
@@ -167,25 +168,25 @@ class _AccountHomePageState extends State<AccountHomePage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.safety,
+                mark: const AccountMarkWell(AccountMarks.shield),
                 title: 'Safety',
                 body: 'Share a trip and reach help fast',
                 onTap: () => _open(const SafetyHub()),
               ),
               AccountTile(
-                asset: AppAssets.support,
+                mark: const AccountLineWell(AccountLine.headset),
                 title: 'Support',
                 body: 'Help with a ride or reservation',
                 onTap: () => _open(const SupportHome()),
               ),
               AccountTile(
-                asset: AppAssets.document,
+                mark: const AccountLineWell(AccountLine.document),
                 title: 'Terms',
                 body: 'How Movera rides work',
                 onTap: () => _open(const AccountLegalPage(kind: 'terms')),
               ),
               AccountTile(
-                asset: AppAssets.privacyPolicy,
+                mark: const AccountMarkWell(AccountMarks.lock),
                 title: 'Privacy notice',
                 body: 'What we keep and why',
                 showDivider: false,

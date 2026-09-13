@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 
 class PersonalInfoPage extends StatefulWidget {
@@ -57,7 +57,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
           AccountGroup(
             children: [
               AccountTile(
-                asset: AppAssets.profile_2user,
+                mark: const AccountMarkWell(AccountMarks.person),
                 title: 'Name',
                 body: ride.name,
                 onTap: () async {
@@ -72,7 +72,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.preference,
+                mark: const AccountMarkWell(AccountMarks.person),
                 title: 'Gender',
                 body: ride.gender,
                 onTap: () async {
@@ -93,7 +93,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.phone,
+                mark: const AccountLineWell(AccountLine.phone),
                 title: 'Phone',
                 body: '${ride.phone}  ·  Verified',
                 onTap: () async {
@@ -109,7 +109,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.message,
+                mark: const AccountLineWell(AccountLine.mail),
                 title: 'Email',
                 body: '${ride.email}  ·  Verified',
                 onTap: () async {
@@ -125,7 +125,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                asset: AppAssets.language,
+                mark: const AccountLineWell(AccountLine.globe),
                 title: 'Language',
                 body: ride.language,
                 showDivider: false,
