@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
+
+const Color _ink = Color(0xFF1D252C);
+const Color _muted = Color(0xFF778189);
+const Color _line = Color(0xFFE7EBEE);
+const Color _icon = Color(0xFF3A4550);
 
 class SafetyKitMapButton extends StatelessWidget {
   const SafetyKitMapButton({super.key, this.rideId});
@@ -15,30 +20,32 @@ class SafetyKitMapButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(28),
-      child: InkWell(
-        onTap: () => showRideSafetyKit(context, rideId: rideId),
+    return PointerInterceptor(
+      child: Material(
+        color: Colors.white,
+        elevation: 2,
+        shadowColor: Colors.black26,
         borderRadius: BorderRadius.circular(28),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(AppAssets.safetyShield, width: 22, height: 22),
-              const SizedBox(width: 8),
-              Text(
-                'Safety Kit',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1D252C),
+        child: InkWell(
+          onTap: () => showRideSafetyKit(context, rideId: rideId),
+          borderRadius: BorderRadius.circular(28),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.shield_outlined, size: 18, color: _icon),
+                const SizedBox(width: 8),
+                Text(
+                  'Safety Kit',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _ink,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -54,16 +61,20 @@ class SafetyKitSheetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFF6F8FA),
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: () => showRideSafetyKit(context, rideId: rideId),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+          ),
           child: Row(
             children: [
-              Image.asset(AppAssets.safetyShield, width: 28, height: 28),
+              const Icon(Icons.shield_outlined, size: 22, color: _icon),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -71,11 +82,11 @@ class SafetyKitSheetRow extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1D252C),
+                    color: _ink,
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF778189)),
+              const Icon(Icons.chevron_right_rounded, color: _muted),
             ],
           ),
         ),
@@ -124,9 +135,13 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   TextStyle _text(
     double size, {
     FontWeight weight = FontWeight.w400,
-    Color color = const Color(0xFF1D252C),
+    Color color = _ink,
   }) {
-    return GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color);
+    return GoogleFonts.poppins(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+    );
   }
 
   Future<void> _call112() async {
@@ -138,13 +153,22 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     try {
       if (_ctl.audio.isRecording) {
         await _ctl.audio.stop();
-        setState(() => _audioNote = 'Recording saved on this device. Upload is not live yet.');
+        setState(
+          () => _audioNote =
+              'Recording saved on this device. Upload is not live yet.',
+        );
       } else {
         await _ctl.audio.start(rideId: widget.rideId ?? 'ride_local');
-        setState(() => _audioNote = 'Recording. Microphone audio stays on this device for now.');
+        setState(
+          () => _audioNote =
+              'Recording. Microphone audio stays on this device for now.',
+        );
       }
     } catch (err) {
-      setState(() => _audioNote = 'Recording is prepared, but the microphone is not available yet.');
+      setState(
+        () => _audioNote =
+            'Recording is prepared, but the microphone is not available yet.',
+      );
     }
   }
 
@@ -152,9 +176,7 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     if (!_ctl.preferences.tripShareEnabled) {
       final nav = Navigator.of(context);
       nav.pop();
-      await nav.push(
-        RightToLeftTransition(TripSharePage(controller: _ctl)),
-      );
+      await nav.push(RightToLeftTransition(TripSharePage(controller: _ctl)));
       return;
     }
     _ctl.shareTrip(rideId: widget.rideId);
@@ -174,111 +196,113 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
     final recording = _ctl.audio.isRecording;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
-              ),
-              Expanded(
-                child: Text(
-                  'Safety',
-                  textAlign: TextAlign.center,
-                  style: _text(17, weight: FontWeight.w600),
+    return PointerInterceptor(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: _ink),
                 ),
-              ),
-              const SizedBox(width: 48),
+                Expanded(
+                  child: Text(
+                    'Safety',
+                    textAlign: TextAlign.center,
+                    style: _text(17, weight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 48),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text('Safety tools', style: _text(22, weight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _Tool(
+                    icon: Icons.call_outlined,
+                    label: 'Contact 112',
+                    onTap: _call112,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _Tool(
+                    icon: recording
+                        ? Icons.stop_circle_outlined
+                        : Icons.mic_outlined,
+                    label: recording ? 'Stop audio' : 'Record audio',
+                    onTap: _toggleAudio,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _Tool(
+                    icon: Icons.ios_share_outlined,
+                    label: 'Share trip',
+                    onTap: _shareTrip,
+                  ),
+                ),
+              ],
+            ),
+            if (_audioNote != null) ...[
+              const SizedBox(height: 12),
+              Text(_audioNote!, style: _text(12, color: _muted)),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text('Safety tools', style: _text(20, weight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _Tool(
-                  color: const Color(0xFFB42318),
-                  icon: Icons.emergency_outlined,
-                  label: 'Contact 112',
-                  onTap: _call112,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Tool(
-                  color: recording ? const Color(0xFFB42318) : const Color(0xFF1D252C),
-                  icon: recording ? Icons.stop_circle_outlined : Icons.mic_none_rounded,
-                  label: recording ? 'Stop audio' : 'Record audio',
-                  onTap: _toggleAudio,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _Tool(
-                  color: const Color(0xFF1D252C),
-                  icon: Icons.ios_share_rounded,
-                  label: 'Share trip status',
-                  onTap: _shareTrip,
-                ),
-              ),
-            ],
-          ),
-          if (_audioNote != null) ...[
-            const SizedBox(height: 12),
-            Text(_audioNote!, style: _text(12, color: const Color(0xFF778189))),
-          ],
-          const SizedBox(height: 14),
-          Material(
-            color: const Color(0xFFF3F6FB),
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: _openHub,
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    Image.asset(AppAssets.safetyShield, width: 32, height: 32),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Safety preferences', style: _text(14, weight: FontWeight.w600)),
-                          Text(
-                            'PIN, contacts, trip sharing and RideCheck',
-                            style: _text(12, color: const Color(0xFF778189)),
-                          ),
-                        ],
+            const SizedBox(height: 14),
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              child: InkWell(
+                onTap: _openHub,
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: _line),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.shield_outlined, size: 22, color: _icon),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Safety preferences',
+                              style: _text(14, weight: FontWeight.w600),
+                            ),
+                            Text(
+                              'PIN, contacts, trip sharing and RideCheck',
+                              style: _text(12, color: _muted),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: Color(0xFF778189)),
-                  ],
+                      const Icon(Icons.chevron_right_rounded, color: _muted),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
 class _Tool extends StatelessWidget {
-  const _Tool({
-    required this.color,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+  const _Tool({required this.icon, required this.label, required this.onTap});
 
-  final Color color;
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -286,24 +310,28 @@ class _Tool extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFF6F8FA),
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+          ),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 26),
-              const SizedBox(height: 8),
+              Icon(icon, color: _icon, size: 22),
+              const SizedBox(height: 10),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1D252C),
+                  color: _ink,
                   height: 1.2,
                 ),
               ),
