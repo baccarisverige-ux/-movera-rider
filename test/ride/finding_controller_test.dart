@@ -211,6 +211,37 @@ void main() {
     rt.dispose();
   });
 
+  test('custom typed offer updates the same rideId', () async {
+    SharedPreferences.setMockInitialValues({});
+    final httpClient = InProcessMockClient();
+    httpClient.rides['r1'] = {
+      'id': 'r1',
+      'status': 'findingDriver',
+      'price': 259,
+      'pickupLat': 59.3,
+      'pickupLng': 18.0,
+    };
+    final api = ApiClient(client: httpClient);
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1), api: api);
+    final ride = RideSession()..rideId = 'r1';
+    final controller = controllerOf(
+      rt,
+      ride,
+      delayedAfter: Duration.zero,
+      api: api,
+    );
+    controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
+    final ok = await controller.confirmPriceIncrease(81);
+    expect(ok, isTrue);
+    expect(controller.currentPrice, 340);
+    expect(ride.rideId, 'r1');
+    expect(httpClient.rides['r1']?['price'], 340);
+    controller.dismissPriceBump();
+    expect(controller.showPriceBump, isFalse);
+    controller.dispose();
+    rt.dispose();
+  });
+
   test('closing the bump keeps searching at the original price', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';

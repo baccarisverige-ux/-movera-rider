@@ -50,7 +50,6 @@ class _FindingDriversState extends State<FindingDrivers> {
   final FindingDriverController _match = FindingDriverController();
   final PanelController _panel = PanelController();
   bool _mapParked = false;
-  int? _selectedBump;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -204,7 +203,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   Widget build(BuildContext context) {
     final copy = _match.copy;
     final progress = (_match.elapsedSeconds / 90).clamp(0.08, 0.86);
-    final minHeight = _match.showPriceBump ? 430.0 : 300.0;
+    final minHeight = _match.showPriceBump ? 540.0 : 300.0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -345,18 +344,14 @@ class _FindingDriversState extends State<FindingDrivers> {
             const SizedBox(height: 16),
             PriceBumpCard(
               currentPrice: _match.currentPrice,
-              steps: const [10, 20, 30],
-              selected: _selectedBump,
-              onSelect: (value) => setState(() => _selectedBump = value),
-              onConfirm: () async {
-                final kr = _selectedBump;
-                if (kr == null) return;
+              steps: const [50, 100, 150, 200],
+              onConfirm: (kr) async {
                 await _match.confirmPriceIncrease(kr);
-                if (mounted) setState(() => _selectedBump = null);
+                if (mounted) setState(() {});
               },
               onKeepWaiting: () {
                 _match.dismissPriceBump();
-                setState(() => _selectedBump = null);
+                setState(() {});
               },
             ),
           ],
