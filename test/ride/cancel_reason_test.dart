@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 
 void main() {
   setUpAll(() {
@@ -144,5 +145,32 @@ void main() {
     await tester.tap(find.text('Keep ride'));
     await tester.pumpAndSettle();
     expect(outcome?.cancelled, isFalse);
+  });
+
+  testWidgets('Cancel request leaves immediately without a reason sheet', (
+    tester,
+  ) async {
+    await phoneSurface(tester);
+    CancelOutcome? outcome;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              outcome = await showCancelRideSheet(context, takingLonger: false);
+            },
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cancel request'), findsOneWidget);
+    expect(find.text('Why are you cancelling?'), findsNothing);
+    await tester.tap(find.text('Cancel request'));
+    await tester.pumpAndSettle();
+    expect(outcome?.cancelled, isTrue);
+    expect(find.text('Why are you cancelling?'), findsNothing);
   });
 }

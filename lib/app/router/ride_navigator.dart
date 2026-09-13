@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -25,6 +26,11 @@ abstract final class RideNavigator {
   }
 
   static void _popToRoot(BuildContext? context) {
+    try {
+      if (Get.key.currentState?.canPop() == true) {
+        Get.until((route) => route.isFirst);
+      }
+    } catch (_) {}
     final nav =
         moveraNavigatorKey.currentState ??
         (context != null && context.mounted
