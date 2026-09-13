@@ -6,7 +6,7 @@ class ReservationPolicyCatalog {
     pricingDisclaimer:
         'Reserved prices can differ from on-demand prices for the same route. The amount shown is your current reserved estimate for this category.',
     assignmentDisclaimer:
-        'Driver details will appear here once a driver is assigned. Movera does not promise a specific assignment time in this prototype.',
+        'Driver details will appear here when a driver is assigned.',
     waitingSummary:
         'Be ready at pickup. Included waiting follows Movera scheduled ride terms.',
     cancellationSummary:

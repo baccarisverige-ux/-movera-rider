@@ -12,6 +12,8 @@ class ReservationPolicy {
     required this.waitingSummary,
     required this.cancellationSummary,
     required this.pricingSummary,
+    this.changeCharge,
+    this.changeChargeSummary = 'No additional change charge',
     this.sections = const [],
   });
 
@@ -25,6 +27,8 @@ class ReservationPolicy {
   final String waitingSummary;
   final String cancellationSummary;
   final String pricingSummary;
+  final String? changeCharge;
+  final String changeChargeSummary;
   final List<ReservationPolicySection> sections;
 }
 

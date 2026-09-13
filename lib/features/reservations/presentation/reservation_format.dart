@@ -44,6 +44,12 @@ abstract final class ReservationFormat {
     return 'Your ride is reserved for ${weekdayDate(when)} at ${time(when)}';
   }
 
+  static String scheduledReady(DateTime when) {
+    return "We'll keep your reservation ready for ${weekdayDate(when)} at ${time(when)}. Driver details will appear here when a driver is assigned.";
+  }
+
+  static String kr(double amount) => 'kr ${amount.toStringAsFixed(0)}';
+
   static String cardDate(DateTime when) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);

@@ -346,7 +346,7 @@ void main() {
     final scheduled = src.substring(scheduledStart, nowStart);
     expect(scheduled.contains('FindingDrivers'), isFalse);
     expect(scheduled.contains('submitFinding'), isFalse);
-    expect(scheduled.contains('ScheduledRideBooking.confirm'), isTrue);
+    expect(scheduled.contains('ScheduledRideCheckout.run'), isTrue);
     expect(scheduled.contains('_reservations.create'), isFalse);
     expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
     expect(src.contains('_chooseLater'), isTrue);
@@ -443,6 +443,29 @@ void main() {
       expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
       expect(src.contains('When should we pick you up Continue'), isTrue);
       expect(src.contains('editing a reservation keeps the same id'), isTrue);
+      expect(src.contains('checkout draft does not create'), isTrue);
     },
   );
+
+  test('scheduled checkout uses shared confirm pickup then review', () {
+    final checkout = File(
+      'lib/features/reservations/application/scheduled_ride_checkout.dart',
+    ).readAsStringSync();
+    expect(checkout.contains('ConfirmPickupSpot'), isTrue);
+    expect(checkout.contains('Confirm pickup spot'), isTrue);
+    expect(checkout.contains('ReservationReviewPage'), isTrue);
+    expect(checkout.contains('ReviewChangesPage'), isTrue);
+    expect(checkout.contains('ScheduledRideBooking.confirm'), isTrue);
+    expect(checkout.contains('FindingDrivers'), isFalse);
+    expect(checkout.contains('submitFinding'), isFalse);
+    final pickup = File(
+      'lib/features/pickup/presentation/confirm_pickup_spot.dart',
+    ).readAsStringSync();
+    expect(pickup.contains("confirmLabel = 'Confirm pickup'"), isTrue);
+    final finding = File(
+      'lib/features/finding_driver/presentation/finding_drivers.dart',
+    ).readAsStringSync();
+    expect(finding.contains('scheduledSummary'), isFalse);
+    expect(finding.contains('confirmLabel'), isFalse);
+  });
 }

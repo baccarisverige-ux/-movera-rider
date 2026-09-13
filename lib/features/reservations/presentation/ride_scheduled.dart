@@ -134,7 +134,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
               children: [
                 Text(
-                  'Ride scheduled',
+                  'Your ride is scheduled',
                   style: reservationText(
                     32,
                     weight: FontWeight.w700,
@@ -143,7 +143,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  ReservationFormat.reservedHeadline(ride.scheduledPickupAt),
+                  ReservationFormat.scheduledReady(ride.scheduledPickupAt),
                   style: reservationText(
                     15,
                     color: kReservationMuted,
@@ -166,7 +166,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                 TextButton(
                   onPressed: () => _openDetails(ride),
                   child: Text(
-                    'View details',
+                    'View reservation',
                     style: reservationText(
                       15,
                       weight: FontWeight.w600,
@@ -233,9 +233,16 @@ class _ReservationCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            ReservationFormat.cardDate(ride.scheduledPickupAt),
-            style: reservationText(20, weight: FontWeight.w700),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  ReservationFormat.cardDate(ride.scheduledPickupAt),
+                  style: reservationText(20, weight: FontWeight.w700),
+                ),
+              ),
+              MoveraReserveBadge(when: ride.scheduledPickupAt),
+            ],
           ),
           const SizedBox(height: 4),
           Text(

@@ -8,6 +8,9 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
+import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
@@ -183,7 +186,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 800));
       expect(c.all, hasLength(1));
       expect(c.all.single.reservationId, 'rsv_1');
-      expect(find.text('Ride scheduled'), findsOneWidget);
+      expect(find.text('Your ride is scheduled'), findsOneWidget);
       expect(find.text('Finding your driver later'), findsOneWidget);
       expect(find.text('Connecting you with nearby drivers'), findsNothing);
       expect(FindingDriverController.active, isNull);
@@ -252,7 +255,7 @@ void main() {
       tester,
       RideScheduledPage(reservationId: created.reservationId, controller: c),
     );
-    expect(find.text('Ride scheduled'), findsOneWidget);
+    expect(find.text('Your ride is scheduled'), findsOneWidget);
     expect(c.upcoming().single.reservationId, 'rsv_keep');
 
     await pumpPhone(tester, RideHistory(reservations: c));
@@ -435,5 +438,33 @@ void main() {
     expect(updated.scheduledPickupAt, DateTime(2026, 9, 24, 9, 30));
     expect(FindingDriverController.active, isNull);
     expect(AppScope.instance.ride.status, RideStatus.idle);
+  });
+
+  test('checkout draft does not create a reservation', () {
+    final c = reservations();
+    final selection = scheduledSelection();
+    final draft = ScheduledRideCheckout.draftFrom(
+      selection: selection,
+      pickup: const ReservationPlace(label: 'Current location'),
+      destination: const ReservationPlace(label: 'Arlanda'),
+    );
+    expect(c.all, isEmpty);
+    expect(draft.categoryName, 'Movera');
+    expect(FindingDriverController.active, isNull);
+  });
+
+  test('price change copy stays in the pricing layer', () {
+    expect(
+      const ReservationPriceChange(previous: 289, next: 329).summary,
+      'Your updated ride costs 40 kr more.',
+    );
+    expect(
+      const ReservationPriceChange(previous: 329, next: 289).summary,
+      'Your updated ride costs 40 kr less.',
+    );
+    expect(
+      const ReservationPriceChange(previous: 259, next: 259).summary,
+      'Price unchanged',
+    );
   });
 }

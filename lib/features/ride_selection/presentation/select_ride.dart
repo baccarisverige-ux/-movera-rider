@@ -12,7 +12,7 @@ import 'package:movera_rider/features/booking/application/booking_controller.dar
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
+import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
@@ -529,30 +529,38 @@ class _SelectRideState extends State<SelectRide>
       await _chooseLater();
     }
     if (_selection.scheduledFor == null || !mounted) return;
-    final created = await ScheduledRideBooking.confirm(
-      reservations: _reservations,
-      selection: _selection,
-      pickup: ReservationPlace(
-        label: widget.pickupAddress,
-        lat: widget.pickupPosition.latitude,
-        lng: widget.pickupPosition.longitude,
-      ),
-      destination: ReservationPlace(
-        label: widget.destinationAddress,
-        lat: widget.destinationPosition.latitude,
-        lng: widget.destinationPosition.longitude,
-      ),
-      note: widget.note,
-      parentReservationId: widget.parentReservationId,
-      editingReservationId: widget.editingReservationId,
-    );
-    if (!mounted) return;
-    final opener = widget.onScheduled;
-    if (opener != null) {
-      await opener(context, created.reservationId);
-      return;
-    }
-    Navigator.pop(context, created);
+    await _withParkedMap(() async {
+      if (!mounted) return;
+      final created = await ScheduledRideCheckout.run(
+        context,
+        reservations: _reservations,
+        selection: _selection,
+        pickup: ReservationPlace(
+          label: widget.pickupAddress,
+          lat: widget.pickupPosition.latitude,
+          lng: widget.pickupPosition.longitude,
+        ),
+        destination: ReservationPlace(
+          label: widget.destinationAddress,
+          lat: widget.destinationPosition.latitude,
+          lng: widget.destinationPosition.longitude,
+        ),
+        pickupPosition: widget.pickupPosition,
+        note: widget.note,
+        parentReservationId: widget.parentReservationId,
+        editingReservationId: widget.editingReservationId,
+        original: widget.editingReservationId == null
+            ? null
+            : _reservations.byId(widget.editingReservationId!),
+      );
+      if (!mounted || created == null) return;
+      final opener = widget.onScheduled;
+      if (opener != null) {
+        await opener(context, created.reservationId);
+        return;
+      }
+      Navigator.pop(context, created);
+    });
   }
 
   void _book() {

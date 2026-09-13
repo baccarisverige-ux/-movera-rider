@@ -18,10 +18,16 @@ class ConfirmPickupSpot extends StatefulWidget {
     super.key,
     required this.initialPosition,
     required this.initialAddress,
+    this.scheduledSummary,
+    this.categoryName,
+    this.confirmLabel = 'Confirm pickup',
   });
 
   final LatLng initialPosition;
   final String initialAddress;
+  final String? scheduledSummary;
+  final String? categoryName;
+  final String confirmLabel;
 
   @override
   State<ConfirmPickupSpot> createState() => _ConfirmPickupSpotState();
@@ -47,12 +53,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     _center = widget.initialPosition;
     _address = widget.initialAddress;
     _search.text = widget.initialAddress;
-    Future<void>.delayed(
-      Duration(milliseconds: kIsWeb ? 280 : 80),
-      () {
-        if (mounted) setState(() => _mapReady = true);
-      },
-    );
+    Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
+      if (mounted) setState(() => _mapReady = true);
+    });
   }
 
   @override
@@ -97,7 +100,10 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
               children: [
                 if (_mapReady)
                   CustomGoogleMap(
-                    initialPosition: CameraPosition(target: _center, zoom: 16.4),
+                    initialPosition: CameraPosition(
+                      target: _center,
+                      zoom: 16.4,
+                    ),
                     myLocationEnabled: true,
                     myLocationButtonEnabled: false,
                     zoomControlsEnabled: false,
@@ -108,8 +114,12 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                         circleId: const CircleId('pickup-accuracy'),
                         center: _center,
                         radius: _radiusMeters,
-                        fillColor: const Color(0xFF2D5878).withValues(alpha: 0.12),
-                        strokeColor: const Color(0xFF2D5878).withValues(alpha: 0.35),
+                        fillColor: const Color(
+                          0xFF2D5878,
+                        ).withValues(alpha: 0.12),
+                        strokeColor: const Color(
+                          0xFF2D5878,
+                        ).withValues(alpha: 0.35),
                         strokeWidth: 1,
                       ),
                     },
@@ -133,7 +143,11 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.only(bottom: 28),
-                    child: Icon(Icons.location_on, size: 44, color: Color(0xFF11181D)),
+                    child: Icon(
+                      Icons.location_on,
+                      size: 44,
+                      color: Color(0xFF11181D),
+                    ),
                   ),
                 ),
                 SafeArea(
@@ -178,6 +192,22 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     color: const Color(0xFF778189),
                   ),
                 ),
+                if (widget.scheduledSummary != null ||
+                    widget.categoryName != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    [
+                      if (widget.scheduledSummary != null)
+                        widget.scheduledSummary,
+                      if (widget.categoryName != null) widget.categoryName,
+                    ].join('  ·  '),
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1D252C),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 TextField(
                   controller: _search,
@@ -220,7 +250,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                       ),
                     ),
                     child: Text(
-                      'Confirm pickup',
+                      widget.confirmLabel,
                       style: GoogleFonts.poppins(
                         fontWeight: FontWeight.w600,
                         fontSize: 16,

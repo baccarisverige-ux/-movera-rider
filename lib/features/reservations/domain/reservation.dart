@@ -129,6 +129,24 @@ class ReservationDraft {
   final String? parentReservationId;
 }
 
+class ReservationPriceChange {
+  const ReservationPriceChange({required this.previous, required this.next});
+
+  final double previous;
+  final double next;
+
+  double get delta => next - previous;
+
+  bool get unchanged => delta.abs() < 0.5;
+
+  String get summary {
+    if (unchanged) return 'Price unchanged';
+    final amount = delta.abs().toStringAsFixed(0);
+    if (delta > 0) return 'Your updated ride costs $amount kr more.';
+    return 'Your updated ride costs $amount kr less.';
+  }
+}
+
 class ReservationPatch {
   const ReservationPatch({
     this.scheduledPickupAt,

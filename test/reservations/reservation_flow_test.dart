@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
+import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_ride_terms.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
@@ -60,10 +62,11 @@ void main() {
       tester,
       RideScheduledPage(reservationId: 'rsv_ui', controller: c),
     );
-    expect(find.text('Ride scheduled'), findsOneWidget);
-    expect(find.textContaining('reserved for'), findsOneWidget);
+    expect(find.text('Your ride is scheduled'), findsOneWidget);
+    expect(find.textContaining('ready for'), findsOneWidget);
     expect(find.text('Plan a return ride'), findsOneWidget);
-    expect(find.text('View details'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('View reservation'), 400);
+    expect(find.text('View reservation'), findsOneWidget);
     expect(find.text('Finding your driver later'), findsOneWidget);
     expect(find.text('Bags · Pet'), findsOneWidget);
     expect(find.text('Your reservation is confirmed'), findsNothing);
@@ -93,7 +96,7 @@ void main() {
     expect(find.text('Klockarvägen 37'), findsWidgets);
     expect(find.text('Arlanda Express'), findsWidgets);
     expect(find.text('Reservation confirmed'), findsOneWidget);
-    expect(find.textContaining('once a driver is assigned'), findsOneWidget);
+    expect(find.textContaining('when a driver is assigned'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Bags · Pet'), 300);
     expect(find.text('Preferences'), findsOneWidget);
     expect(find.text('Bags · Pet'), findsWidgets);
@@ -136,5 +139,60 @@ void main() {
     expect(find.text('Scheduled ride terms'), findsOneWidget);
     expect(find.textContaining('Uber'), findsNothing);
     expect(find.textContaining('SEK 160'), findsNothing);
+  });
+
+  testWidgets('review does not create a reservation until Schedule is tapped', (
+    tester,
+  ) async {
+    final c = await seeded();
+    final draft = ReservationDraft(
+      scheduledPickupAt: DateTime(2026, 9, 23, 6, 55),
+      pickup: const ReservationPlace(label: 'Klockarvägen 37'),
+      destination: const ReservationPlace(label: 'Arlanda Express'),
+      categoryId: 'movera',
+      categoryName: 'Movera',
+      categoryImage: 'assets/images/rides/movera.png',
+      price: 522,
+      paymentMethod: 'Cash',
+    );
+    await pumpPhone(
+      tester,
+      ReservationReviewPage(draft: draft, ctaLabel: 'Schedule Movera'),
+    );
+    expect(find.text('Your scheduled ride'), findsOneWidget);
+    expect(find.text('Schedule Movera'), findsOneWidget);
+    expect(find.textContaining('Uber'), findsNothing);
+    expect(c.all, hasLength(1));
+  });
+
+  testWidgets('review changes compares price and keeps the current ride', (
+    tester,
+  ) async {
+    final c = await seeded();
+    final original = c.byId('rsv_ui')!;
+    final draft = ReservationDraft(
+      scheduledPickupAt: DateTime(2026, 9, 24, 8, 15),
+      pickup: const ReservationPlace(label: 'T-Centralen'),
+      destination: const ReservationPlace(label: 'Bromma'),
+      categoryId: 'comfort',
+      categoryName: 'Comfort',
+      categoryImage: 'assets/images/rides/comfort.png',
+      price: 562,
+      paymentMethod: 'Cash',
+    );
+    await pumpPhone(
+      tester,
+      ReviewChangesPage(original: original, draft: draft, controller: c),
+    );
+    expect(find.text('Review your changes'), findsOneWidget);
+    expect(find.text('Confirm changes'), findsOneWidget);
+    expect(find.text('Keep current reservation'), findsOneWidget);
+    expect(find.textContaining('40 kr more'), findsOneWidget);
+    expect(find.text('No additional change charge'), findsOneWidget);
+    expect(find.textContaining('Uber'), findsNothing);
+    await tester.tap(find.text('Keep current reservation'));
+    await tester.pump();
+    expect(c.byId('rsv_ui')!.price, 522);
+    expect(c.byId('rsv_ui')!.reservationId, 'rsv_ui');
   });
 }
