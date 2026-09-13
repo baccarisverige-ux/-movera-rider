@@ -7,6 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
@@ -20,10 +21,11 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/safety_suggestion_banner.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class WaitingForDriver extends StatefulWidget {
   const WaitingForDriver({
@@ -53,7 +55,8 @@ class WaitingForDriver extends StatefulWidget {
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
-class _WaitingForDriverState extends State<WaitingForDriver> {
+class _WaitingForDriverState extends State<WaitingForDriver>
+    with SingleTickerProviderStateMixin {
   Set<Marker> _markers = {};
   final ActiveRideController _ride = ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
@@ -61,14 +64,23 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     pickupLng: widget.pickupPosition.longitude,
   );
   late final CameraPosition _initialPosition;
+  late final AnimationController _sheetSlide;
   Timer? _suggestTick;
   int _suggest = 0;
   bool _leaving = false;
+  bool _overlayOn = false;
 
   @override
   void initState() {
     super.initState();
     _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
+    _sheetSlide = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+      value: 0,
+    );
+    _sheetSlide.addListener(_syncSheetOverlay);
+    _syncSheetOverlay();
     _tracking.driver = widget.driver;
     _loadMarkers();
     SafetyController.shared.load();
@@ -105,7 +117,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         Marker(
           markerId: const MarkerId('driver'),
           position: LatLng(_tracking.eta!.latitude!, _tracking.eta!.longitude!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueViolet,
+          ),
         ),
     };
   }
@@ -130,7 +144,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _openProfile() {
     final driver = _tracking.driver ?? widget.driver;
     if (driver == null) return;
-    Navigator.push(context, RightToLeftTransition(DriverProfilePage(driver: driver)));
+    Navigator.push(
+      context,
+      RightToLeftTransition(DriverProfilePage(driver: driver)),
+    );
   }
 
   Future<void> _openDetails() {
@@ -156,10 +173,63 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   @override
   void dispose() {
+    _sheetSlide.removeListener(_syncSheetOverlay);
+    _sheetSlide.dispose();
     _suggestTick?.cancel();
     _tracking.dispose();
+    setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
     super.dispose();
+  }
+
+  void _syncSheetOverlay() {
+    final cover = _sheetSlide.value > 0.05;
+    if (cover == _overlayOn) return;
+    _overlayOn = cover;
+    setWebOverlayOpen(cover);
+  }
+
+  String _shortPlace(String value) {
+    final parts = value
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .where((part) => !RegExp(r'^\d{3,}$').hasMatch(part))
+        .toList();
+    if (parts.isEmpty) return value;
+    if (parts.length == 1) return parts.first;
+    return '${parts[0]}, ${parts[1]}';
+  }
+
+  double _minSheet(MediaQueryData media) => 390 + media.padding.bottom;
+
+  double _maxSheet(MediaQueryData media) {
+    final minH = _minSheet(media);
+    final maxH = media.size.height - media.padding.top - 72;
+    return maxH < minH + 48 ? minH + 48 : maxH;
+  }
+
+  void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
+    final range = _maxSheet(media) - _minSheet(media);
+    if (range <= 0) return;
+    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
+        .clamp(0.0, 1.0);
+  }
+
+  void _onSheetDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final target = velocity < -480
+        ? 1.0
+        : velocity > 480
+        ? 0.0
+        : _sheetSlide.value >= 0.42
+        ? 1.0
+        : 0.0;
+    _sheetSlide.animateTo(
+      target,
+      duration: MoveraMotion.of(context, MoveraDurations.large),
+      curve: MoveraCurves.snap,
+    );
   }
 
   @override
@@ -167,13 +237,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final driver = _tracking.driver ?? widget.driver;
     final eta = _tracking.eta;
     final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
-    final subtitle = eta?.subtitle(
-          firstName: driver?.firstName,
-          status: _tracking.status,
-        ) ??
+    final subtitle =
+        eta?.subtitle(firstName: driver?.firstName, status: _tracking.status) ??
         (driver == null
             ? 'Driver details will appear when matching confirms them.'
             : 'Leave now to meet ${driver.firstName}');
+    final media = MediaQuery.of(context);
+    const mapReserve = 300.0;
     return PopScope(
       canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) async {
@@ -181,54 +251,60 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         await _confirmCancel();
       },
       child: Scaffold(
-        body: SlidingUpPanel(
-          color: Colors.white,
-          backdropColor: Colors.transparent,
-          minHeight: 390,
-          maxHeight: 620,
-          isDraggable: true,
-          defaultPanelState: PanelState.CLOSED,
-          parallaxEnabled: false,
-          boxShadow: const [],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          panelBuilder: (sc) => _panel(sc, driver, headline, subtitle),
-          body: Stack(
-            children: [
-              CustomGoogleMap(
-                initialPosition: _initialPosition,
-                markers: _markers,
-                myLocationEnabled: true,
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-                compassEnabled: false,
-                trafficEnabled: false,
-                buildingsEnabled: true,
-                indoorViewEnabled: false,
-                mapType: MapType.normal,
-                padding: const EdgeInsets.only(bottom: 390),
-                onMapCreated: (controller) {
-                  AppScope.instance.maps.attach(
-                    controller,
-                    owner: MapOwners.waiting,
-                  );
-                },
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                  child: Row(
-                    children: [
-                      _roundBtn(Icons.keyboard_arrow_down_rounded, _confirmCancel),
-                      const Spacer(),
-                      SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
-                    ],
-                  ),
+        backgroundColor: const Color(0xFFF6F5F1),
+        body: Stack(
+          children: [
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: mapReserve,
+              child: RepaintBoundary(
+                child: CustomGoogleMap(
+                  key: const ValueKey('waiting-map'),
+                  initialPosition: _initialPosition,
+                  markers: _markers,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  compassEnabled: false,
+                  trafficEnabled: false,
+                  buildingsEnabled: false,
+                  indoorViewEnabled: false,
+                  tiltGesturesEnabled: false,
+                  rotateGesturesEnabled: false,
+                  mapType: MapType.normal,
+                  onMapCreated: (controller) {
+                    AppScope.instance.maps.attach(
+                      controller,
+                      owner: MapOwners.waiting,
+                    );
+                  },
                 ),
               ),
-              Positioned(
-                right: 12,
-                bottom: 406,
+            ),
+            Positioned(
+              top: media.padding.top + 8,
+              left: 12,
+              right: 12,
+              child: PointerInterceptor(
+                child: Row(
+                  children: [
+                    _roundBtn(
+                      Icons.keyboard_arrow_down_rounded,
+                      _confirmCancel,
+                    ),
+                    const Spacer(),
+                    SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 12,
+              bottom: mapReserve + 16,
+              child: PointerInterceptor(
                 child: _roundBtn(Icons.my_location_rounded, () {
                   AppScope.instance.camera.focusOnPickup(
                     GeoPoint(
@@ -238,36 +314,71 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   );
                 }),
               ),
-            ],
-          ),
+            ),
+            AnimatedBuilder(
+              animation: _sheetSlide,
+              builder: (context, _) {
+                final minSheet = _minSheet(media);
+                final maxSheet = _maxSheet(media);
+                final height =
+                    minSheet + (maxSheet - minSheet) * _sheetSlide.value;
+                return Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: height,
+                  child: PointerInterceptor(
+                    child: Material(
+                      color: Colors.white,
+                      elevation: 18,
+                      shadowColor: const Color(0xFF162C36).withOpacity(0.14),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onVerticalDragUpdate: (d) =>
+                                _onSheetDragUpdate(d, media),
+                            onVerticalDragEnd: _onSheetDragEnd,
+                            child: const SizedBox(
+                              width: double.infinity,
+                              height: 22,
+                              child: Center(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFE7EBEE),
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(99),
+                                    ),
+                                  ),
+                                  child: SizedBox(width: 36, height: 4),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(child: _panel(driver, headline, subtitle)),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _panel(
-    ScrollController sc,
-    MatchedDriver? driver,
-    String headline,
-    String subtitle,
-  ) {
+  Widget _panel(MatchedDriver? driver, String headline, String subtitle) {
     return SingleChildScrollView(
-      controller: sc,
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE7EBEE),
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
             headline,
             style: GoogleFonts.poppins(
@@ -301,7 +412,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               children: [
                 for (final label in widget.notes.selected)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF3F6FB),
                       borderRadius: BorderRadius.circular(99),
@@ -325,7 +439,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFFF6F8FA),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +474,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFFE7EBEE)),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -377,7 +491,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Meet at your pickup spot on ${widget.pickupAddress}',
+                  'Meet at ${_shortPlace(widget.pickupAddress)}',
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -413,7 +527,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           border: Border.all(color: const Color(0xFFE7EBEE)),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           'Driver details will appear when matching confirms them.',
@@ -428,7 +542,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFFE7EBEE)),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -455,7 +569,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                         right: 4,
                         bottom: -8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1D252C),
                             borderRadius: BorderRadius.circular(99),
@@ -546,7 +663,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 child: _action(
                   icon: Icons.chat_bubble_outline_rounded,
                   label: 'Message',
-                  onTap: () => Navigator.push(context, BottomToTopTransition(Chat())),
+                  onTap: () =>
+                      Navigator.push(context, BottomToTopTransition(Chat())),
                 ),
               ),
               const SizedBox(width: 8),

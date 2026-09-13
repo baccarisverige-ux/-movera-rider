@@ -148,7 +148,11 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             if (row > 0) const SizedBox(height: 8),
             Row(
               children: [
-                for (var i = row; i < row + 2 && i < widget.steps.length; i++) ...[
+                for (
+                  var i = row;
+                  i < row + 2 && i < widget.steps.length;
+                  i++
+                ) ...[
                   if (i > row) const SizedBox(width: 8),
                   Expanded(
                     child: _Step(
@@ -220,7 +224,9 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             width: double.infinity,
             height: 48,
             child: FilledButton(
-              onPressed: _canConfirm ? () => widget.onConfirm(_increase!) : null,
+              onPressed: _canConfirm
+                  ? () => widget.onConfirm(_increase!)
+                  : null,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF11181D),
                 disabledBackgroundColor: const Color(0xFFE7EBEE),
@@ -233,9 +239,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
-                  color: _canConfirm
-                      ? Colors.white
-                      : const Color(0xFF9AA3A9),
+                  color: _canConfirm ? Colors.white : const Color(0xFF9AA3A9),
                 ),
               ),
             ),
@@ -275,20 +279,28 @@ class _Step extends StatelessWidget {
     return MoveraMotion.selection(
       selected: selected,
       child: Material(
-        color: selected ? const Color(0xFF1D252C) : const Color(0xFFF6F8FA),
-        borderRadius: BorderRadius.circular(12),
+        color: selected ? const Color(0xFFEAF2F8) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected
+                    ? const Color(0xFF2D5878)
+                    : const Color(0xFFE7EBEE),
+              ),
+            ),
             child: Text(
               label,
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : const Color(0xFF1D252C),
+                color: const Color(0xFF1D252C),
               ),
             ),
           ),

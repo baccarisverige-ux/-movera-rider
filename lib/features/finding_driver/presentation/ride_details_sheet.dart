@@ -88,7 +88,10 @@ class RideDetailsSheet extends StatelessWidget {
                 children: [
                   for (final label in notes.selected)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF3F6FB),
                         borderRadius: BorderRadius.circular(99),
@@ -120,7 +123,10 @@ class RideDetailsSheet extends StatelessWidget {
                 ),
                 child: Text(
                   'Cancel trip',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             ),
