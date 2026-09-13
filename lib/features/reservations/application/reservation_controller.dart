@@ -76,6 +76,11 @@ class ReservationController extends ChangeNotifier {
     ReservationPlace? destination,
     String? paymentMethod,
     double? price,
+    String? categoryId,
+    String? categoryName,
+    String? categoryImage,
+    int? passengerCount,
+    String? note,
   }) {
     return create(
       ReservationDraft(
@@ -83,14 +88,14 @@ class ReservationController extends ChangeNotifier {
         estimatedDropoffAt: estimatedDropoffAt,
         pickup: pickup ?? origin.destination,
         destination: destination ?? origin.pickup,
-        categoryId: origin.categoryId,
-        categoryName: origin.categoryName,
-        categoryImage: origin.categoryImage,
-        passengerCount: origin.passengerCount,
+        categoryId: categoryId ?? origin.categoryId,
+        categoryName: categoryName ?? origin.categoryName,
+        categoryImage: categoryImage ?? origin.categoryImage,
+        passengerCount: passengerCount ?? origin.passengerCount,
         price: price ?? origin.price,
         currency: origin.currency,
         paymentMethod: paymentMethod ?? origin.paymentMethod,
-        note: origin.note,
+        note: note ?? origin.note,
         parentReservationId: origin.reservationId,
       ),
     );

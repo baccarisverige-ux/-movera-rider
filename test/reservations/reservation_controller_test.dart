@@ -74,4 +74,50 @@ void main() {
     expect(ret.destination.label, origin.pickup.label);
     expect(c.all, hasLength(2));
   });
+
+  test('return ride can choose a different category', () async {
+    var n = 0;
+    final c = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv_${++n}',
+      ),
+    );
+    final origin = await c.create(draft);
+    final ret = await c.planReturn(
+      origin,
+      scheduledPickupAt: DateTime(2026, 9, 24, 18, 30),
+      categoryId: 'xl',
+      categoryName: 'Movera XL',
+      categoryImage: 'assets/images/rides/xl.png',
+      passengerCount: 6,
+      price: 399,
+      note: 'Bags · Pet',
+    );
+    expect(ret.reservationId, isNot(origin.reservationId));
+    expect(origin.reservationId, 'rsv_1');
+    expect(ret.categoryId, 'xl');
+    expect(ret.categoryName, 'Movera XL');
+    expect(ret.passengerCount, 6);
+    expect(ret.note, 'Bags · Pet');
+    expect(origin.categoryId, 'comfort');
+    expect(c.byId(origin.reservationId)!.categoryId, 'comfort');
+    expect(c.all, hasLength(2));
+  });
+
+  test('edits and cancel keep the same reservation id', () async {
+    final c = controller();
+    await c.create(draft);
+    final updated = await c.update(
+      'rsv_ctrl',
+      ReservationPatch(paymentMethod: 'Swish', note: 'Child'),
+    );
+    expect(updated.reservationId, 'rsv_ctrl');
+    expect(updated.categoryName, 'Comfort');
+    expect(updated.note, 'Child');
+    final cancelled = await c.cancel('rsv_ctrl', reason: 'plans_changed');
+    expect(cancelled.reservationId, 'rsv_ctrl');
+    expect(cancelled.status, ReservationStatus.cancelled);
+    expect(c.all, hasLength(1));
+  });
 }

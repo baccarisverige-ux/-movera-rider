@@ -38,6 +38,7 @@ void main() {
         categoryImage: 'assets/images/rides/movera.png',
         price: 522,
         paymentMethod: 'Cash',
+        note: 'Bags · Pet',
       ),
     );
     return c;
@@ -64,6 +65,7 @@ void main() {
     expect(find.text('Plan a return ride'), findsOneWidget);
     expect(find.text('View details'), findsOneWidget);
     expect(find.text('Finding your driver later'), findsOneWidget);
+    expect(find.text('Bags · Pet'), findsOneWidget);
     expect(find.text('Your reservation is confirmed'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });
@@ -92,6 +94,9 @@ void main() {
     expect(find.text('Arlanda Express'), findsWidgets);
     expect(find.text('Reservation confirmed'), findsOneWidget);
     expect(find.textContaining('once a driver is assigned'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Bags · Pet'), 300);
+    expect(find.text('Preferences'), findsOneWidget);
+    expect(find.text('Bags · Pet'), findsWidgets);
     expect(c.byId('rsv_ui')!.paymentMethod, 'Cash');
     await c.update(
       'rsv_ui',

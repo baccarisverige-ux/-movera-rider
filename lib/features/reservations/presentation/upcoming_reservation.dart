@@ -109,19 +109,18 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   }
 
   Future<void> _planReturn(Reservation ride) async {
-    final created = await Navigator.push<Reservation>(
-      context,
-      RightToLeftTransition(
-        PlanReturnRidePage(origin: ride, controller: _reservations),
-      ),
-    );
-    if (created == null || !mounted) return;
     await Navigator.push(
       context,
-      BottomToTopTransition(
-        RideScheduledPage(
-          reservationId: created.reservationId,
+      RightToLeftTransition(
+        PlanReturnRidePage(
+          origin: ride,
           controller: _reservations,
+          onScheduled: (context, id) => RideScheduledPage.open(
+            context,
+            reservationId: id,
+            controller: _reservations,
+            replace: true,
+          ),
         ),
       ),
     );
@@ -254,6 +253,12 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   value: ride.paymentMethod,
                   onEdit: ride.status.canEdit ? () => _editPayment(ride) : null,
                 ),
+                if (ride.hasPreferences)
+                  _DetailRow(
+                    icon: Icons.notes_rounded,
+                    label: 'Preferences',
+                    value: ride.note!.trim(),
+                  ),
                 if (ride.status.canEdit) ...[
                   const SizedBox(height: 18),
                   const Divider(color: kReservationLine),

@@ -18,6 +18,21 @@ class RideScheduledPage extends StatefulWidget {
   final String reservationId;
   final ReservationController? controller;
 
+  static Future<void> open(
+    BuildContext context, {
+    required String reservationId,
+    ReservationController? controller,
+    bool replace = false,
+  }) {
+    final route = BottomToTopTransition(
+      RideScheduledPage(reservationId: reservationId, controller: controller),
+    );
+    if (replace) {
+      return Navigator.pushReplacement(context, route);
+    }
+    return Navigator.push(context, route);
+  }
+
   @override
   State<RideScheduledPage> createState() => _RideScheduledPageState();
 }
@@ -59,19 +74,18 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
   }
 
   Future<void> _planReturn(Reservation ride) async {
-    final created = await Navigator.push<Reservation>(
-      context,
-      RightToLeftTransition(
-        PlanReturnRidePage(origin: ride, controller: _reservations),
-      ),
-    );
-    if (created == null || !mounted) return;
     await Navigator.push(
       context,
-      BottomToTopTransition(
-        RideScheduledPage(
-          reservationId: created.reservationId,
+      RightToLeftTransition(
+        PlanReturnRidePage(
+          origin: ride,
           controller: _reservations,
+          onScheduled: (context, id) => RideScheduledPage.open(
+            context,
+            reservationId: id,
+            controller: _reservations,
+            replace: true,
+          ),
         ),
       ),
     );
@@ -198,6 +212,16 @@ class _ReservationCard extends StatelessWidget {
                         '${ride.categoryName} · ${ReservationFormat.price(ride)}',
                         style: reservationText(13.5, color: kReservationMuted),
                       ),
+                      if (ride.hasPreferences) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          ride.note!.trim(),
+                          style: reservationText(
+                            13.5,
+                            color: kReservationMuted,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       ReservationDriverBadge(ride: ride),
                     ],

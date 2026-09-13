@@ -9,6 +9,7 @@ ReservationDraft _draft({
   String dropoff = 'Stockholm C',
   String payment = 'Apple Pay',
   String? parent,
+  String? note,
 }) {
   return ReservationDraft(
     scheduledPickupAt: when ?? DateTime(2026, 9, 23, 6, 55),
@@ -23,6 +24,7 @@ ReservationDraft _draft({
     price: 522,
     paymentMethod: payment,
     parentReservationId: parent,
+    note: note,
   );
 }
 
@@ -139,6 +141,22 @@ void main() {
     expect(restored.cached.single.reservationId, 'rsv_keep');
     await restored.hydrate();
     expect(restored.cached, hasLength(1));
+    expect(restored.cached.single.reservationId, 'rsv_keep');
+  });
+
+  test('preferences survive restore on the same reservation', () async {
+    final memory = MemoryReservationStorage();
+    final first = LocalReservationRepository(
+      storage: memory,
+      nextId: () => 'rsv_note',
+    );
+    await first.createReservation(_draft(note: 'Bags · Pet'));
+    final restored = LocalReservationRepository(storage: memory);
+    await restored.hydrate();
+    expect(restored.cached, hasLength(1));
+    expect(restored.cached.single.reservationId, 'rsv_note');
+    expect(restored.cached.single.note, 'Bags · Pet');
+    expect(restored.cached.single.hasPreferences, isTrue);
   });
 
   test('return ride is a new id only after create', () async {

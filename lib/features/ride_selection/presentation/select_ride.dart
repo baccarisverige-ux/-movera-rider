@@ -10,8 +10,9 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
+import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
@@ -19,6 +20,8 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+
+export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -28,13 +31,70 @@ class SelectRide extends StatefulWidget {
     required this.pickupPosition,
     required this.destinationPosition,
     this.stops = const <String>[],
+    this.bookingMode = BookingMode.now,
+    this.lockBookingMode = false,
+    this.initialScheduledFor,
+    this.initialRideId,
+    this.parentReservationId,
+    this.note,
+    this.reservations,
+    this.onScheduled,
   });
+
+  /// Return-ride entry: same category cards, scheduled mode, reverse route.
+  factory SelectRide.forReturnRide(
+    Reservation origin, {
+    Key? key,
+    ReservationController? reservations,
+    Future<void> Function(BuildContext context, String reservationId)?
+    onScheduled,
+  }) {
+    const stockholm = LatLng(59.3293, 18.0686);
+    LatLng? tryPoint(ReservationPlace place) {
+      if (place.lat == null || place.lng == null) return null;
+      return LatLng(place.lat!, place.lng!);
+    }
+
+    final originPickup = tryPoint(origin.pickup);
+    final originDest = tryPoint(origin.destination);
+    final known = originDest ?? originPickup ?? stockholm;
+    final returnPickup =
+        originDest ?? LatLng(known.latitude + 0.006, known.longitude + 0.008);
+    final returnDest =
+        originPickup ?? LatLng(known.latitude - 0.004, known.longitude - 0.006);
+    return SelectRide(
+      key: key,
+      pickupAddress: origin.destination.label,
+      destinationAddress: origin.pickup.label,
+      pickupPosition: returnPickup,
+      destinationPosition: returnDest,
+      bookingMode: BookingMode.scheduled,
+      lockBookingMode: true,
+      initialScheduledFor: origin.scheduledPickupAt.add(
+        const Duration(hours: 3),
+      ),
+      initialRideId: origin.categoryId,
+      parentReservationId: origin.reservationId,
+      note: origin.note,
+      reservations: reservations,
+      onScheduled: onScheduled,
+    );
+  }
 
   final String pickupAddress;
   final String destinationAddress;
   final LatLng pickupPosition;
   final LatLng destinationPosition;
   final List<String> stops;
+  final BookingMode bookingMode;
+  final bool lockBookingMode;
+  final DateTime? initialScheduledFor;
+  final String? initialRideId;
+  final String? parentReservationId;
+  final String? note;
+  final ReservationController? reservations;
+  final Future<void> Function(BuildContext context, String reservationId)?
+  onScheduled;
 
   @override
   State<SelectRide> createState() => _SelectRideState();
@@ -122,11 +182,17 @@ class _SelectRideState extends State<SelectRide>
   }
 
   _RideFilter _filter = _RideFilter.recommended;
-  final RideSelectionController _selection = RideSelectionController();
+  late final RideSelectionController _selection = RideSelectionController(
+    bookingMode: widget.bookingMode,
+    lockBookingMode: widget.lockBookingMode,
+  );
   bool _mapReady = false;
   bool _mapParked = false;
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
+
+  ReservationController get _reservations =>
+      widget.reservations ?? AppScope.instance.reservations;
 
   @override
   void initState() {
@@ -136,6 +202,15 @@ class _SelectRideState extends State<SelectRide>
       duration: const Duration(milliseconds: 520),
       value: 1,
     );
+    if (widget.initialRideId != null) {
+      final ride = _selection.rideById(widget.initialRideId!);
+      _selection.selectRide(ride.id, ride.price);
+    }
+    if (widget.initialScheduledFor != null) {
+      _selection.scheduleFor(widget.initialScheduledFor);
+    } else if (widget.bookingMode == BookingMode.scheduled) {
+      _selection.setBookingMode(BookingMode.scheduled);
+    }
     // Home already unmounted its map. Wait one frame so the platform view
     // is gone before this screen creates the only live map.
     Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
@@ -330,6 +405,10 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _showBookingPicker() async {
+    if (widget.lockBookingMode) {
+      await _chooseLater();
+      return;
+    }
     await MoveraSheet.show<void>(
       context: context,
       builder: (sheetContext) {
@@ -365,9 +444,9 @@ class _SelectRideState extends State<SelectRide>
                   icon: Icons.bolt_rounded,
                   title: 'Book now',
                   subtitle: 'Request a driver right away',
-                  selected: _selection.scheduledFor == null,
+                  selected: _selection.bookingMode == BookingMode.now,
                   onTap: () {
-                    setState(() => _selection.scheduleFor(null));
+                    setState(() => _selection.setBookingMode(BookingMode.now));
                     Navigator.pop(sheetContext);
                   },
                 ),
@@ -375,7 +454,7 @@ class _SelectRideState extends State<SelectRide>
                   icon: Icons.calendar_month_rounded,
                   title: 'Book for later',
                   subtitle: 'Choose a date and pickup time',
-                  selected: _selection.scheduledFor != null,
+                  selected: _selection.bookingMode == BookingMode.scheduled,
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _chooseLater();
@@ -459,10 +538,13 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _bookScheduled() async {
+    if (_selection.scheduledFor == null) {
+      await _chooseLater();
+    }
     final selected = _selectedRide;
     final when = _selection.scheduledFor;
     if (when == null) return;
-    final created = await AppScope.instance.reservations.create(
+    final created = await _reservations.create(
       ReservationDraft(
         scheduledPickupAt: when,
         estimatedDropoffAt: when.add(Duration(minutes: selected.etaMin)),
@@ -482,22 +564,28 @@ class _SelectRideState extends State<SelectRide>
         passengerCount: selected.seats,
         price: _priceFor(selected),
         paymentMethod: _payments[_selection.selectedPayment].name,
+        note: widget.note,
+        parentReservationId: widget.parentReservationId,
       ),
     );
     if (!mounted) return;
-    await Navigator.push(
-      context,
-      BottomToTopTransition(
-        RideScheduledPage(reservationId: created.reservationId),
-      ),
-    );
+    final opener = widget.onScheduled;
+    if (opener != null) {
+      await opener(context, created.reservationId);
+      return;
+    }
+    Navigator.pop(context, created);
   }
 
   void _book() {
-    if (_selection.isScheduled) {
+    if (_selection.bookingMode == BookingMode.scheduled) {
       _bookScheduled();
       return;
     }
+    _bookNow();
+  }
+
+  void _bookNow() {
     final selected = _selectedRide;
     showQuickRideNotesSheet(context).then((notes) {
       if (!mounted || notes == null) return;
@@ -1070,9 +1158,7 @@ class _SelectRideState extends State<SelectRide>
                       height: 54,
                       child: Center(
                         child: Text(
-                          _selection.scheduledFor == null
-                              ? 'Select ${selected.name}'
-                              : 'Schedule ${selected.name}',
+                          '${_selection.bookingMode.ctaVerb} ${selected.name}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _text(

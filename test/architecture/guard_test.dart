@@ -332,4 +332,58 @@ void main() {
     expect(finding.contains('ReservationController'), isFalse);
     expect(finding.contains('createReservation'), isFalse);
   });
+
+  test('scheduled mode never enters Finding Driver; now mode still does', () {
+    final src = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    final scheduledStart = src.indexOf('Future<void> _bookScheduled');
+    final nowStart = src.indexOf('void _bookNow()');
+    final bookStart = src.indexOf('void _book()');
+    expect(scheduledStart, greaterThan(0));
+    expect(bookStart, greaterThan(scheduledStart));
+    expect(nowStart, greaterThan(bookStart));
+    final scheduled = src.substring(scheduledStart, nowStart);
+    expect(scheduled.contains('FindingDrivers'), isFalse);
+    expect(scheduled.contains('submitFinding'), isFalse);
+    expect(scheduled.contains('_reservations.create'), isTrue);
+    expect(scheduled.contains('BookingMode.scheduled'), isTrue);
+    expect(scheduled.contains('onScheduled'), isTrue);
+    final now = src.substring(nowStart);
+    expect(now.contains('FindingDrivers'), isTrue);
+    expect(now.contains('submitFinding'), isTrue);
+    expect(now.contains('showQuickRideNotesSheet'), isTrue);
+    expect(now.contains('_reservations.create'), isFalse);
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+    expect(home.contains('RideScheduledPage.open'), isTrue);
+    expect(home.contains('FindingDrivers'), isFalse);
+  });
+
+  test('return ride reuses the shared SelectRide category selector', () {
+    final planReturn = File(
+      'lib/features/reservations/presentation/plan_return_ride.dart',
+    ).readAsStringSync();
+    expect(planReturn.contains('SelectRide.forReturnRide'), isTrue);
+    expect(planReturn.contains('FindingDrivers'), isFalse);
+    final selectRide = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    expect(selectRide.contains('factory SelectRide.forReturnRide'), isTrue);
+    expect(selectRide.contains('bookingMode: BookingMode.scheduled'), isTrue);
+  });
+
+  test('history still uses the old Schedule a ride route during migration', () {
+    final history = File(
+      'lib/features/history/presentation/ride_history.dart',
+    ).readAsStringSync();
+    expect(history.contains('ScheduleRide()'), isTrue);
+    expect(history.contains('SelectRide('), isFalse);
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+    expect(home.contains('bookingMode: BookingMode.now'), isTrue);
+    expect(home.contains('const ScheduleRide()'), isTrue);
+  });
 }
