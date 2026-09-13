@@ -33,6 +33,43 @@ void main() {
     expect(find.text('home-root'), findsOneWidget);
     expect(find.text('searching'), findsNothing);
   });
+
+  testWidgets('cancel removes searching even when PopScope blocks pop', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: moveraNavigatorKey,
+        home: const Scaffold(body: Text('home-root')),
+      ),
+    );
+    moveraNavigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return PopScope(
+            canPop: false,
+            child: Scaffold(
+              body: Column(
+                children: [
+                  const Text('searching'),
+                  TextButton(
+                    onPressed: () => RideNavigator.home(context),
+                    child: const Text('Cancel ride'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('searching'), findsOneWidget);
+    await tester.tap(find.text('Cancel ride'));
+    await tester.pumpAndSettle();
+    expect(find.text('searching'), findsNothing);
+    expect(find.text('home-root'), findsOneWidget);
+  });
 }
 
 class _LockedSearch extends StatefulWidget {

@@ -133,6 +133,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
     if (!outcome.cancelled || !mounted) return;
     _leaving = true;
+    setState(() {});
     _tracking.dispose();
     await _ride.markCancelled(reasonId: outcome.reasonId);
     RideNavigator.home(context);

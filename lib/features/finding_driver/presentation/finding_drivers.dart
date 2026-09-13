@@ -173,6 +173,7 @@ class _FindingDriversState extends State<FindingDrivers>
       return;
     }
     _leaving = true;
+    setState(() {});
     await _match.cancelSearch(reasonId: outcome.reasonId);
     RideNavigator.home(context);
   }
