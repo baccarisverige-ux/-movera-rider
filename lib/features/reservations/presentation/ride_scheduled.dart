@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
@@ -283,7 +284,7 @@ class _ReturnRow extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
           child: Row(
             children: [
-              const Icon(Icons.event_repeat_rounded, color: kReservationAccent),
+              const MoveraGlyph(asset: AppAssets.scheduleCalendar),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

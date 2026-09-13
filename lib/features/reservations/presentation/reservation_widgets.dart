@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 
@@ -430,5 +431,83 @@ class ReservationEditButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class MoveraGlyph extends StatelessWidget {
+  const MoveraGlyph({
+    super.key,
+    required this.asset,
+    this.size = 36,
+    this.glyph = 20,
+  });
+
+  final String asset;
+  final double size;
+  final double glyph;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: kReservationSoft,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Image.asset(
+        asset,
+        width: glyph,
+        height: glyph,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      ),
+    );
+  }
+}
+
+class ReservationPaymentMark extends StatelessWidget {
+  const ReservationPaymentMark({
+    super.key,
+    required this.method,
+    this.size = 36,
+  });
+
+  final String method;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: kReservationSoft,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Image.asset(
+        _assetFor(method),
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) =>
+            Image.asset(AppAssets.payment, fit: BoxFit.contain),
+      ),
+    );
+  }
+
+  static String _assetFor(String method) {
+    final lower = method.toLowerCase();
+    if (lower.contains('apple')) return AppAssets.applepay;
+    if (lower.contains('google')) return 'assets/images/google_pay_brand.png';
+    if (lower.contains('paypal')) return AppAssets.paypal;
+    if (lower.contains('visa')) return AppAssets.visa;
+    if (lower.contains('master') || lower.contains('card')) {
+      return AppAssets.mastercard;
+    }
+    if (lower.contains('cash')) return AppAssets.cash;
+    return AppAssets.payment;
   }
 }

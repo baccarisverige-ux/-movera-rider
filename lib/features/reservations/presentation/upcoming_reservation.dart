@@ -189,15 +189,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                         padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
                         child: Row(
                           children: [
-                            Image.asset(
-                              AppAssets.scheduleCalendar,
-                              width: 22,
-                              height: 22,
-                              color: kReservationAccent,
-                              errorBuilder: (_, __, ___) => const Icon(
-                                Icons.event_repeat_rounded,
-                                color: kReservationAccent,
-                              ),
+                            const MoveraGlyph(
+                              asset: AppAssets.scheduleCalendar,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -237,17 +230,17 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ),
                   const SizedBox(height: 12),
                   _KnowRow(
-                    icon: Icons.hourglass_bottom_rounded,
+                    asset: AppAssets.hourGlass,
                     title: 'Waiting time',
                     body: policy.waitingSummary,
                   ),
                   _KnowRow(
-                    icon: Icons.event_busy_rounded,
+                    asset: AppAssets.cancelation,
                     title: 'Cancellation',
                     body: policy.cancellationSummary,
                   ),
                   _KnowRow(
-                    icon: Icons.payments_outlined,
+                    asset: AppAssets.totalAmount,
                     title: 'Pricing',
                     body: policy.pricingSummary,
                   ),
@@ -390,8 +383,7 @@ class _JourneyCard extends StatelessWidget {
       child: Column(
         children: [
           _DetailRow(
-            iconAsset: AppAssets.calendar,
-            fallbackIcon: Icons.calendar_today_rounded,
+            iconAsset: AppAssets.dateTime,
             label: 'Scheduled for',
             value:
                 '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
@@ -399,27 +391,23 @@ class _JourneyCard extends StatelessWidget {
                 ? null
                 : ReservationFormat.dropoffAt(ride.estimatedDropoffAt!),
           ),
-          const Divider(height: 1, indent: 42, color: kReservationLine),
+          const Divider(height: 1, indent: 52, color: kReservationLine),
           _DetailRow(
             iconAsset: AppAssets.gpsFill,
-            fallbackIcon: Icons.my_location_rounded,
             label: 'Pickup at',
             value: ride.pickup.label,
             caption: ride.pickup.subtitle,
-            connector: true,
           ),
-          const Divider(height: 1, indent: 42, color: kReservationLine),
+          const Divider(height: 1, indent: 52, color: kReservationLine),
           _DetailRow(
-            iconAsset: AppAssets.location,
-            fallbackIcon: Icons.location_on_outlined,
+            iconAsset: AppAssets.locationFill,
             label: 'Dropoff at',
             value: ride.destination.label,
             caption: ride.destination.subtitle,
           ),
-          const Divider(height: 1, indent: 42, color: kReservationLine),
+          const Divider(height: 1, indent: 52, color: kReservationLine),
           _DetailRow(
-            iconAsset: AppAssets.wallet,
-            fallbackIcon: Icons.account_balance_wallet_outlined,
+            paymentMethod: ride.paymentMethod,
             label: 'Payment method',
             value: ride.paymentMethod,
           ),
@@ -495,58 +483,28 @@ class _DetailRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.iconAsset,
-    this.fallbackIcon,
+    this.paymentMethod,
     this.caption,
-    this.connector = false,
   });
 
   final String? iconAsset;
-  final IconData? fallbackIcon;
+  final String? paymentMethod;
   final String label;
   final String value;
   final String? caption;
-  final bool connector;
 
   @override
   Widget build(BuildContext context) {
+    final mark = paymentMethod != null
+        ? ReservationPaymentMark(method: paymentMethod!)
+        : MoveraGlyph(asset: iconAsset ?? AppAssets.note);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 28,
-            child: Column(
-              children: [
-                if (iconAsset != null)
-                  Image.asset(
-                    iconAsset!,
-                    width: 20,
-                    height: 20,
-                    color: kReservationAccent,
-                    errorBuilder: (_, __, ___) => Icon(
-                      fallbackIcon ?? Icons.circle,
-                      size: 18,
-                      color: kReservationAccent,
-                    ),
-                  )
-                else
-                  Icon(
-                    fallbackIcon ?? Icons.circle,
-                    size: 18,
-                    color: kReservationAccent,
-                  ),
-                if (connector)
-                  Container(
-                    width: 2,
-                    height: 28,
-                    margin: const EdgeInsets.only(top: 4),
-                    color: kReservationLine,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
+          mark,
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,9 +533,13 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _KnowRow extends StatelessWidget {
-  const _KnowRow({required this.icon, required this.title, required this.body});
+  const _KnowRow({
+    required this.asset,
+    required this.title,
+    required this.body,
+  });
 
-  final IconData icon;
+  final String asset;
   final String title;
   final String body;
 
@@ -588,7 +550,7 @@ class _KnowRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: kReservationInk),
+          MoveraGlyph(asset: asset),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
