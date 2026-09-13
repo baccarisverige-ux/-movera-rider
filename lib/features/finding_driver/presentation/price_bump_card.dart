@@ -1,27 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class PriceBumpCard extends StatelessWidget {
+class PriceBumpCard extends StatefulWidget {
   const PriceBumpCard({
     super.key,
     required this.currentPrice,
     required this.steps,
-    required this.selected,
-    required this.onSelect,
     required this.onConfirm,
     required this.onKeepWaiting,
   });
 
   final double currentPrice;
   final List<int> steps;
-  final int? selected;
-  final ValueChanged<int> onSelect;
-  final VoidCallback onConfirm;
+  final ValueChanged<int> onConfirm;
   final VoidCallback onKeepWaiting;
 
   @override
+  State<PriceBumpCard> createState() => _PriceBumpCardState();
+}
+
+class _PriceBumpCardState extends State<PriceBumpCard> {
+  final _price = TextEditingController();
+  final _focus = FocusNode();
+  int? _selectedStep;
+
+  int get _current => widget.currentPrice.round();
+
+  int? get _typedTotal {
+    final raw = _price.text.trim();
+    if (raw.isEmpty) return null;
+    return int.tryParse(raw);
+  }
+
+  int? get _increase {
+    final total = _typedTotal;
+    if (total == null) return _selectedStep;
+    final extra = total - _current;
+    if (extra <= 0) return null;
+    return extra;
+  }
+
+  bool get _canConfirm => _increase != null && _increase! > 0;
+
+  @override
+  void dispose() {
+    _price.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _selectStep(int step) {
+    setState(() {
+      _selectedStep = step;
+      _price.text = '${_current + step}';
+      _price.selection = TextSelection.collapsed(offset: _price.text.length);
+    });
+  }
+
+  void _onTyped(String value) {
+    final total = int.tryParse(value.trim());
+    setState(() {
+      if (total == null) {
+        _selectedStep = null;
+        return;
+      }
+      final extra = total - _current;
+      _selectedStep = widget.steps.contains(extra) ? extra : null;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final next = currentPrice + (selected ?? 0);
+    final next = _current + (_increase ?? 0);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -42,25 +93,40 @@ class PriceBumpCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAF2F8),
+                  borderRadius: BorderRadius.circular(99),
+                ),
                 child: Text(
-                  'Want to improve your chances?',
+                  'Offer',
                   style: GoogleFonts.poppins(
-                    fontSize: 15,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1D252C),
+                    color: const Color(0xFF2D5878),
                   ),
                 ),
               ),
+              const Spacer(),
               GestureDetector(
-                onTap: onKeepWaiting,
+                onTap: widget.onKeepWaiting,
                 child: const Icon(Icons.close_rounded, size: 20),
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            'Want to improve your chances?',
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1D252C),
+            ),
+          ),
           const SizedBox(height: 6),
           Text(
-            "Increase your offer and we'll search again with your updated price.",
+            'Raise your offer. Nearby drivers see the new price first.',
             style: GoogleFonts.poppins(
               fontSize: 13,
               height: 1.35,
@@ -69,7 +135,7 @@ class PriceBumpCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Current ${currentPrice.round()} kr',
+            'Current $_current kr',
             style: GoogleFonts.poppins(
               fontSize: 13,
               fontWeight: FontWeight.w500,
@@ -77,26 +143,83 @@ class PriceBumpCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              for (var i = 0; i < steps.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(
-                  child: _Step(
-                    label: '+${steps[i]} kr',
-                    selected: selected == steps[i],
-                    onTap: () => onSelect(steps[i]),
+          for (var row = 0; row < widget.steps.length; row += 2) ...[
+            if (row > 0) const SizedBox(height: 8),
+            Row(
+              children: [
+                for (var i = row; i < row + 2 && i < widget.steps.length; i++) ...[
+                  if (i > row) const SizedBox(width: 8),
+                  Expanded(
+                    child: _Step(
+                      label: '+${widget.steps[i]} kr',
+                      selected: _selectedStep == widget.steps[i],
+                      onTap: () => _selectStep(widget.steps[i]),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text(
+            'Or set a new price',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1D252C),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _price,
+            focusNode: _focus,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: _onTyped,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF1D252C),
+            ),
+            decoration: InputDecoration(
+              hintText: '$_current',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF9AA3A9),
+              ),
+              suffixText: 'kr',
+              suffixStyle: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF5C656C),
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF6F8FA),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE7EBEE)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE7EBEE)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFF2D5878)),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             height: 48,
             child: FilledButton(
-              onPressed: selected == null ? null : onConfirm,
+              onPressed: _canConfirm ? () => widget.onConfirm(_increase!) : null,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF11181D),
                 disabledBackgroundColor: const Color(0xFFE7EBEE),
@@ -105,15 +228,13 @@ class PriceBumpCard extends StatelessWidget {
                 ),
               ),
               child: Text(
-                selected == null
-                    ? 'Confirm new price'
-                    : 'Confirm ${next.round()} kr',
+                _canConfirm ? 'Confirm $next kr' : 'Set new price',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
-                  color: selected == null
-                      ? const Color(0xFF9AA3A9)
-                      : Colors.white,
+                  color: _canConfirm
+                      ? Colors.white
+                      : const Color(0xFF9AA3A9),
                 ),
               ),
             ),
@@ -121,7 +242,7 @@ class PriceBumpCard extends StatelessWidget {
           const SizedBox(height: 8),
           Center(
             child: TextButton(
-              onPressed: onKeepWaiting,
+              onPressed: widget.onKeepWaiting,
               child: Text(
                 'Keep waiting',
                 style: GoogleFonts.poppins(
