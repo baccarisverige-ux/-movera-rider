@@ -1,129 +1,123 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 
-class BottomToTopTransition extends PageRouteBuilder {
-  final Widget page;
-
-  BottomToTopTransition(this.page)
+class BottomToTopTransition<T> extends PageRouteBuilder<T> {
+  BottomToTopTransition(Widget page)
       : super(
-          pageBuilder: (context, animation, anotherAnimation) => page,
-          transitionDuration: const Duration(milliseconds: 1000),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          transitionsBuilder: (context, animation, anotherAnimation, child) {
-            animation = CurvedAnimation(
-                curve: Curves.fastLinearToSlowEaseIn,
-                parent: animation,
-                reverseCurve: Curves.fastOutSlowIn);
-            return Align(
-              alignment: Alignment.bottomCenter,
-              child: SizeTransition(
-                sizeFactor: animation,
-                axisAlignment: 0,
-                child: page,
+          pageBuilder: (context, animation, secondary) => page,
+          transitionDuration: MoveraDurations.large,
+          reverseTransitionDuration: MoveraDurations.normal,
+          transitionsBuilder: (context, animation, secondary, child) {
+            return _sheetCover(context, animation, child);
+          },
+        );
+}
+
+class TopToBottomTransition<T> extends PageRouteBuilder<T> {
+  TopToBottomTransition(Widget page)
+      : super(
+          pageBuilder: (context, animation, secondary) => page,
+          transitionDuration: MoveraDurations.large,
+          reverseTransitionDuration: MoveraDurations.normal,
+          transitionsBuilder: (context, animation, secondary, child) {
+            if (MoveraMotion.reduced(context)) return child;
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: MoveraCurves.open,
+              reverseCurve: MoveraCurves.close,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, -0.06),
+                  end: Offset.zero,
+                ).animate(curved),
+                child: child,
               ),
             );
           },
         );
 }
 
-class TopToBottomTransition extends PageRouteBuilder {
-  final Widget page;
-
-  TopToBottomTransition(this.page)
+class SwitchTransition<T> extends PageRouteBuilder<T> {
+  SwitchTransition(Widget page)
       : super(
-          pageBuilder: (context, animation, anotherAnimation) => page,
-          transitionDuration: const Duration(milliseconds: 1000),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          transitionsBuilder: (context, animation, anotherAnimation, child) {
-            animation = CurvedAnimation(
-                curve: Curves.fastLinearToSlowEaseIn,
-                parent: animation,
-                reverseCurve: Curves.fastOutSlowIn);
-            return Align(
-              alignment: Alignment.topCenter,
-              child: SizeTransition(
-                sizeFactor: animation,
-                axisAlignment: 0,
-                child: page,
-              ),
+          pageBuilder: (context, animation, secondary) => page,
+          transitionDuration: MoveraDurations.normal,
+          reverseTransitionDuration: MoveraDurations.micro,
+          transitionsBuilder: (context, animation, secondary, child) {
+            if (MoveraMotion.reduced(context)) return child;
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: MoveraCurves.open,
+              reverseCurve: MoveraCurves.close,
             );
+            return FadeTransition(opacity: curved, child: child);
           },
         );
 }
 
-class SwitchTransition extends PageRouteBuilder {
-  final Widget page;
-
-  SwitchTransition(this.page)
+class LeftToRightTransition<T> extends PageRouteBuilder<T> {
+  LeftToRightTransition(Widget page)
       : super(
-          pageBuilder: (context, animation, anotherAnimation) => page,
-          transitionDuration: const Duration(milliseconds: 1000),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          transitionsBuilder: (context, animation, anotherAnimation, child) {
-            animation = CurvedAnimation(
-                curve: Curves.fastLinearToSlowEaseIn,
-                parent: animation,
-                reverseCurve: Curves.fastOutSlowIn);
-            return Align(
-              alignment: Alignment.center,
-              child: SizeTransition(
-                axis: Axis.horizontal,
-                sizeFactor: animation,
-                axisAlignment: 0,
-                child: page,
-              ),
-            );
+          pageBuilder: (context, animation, secondary) => page,
+          transitionDuration: MoveraDurations.normal,
+          reverseTransitionDuration: MoveraDurations.micro,
+          transitionsBuilder: (context, animation, secondary, child) {
+            return _sideCover(context, animation, child, const Offset(-0.06, 0));
           },
         );
 }
 
-class LeftToRightTransition extends PageRouteBuilder {
-  final Widget page;
-
-  LeftToRightTransition(this.page)
+class RightToLeftTransition<T> extends PageRouteBuilder<T> {
+  RightToLeftTransition(Widget page)
       : super(
-          pageBuilder: (context, animation, anotherAnimation) => page,
-          transitionDuration: const Duration(milliseconds: 1000),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          transitionsBuilder: (context, animation, anotherAnimation, child) {
-            animation = CurvedAnimation(
-                curve: Curves.fastLinearToSlowEaseIn,
-                parent: animation,
-                reverseCurve: Curves.fastOutSlowIn);
-            return Align(
-              alignment: Alignment.centerLeft,
-              child: SizeTransition(
-                axis: Axis.horizontal,
-                sizeFactor: animation,
-                axisAlignment: 0,
-                child: page,
-              ),
-            );
+          pageBuilder: (context, animation, secondary) => page,
+          transitionDuration: MoveraDurations.normal,
+          reverseTransitionDuration: MoveraDurations.micro,
+          transitionsBuilder: (context, animation, secondary, child) {
+            return _sideCover(context, animation, child, const Offset(0.06, 0));
           },
         );
 }
 
-class RightToLeftTransition extends PageRouteBuilder {
-  final Widget page;
+Widget _sheetCover(BuildContext context, Animation<double> animation, Widget child) {
+  if (MoveraMotion.reduced(context)) return child;
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: MoveraCurves.open,
+    reverseCurve: MoveraCurves.close,
+  );
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.08),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    ),
+  );
+}
 
-  RightToLeftTransition(this.page)
-      : super(
-          pageBuilder: (context, animation, anotherAnimation) => page,
-          transitionDuration: const Duration(milliseconds: 1000),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          transitionsBuilder: (context, animation, anotherAnimation, child) {
-            animation = CurvedAnimation(
-                curve: Curves.fastLinearToSlowEaseIn,
-                parent: animation,
-                reverseCurve: Curves.fastOutSlowIn);
-            return Align(
-              alignment: Alignment.centerRight,
-              child: SizeTransition(
-                axis: Axis.horizontal,
-                sizeFactor: animation,
-                axisAlignment: 0,
-                child: page,
-              ),
-            );
-          },
-        );
+Widget _sideCover(
+  BuildContext context,
+  Animation<double> animation,
+  Widget child,
+  Offset begin,
+) {
+  if (MoveraMotion.reduced(context)) return child;
+  final curved = CurvedAnimation(
+    parent: animation,
+    curve: MoveraCurves.open,
+    reverseCurve: MoveraCurves.close,
+  );
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(begin: begin, end: Offset.zero).animate(curved),
+      child: child,
+    ),
+  );
 }

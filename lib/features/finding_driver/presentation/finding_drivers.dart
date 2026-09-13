@@ -14,6 +14,7 @@ import 'package:movera_rider/features/finding_driver/presentation/ride_details_s
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -149,13 +150,8 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _openDetails() async {
-    await showModalBottomSheet<void>(
+    await MoveraSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
       builder: (sheetContext) => RideDetailsSheet(
         pickupAddress: _pickupAddress,
         destinationAddress: widget.destinationAddress,

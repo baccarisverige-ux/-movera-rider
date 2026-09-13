@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 Future<CancelOutcome> showCancelReasonSheet(
   BuildContext context, {
   required CancelPhase phase,
 }) async {
-  final result = await showModalBottomSheet<CancelOutcome>(
+  SheetCoordinator.instance.open(RideSheet.cancelReason);
+  final result = await MoveraSheet.show<CancelOutcome>(
     context: context,
-    backgroundColor: Colors.white,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-    ),
     builder: (_) => CancelReasonSheet(phase: phase),
   );
+  SheetCoordinator.instance.close(RideSheet.cancelReason);
   return result ?? const CancelOutcome.keep();
 }
 

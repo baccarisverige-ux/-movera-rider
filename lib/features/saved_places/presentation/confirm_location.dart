@@ -8,11 +8,11 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 Future<T?> showPickupLocationBottomSheet<T>(BuildContext context) {
-  return showModalBottomSheet<T>(
+  return MoveraSheet.show<T>(
     context: context,
-    isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (BuildContext context) {
       return PickupLocationBottomSheet();

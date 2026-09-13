@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class ScheduleDateTimeSelector extends StatefulWidget {
   final VoidCallback onConfirm;
@@ -66,11 +67,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
-    final result = await showModalBottomSheet<DateTime>(
+    final result = await MoveraSheet.show<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.28),
-      isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -193,11 +193,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       initialItem: draftMinute ~/ 5,
     );
 
-    final result = await showModalBottomSheet<TimeOfDay>(
+    final result = await MoveraSheet.show<TimeOfDay>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.28),
-      isScrollControlled: true,
       builder: (sheetContext) {
         return SafeArea(
           top: false,

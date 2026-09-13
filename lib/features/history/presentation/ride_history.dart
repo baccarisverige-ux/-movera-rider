@@ -4,6 +4,7 @@ import 'package:movera_rider/features/ride_history/application/ride_history_cont
 import 'package:movera_rider/features/ride_history/domain/ride_history.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class RideHistory extends StatefulWidget {
   const RideHistory({super.key});
@@ -96,12 +97,8 @@ class _RideHistoryState extends State<RideHistory> {
   }
 
   void _showHowItWorks() {
-    showModalBottomSheet<void>(
+    MoveraSheet.show<void>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),

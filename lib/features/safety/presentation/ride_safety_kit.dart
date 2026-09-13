@@ -4,6 +4,8 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class SafetyKitMapButton extends StatelessWidget {
@@ -83,15 +85,11 @@ class SafetyKitSheetRow extends StatelessWidget {
 }
 
 Future<void> showRideSafetyKit(BuildContext context, {String? rideId}) {
-  return showModalBottomSheet<void>(
+  SheetCoordinator.instance.open(RideSheet.safety);
+  return MoveraSheet.show<void>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-    ),
     builder: (_) => RideSafetyKitSheet(rideId: rideId),
-  );
+  ).whenComplete(() => SheetCoordinator.instance.close(RideSheet.safety));
 }
 
 class RideSafetyKitSheet extends StatefulWidget {

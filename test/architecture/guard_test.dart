@@ -54,6 +54,36 @@ void main() {
     }
   });
 
+  test('sheets use MoveraSheet instead of showModalBottomSheet', () {
+    for (final file in dartUnder('lib')) {
+      if (file.path.contains('movera_sheet.dart')) continue;
+      final src = file.readAsStringSync();
+      expect(
+        src.contains('showModalBottomSheet'),
+        isFalse,
+        reason: file.path,
+      );
+    }
+  });
+
+  test('page transitions use shared motion tokens', () {
+    final src = File(
+      'lib/shared/widgets/navigation_transition.dart',
+    ).readAsStringSync();
+    expect(src.contains('milliseconds: 1000'), isFalse);
+    expect(src.contains('MoveraDurations'), isTrue);
+    expect(src.contains('child: page'), isFalse);
+  });
+
+  test('sheet coordinator stays free of ride matching', () {
+    final src = File(
+      'lib/features/ride_booking/application/sheet_coordinator.dart',
+    ).readAsStringSync();
+    expect(src.contains('ApiClient'), isFalse);
+    expect(src.contains('confirmPriceIncrease'), isFalse);
+    expect(src.contains('MockRideRealtime'), isFalse);
+  });
+
 
   test('home does not own ride restoration', () {
     final home = File('lib/features/home/presentation/home.dart').readAsStringSync();

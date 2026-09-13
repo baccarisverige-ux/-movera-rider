@@ -11,6 +11,9 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
+import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -261,8 +264,8 @@ class _SelectRideState extends State<SelectRide>
                 : 0.0;
     _sheetSlide.animateTo(
       target,
-      duration: const Duration(milliseconds: 520),
-      curve: const Cubic(0.22, 1.0, 0.36, 1.0),
+      duration: MoveraMotion.of(context, MoveraDurations.large),
+      curve: MoveraCurves.snap,
     );
   }
 
@@ -331,9 +334,8 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _showBookingPicker() async {
-    await showModalBottomSheet<void>(
+    await MoveraSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -380,10 +382,7 @@ class _SelectRideState extends State<SelectRide>
                   selected: _selection.scheduledFor != null,
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    Future<void>.delayed(
-                      const Duration(milliseconds: 180),
-                      _chooseLater,
-                    );
+                    _chooseLater();
                   },
                 ),
               ],
@@ -395,10 +394,9 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _showPaymentPicker() async {
-    await showModalBottomSheet<void>(
+    await MoveraSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFFF6F5F1),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -482,6 +480,7 @@ class _SelectRideState extends State<SelectRide>
           paymentMethod: _payments[_selection.selectedPayment].name,
         );
         if (!mounted) return;
+        SheetCoordinator.instance.open(RideSheet.finding);
         await Navigator.push(
           context,
           BottomToTopTransition(
@@ -497,6 +496,7 @@ class _SelectRideState extends State<SelectRide>
             ),
           ),
         );
+        SheetCoordinator.instance.close(RideSheet.finding);
       });
     });
   }

@@ -34,6 +34,8 @@ import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -549,10 +551,8 @@ class _HomeState extends State<Home> {
       return destinationController;
     }
 
-    final draft = await showModalBottomSheet<Map<String, dynamic>>(
+    final draft = await MoveraSheet.show<Map<String, dynamic>>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.26),
       builder: (sheetContext) {
@@ -1293,10 +1293,8 @@ class _HomeState extends State<Home> {
       text: initialAddress == 'Current location' ? '' : initialAddress ?? '',
     );
     var query = controller.text;
-    final selected = await showModalBottomSheet<String>(
+    final selected = await MoveraSheet.show<String>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.24),
       builder: (sheetContext) {
@@ -1574,9 +1572,8 @@ class _HomeState extends State<Home> {
       'restaurant',
       'other',
     ];
-    final type = await showModalBottomSheet<String>(
+    final type = await MoveraSheet.show<String>(
       context: context,
-      useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.24),
       builder: (sheetContext) {
@@ -1904,8 +1901,8 @@ class _HomeState extends State<Home> {
       if (!mounted || !_isSheetAtMiddle) return;
       _animateHomeSheetTo(
         SheetOffset.absolute(_sheetMinPixels),
-        duration: const Duration(milliseconds: 680),
-        curve: const Cubic(0.45, 0.0, 0.20, 1.0),
+        duration: MoveraDurations.large,
+        curve: MoveraCurves.close,
       );
     });
   }
@@ -1929,8 +1926,8 @@ class _HomeState extends State<Home> {
 
   Future<void> _animateHomeSheetTo(
     SheetOffset target, {
-    Duration duration = const Duration(milliseconds: 440),
-    Curve curve = const Cubic(0.16, 1.0, 0.30, 1.0),
+    Duration duration = MoveraDurations.large,
+    Curve curve = MoveraCurves.open,
   }) async {
     if (!_homeSheetController.hasClient) return;
     await _homeSheetController.animateTo(
@@ -1967,7 +1964,7 @@ class _HomeState extends State<Home> {
     } else {
       target = SheetOffset.absolute(_sheetMidPixels);
     }
-    _animateHomeSheetTo(target, duration: const Duration(milliseconds: 390));
+    _animateHomeSheetTo(target, duration: MoveraDurations.large);
   }
 
   void _openSchedule() {
@@ -2126,7 +2123,7 @@ class _HomeState extends State<Home> {
               child: Sheet(
                 controller: _homeSheetController,
                 initialOffset: SheetOffset.absolute(_sheetMinPixels),
-                physics: const BouncingSheetPhysics(),
+                physics: MoveraSheetMotion.physics,
                 snapGrid: SheetSnapGrid(
                   snaps: [
                     SheetOffset.absolute(_sheetMinPixels),
