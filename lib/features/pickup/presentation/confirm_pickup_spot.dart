@@ -6,6 +6,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class ConfirmPickupResult {
@@ -21,13 +22,42 @@ class ConfirmPickupSpot extends StatefulWidget {
     required this.initialAddress,
     this.scheduledSummary,
     this.categoryName,
+    this.title = 'Confirm pickup spot',
+    this.hint = 'Drag map to move pin',
     this.confirmLabel = 'Confirm pickup',
   });
+
+  static Future<ConfirmPickupResult?> open(
+    BuildContext context, {
+    required LatLng initialPosition,
+    required String initialAddress,
+    String? scheduledSummary,
+    String? categoryName,
+    String title = 'Confirm pickup spot',
+    String hint = 'Drag map to move pin',
+    String confirmLabel = 'Confirm pickup',
+  }) {
+    return Navigator.of(context).push<ConfirmPickupResult>(
+      RightToLeftTransition(
+        ConfirmPickupSpot(
+          initialPosition: initialPosition,
+          initialAddress: initialAddress,
+          scheduledSummary: scheduledSummary,
+          categoryName: categoryName,
+          title: title,
+          hint: hint,
+          confirmLabel: confirmLabel,
+        ),
+      ),
+    );
+  }
 
   final LatLng initialPosition;
   final String initialAddress;
   final String? scheduledSummary;
   final String? categoryName;
+  final String title;
+  final String hint;
   final String confirmLabel;
 
   @override
@@ -178,7 +208,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Confirm pickup spot',
+                  widget.title,
                   style: GoogleFonts.poppins(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
@@ -187,7 +217,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Drag map to move pin',
+                  widget.hint,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: const Color(0xFF778189),

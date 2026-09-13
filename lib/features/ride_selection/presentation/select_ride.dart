@@ -400,16 +400,13 @@ class _SelectRideState extends State<SelectRide>
       final when = await ScheduleDateTimeSelector.choose(context);
       if (when == null || !mounted) return;
       if (!_pickupConfirmed) {
-        final spot = await Navigator.of(context).push<ConfirmPickupResult>(
-          RightToLeftTransition(
-            ConfirmPickupSpot(
-              initialPosition: _pickupPosition,
-              initialAddress: _pickupAddress,
-              scheduledSummary:
-                  '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
-              confirmLabel: 'Confirm pickup spot',
-            ),
-          ),
+        final spot = await ConfirmPickupSpot.open(
+          context,
+          initialPosition: _pickupPosition,
+          initialAddress: _pickupAddress,
+          scheduledSummary:
+              '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
+          confirmLabel: 'Confirm pickup spot',
         );
         if (spot == null || !mounted) return;
         _pickupAddress = spot.address;
@@ -580,17 +577,14 @@ class _SelectRideState extends State<SelectRide>
       if (!mounted) return;
       if (!_pickupConfirmed) {
         final when = _selection.scheduledFor;
-        final spot = await Navigator.of(context).push<ConfirmPickupResult>(
-          RightToLeftTransition(
-            ConfirmPickupSpot(
-              initialPosition: _pickupPosition,
-              initialAddress: _pickupAddress,
-              scheduledSummary: when == null
-                  ? null
-                  : '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
-              confirmLabel: 'Confirm pickup spot',
-            ),
-          ),
+        final spot = await ConfirmPickupSpot.open(
+          context,
+          initialPosition: _pickupPosition,
+          initialAddress: _pickupAddress,
+          scheduledSummary: when == null
+              ? null
+              : '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
+          confirmLabel: 'Confirm pickup spot',
         );
         if (spot == null || !mounted) return;
         _pickupAddress = spot.address;

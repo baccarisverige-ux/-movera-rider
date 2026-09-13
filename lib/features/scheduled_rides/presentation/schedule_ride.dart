@@ -17,7 +17,6 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -135,16 +134,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
   Future<void> _confirmPickupThenCalendar() async {
     final start = await resolveScheduledPoint(_pickupController.text);
     if (!mounted) return;
-    final spot = await Navigator.of(context).push<ConfirmPickupResult>(
-      RightToLeftTransition(
-        ConfirmPickupSpot(
-          initialPosition: start,
-          initialAddress: _pickupController.text.trim().isEmpty
-              ? 'Current location'
-              : _pickupController.text.trim(),
-          confirmLabel: 'Confirm pickup spot',
-        ),
-      ),
+    final spot = await ConfirmPickupSpot.open(
+      context,
+      initialPosition: start,
+      initialAddress: _pickupController.text.trim().isEmpty
+          ? 'Current location'
+          : _pickupController.text.trim(),
+      confirmLabel: 'Confirm pickup spot',
     );
     if (spot == null || !mounted) return;
     _pickupController.text = spot.address;
