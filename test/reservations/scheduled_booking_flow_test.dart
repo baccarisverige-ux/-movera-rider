@@ -187,7 +187,7 @@ void main() {
       expect(c.all, hasLength(1));
       expect(c.all.single.reservationId, 'rsv_1');
       expect(find.text('Your ride is scheduled'), findsOneWidget);
-      expect(find.text('Finding your driver later'), findsOneWidget);
+      expect(find.text('Driver pending'), findsOneWidget);
       expect(find.text('Connecting you with nearby drivers'), findsNothing);
       expect(FindingDriverController.active, isNull);
       expect(AppScope.instance.ride.status, RideStatus.idle);

@@ -3,7 +3,6 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
@@ -87,24 +86,6 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
     );
   }
 
-  Future<void> _planReturn(Reservation ride) async {
-    await Navigator.push(
-      context,
-      RightToLeftTransition(
-        PlanReturnRidePage(
-          origin: ride,
-          controller: _reservations,
-          onScheduled: (context, id) => RideScheduledPage.open(
-            context,
-            reservationId: id,
-            controller: _reservations,
-            replace: true,
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final ride = _reservations.byId(widget.reservationId);
@@ -121,23 +102,39 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          SizedBox(height: top + 4),
+          SizedBox(height: top + 8),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: IconButton(
-                onPressed: _closeHome,
-                icon: const Icon(Icons.close_rounded, color: kReservationInk),
+              child: Material(
+                color: kReservationSoft,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: _closeHome,
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: kReservationInk,
+                      size: 22,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
               children: [
-                const ReservationHeroArt(asset: AppAssets.sucess, height: 86),
-                const SizedBox(height: 10),
+                const ReservationHeroArt(
+                  asset: AppAssets.scheduleRideCar,
+                  height: 132,
+                ),
+                const SizedBox(height: 18),
                 Text(
                   'Your ride is scheduled',
                   textAlign: TextAlign.center,
@@ -160,90 +157,74 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                 const SizedBox(height: 12),
                 Center(child: ReservationDriverBadge(ride: ride)),
                 const SizedBox(height: 22),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+                Material(
+                  color: Colors.white,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: kReservationLine),
+                    side: const BorderSide(color: kReservationLine),
                   ),
-                  child: Column(
-                    children: [
-                      ReservationHeroArt(asset: ride.categoryImage, height: 72),
-                      const SizedBox(height: 4),
-                      Text(
-                        ride.categoryName,
-                        style: reservationText(18, weight: FontWeight.w700),
+                  child: InkWell(
+                    onTap: () => _openDetails(ride),
+                    borderRadius: BorderRadius.circular(24),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+                      child: Column(
+                        children: [
+                          ReservationFact(
+                            asset: AppAssets.scheduleCalendar,
+                            label: 'Pickup',
+                            value:
+                                '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                          ),
+                          ReservationFact(
+                            asset: AppAssets.gps,
+                            label: 'From',
+                            value: ReservationFormat.shortPlace(
+                              ride.pickup.label,
+                            ),
+                          ),
+                          ReservationFact(
+                            asset: AppAssets.location,
+                            label: 'To',
+                            value: ReservationFormat.shortPlace(
+                              ride.destination.label,
+                            ),
+                          ),
+                          ReservationFact(
+                            asset: AppAssets.payment,
+                            label: 'Payment',
+                            value: ride.paymentMethod,
+                            trailing: ReservationPaymentMark(
+                              method: ride.paymentMethod,
+                            ),
+                          ),
+                          if (ride.hasPreferences)
+                            ReservationFact(
+                              asset: AppAssets.note,
+                              label: 'Preferences',
+                              value: ride.note!.trim(),
+                            ),
+                        ],
                       ),
-                      Text(
-                        ReservationFormat.price(ride),
-                        style: reservationText(
-                          15,
-                          weight: FontWeight.w600,
-                          color: kReservationMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ReservationFact(
-                        asset: AppAssets.scheduleCalendar,
-                        label: 'Pickup',
-                        value:
-                            '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
-                      ),
-                      ReservationFact(
-                        asset: AppAssets.gps,
-                        label: 'From',
-                        value: ReservationFormat.shortPlace(ride.pickup.label),
-                      ),
-                      ReservationFact(
-                        asset: AppAssets.location,
-                        label: 'To',
-                        value: ReservationFormat.shortPlace(
-                          ride.destination.label,
-                        ),
-                      ),
-                      ReservationFact(
-                        asset: AppAssets.payment,
-                        label: 'Payment',
-                        value: ride.paymentMethod,
-                        trailing: ReservationPaymentMark(
-                          method: ride.paymentMethod,
-                        ),
-                      ),
-                      if (ride.hasPreferences)
-                        ReservationFact(
-                          asset: AppAssets.note,
-                          label: 'Preferences',
-                          value: ride.note!.trim(),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                _ReturnRow(onTap: () => _planReturn(ride)),
               ],
             ),
           ),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: kReservationLine)),
-            ),
+            color: Colors.white,
             child: SafeArea(
               top: false,
               child: Column(
                 children: [
-                  ReservationFillButton(
-                    label: 'View reservation',
-                    onTap: () => _openDetails(ride),
-                  ),
+                  ReservationFillButton(label: 'Done', onTap: _closeHome),
                   if (ride.status.canEdit) ...[
                     const SizedBox(height: 10),
                     ReservationGhostButton(
-                      label: 'Edit',
+                      label: 'Edit reservation',
                       onTap: () => _editReservation(ride),
                     ),
                   ],
@@ -252,57 +233,6 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ReturnRow extends StatelessWidget {
-  const _ReturnRow({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(22),
-        side: const BorderSide(color: kReservationLine),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-          child: Row(
-            children: [
-              Image.asset(
-                AppAssets.calender,
-                width: 52,
-                height: 52,
-                fit: BoxFit.contain,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Plan a return ride',
-                      style: reservationText(15, weight: FontWeight.w700),
-                    ),
-                    Text(
-                      'Choose category, then confirm a new reservation',
-                      style: reservationText(12.5, color: kReservationMuted),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: kReservationMuted),
-            ],
-          ),
-        ),
       ),
     );
   }

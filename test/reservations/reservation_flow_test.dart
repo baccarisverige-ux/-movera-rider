@@ -64,10 +64,9 @@ void main() {
     );
     expect(find.text('Your ride is scheduled'), findsOneWidget);
     expect(find.textContaining('notify you'), findsOneWidget);
-    expect(find.text('Finding your driver later'), findsOneWidget);
-    expect(find.text('View reservation'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Plan a return ride'), 400);
-    expect(find.text('Plan a return ride'), findsOneWidget);
+    expect(find.text('Driver pending'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('Edit reservation'), findsOneWidget);
     expect(find.text('Bags · Pet'), findsOneWidget);
     expect(find.text('Your reservation is confirmed'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
@@ -80,7 +79,7 @@ void main() {
     await pumpPhone(tester, RideHistory(reservations: c));
     expect(find.text('Upcoming'), findsOneWidget);
     expect(find.text('Klockarvägen 37 → Arlanda Express'), findsOneWidget);
-    expect(find.text('Finding your driver later'), findsOneWidget);
+    expect(find.text('Driver pending'), findsOneWidget);
     expect(find.text('No upcoming rides'), findsNothing);
   });
 
@@ -115,11 +114,11 @@ void main() {
   testWidgets('assigned driver updates the same history card', (tester) async {
     final c = await seeded();
     await pumpPhone(tester, RideHistory(reservations: c));
-    expect(find.text('Finding your driver later'), findsOneWidget);
+    expect(find.text('Driver pending'), findsOneWidget);
     await c.assignMockDriver('rsv_ui');
     await tester.pump();
     expect(find.text('Driver assigned'), findsOneWidget);
-    expect(find.text('Finding your driver later'), findsNothing);
+    expect(find.text('Driver pending'), findsNothing);
     expect(c.all, hasLength(1));
   });
 

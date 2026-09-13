@@ -128,7 +128,7 @@ abstract final class ReservationFormat {
 
   static String driverBadge(Reservation ride) {
     if (ride.driverAssigned) return 'Driver assigned';
-    return 'Finding your driver later';
+    return 'Driver pending';
   }
 
   static String historyWhen(Reservation ride) {
