@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
@@ -8,6 +9,7 @@ import 'package:movera_rider/features/reservations/presentation/reservation_form
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_ride_terms.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class UpcomingReservationPage extends StatefulWidget {
@@ -45,60 +47,11 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _editTime(Reservation ride) async {
+  Future<void> _editReservation(Reservation ride) async {
     if (!ride.status.canEdit) return;
-    final next = await showReservationTimeSheet(
+    await Navigator.push(
       context,
-      initial: ride.scheduledPickupAt,
-    );
-    if (next == null) return;
-    final dropoff = ride.estimatedDropoffAt == null
-        ? null
-        : next.add(ride.estimatedDropoffAt!.difference(ride.scheduledPickupAt));
-    await _reservations.update(
-      ride.reservationId,
-      ReservationPatch(scheduledPickupAt: next, estimatedDropoffAt: dropoff),
-    );
-  }
-
-  Future<void> _editPickup(Reservation ride) async {
-    if (!ride.status.canEdit) return;
-    final next = await showReservationPlaceSheet(
-      context,
-      title: 'Pickup',
-      current: ride.pickup,
-    );
-    if (next == null) return;
-    await _reservations.update(
-      ride.reservationId,
-      ReservationPatch(pickup: next),
-    );
-  }
-
-  Future<void> _editDestination(Reservation ride) async {
-    if (!ride.status.canEdit) return;
-    final next = await showReservationPlaceSheet(
-      context,
-      title: 'Destination',
-      current: ride.destination,
-    );
-    if (next == null) return;
-    await _reservations.update(
-      ride.reservationId,
-      ReservationPatch(destination: next),
-    );
-  }
-
-  Future<void> _editPayment(Reservation ride) async {
-    if (!ride.status.canEdit) return;
-    final next = await showReservationPaymentSheet(
-      context,
-      current: ride.paymentMethod,
-    );
-    if (next == null) return;
-    await _reservations.update(
-      ride.reservationId,
-      ReservationPatch(paymentMethod: next),
+      BottomToTopTransition(ScheduleRide(editing: ride)),
     );
   }
 
@@ -156,11 +109,14 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
               ),
               Expanded(
                 child: Text(
-                  ride.status.isCancelled
-                      ? 'Cancelled reservation'
-                      : 'Upcoming ride',
+                  'SCHEDULE',
                   textAlign: TextAlign.center,
-                  style: reservationText(16.5, weight: FontWeight.w600),
+                  style: reservationText(
+                    10,
+                    weight: FontWeight.w600,
+                    color: kReservationMuted,
+                    letterSpacing: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(width: 48),
@@ -170,37 +126,27 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
               children: [
-                ReservationRoutePreview(
-                  pickup: ride.pickup.label,
-                  destination: ride.destination.label,
-                  height: 168,
+                Text(
+                  ride.status.isCancelled
+                      ? 'Cancelled reservation'
+                      : 'Upcoming ride',
+                  style: reservationText(
+                    28,
+                    weight: FontWeight.w700,
+                    height: 1.15,
+                  ),
                 ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 64,
-                      height: 40,
-                      child: Image.asset(
-                        ride.categoryImage,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.directions_car_filled_rounded),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${ride.categoryName}  ·  ${ride.passengerCount}',
-                        style: reservationText(16, weight: FontWeight.w700),
-                      ),
-                    ),
-                    Text(
-                      ReservationFormat.price(ride),
-                      style: reservationText(16, weight: FontWeight.w600),
-                    ),
-                  ],
+                const SizedBox(height: 6),
+                Text(
+                  ReservationFormat.reservedHeadline(ride.scheduledPickupAt),
+                  style: reservationText(
+                    13.5,
+                    color: kReservationMuted,
+                    height: 1.4,
+                  ),
                 ),
+                const SizedBox(height: 22),
+                _HeroCard(ride: ride),
                 const SizedBox(height: 16),
                 ReservationStatusBanner(
                   title: ReservationFormat.statusTitle(ride),
@@ -214,79 +160,77 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   const SizedBox(height: 14),
                   _DriverCard(driver: ride.driver!),
                 ],
-                const SizedBox(height: 26),
-                Text(
-                  'Reservation details',
-                  style: reservationText(20, weight: FontWeight.w700),
-                ),
-                const SizedBox(height: 8),
-                _DetailRow(
-                  icon: Icons.calendar_today_rounded,
-                  label: 'Scheduled for',
-                  value:
-                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
-                  caption: ride.estimatedDropoffAt == null
-                      ? null
-                      : ReservationFormat.dropoffAt(ride.estimatedDropoffAt!),
-                  onEdit: ride.status.canEdit ? () => _editTime(ride) : null,
-                ),
-                _DetailRow(
-                  icon: Icons.radio_button_checked,
-                  label: 'Pickup at',
-                  value: ride.pickup.label,
-                  caption: ride.pickup.subtitle,
-                  onEdit: ride.status.canEdit ? () => _editPickup(ride) : null,
-                  connector: true,
-                ),
-                _DetailRow(
-                  icon: Icons.crop_square_rounded,
-                  label: 'Dropoff at',
-                  value: ride.destination.label,
-                  caption: ride.destination.subtitle,
-                  onEdit: ride.status.canEdit
-                      ? () => _editDestination(ride)
-                      : null,
-                ),
-                _DetailRow(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Payment method',
-                  value: ride.paymentMethod,
-                  onEdit: ride.status.canEdit ? () => _editPayment(ride) : null,
-                ),
-                if (ride.hasPreferences)
+                const SizedBox(height: 22),
+                _JourneyCard(ride: ride),
+                if (ride.hasPreferences) ...[
+                  const SizedBox(height: 12),
                   _DetailRow(
-                    icon: Icons.notes_rounded,
+                    iconAsset: AppAssets.note,
                     label: 'Preferences',
                     value: ride.note!.trim(),
                   ),
+                ],
                 if (ride.status.canEdit) ...[
-                  const SizedBox(height: 18),
-                  const Divider(color: kReservationLine),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 22),
+                  ReservationEditButton(onTap: () => _editReservation(ride)),
+                  const SizedBox(height: 22),
                   Text(
                     'Need another ride?',
                     style: reservationText(18, weight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.event_repeat_rounded,
-                      color: kReservationAccent,
+                  const SizedBox(height: 10),
+                  Material(
+                    color: kReservationSoft,
+                    borderRadius: BorderRadius.circular(18),
+                    child: InkWell(
+                      onTap: () => _planReturn(ride),
+                      borderRadius: BorderRadius.circular(18),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                        child: Row(
+                          children: [
+                            Image.asset(
+                              AppAssets.scheduleCalendar,
+                              width: 22,
+                              height: 22,
+                              color: kReservationAccent,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.event_repeat_rounded,
+                                color: kReservationAccent,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Plan a return ride',
+                                    style: reservationText(
+                                      15,
+                                      weight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Choose category, then confirm a new reservation',
+                                    style: reservationText(
+                                      12.5,
+                                      color: kReservationMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: kReservationMuted,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    title: Text(
-                      'Plan a return ride',
-                      style: reservationText(15, weight: FontWeight.w600),
-                    ),
-                    subtitle: Text(
-                      'Prefill the reverse route, then confirm',
-                      style: reservationText(12.5, color: kReservationMuted),
-                    ),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => _planReturn(ride),
                   ),
-                  const Divider(color: kReservationLine),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 22),
                   Text(
                     'Things to know',
                     style: reservationText(18, weight: FontWeight.w700),
@@ -348,6 +292,136 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ],
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({required this.ride});
+
+  final Reservation ride;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: kReservationLine),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 22,
+            offset: Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 88,
+            height: 56,
+            child: Image.asset(
+              ride.categoryImage,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => Image.asset(
+                AppAssets.scheduleRideCar,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.directions_car_filled_rounded,
+                  size: 36,
+                  color: kReservationAccent,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ride.categoryName,
+                  style: reservationText(18, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${ride.passengerCount} seats  ·  ${ride.paymentMethod}',
+                  style: reservationText(12.5, color: kReservationMuted),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            ReservationFormat.price(ride),
+            style: reservationText(16, weight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JourneyCard extends StatelessWidget {
+  const _JourneyCard({required this.ride});
+
+  final Reservation ride;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: kReservationLine),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 22,
+            offset: Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _DetailRow(
+            iconAsset: AppAssets.calendar,
+            fallbackIcon: Icons.calendar_today_rounded,
+            label: 'Scheduled for',
+            value:
+                '${ReservationFormat.longDate(ride.scheduledPickupAt)}, ${ReservationFormat.time(ride.scheduledPickupAt)}',
+            caption: ride.estimatedDropoffAt == null
+                ? null
+                : ReservationFormat.dropoffAt(ride.estimatedDropoffAt!),
+          ),
+          const Divider(height: 1, indent: 42, color: kReservationLine),
+          _DetailRow(
+            iconAsset: AppAssets.gpsFill,
+            fallbackIcon: Icons.my_location_rounded,
+            label: 'Pickup at',
+            value: ride.pickup.label,
+            caption: ride.pickup.subtitle,
+            connector: true,
+          ),
+          const Divider(height: 1, indent: 42, color: kReservationLine),
+          _DetailRow(
+            iconAsset: AppAssets.location,
+            fallbackIcon: Icons.location_on_outlined,
+            label: 'Dropoff at',
+            value: ride.destination.label,
+            caption: ride.destination.subtitle,
+          ),
+          const Divider(height: 1, indent: 42, color: kReservationLine),
+          _DetailRow(
+            iconAsset: AppAssets.wallet,
+            fallbackIcon: Icons.account_balance_wallet_outlined,
+            label: 'Payment method',
+            value: ride.paymentMethod,
           ),
         ],
       ),
@@ -418,25 +492,25 @@ class _DriverCard extends StatelessWidget {
 
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
-    required this.icon,
     required this.label,
     required this.value,
+    this.iconAsset,
+    this.fallbackIcon,
     this.caption,
-    this.onEdit,
     this.connector = false,
   });
 
-  final IconData icon;
+  final String? iconAsset;
+  final IconData? fallbackIcon;
   final String label;
   final String value;
   final String? caption;
-  final VoidCallback? onEdit;
   final bool connector;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -444,7 +518,24 @@ class _DetailRow extends StatelessWidget {
             width: 28,
             child: Column(
               children: [
-                Icon(icon, size: 18, color: kReservationInk),
+                if (iconAsset != null)
+                  Image.asset(
+                    iconAsset!,
+                    width: 20,
+                    height: 20,
+                    color: kReservationAccent,
+                    errorBuilder: (_, __, ___) => Icon(
+                      fallbackIcon ?? Icons.circle,
+                      size: 18,
+                      color: kReservationAccent,
+                    ),
+                  )
+                else
+                  Icon(
+                    fallbackIcon ?? Icons.circle,
+                    size: 18,
+                    color: kReservationAccent,
+                  ),
                 if (connector)
                   Container(
                     width: 2,
@@ -455,7 +546,7 @@ class _DetailRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,7 +568,6 @@ class _DetailRow extends StatelessWidget {
               ],
             ),
           ),
-          if (onEdit != null) ReservationEditChip(onTap: onEdit!),
         ],
       ),
     );

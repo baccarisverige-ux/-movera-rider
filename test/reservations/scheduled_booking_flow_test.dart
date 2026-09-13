@@ -405,4 +405,35 @@ void main() {
     expect(pickup, 'Klockarvägen 37');
     expect(dropoff, 'Arlanda Express');
   });
+
+  test('editing a reservation keeps the same id after the full flow', () async {
+    final c = reservations();
+    final first = await ScheduledRideBooking.confirm(
+      reservations: c,
+      selection: scheduledSelection(),
+      pickup: const ReservationPlace(label: 'Current location'),
+      destination: const ReservationPlace(label: 'Arlanda'),
+    );
+    expect(c.all, hasLength(1));
+    expect(first.reservationId, 'rsv_1');
+
+    final updated = await ScheduledRideBooking.confirm(
+      reservations: c,
+      selection: scheduledSelection(
+        rideId: 'comfort',
+        when: DateTime(2026, 9, 24, 9, 30),
+      ),
+      pickup: const ReservationPlace(label: 'T-Centralen'),
+      destination: const ReservationPlace(label: 'Bromma'),
+      editingReservationId: first.reservationId,
+    );
+    expect(c.all, hasLength(1));
+    expect(updated.reservationId, 'rsv_1');
+    expect(updated.pickup.label, 'T-Centralen');
+    expect(updated.destination.label, 'Bromma');
+    expect(updated.categoryId, 'comfort');
+    expect(updated.scheduledPickupAt, DateTime(2026, 9, 24, 9, 30));
+    expect(FindingDriverController.active, isNull);
+    expect(AppScope.instance.ride.status, RideStatus.idle);
+  });
 }

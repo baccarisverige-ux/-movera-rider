@@ -16,6 +16,7 @@ class ScheduledRideBooking {
     required ReservationPlace destination,
     String? note,
     String? parentReservationId,
+    String? editingReservationId,
     double? price,
   }) {
     if (selection.entersFindingDriver || !selection.createsReservation) {
@@ -29,17 +30,37 @@ class ScheduledRideBooking {
     final payments = selection.payments();
     final payment =
         payments[selection.selectedPayment.clamp(0, payments.length - 1)];
+    final dropoff = when.add(Duration(minutes: ride.etaMin));
+    final nextPrice = price ?? selection.priceFor(ride.id, ride.price);
+    if (editingReservationId != null) {
+      return reservations.update(
+        editingReservationId,
+        ReservationPatch(
+          scheduledPickupAt: when,
+          estimatedDropoffAt: dropoff,
+          pickup: pickup,
+          destination: destination,
+          categoryId: ride.id,
+          categoryName: ride.name,
+          categoryImage: ride.image,
+          passengerCount: ride.seats,
+          price: nextPrice,
+          paymentMethod: payment.name,
+          note: note,
+        ),
+      );
+    }
     return reservations.create(
       ReservationDraft(
         scheduledPickupAt: when,
-        estimatedDropoffAt: when.add(Duration(minutes: ride.etaMin)),
+        estimatedDropoffAt: dropoff,
         pickup: pickup,
         destination: destination,
         categoryId: ride.id,
         categoryName: ride.name,
         categoryImage: ride.image,
         passengerCount: ride.seats,
-        price: price ?? selection.priceFor(ride.id, ride.price),
+        price: nextPrice,
         paymentMethod: payment.name,
         note: note,
         parentReservationId: parentReservationId,

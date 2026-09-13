@@ -409,6 +409,19 @@ void main() {
       expect(gate.contains('FindingDrivers'), isFalse);
       expect(gate.contains('SelectRide('), isTrue);
       expect(gate.contains('untilHome: true'), isTrue);
+      expect(gate.contains('editingReservationId'), isTrue);
+      final details = File(
+        'lib/features/reservations/presentation/upcoming_reservation.dart',
+      ).readAsStringSync();
+      expect(details.contains('showReservationTimeSheet'), isFalse);
+      expect(details.contains('ScheduleRide(editing:'), isTrue);
+      expect(details.contains('ReservationEditButton'), isTrue);
+      expect(
+        File(
+          'lib/features/reservations/presentation/reservation_widgets.dart',
+        ).readAsStringSync().contains('Edit reservation'),
+        isTrue,
+      );
     },
   );
 
@@ -429,7 +442,7 @@ void main() {
       expect(src.contains('chooseScheduledPickup'), isTrue);
       expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
       expect(src.contains('When should we pick you up Continue'), isTrue);
-      expect(src.contains('return ride must not exist before confirm'), isTrue);
+      expect(src.contains('editing a reservation keeps the same id'), isTrue);
     },
   );
 }

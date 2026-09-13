@@ -42,7 +42,7 @@ class ReservationPolicyCatalog {
       ReservationPolicySection(
         title: 'Changes to pickup, time, or destination',
         body:
-            'You can edit pickup, destination, time, and payment on the same reservation. Unrelated details stay as they are.',
+            'You can edit a reservation by going through pickup, time, and category again. The same reservation ID is kept.',
       ),
       ReservationPolicySection(
         title: 'If a driver cannot be assigned',

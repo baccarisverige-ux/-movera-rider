@@ -135,6 +135,10 @@ class ReservationPatch {
     this.estimatedDropoffAt,
     this.pickup,
     this.destination,
+    this.categoryId,
+    this.categoryName,
+    this.categoryImage,
+    this.passengerCount,
     this.paymentMethod,
     this.price,
     this.note,
@@ -147,6 +151,10 @@ class ReservationPatch {
   final DateTime? estimatedDropoffAt;
   final ReservationPlace? pickup;
   final ReservationPlace? destination;
+  final String? categoryId;
+  final String? categoryName;
+  final String? categoryImage;
+  final int? passengerCount;
   final String? paymentMethod;
   final double? price;
   final String? note;

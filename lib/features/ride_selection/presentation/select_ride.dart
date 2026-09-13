@@ -38,6 +38,7 @@ class SelectRide extends StatefulWidget {
     this.initialScheduledFor,
     this.initialRideId,
     this.parentReservationId,
+    this.editingReservationId,
     this.note,
     this.reservations,
     this.onScheduled,
@@ -93,6 +94,7 @@ class SelectRide extends StatefulWidget {
   final DateTime? initialScheduledFor;
   final String? initialRideId;
   final String? parentReservationId;
+  final String? editingReservationId;
   final String? note;
   final ReservationController? reservations;
   final Future<void> Function(BuildContext context, String reservationId)?
@@ -542,6 +544,7 @@ class _SelectRideState extends State<SelectRide>
       ),
       note: widget.note,
       parentReservationId: widget.parentReservationId,
+      editingReservationId: widget.editingReservationId,
     );
     if (!mounted) return;
     final opener = widget.onScheduled;

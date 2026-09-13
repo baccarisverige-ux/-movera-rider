@@ -11,6 +11,7 @@ import 'package:movera_rider/features/scheduled_rides/application/scheduled_ride
 import 'package:movera_rider/features/scheduled_rides/presentation/confirm_booking.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/add_note.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -18,7 +19,9 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class ScheduleRide extends StatefulWidget {
-  const ScheduleRide({super.key});
+  const ScheduleRide({super.key, this.editing});
+
+  final Reservation? editing;
 
   @override
   State<ScheduleRide> createState() => _ScheduleRideState();
@@ -50,6 +53,15 @@ class _ScheduleRideState extends State<ScheduleRide> {
   @override
   void initState() {
     super.initState();
+    final editing = widget.editing;
+    if (editing != null) {
+      _pickupController.text = editing.pickup.label;
+      _dropoffController.text = editing.destination.label;
+      _session.captureSchedule(editing.scheduledPickupAt);
+      _session.captureRideType(editing.categoryId);
+      _session.capturePayment(editing.paymentMethod);
+      if (editing.hasPreferences) _session.captureNote(editing.note!.trim());
+    }
     _loadMarkers();
     _pickupController.addListener(_syncRouteToSession);
     _dropoffController.addListener(_syncRouteToSession);
@@ -101,7 +113,12 @@ class _ScheduleRideState extends State<ScheduleRide> {
     FocusScope.of(context).unfocus();
     _syncRouteToSession();
     if (currentStep >= 1) {
-      openScheduledCategorySelector(context, session: _session);
+      openScheduledCategorySelector(
+        context,
+        session: _session,
+        editingReservationId: widget.editing?.reservationId,
+        initialRideId: widget.editing?.categoryId,
+      );
       return;
     }
     setState(() => currentStep += 1);

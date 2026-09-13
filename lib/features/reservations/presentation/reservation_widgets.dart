@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 
-const Color kReservationInk = Color(0xFF1D252C);
-const Color kReservationMuted = Color(0xFF778189);
-const Color kReservationLine = Color(0xFFE7EBEE);
+const Color kReservationInk = Color(0xFF172127);
+const Color kReservationMuted = Color(0xFF7B858B);
+const Color kReservationLine = Color(0xFFE4E7E8);
 const Color kReservationCta = Color(0xFF11181D);
-const Color kReservationAccent = Color(0xFF2D5878);
-const Color kReservationSoft = Color(0xFFF6F5F1);
+const Color kReservationAccent = Color(0xFF356879);
+const Color kReservationSoft = Color(0xFFF5F6F6);
 
 TextStyle reservationText(
   double size, {
@@ -216,8 +216,8 @@ class ReservationStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = positive ? const Color(0xFFEAF4EE) : const Color(0xFFF4F5F6);
-    final dot = positive ? const Color(0xFF2F6B45) : kReservationMuted;
+    final tone = positive ? const Color(0xFFEAF2F8) : const Color(0xFFF4F5F6);
+    final dot = positive ? kReservationAccent : kReservationMuted;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -272,7 +272,7 @@ class ReservationDriverBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: assigned ? const Color(0xFFEAF4EE) : const Color(0xFFEEF1F3),
+        color: assigned ? const Color(0xFFEAF2F8) : const Color(0xFFEEF1F3),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -280,7 +280,7 @@ class ReservationDriverBadge extends StatelessWidget {
         style: reservationText(
           11.5,
           weight: FontWeight.w600,
-          color: assigned ? const Color(0xFF2F6B45) : kReservationMuted,
+          color: assigned ? kReservationAccent : kReservationMuted,
         ),
       ),
     );
@@ -377,17 +377,55 @@ class ReservationEditChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFF3F4F5),
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            'Edit',
-            style: reservationText(13, weight: FontWeight.w600),
+    return SizedBox(
+      height: 44,
+      child: Material(
+        color: kReservationSoft,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Center(
+              child: Text(
+                'Edit reservation',
+                style: reservationText(13, weight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ReservationEditButton extends StatelessWidget {
+  const ReservationEditButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kReservationInk,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: Text(
+          'Edit reservation',
+          style: reservationText(
+            14.5,
+            weight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
       ),

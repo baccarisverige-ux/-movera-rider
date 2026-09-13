@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
@@ -11,6 +12,8 @@ import 'package:movera_rider/features/scheduled_rides/application/scheduled_ride
 Future<void> openScheduledCategorySelector(
   BuildContext context, {
   required ScheduledRideSession session,
+  String? editingReservationId,
+  String? initialRideId,
 }) async {
   final pickupLabel = session.pickup.trim().isEmpty
       ? 'Current location'
@@ -22,8 +25,8 @@ Future<void> openScheduledCategorySelector(
 
   AppScope.instance.maps.detach(owner: MapOwners.schedule);
 
-  await Navigator.of(context).push(
-    MaterialPageRoute<void>(
+  final created = await Navigator.of(context).push<Reservation>(
+    MaterialPageRoute(
       builder: (_) => SelectRide(
         pickupAddress: pickupLabel,
         destinationAddress: destinationLabel,
@@ -33,12 +36,22 @@ Future<void> openScheduledCategorySelector(
         bookingMode: BookingMode.scheduled,
         lockBookingMode: true,
         initialScheduledFor: session.scheduledAt,
+        initialRideId: initialRideId ?? session.rideType,
         note: session.note.trim().isEmpty ? null : session.note.trim(),
-        onScheduled: (context, id) =>
-            RideScheduledPage.open(context, reservationId: id, untilHome: true),
+        editingReservationId: editingReservationId,
+        onScheduled: editingReservationId == null
+            ? (context, id) => RideScheduledPage.open(
+                context,
+                reservationId: id,
+                untilHome: true,
+              )
+            : null,
       ),
     ),
   );
+  if (editingReservationId != null && created != null && context.mounted) {
+    Navigator.pop(context);
+  }
 }
 
 const LatLng kScheduledFallbackPoint = LatLng(59.3293, 18.0686);

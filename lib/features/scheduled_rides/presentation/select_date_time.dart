@@ -55,11 +55,16 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   @override
   void initState() {
     super.initState();
-    final candidate = DateTime.now().add(const Duration(minutes: 30));
-    final remainder = candidate.minute % 5;
-    _selectedDateTime = candidate.add(
-      Duration(minutes: remainder == 0 ? 0 : 5 - remainder),
-    );
+    final existing = widget.session?.scheduledAt;
+    if (existing != null) {
+      _selectedDateTime = existing;
+    } else {
+      final candidate = DateTime.now().add(const Duration(minutes: 30));
+      final remainder = candidate.minute % 5;
+      _selectedDateTime = candidate.add(
+        Duration(minutes: remainder == 0 ? 0 : 5 - remainder),
+      );
+    }
     _commitSchedule();
   }
 
