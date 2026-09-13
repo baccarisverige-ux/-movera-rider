@@ -11,7 +11,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 /// Mock matching transport. Assignment is an event, not a widget timer.
 class MockRideRealtime implements RideRealtime {
   MockRideRealtime({
-    this.assignAfter = const Duration(seconds: 12),
+    this.assignAfter = const Duration(seconds: 25),
     RealtimeConnection? connection,
     this.api,
   }) : connection = connection ?? RealtimeConnection();

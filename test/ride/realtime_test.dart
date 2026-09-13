@@ -1,8 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 void main() {
+  test('demo assignment is after the delayed price offer', () {
+    final rt = MockRideRealtime();
+    expect(SearchCopy.delayedAfter, const Duration(seconds: 2));
+    expect(rt.assignAfter, const Duration(seconds: 25));
+    rt.dispose();
+  });
+
   test('assignment event', () async {
     final rt = MockRideRealtime(assignAfter: Duration.zero);
     RideStatus? last;

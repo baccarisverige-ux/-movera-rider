@@ -5,7 +5,7 @@ class SearchCopy {
   final String headline;
   final String subtitle;
 
-  static const delayedAfter = Duration(seconds: 60);
+  static const delayedAfter = Duration(seconds: 2);
   static const rotateEvery = Duration(seconds: 12);
 
   static const initial = [
@@ -57,7 +57,8 @@ class SearchCopy {
       elapsedSeconds >= delayedAfter.inSeconds;
 
   /// Copy is keyed off **phase-local** elapsed, not a global modulo.
-  /// 0–19 initial, 20–59 waiting, 60+ delayed starting at delayed[0].
+  /// 0–1 initial; 2+ delayed starting at delayed[0].
+  /// Waiting copy is used when delayedAfter is later than 20s.
   static SearchCopy forElapsed(int elapsedSeconds) {
     if (elapsedSeconds >= delayedAfter.inSeconds) {
       final step =
