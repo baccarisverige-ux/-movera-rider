@@ -4,12 +4,12 @@ import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 
 class SafetyUi {
   static const ink = Color(0xFF1C2329);
-  static const muted = Color(0xFF7A746C);
+  static const muted = Color(0xFF6F767C);
   static const accent = Color(0xFF2D5878);
-  static const canvas = Color(0xFFF6F3EE);
-  static const card = Color(0xFFFBF9F6);
-  static const well = Color(0xFFF0EBE3);
-  static const line = Color(0xFFE6DFD6);
+  static const canvas = Color(0xFFFFFFFF);
+  static const card = Color(0xFFFFFFFF);
+  static const well = Color(0xFFF4F4F4);
+  static const line = Color(0xFFE6E6E6);
   static const danger = Color(0xFFB42318);
 
   static TextStyle text(
@@ -53,33 +53,46 @@ class SafetyScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: SafetyUi.canvas,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-                    color: SafetyUi.ink,
-                  ),
-                  if (showTitle)
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: SafetyUi.text(17, weight: FontWeight.w600),
-                      ),
+    final light = Theme.of(context).copyWith(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: SafetyUi.canvas,
+      canvasColor: SafetyUi.canvas,
+      colorScheme: const ColorScheme.light(
+        primary: SafetyUi.accent,
+        surface: SafetyUi.card,
+        onSurface: SafetyUi.ink,
+      ),
+    );
+    return Theme(
+      data: light,
+      child: Scaffold(
+        backgroundColor: SafetyUi.canvas,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 20, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                      color: SafetyUi.ink,
                     ),
-                ],
+                    if (showTitle)
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: SafetyUi.text(17, weight: FontWeight.w600),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(child: child),
-            if (footer != null) footer!,
-          ],
+              Expanded(child: child),
+              if (footer != null) footer!,
+            ],
+          ),
         ),
       ),
     );
