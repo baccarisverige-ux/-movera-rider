@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
@@ -19,6 +20,8 @@ class RideSnapshot {
     required this.paymentMethod,
     this.rideId,
     this.notes = RideNotes.empty,
+    this.driver,
+    this.cancellationReason,
   });
 
   final RideStatus status;
@@ -34,6 +37,8 @@ class RideSnapshot {
   final String paymentMethod;
   final String? rideId;
   final RideNotes notes;
+  final MatchedDriver? driver;
+  final String? cancellationReason;
 
   bool get isFresh =>
       DateTime.now().difference(savedAt) < const Duration(minutes: 20);
@@ -52,6 +57,8 @@ class RideSnapshot {
     String? paymentMethod,
     String? rideId,
     RideNotes? notes,
+    MatchedDriver? driver,
+    String? cancellationReason,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -67,6 +74,8 @@ class RideSnapshot {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       rideId: rideId ?? this.rideId,
       notes: notes ?? this.notes,
+      driver: driver ?? this.driver,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
     );
   }
 
@@ -84,6 +93,8 @@ class RideSnapshot {
         'paymentMethod': paymentMethod,
         'rideId': rideId,
         'notes': notes.toJson(),
+        if (driver != null) 'driver': driver!.toJson(),
+        if (cancellationReason != null) 'cancellationReason': cancellationReason,
       };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -109,6 +120,10 @@ class RideSnapshot {
             ? Map<String, dynamic>.from(json['notes'] as Map)
             : null,
       ),
+      driver: json['driver'] is Map
+          ? MatchedDriver.fromJson(Map<String, dynamic>.from(json['driver'] as Map))
+          : null,
+      cancellationReason: json['cancellationReason'] as String?,
     );
   }
 }

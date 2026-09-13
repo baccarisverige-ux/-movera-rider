@@ -33,6 +33,7 @@ class RideRestoreCoordinator {
     }
     switch (snapshot.status) {
       case RideStatus.findingDriver:
+      case RideStatus.searchDelayed:
       case RideStatus.bookingRequested:
         return RestoredSurface.finding;
       case RideStatus.driverAssigned:
@@ -83,6 +84,7 @@ class RideRestoreCoordinator {
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
           notes: snapshot.notes,
+          driver: snapshot.driver,
         );
       case RestoredSurface.complete:
         return const RideCompleted();

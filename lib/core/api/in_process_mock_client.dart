@@ -56,6 +56,7 @@ class InProcessMockClient extends http.BaseClient {
 
     late Map<String, dynamic> payload;
     var status = 200;
+    final parts = path.split('/');
 
     if (path == '/api/v1/quotes' && method == 'POST') {
       payload = {'code': 'OK', 'quote': _quote(body), 'requestId': requestId};
@@ -63,28 +64,68 @@ class InProcessMockClient extends http.BaseClient {
       final ride = _ride(body, requestId);
       rides[ride['id'] as String] = ride;
       payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
-    } else if (path.startsWith('/api/v1/rides/') &&
-        path.endsWith('/cancel') &&
+    } else if (parts.length >= 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'cancel' &&
         method == 'POST') {
-      final id = path.split('/')[4];
+      final id = parts[4];
+      final ride = rides[id];
+      if (ride == null) {
+        status = 404;
+        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else if (ride['status'] == 'cancelledByRider') {
+        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      } else {
+        ride['status'] = 'cancelledByRider';
+        if (body['reason'] is String) ride['cancellationReason'] = body['reason'];
+        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      }
+    } else if (parts.length >= 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'nearby' &&
+        method == 'GET') {
+      final id = parts[4];
+      payload = {
+        'code': 'OK',
+        'vehicles': _nearby(rides[id]),
+        'requestId': requestId,
+      };
+    } else if (parts.length >= 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'status' &&
+        method == 'POST') {
+      final id = parts[4];
+      final ride = rides[id] ?? {'id': id};
+      ride['status'] = body['status'] ?? ride['status'];
+      if (body['driver'] is Map) ride['driver'] = body['driver'];
+      if (body['lat'] != null) ride['driverLat'] = body['lat'];
+      if (body['lng'] != null) ride['driverLng'] = body['lng'];
+      rides[id] = ride;
+      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+    } else if (parts.length == 5 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        method == 'PATCH') {
+      final id = parts[4];
       final ride = rides[id];
       if (ride == null) {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
       } else {
-        ride['status'] = 'cancelledByRider';
+        if (body['price'] != null) ride['price'] = body['price'];
+        if (body['offerIncreaseKr'] != null) {
+          ride['offerIncreaseKr'] = body['offerIncreaseKr'];
+        }
+        ride['status'] = 'findingDriver';
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
     } else if (path.startsWith('/api/v1/rides/') &&
-        path.endsWith('/status') &&
-        method == 'POST') {
-      final id = path.split('/')[4];
-      final ride = rides[id] ?? {'id': id};
-      ride['status'] = body['status'] ?? ride['status'];
-      rides[id] = ride;
-      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
-    } else if (path.startsWith('/api/v1/rides/') && method == 'GET' && path.split('/').length == 5) {
-      final id = path.split('/').last;
+        method == 'GET' &&
+        parts.length == 5) {
+      final id = parts.last;
       final ride = rides[id];
       if (ride == null) {
         status = 404;
@@ -168,8 +209,23 @@ class InProcessMockClient extends http.BaseClient {
       'paymentMethod': body['paymentMethod'],
       'pickupAddress': body['pickupAddress'],
       'destinationAddress': body['destinationAddress'],
+      'pickupLat': body['pickupLat'],
+      'pickupLng': body['pickupLng'],
+      'destinationLat': body['destinationLat'],
+      'destinationLng': body['destinationLng'],
       'scheduledAt': body['scheduledAt'],
     };
+  }
+
+  List<Map<String, dynamic>> _nearby(Map<String, dynamic>? ride) {
+    final lat = (ride?['pickupLat'] as num?)?.toDouble();
+    final lng = (ride?['pickupLng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return const [];
+    return [
+      {'id': 'veh_a', 'lat': lat + 0.0021, 'lng': lng - 0.0014, 'bearing': 42},
+      {'id': 'veh_b', 'lat': lat - 0.0016, 'lng': lng + 0.0022, 'bearing': 210},
+      {'id': 'veh_c', 'lat': lat + 0.0008, 'lng': lng + 0.0018, 'bearing': 128},
+    ];
   }
 
   http.StreamedResponse _json(

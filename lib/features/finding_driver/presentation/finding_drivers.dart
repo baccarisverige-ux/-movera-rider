@@ -3,10 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
@@ -44,10 +47,10 @@ class FindingDrivers extends StatefulWidget {
 class _FindingDriversState extends State<FindingDrivers> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
-  int remainingSeconds = 12;
   final FindingDriverController _match = FindingDriverController();
   final PanelController _panel = PanelController();
   bool _mapParked = false;
+  int? _selectedBump;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -71,8 +74,9 @@ class _FindingDriversState extends State<FindingDrivers> {
       price: widget.price,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
-      onTick: (remaining) {
-        if (mounted) setState(() => remainingSeconds = remaining);
+      onTick: (_) {
+        if (!mounted) return;
+        setState(_loadMapBits);
       },
       onMatched: () {
         if (!mounted) return;
@@ -85,9 +89,10 @@ class _FindingDriversState extends State<FindingDrivers> {
               pickupPosition: _pickupPosition,
               destinationPosition: widget.destinationPosition,
               rideType: widget.rideType,
-              price: widget.price,
+              price: _match.currentPrice,
               paymentMethod: widget.paymentMethod,
               notes: widget.notes,
+              driver: _match.matchedDriver,
             ),
           ),
         );
@@ -108,24 +113,13 @@ class _FindingDriversState extends State<FindingDrivers> {
         infoWindow: InfoWindow(title: widget.destinationAddress),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
-      Marker(
-        markerId: const MarkerId('car-a'),
-        position: LatLng(_pickupPosition.latitude + 0.0021, _pickupPosition.longitude - 0.0014),
-        rotation: 42,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-      ),
-      Marker(
-        markerId: const MarkerId('car-b'),
-        position: LatLng(_pickupPosition.latitude - 0.0016, _pickupPosition.longitude + 0.0022),
-        rotation: 210,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-      ),
-      Marker(
-        markerId: const MarkerId('car-c'),
-        position: LatLng(_pickupPosition.latitude + 0.0008, _pickupPosition.longitude + 0.0018),
-        rotation: 128,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
-      ),
+      for (final vehicle in _match.nearby)
+        Marker(
+          markerId: MarkerId('nearby-${vehicle.id}'),
+          position: LatLng(vehicle.latitude, vehicle.longitude),
+          rotation: vehicle.bearing,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+        ),
     };
     _polylines = {
       Polyline(
@@ -138,12 +132,13 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _confirmCancel() async {
-    final keep = await showCancelRideSheet(
+    final outcome = await showCancelRideSheet(
       context,
-      takingLonger: remainingSeconds <= 4,
+      takingLonger: _match.isDelayed,
+      phase: CancelPhase.searching,
     );
-    if (!keep && mounted) {
-      _match.cancelSearch();
+    if (outcome.cancelled && mounted) {
+      _match.cancelSearch(reasonId: outcome.reasonId);
       RideNavigator.home(context);
     }
   }
@@ -160,7 +155,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         pickupAddress: _pickupAddress,
         destinationAddress: widget.destinationAddress,
         rideType: widget.rideType,
-        price: widget.price,
+        price: _match.currentPrice,
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
         canEditPickup: true,
@@ -207,7 +202,9 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = remainingSeconds <= 0 ? 1.0 : 1 - (remainingSeconds / 12);
+    final copy = _match.copy;
+    final progress = (_match.elapsedSeconds / 90).clamp(0.08, 0.86);
+    final minHeight = _match.showPriceBump ? 430.0 : 300.0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -218,14 +215,14 @@ class _FindingDriversState extends State<FindingDrivers> {
           controller: _panel,
           color: Colors.white,
           backdropColor: Colors.transparent,
-          minHeight: 292,
-          maxHeight: 460,
+          minHeight: minHeight,
+          maxHeight: 560,
           isDraggable: true,
           defaultPanelState: PanelState.CLOSED,
           parallaxEnabled: false,
           boxShadow: const [],
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          panelBuilder: (sc) => _panelBody(sc, progress),
+          panelBuilder: (sc) => _panelBody(sc, progress, copy.headline, copy.subtitle),
           body: Stack(
             children: [
               if (!_mapParked)
@@ -242,7 +239,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                   buildingsEnabled: true,
                   indoorViewEnabled: false,
                   mapType: MapType.normal,
-                  padding: const EdgeInsets.only(bottom: 292),
+                  padding: EdgeInsets.only(bottom: minHeight),
                   onMapCreated: (controller) {
                     AppScope.instance.maps.attach(
                       controller,
@@ -268,6 +265,15 @@ class _FindingDriversState extends State<FindingDrivers> {
                   ),
                 ),
               ),
+              Positioned(
+                right: 12,
+                bottom: minHeight + 16,
+                child: _roundBtn(Icons.my_location_rounded, () {
+                  AppScope.instance.camera.focusOnPickup(
+                    GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+                  );
+                }),
+              ),
             ],
           ),
         ),
@@ -275,7 +281,12 @@ class _FindingDriversState extends State<FindingDrivers> {
     );
   }
 
-  Widget _panelBody(ScrollController sc, double progress) {
+  Widget _panelBody(
+    ScrollController sc,
+    double progress,
+    String headline,
+    String subtitle,
+  ) {
     return SingleChildScrollView(
       controller: sc,
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
@@ -294,7 +305,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Ride requested',
+            headline,
             style: GoogleFonts.poppins(
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -303,24 +314,52 @@ class _FindingDriversState extends State<FindingDrivers> {
           ),
           const SizedBox(height: 4),
           Text(
-            remainingSeconds <= 4
-                ? "We'll update you as soon as we can"
-                : 'Finding drivers nearby',
+            subtitle,
             style: GoogleFonts.poppins(
               fontSize: 14,
               color: const Color(0xFF778189),
             ),
           ),
+          if (_match.offerConfirmation != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _match.offerConfirmation!,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF2D5878),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
-              value: progress.clamp(0.08, 1),
+              value: progress,
               minHeight: 4,
               backgroundColor: const Color(0xFFEAF2F8),
               color: const Color(0xFF2D5878),
             ),
           ),
+          if (_match.showPriceBump) ...[
+            const SizedBox(height: 16),
+            PriceBumpCard(
+              currentPrice: _match.currentPrice,
+              steps: const [10, 20, 30],
+              selected: _selectedBump,
+              onSelect: (value) => setState(() => _selectedBump = value),
+              onConfirm: () async {
+                final kr = _selectedBump;
+                if (kr == null) return;
+                await _match.confirmPriceIncrease(kr);
+                if (mounted) setState(() => _selectedBump = null);
+              },
+              onKeepWaiting: () {
+                _match.dismissPriceBump();
+                setState(() => _selectedBump = null);
+              },
+            ),
+          ],
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
@@ -353,7 +392,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.paymentMethod,
+                        '${widget.paymentMethod} · ${_match.currentPrice.round()} kr',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,

@@ -1,16 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movera_rider/features/driver_arriving/application/driver_arriving_controller.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 
 void main() {
-  test('arrival view is the only driver display source', () {
-    final view = DriverArrivingController().arrival(rideType: 'Movera');
-    expect(view.plate, 'L - 2323 F');
-    expect(view.name, 'Merle Feeney');
-    expect(view.rating, '5.0');
-    expect(view.tagline, 'Top rated driver');
-    expect(view.eta, '5 mins');
-    expect(view.vehicleLabel, 'Movera');
-    expect(view.vehicleImage, 'assets/images/comfort_ride.png');
-    expect(view.photoAsset, 'assets/images/profile_img.png');
+  test('driver card fields come from the match payload', () {
+    const driver = MatchedDriver(
+      id: 'drv_1',
+      firstName: 'Alex',
+      rating: 4.92,
+      tripCount: 1284,
+      vehicleMake: 'Volvo',
+      vehicleModel: 'XC40',
+      vehicleColor: 'Black',
+      plate: 'MVR 421',
+    );
+    expect(driver.firstName, 'Alex');
+    expect(driver.plate, 'MVR 421');
+    expect(driver.vehicleLabel, 'Black Volvo XC40');
+    expect(driver.ratingLabel, '4.92');
+    expect(driver.tripsLabel, '1284 trips');
+    expect(driver.yearsOnMovera, isNull);
+    expect(driver.languages, isEmpty);
   });
 }

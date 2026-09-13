@@ -1,26 +1,27 @@
-import 'package:dotted_line/dotted_line.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
-import 'package:movera_rider/features/driver_arriving/application/driver_arriving_controller.dart';
-import 'package:movera_rider/features/driver_arriving/domain/driver_arrival_view.dart';
+import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
+import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
+import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
+import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
-import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
-import 'package:movera_rider/app/router/ride_navigator.dart';
-import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/features/safety/presentation/safety_suggestion_banner.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class WaitingForDriver extends StatefulWidget {
@@ -34,6 +35,7 @@ class WaitingForDriver extends StatefulWidget {
     required this.price,
     required this.paymentMethod,
     this.notes = RideNotes.empty,
+    this.driver,
   });
 
   final String pickupAddress;
@@ -44,29 +46,44 @@ class WaitingForDriver extends StatefulWidget {
   final double price;
   final String paymentMethod;
   final RideNotes notes;
+  final MatchedDriver? driver;
 
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
 class _WaitingForDriverState extends State<WaitingForDriver> {
-  GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   final ActiveRideController _ride = ActiveRideController();
-  late final DriverArrivalView _arrival =
-      DriverArrivingController().arrival(rideType: widget.rideType);
-
+  late final DriverTrackingController _tracking = DriverTrackingController(
+    pickupLat: widget.pickupPosition.latitude,
+    pickupLng: widget.pickupPosition.longitude,
+  );
   late final CameraPosition _initialPosition;
+  Timer? _suggestTick;
+  int _suggest = 0;
 
   @override
   void initState() {
     super.initState();
-    _initialPosition = CameraPosition(
-      target: widget.pickupPosition,
-      zoom: 14.0,
-    );
+    _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
+    _tracking.driver = widget.driver;
     _loadMarkers();
     SafetyController.shared.load();
+    final rideId = AppScope.instance.ride.rideId;
+    if (rideId != null) {
+      _tracking.start(
+        rideId: rideId,
+        initial: widget.driver,
+        onChange: () {
+          if (!mounted) return;
+          setState(_loadMarkers);
+        },
+      );
+    }
+    _suggestTick = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) setState(() => _suggest += 1);
+    });
   }
 
   void _loadMarkers() {
@@ -75,136 +92,105 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         markerId: const MarkerId('pickup'),
         position: widget.pickupPosition,
         infoWindow: InfoWindow(title: widget.pickupAddress),
-        icon: BitmapDescriptor.defaultMarker,
       ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
         infoWindow: InfoWindow(title: widget.destinationAddress),
-        icon: BitmapDescriptor.defaultMarker,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
+      if (_tracking.eta?.latitude != null && _tracking.eta?.longitude != null)
+        Marker(
+          markerId: const MarkerId('driver'),
+          position: LatLng(_tracking.eta!.latitude!, _tracking.eta!.longitude!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
+        ),
     };
+  }
+
+  Future<void> _confirmCancel() async {
+    final outcome = await showCancelRideSheet(
+      context,
+      takingLonger: false,
+      phase: CancelPhase.matched,
+    );
+    if (outcome.cancelled && mounted) {
+      _ride.markCancelled(reasonId: outcome.reasonId);
+      RideNavigator.home(context);
+    }
+  }
+
+  void _openProfile() {
+    final driver = _tracking.driver ?? widget.driver;
+    if (driver == null) return;
+    Navigator.push(context, RightToLeftTransition(DriverProfilePage(driver: driver)));
+  }
+
+  Future<void> _openDetails() {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) => RideDetailsSheet(
+        pickupAddress: widget.pickupAddress,
+        destinationAddress: widget.destinationAddress,
+        rideType: widget.rideType,
+        price: widget.price,
+        paymentMethod: widget.paymentMethod,
+        notes: widget.notes,
+        canEditPickup: false,
+        onEditPickup: () {},
+        onEditDestination: () {},
+        onCancelTrip: () {
+          Navigator.pop(sheetContext);
+          _confirmCancel();
+        },
+      ),
+    );
   }
 
   @override
   void dispose() {
+    _suggestTick?.cancel();
+    _tracking.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final driver = _tracking.driver ?? widget.driver;
+    final eta = _tracking.eta;
+    final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
+    final subtitle = eta?.subtitle(
+          firstName: driver?.firstName,
+          status: _tracking.status,
+        ) ??
+        (driver == null
+            ? 'Driver details will appear when matching confirms them.'
+            : 'Leave now to meet ${driver.firstName}');
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        final keep = await showCancelRideSheet(context, takingLonger: false);
-        if (!keep && mounted) {
-          _ride.markCancelled();
-          RideNavigator.home(context);
-        }
+        await _confirmCancel();
       },
       child: Scaffold(
-      body: SlidingUpPanel(
-        color: AppColor.white,
-        backdropColor: Colors.transparent,
-        margin: EdgeInsets.all(0),
-        minHeight: ResSize.h * 130,
-        padding: EdgeInsets.symmetric(
-          // horizontal: screenHorizPadding,
-          // vertical: ResSize.h * 16,
-        ),
-        boxShadow: [],
-        isDraggable: true,
-        defaultPanelState: PanelState.CLOSED,
-        maxHeight: ResSize.h * 520,
-        parallaxEnabled: false,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
-        ),
-        panelBuilder: (ScrollController sc) => Container(
-          decoration: ShapeDecoration(
-            color: AppColor.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(21.0),
-                topRight: Radius.circular(21.0),
-              ),
-            ),
-          ),
-          child: Column(
-            children: [
-              12.height,
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: screenHorizPadding + ResSize.w * 5,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Image.asset(
-                          AppAssets.hourglass,
-                          height: ResSize.h * 20,
-                        ),
-                        12.width,
-                        TextWidget(
-                          text: "The Driver will arrive in ",
-                          fontSize: 14,
-                          fontWeight: fwMedium,
-                          color: AppColor.whiteText,
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ResSize.w * 8,
-                        vertical: ResSize.h * 2,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        color: Color(0xff3B617E),
-                      ),
-                      child: Center(
-                        child: TextWidget(
-                          text: _arrival.eta,
-                          fontSize: 14,
-                          fontWeight: fwMedium,
-                          color: AppColor.whiteText,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              8.height,
-              Expanded(
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenHorizPadding,
-                    vertical: ResSize.h * 16,
-                  ),
-                  decoration: ShapeDecoration(
-                    color: AppColor.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(23.0),
-                        topRight: Radius.circular(23.0),
-                      ),
-                    ),
-                  ),
-                  child: panelColumn(sc),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // panelBuilder: (ScrollController sc) => panelColumn(sc, context),
-        body: SizedBox(
-          child: Stack(
+        body: SlidingUpPanel(
+          color: Colors.white,
+          backdropColor: Colors.transparent,
+          minHeight: 390,
+          maxHeight: 620,
+          isDraggable: true,
+          defaultPanelState: PanelState.CLOSED,
+          parallaxEnabled: false,
+          boxShadow: const [],
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          panelBuilder: (sc) => _panel(sc, driver, headline, subtitle),
+          body: Stack(
             children: [
               CustomGoogleMap(
                 initialPosition: _initialPosition,
@@ -218,518 +204,422 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 buildingsEnabled: true,
                 indoorViewEnabled: false,
                 mapType: MapType.normal,
-                onMapCreated: (GoogleMapController controller) {
-                  _mapController = controller;
+                padding: const EdgeInsets.only(bottom: 390),
+                onMapCreated: (controller) {
                   AppScope.instance.maps.attach(
                     controller,
                     owner: MapOwners.waiting,
                   );
                 },
-                onTap: (LatLng position) {
-                  // Handle map tap events
-                },
               ),
-              SizedBox(
-                width: double.infinity,
-                child: Column(
-                  children: [
-                    70.height,
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: ResSize.w * 28,
-                            vertical: ResSize.h * 5,
-                          ),
-
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(30),
-                            color: AppColor.white,
-                          ),
-                          child: Center(
-                            child: TextWidget(
-                              text: "Get ready driver will  come soon",
-                              fontSize: 12,
-                              fontWeight: fwMedium,
-                              color: AppColor.title,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerRight,
+              SafeArea(
                 child: Padding(
-                  padding: EdgeInsets.only(bottom: ResSize.h * 190),
-                  child: Transform.rotate(
-                    angle: -0.42 / 1,
-                    child: Transform.translate(
-                      offset: const Offset(-13, -17),
-                      child: Image.asset(
-                        AppAssets.w8Driver,
-                        height: ResSize.h * 180,
-                      ),
-                    ),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      _roundBtn(Icons.keyboard_arrow_down_rounded, _confirmCancel),
+                      const Spacer(),
+                      SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
+                    ],
                   ),
                 ),
               ),
-              const SafeArea(
-                child: Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(0, 8, 12, 0),
-                    child: SafetyKitMapButton(),
-                  ),
-                ),
+              Positioned(
+                right: 12,
+                bottom: 406,
+                child: _roundBtn(Icons.my_location_rounded, () {
+                  AppScope.instance.camera.focusOnPickup(
+                    GeoPoint(
+                      widget.pickupPosition.latitude,
+                      widget.pickupPosition.longitude,
+                    ),
+                  );
+                }),
               ),
             ],
           ),
         ),
       ),
-      ),
     );
   }
 
-  Widget panelColumn(ScrollController sc) {
+  Widget _panel(
+    ScrollController sc,
+    MatchedDriver? driver,
+    String headline,
+    String subtitle,
+  ) {
     return SingleChildScrollView(
       controller: sc,
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          16.height,
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Color(0xffF2F5F7),
-              border: Border.all(color: AppColor.border, width: 0.3),
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: ResSize.w * 22,
-              vertical: ResSize.h * 12,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      fontSize: 20,
-                      fontWeight: fwSemiBold,
-                      text: _arrival.plate,
-                      color: AppColor.black,
-                    ),
-                    2.height,
-                    TextWidget(
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                      text: _arrival.vehicleLabel,
-                      color: AppColor.black,
-                    ),
-                  ],
-                ),
-                Image.asset(_arrival.vehicleImage, height: ResSize.h * 43),
-              ],
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE7EBEE),
+                borderRadius: BorderRadius.circular(99),
+              ),
             ),
           ),
-          12.height,
-          const SafetyKitSheetRow(),
+          const SizedBox(height: 16),
+          Text(
+            headline,
+            style: GoogleFonts.poppins(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1D252C),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: const Color(0xFF778189),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SafetySuggestionBanner(
+            rideId: AppScope.instance.ride.rideId,
+            tick: _suggest,
+          ),
+          const SizedBox(height: 12),
+          _rideDetailsCard(),
+          const SizedBox(height: 12),
+          _driverCard(driver),
           if (!widget.notes.isEmpty) ...[
-            12.height,
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 for (final label in widget.notes.selected)
                   Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: ResSize.w * 10,
-                      vertical: ResSize.h * 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xffF2F5F7),
+                      color: const Color(0xFFF3F6FB),
                       borderRadius: BorderRadius.circular(99),
                     ),
-                    child: TextWidget(
-                      text: label,
-                      fontSize: 12,
-                      fontWeight: fwMedium,
-                      color: AppColor.title,
+                    child: Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF2D5878),
+                      ),
                     ),
                   ),
               ],
             ),
           ],
           if (SafetyController.shared.preferences.pinRequired) ...[
-            12.height,
+            const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: ResSize.w * 16,
-                vertical: ResSize.h * 12,
-              ),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: const Color(0xffF2F5F7),
+                color: const Color(0xFFF6F8FA),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextWidget(
-                    text: 'Show this PIN to your driver',
-                    fontSize: 12,
-                    fontWeight: fwMedium,
-                    color: AppColor.subtitle,
+                  Text(
+                    'Show this PIN to your driver',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: const Color(0xFF778189),
+                    ),
                   ),
-                  4.height,
-                  TextWidget(
-                    text: SafetyController.shared.pin.pin,
-                    fontSize: 22,
-                    fontWeight: fwBold,
-                    color: AppColor.title,
+                  Text(
+                    SafetyController.shared.pin.pin,
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
             ),
           ],
-          12.height,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: ResSize.h * 62,
-                width: ResSize.w * 58,
-                child: Stack(
+          const SizedBox(height: 12),
+          SafetyKitSheetRow(rideId: AppScope.instance.ride.rideId),
+        ],
+      ),
+    );
+  }
+
+  Widget _rideDetailsCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE7EBEE)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${widget.rideType} details',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: const Color(0xFF778189),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Meet at your pickup spot on ${widget.pickupAddress}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1D252C),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${widget.paymentMethod} · ${widget.price.round()} kr',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF2D5878),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _openDetails,
+            icon: const Icon(Icons.more_horiz_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _driverCard(MatchedDriver? driver) {
+    if (driver == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE7EBEE)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          'Driver details will appear when matching confirms them.',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: const Color(0xFF778189),
+          ),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE7EBEE)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: _openProfile,
+            child: Row(
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Container(
-                      height: ResSize.h * 54,
-                      width: ResSize.w * 58,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        image: DecorationImage(
-                          image: AssetImage(_arrival.photoAsset),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundImage: driver.photoAsset != null
+                          ? AssetImage(driver.photoAsset!)
+                          : null,
+                      backgroundColor: const Color(0xFFF3F6FB),
+                      child: driver.photoAsset == null
+                          ? Text(driver.firstName[0])
+                          : null,
                     ),
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: ResSize.w * 3),
-                        height: ResSize.h * 17,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(32),
-                          color: AppColor.green,
-                        ),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.star,
-                                color: AppColor.white,
-                                size: ResSize.h * 14,
-                              ),
-                              5.width,
-                              TextWidget(
-                                fontSize: 11,
-                                fontWeight: fwSemiBold,
-                                text: _arrival.rating,
-                                color: AppColor.whiteText,
-                              ),
-                            ],
+                    if (driver.ratingLabel != null)
+                      Positioned(
+                        left: 4,
+                        right: 4,
+                        bottom: -8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1D252C),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            '★ ${driver.ratingLabel}',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
-                    ),
                   ],
                 ),
-              ),
-              8.width,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 14),
+                if (driver.vehicleImageAsset != null)
+                  Expanded(
+                    child: Image.asset(
+                      driver.vehicleImageAsset!,
+                      height: 48,
+                      fit: BoxFit.contain,
+                    ),
+                  )
+                else
+                  const Spacer(),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    TextWidget(
-                      fontSize: 14,
-                      fontWeight: fwSemiBold,
-                      text: _arrival.name,
-                      color: AppColor.title,
-                    ),
-                    TextWidget(
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                      text: _arrival.tagline,
-                      color: AppColor.subtitle,
-                    ),
+                    if (driver.plate != null)
+                      Text(
+                        driver.plate!,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    if (driver.vehicleLabel.isNotEmpty)
+                      Text(
+                        driver.vehicleLabel,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: const Color(0xFF778189),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-              Row(
-                children: [
-                  InkWell(
-                    onTap: () {
-                      SafetyController().record(SafetyKind.maskedCall);
-                    },
-                    child: Container(
-                      height: ResSize.h * 40,
-                      width: ResSize.w * 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(
-                          0xff215277,
-                          // ignore: deprecated_member_use
-                        ).withOpacity(0.10),
-                      ),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Image.asset(AppAssets.phone),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: _openProfile,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        driver.firstName,
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                  ),
-                  15.width,
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(context, BottomToTopTransition(Chat()));
-                    },
-                    child: Container(
-                      height: ResSize.h * 40,
-                      width: ResSize.w * 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(
-                          0xff215277,
-                          // ignore: deprecated_member_use
-                        ).withOpacity(0.10),
-                      ),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: Image.asset(AppAssets.message),
+                      if (driver.tripsLabel != null)
+                        Text(
+                          driver.tripsLabel!,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color(0xFF778189),
+                          ),
                         ),
-                      ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
-          16.height,
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColor.border, width: 0.3),
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: ResSize.w * 22,
-              vertical: ResSize.h * 12,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: ResSize.h * 80,
-                  child: Column(
-                    children: [
-                      Image.asset(AppAssets.gps, height: ResSize.h * 24),
-                      2.height,
-                      Expanded(
-                        child: DottedLine(
-                          dashLength: 3,
-                          dashGapLength: 3,
-                          lineThickness: 1.4,
-                          dashRadius: 0,
-                          dashColor: AppColor.black,
-                          direction: Axis.vertical,
-                        ),
-                      ),
-                      2.height,
-                      Image.asset(AppAssets.location, height: ResSize.h * 24),
-                    ],
-                  ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _action(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: 'Message',
+                  onTap: () => Navigator.push(context, BottomToTopTransition(Chat())),
                 ),
-                12.width,
-                Expanded(
-                  child: Column(
-                    children: [
-                      InkWell(
-                        onTap: () {
-                          // Navigator.push(
-                          //   context,
-                          //   BottomToTopTransition(legacy route removed),
-                          // );
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextWidget(
-                                    fontSize: 12,
-                                    fontWeight: fwMedium,
-                                    text: "Pickup location",
-                                    color: AppColor.subtitle,
-                                  ),
-                                  2.height,
-                                  TextWidget(
-                                    fontSize: 14,
-                                    fontWeight: fwMedium,
-                                    text: widget.pickupAddress,
-                                    color: AppColor.title,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      10.height,
-                      InkWell(
-                        onTap: () {
-                          // Navigator.push(
-                          //   context,
-                          //   BottomToTopTransition(legacy route removed),
-                          // );
-                        },
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextWidget(
-                                    fontSize: 12,
-                                    fontWeight: fwMedium,
-                                    text: "Your destination",
-                                    color: AppColor.subtitle,
-                                  ),
-                                  2.height,
-                                  TextWidget(
-                                    fontSize: 14,
-                                    fontWeight: fwMedium,
-                                    text: widget.destinationAddress,
-                                    color: AppColor.title,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.edit_outlined,
-                                  size: ResSize.h * 14,
-                                  color: AppColor.title,
-                                ),
-                                5.width,
-                                TextWidget(
-                                  fontSize: 10,
-                                  fontWeight: fwMedium,
-                                  text: "Change",
-                                  color: AppColor.title,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          8.height,
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColor.border, width: 0.3),
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: ResSize.w * 22,
-              vertical: ResSize.h * 12,
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextWidget(
-                      text: "Total Payment",
-                      color: AppColor.black,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                    TextWidget(
-                      text: '\$${widget.price.toStringAsFixed(2)}',
-                      color: AppColor.black,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                  ],
-                ),
-                8.height,
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextWidget(
-                      text: "Payment method",
-                      color: AppColor.black,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                    TextWidget(
-                      text: widget.paymentMethod,
-                      color: AppColor.black,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                  ],
-                ),
-                8.height,
-
-                InkWell(
-                  onTap: () async {
-                    final keep = await showCancelRideSheet(
-                      context,
-                      takingLonger: false,
-                    );
-                    if (!keep && mounted) {
-                      _ride.markCancelled();
-                      RideNavigator.home(context);
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.block_flipped,
-                        color: AppColor.red,
-                        size: ResSize.h * 18,
-                      ),
-                      5.width,
-                      TextWidget(
-                        text: "Cancel ride",
-                        color: AppColor.red,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _iconAction(
+                Icons.phone_outlined,
+                () => SafetyController.shared.record(SafetyKind.maskedCall),
+              ),
+              const SizedBox(width: 8),
+              _iconAction(Icons.more_horiz_rounded, _openDetails),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _action({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFFF6F8FA),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF1D252C)),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _iconAction(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: const Color(0xFFF6F8FA),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Icon(icon, size: 20, color: const Color(0xFF1D252C)),
+        ),
+      ),
+    );
+  }
+
+  Widget _roundBtn(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, size: 22, color: const Color(0xFF1D252C)),
+        ),
       ),
     );
   }

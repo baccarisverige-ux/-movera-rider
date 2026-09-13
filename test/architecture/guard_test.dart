@@ -38,7 +38,22 @@ void main() {
       'lib/features/finding_driver/presentation/finding_drivers.dart',
     ).readAsStringSync();
     expect(ui.contains('Timer(Duration(seconds: 12)'), isFalse);
+    expect(ui.contains("MarkerId('car-a')"), isFalse);
+    expect(ui.contains('Confirming your ride'), isFalse);
   });
+
+  test('obsolete confirming and cancel dialogs are gone', () {
+    expect(
+      File('lib/features/finding_driver/presentation/cancel_ride.dart').existsSync(),
+      isFalse,
+    );
+    for (final file in dartUnder('lib')) {
+      final src = file.readAsStringSync();
+      expect(src.contains('Confirming your ride'), isFalse, reason: file.path);
+      expect(src.contains('RideCancellationDialog'), isFalse, reason: file.path);
+    }
+  });
+
 
   test('home does not own ride restoration', () {
     final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
@@ -118,7 +133,11 @@ void main() {
       'lib/features/active_ride/presentation/waiting_for_driver.dart',
     ).readAsStringSync();
     expect(ui.contains('"L - 2323 F"'), isFalse);
+    expect(ui.contains('Merle Feeney'), isFalse);
+    expect(ui.contains('5 mins'), isFalse);
+    expect(ui.contains('Confirming your ride'), isFalse);
   });
+
 
   test('home does not own map overlay set fields', () {
     final home = File('lib/features/home/presentation/home.dart').readAsStringSync();

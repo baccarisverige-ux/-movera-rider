@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
@@ -7,7 +9,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-RideSnapshot snap() => RideSnapshot(
+RideSnapshot snap({double price = 259}) => RideSnapshot(
       status: RideStatus.findingDriver,
       savedAt: DateTime.now(),
       pickupAddress: 'A',
@@ -17,16 +19,23 @@ RideSnapshot snap() => RideSnapshot(
       destinationLat: 59.4,
       destinationLng: 18.1,
       rideType: 'Movera',
-      price: 259,
+      price: price,
       paymentMethod: 'Apple Pay',
       rideId: 'r1',
     );
 
-FindingDriverController controllerOf(MockRideRealtime rt, RideSession ride) {
+FindingDriverController controllerOf(
+  MockRideRealtime rt,
+  RideSession ride, {
+  Duration delayedAfter = const Duration(seconds: 60),
+  ApiClient? api,
+}) {
   return FindingDriverController(
     realtime: rt,
     ride: ride,
     store: FindingDriverRepository(),
+    delayedAfter: delayedAfter,
+    api: api,
   );
 }
 
@@ -42,7 +51,6 @@ void main() {
     var matches = 0;
     final controller = controllerOf(rt, ride);
     controller.start(
-      seconds: 12,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
@@ -61,7 +69,6 @@ void main() {
     var matches = 0;
     final controller = controllerOf(rt, ride);
     controller.start(
-      seconds: 12,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
@@ -80,7 +87,6 @@ void main() {
     var matches = 0;
     final controller = controllerOf(rt, ride);
     controller.start(
-      seconds: 12,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
@@ -98,7 +104,6 @@ void main() {
     var matches = 0;
     final controller = controllerOf(rt, ride);
     controller.start(
-      seconds: 12,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
@@ -111,19 +116,20 @@ void main() {
     rt.dispose();
   });
 
-  test('countdown end without realtime does not assign', () async {
+  test('delayed search does not assign a driver by itself', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = controllerOf(rt, ride);
+    final controller = controllerOf(rt, ride, delayedAfter: Duration.zero);
     controller.start(
-      seconds: 0,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
     );
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(matches, 0);
+    expect(controller.isDelayed, isTrue);
+    expect(controller.showPriceBump, isTrue);
     expect(controller.timeoutLogs, 1);
     controller.dispose();
     rt.dispose();
@@ -135,7 +141,6 @@ void main() {
     var matches = 0;
     final controller = controllerOf(rt, ride);
     controller.start(
-      seconds: 12,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
@@ -155,7 +160,6 @@ void main() {
     var matches = 0;
     final controller = controllerOf(rt, ride);
     controller.start(
-      seconds: 12,
       snapshot: snap(),
       onTick: (_) {},
       onMatched: () => matches += 1,
@@ -165,6 +169,78 @@ void main() {
     rt.emit(RideStatus.driverAssigned, sequence: 1);
     await Future<void>.delayed(const Duration(milliseconds: 30));
     expect(matches, 0);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test('price bump updates the same ride and dismisses the card', () async {
+    SharedPreferences.setMockInitialValues({});
+    final httpClient = InProcessMockClient();
+    httpClient.rides['r1'] = {
+      'id': 'r1',
+      'status': 'findingDriver',
+      'price': 259,
+      'pickupLat': 59.3,
+      'pickupLng': 18.0,
+    };
+    final api = ApiClient(client: httpClient);
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1), api: api);
+    final ride = RideSession()..rideId = 'r1';
+    final controller = controllerOf(
+      rt,
+      ride,
+      delayedAfter: Duration.zero,
+      api: api,
+    );
+    controller.start(
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () {},
+    );
+    expect(controller.showPriceBump, isTrue);
+    final ok = await controller.confirmPriceIncrease(20);
+    expect(ok, isTrue);
+    expect(controller.currentPrice, 279);
+    expect(controller.showPriceBump, isFalse);
+    expect(controller.offerConfirmation, 'Updated offer: 279 kr');
+    expect(httpClient.rides['r1']?['price'], 279);
+    expect(ride.rideId, 'r1');
+    controller.dismissPriceBump();
+    expect(controller.showPriceBump, isFalse);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test('closing the bump keeps searching at the original price', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    final controller = controllerOf(rt, ride, delayedAfter: Duration.zero);
+    controller.start(
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () {},
+    );
+    controller.dismissPriceBump();
+    expect(controller.currentPrice, 259);
+    expect(controller.showPriceBump, isFalse);
+    expect(controller.matchCount, 0);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test('debug advance reaches delayed copy without matching', () {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    final controller = controllerOf(rt, ride);
+    controller.start(
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () {},
+    );
+    controller.debugAdvance(61);
+    expect(controller.isDelayed, isTrue);
+    expect(controller.copy.headline, "It's busier than usual");
+    expect(controller.matchCount, 0);
     controller.dispose();
     rt.dispose();
   });

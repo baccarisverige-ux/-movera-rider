@@ -11,6 +11,14 @@ void reportSafetySnapshot(String json) {}
 
 void installSafetyQaOpener(void Function() open) {}
 
+void reportSearchSnapshot(String json) {}
+
+void installMatchingQaHooks({
+  required void Function() hold,
+  required void Function() assign,
+  required void Function(int seconds) advance,
+}) {}
+
 String? pendingRideCheckType() => null;
 
 void clearPendingRideCheck() {}

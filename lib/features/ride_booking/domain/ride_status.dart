@@ -9,6 +9,7 @@ enum RideStatus {
   paymentSelected,
   bookingRequested,
   findingDriver,
+  searchDelayed,
   driverAssigned,
   driverArriving,
   driverWaiting,
@@ -36,4 +37,16 @@ extension RideStatusX on RideStatus {
       this == RideStatus.noDriverFound ||
       this == RideStatus.paymentFailed ||
       this == RideStatus.bookingExpired;
+
+  bool get isSearching =>
+      this == RideStatus.bookingRequested ||
+      this == RideStatus.findingDriver ||
+      this == RideStatus.searchDelayed;
+
+  bool get isMatched =>
+      this == RideStatus.driverAssigned ||
+      this == RideStatus.driverArriving ||
+      this == RideStatus.driverWaiting ||
+      this == RideStatus.tripStarted ||
+      this == RideStatus.tripInProgress;
 }

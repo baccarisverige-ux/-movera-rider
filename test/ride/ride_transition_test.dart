@@ -13,6 +13,8 @@ void main() {
     status = transitionRide(status, RideStatus.paymentSelected);
     status = transitionRide(status, RideStatus.bookingRequested);
     status = transitionRide(status, RideStatus.findingDriver);
+    status = transitionRide(status, RideStatus.searchDelayed);
+    status = transitionRide(status, RideStatus.findingDriver);
     status = transitionRide(status, RideStatus.driverAssigned);
     status = transitionRide(status, RideStatus.driverArriving);
     status = transitionRide(status, RideStatus.driverWaiting);

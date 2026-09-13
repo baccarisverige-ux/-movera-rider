@@ -34,6 +34,13 @@ void main() {
     expect(c.showing, RestoredSurface.finding);
   });
 
+  test('cold start delayed search stays on finding', () {
+    final c = RideRestoreCoordinator(reader: () async => snap(RideStatus.searchDelayed));
+    expect(c.pageFor(snap(RideStatus.searchDelayed)), isA<FindingDrivers>());
+    expect(c.showing, RestoredSurface.finding);
+  });
+
+
   test('cold start assigned', () {
     final c = RideRestoreCoordinator(reader: () async => null);
     expect(c.pageFor(snap(RideStatus.driverAssigned)), isA<WaitingForDriver>());

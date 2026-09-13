@@ -173,6 +173,32 @@ jobs:
           await page.mouse.click(195,808);await page.waitForTimeout(4000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
           if(fatalErrors().length)throw new Error('Fatal runtime error after final booking CTA: '+fatalErrors().join(' | '));
 
+          try {
+            await page.waitForFunction(()=>typeof window.moveraHoldMatching==='function',{timeout:20000});
+            const held=await page.evaluate(()=>window.moveraHoldMatching());
+            const advanced=await page.evaluate(()=>window.moveraAdvanceSearch(61));
+            await page.waitForTimeout(900);
+            const searchSnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSearchSnapshotJson||'{}');}catch(e){return {};}});
+            await shot('search-delayed');
+            fs.writeFileSync('qa-search-delayed.json', JSON.stringify({held,advanced,searchSnap,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+            if(searchSnap.delayed!==true) throw new Error('Delayed search snapshot missing: '+JSON.stringify(searchSnap));
+            if(searchSnap.bumpVisible!==true) throw new Error('Price bump was not shown after 60s: '+JSON.stringify(searchSnap));
+            const assigned=await page.evaluate(()=>window.moveraAssignDriver());
+            await page.waitForTimeout(2200);
+            await shot('driver-found');
+            const foundSnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSearchSnapshotJson||'{}');}catch(e){return {};}});
+            fs.writeFileSync('qa-driver-found.json', JSON.stringify({assigned,foundSnap,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+            await page.mouse.click(28,56); await page.waitForTimeout(900);
+            await shot('cancel-confirm');
+            await page.mouse.click(28,52); await page.waitForTimeout(700);
+            await shot('cancel-keep');
+            if(fatalErrors().length) throw new Error('Fatal runtime error in delayed search QA: '+fatalErrors().join(' | '));
+            console.log('PASS: delayed search copy, price bump, driver found card, cancel kept ride');
+          } catch (error) {
+            await shot('search-qa-failed');
+            throw error;
+          }
+
           console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
 
           async function seedRestore(page, snapshot, shotName, expectedSurface){

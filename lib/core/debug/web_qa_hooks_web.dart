@@ -58,6 +58,50 @@ void installSafetyQaOpener(void Function() open) {
   );
 }
 
+void reportSearchSnapshot(String json) {
+  globalContext.setProperty('moveraSearchSnapshotJson'.toJS, json.toJS);
+}
+
+void installMatchingQaHooks({
+  required void Function() hold,
+  required void Function() assign,
+  required void Function(int seconds) advance,
+}) {
+  globalContext.setProperty(
+    'moveraHoldMatching'.toJS,
+    (() {
+      try {
+        hold();
+        return 'ok'.toJS;
+      } catch (_) {
+        return 'error'.toJS;
+      }
+    }).toJS,
+  );
+  globalContext.setProperty(
+    'moveraAssignDriver'.toJS,
+    (() {
+      try {
+        assign();
+        return 'ok'.toJS;
+      } catch (_) {
+        return 'error'.toJS;
+      }
+    }).toJS,
+  );
+  globalContext.setProperty(
+    'moveraAdvanceSearch'.toJS,
+    ((JSNumber seconds) {
+      try {
+        advance(seconds.toDartDouble.round());
+        return 'ok'.toJS;
+      } catch (_) {
+        return 'error'.toJS;
+      }
+    }).toJS,
+  );
+}
+
 String? pendingRideCheckType() {
   try {
     final value = globalContext.getProperty('_moveraPendingRideCheck'.toJS);

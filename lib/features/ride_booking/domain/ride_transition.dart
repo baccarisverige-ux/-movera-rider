@@ -30,6 +30,14 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.cancelledBySystem,
   },
   RideStatus.findingDriver: {
+    RideStatus.searchDelayed,
+    RideStatus.driverAssigned,
+    RideStatus.noDriverFound,
+    RideStatus.cancelledByRider,
+    RideStatus.cancelledBySystem,
+  },
+  RideStatus.searchDelayed: {
+    RideStatus.findingDriver,
     RideStatus.driverAssigned,
     RideStatus.noDriverFound,
     RideStatus.cancelledByRider,
