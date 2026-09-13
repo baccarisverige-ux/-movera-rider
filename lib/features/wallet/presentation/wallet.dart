@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 typedef _VoucherOffer = VoucherOffer;
 
@@ -38,11 +39,10 @@ Future<_VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
 
   final controller = TextEditingController();
   final used = await _usedVoucherCodes();
-  final offer = await showModalBottomSheet<_VoucherOffer>(
+  final offer = await MoveraSheet.show<_VoucherOffer>(
     context: context,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withOpacity(0.28),
-    isScrollControlled: true,
     builder: (sheetContext) {
       return StatefulBuilder(
         builder: (context, setSheetState) {
@@ -217,11 +217,10 @@ class _WalletHomeState extends State<WalletHome> {
 
   Future<void> _openAddFunds() async {
     int amount = 200;
-    final funded = await showModalBottomSheet<bool>(
+    final funded = await MoveraSheet.show<bool>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.28),
-      isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -660,7 +659,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _openAddPaymentMethod() async {
-    final method = await showModalBottomSheet<String>(
+    final method = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.28),
@@ -802,11 +801,10 @@ class _WalletScreenState extends State<WalletScreen> {
     final expiryController = TextEditingController();
     final cvcController = TextEditingController();
 
-    final lastFour = await showModalBottomSheet<String>(
+    final lastFour = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.28),
-      isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {

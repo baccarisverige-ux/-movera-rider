@@ -11,5 +11,5 @@ abstract final class MoveraTokens {
   static const Color muted = Color(0xFF7B8388);
   static const double radiusSheet = 28;
   static const double buttonHeight = 56;
-  static const Duration motion = Duration(milliseconds: 220);
+  static const Duration motion = Duration(milliseconds: 260);
 }

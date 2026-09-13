@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 Future<RideNotes?> showQuickRideNotesSheet(BuildContext context) {
-  return showModalBottomSheet<RideNotes>(
+  SheetCoordinator.instance.open(RideSheet.notes);
+  return MoveraSheet.show<RideNotes>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    barrierColor: Colors.black.withValues(alpha: 0.28),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-    ),
     builder: (_) => const QuickRideNotesSheet(),
-  );
+  ).whenComplete(() => SheetCoordinator.instance.close(RideSheet.notes));
 }
 
 class QuickRideNotesSheet extends StatefulWidget {
@@ -144,28 +142,31 @@ class _Chip extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 84,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? const Color(0xFF2D5878) : const Color(0xFFE7EBEE),
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, size: 22, color: const Color(0xFF1D252C)),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1D252C),
-                ),
+        child: MoveraMotion.selection(
+          selected: selected,
+          child: Container(
+            width: 84,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: selected ? const Color(0xFF2D5878) : const Color(0xFFE7EBEE),
               ),
-            ],
+            ),
+            child: Column(
+              children: [
+                Icon(icon, size: 22, color: const Color(0xFF1D252C)),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF1D252C),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

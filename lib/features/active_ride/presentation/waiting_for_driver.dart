@@ -20,6 +20,7 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/safety_suggestion_banner.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -133,13 +134,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   Future<void> _openDetails() {
-    return showModalBottomSheet<void>(
+    return MoveraSheet.show<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
       builder: (sheetContext) => RideDetailsSheet(
         pickupAddress: widget.pickupAddress,
         destinationAddress: widget.destinationAddress,
