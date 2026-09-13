@@ -18,6 +18,7 @@ import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
@@ -239,6 +240,7 @@ class _HomeState extends State<Home> {
     _puckCompactImage?.dispose();
     _puckExpandedImage?.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.home);
+    setWebOverlayOpen(false);
     _homeSheetController
       ..removeListener(_syncHomeSheetState)
       ..dispose();
@@ -492,6 +494,7 @@ class _HomeState extends State<Home> {
     } finally {
       if (parkedNow && mounted) {
         AppScope.instance.mapLifecycle.resume();
+        _closeDestinationSheet();
         setState(() => _homeMapParked = false);
       }
     }
@@ -1942,6 +1945,8 @@ class _HomeState extends State<Home> {
     if (expanded != _destinationSheetOpen) {
       setState(() => _destinationSheetOpen = expanded);
     }
+    final covering = offset > _sheetMinPixels + 12;
+    setWebOverlayOpen(covering);
   }
 
   Future<void> _animateHomeSheetTo(
@@ -2048,42 +2053,49 @@ class _HomeState extends State<Home> {
               width: double.infinity,
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: _homeMapParked
-                        ? const ColoredBox(color: Color(0xFFEEF1E8))
-                        : CustomGoogleMap(
-                            initialPosition: _initialPosition,
-                            markers: _markers,
-                            circles: _locationCircles,
-                            polygons: _locationDirection,
-                            myLocationEnabled: false,
-                            myLocationButtonEnabled: false,
-                            zoomControlsEnabled: false,
-                            mapToolbarEnabled: false,
-                            compassEnabled: false,
-                            trafficEnabled: false,
-                            buildingsEnabled: true,
-                            indoorViewEnabled: false,
-                            mapType: MapType.normal,
-                            customMapStyle: _premiumMapStyle,
-                            onCameraMove: _handleMapCameraMove,
-                            onMapCreated: (GoogleMapController controller) {
-                              _mapController = controller;
-                              AppScope.instance.maps.attach(
-                                controller,
-                                owner: MapOwners.home,
-                              );
-                              AppScope.instance.mapLifecycle.created();
-                              final target = _currentLatLng;
-                              if (target != null) {
-                                AppScope.instance.maps.animateCamera(
-                                  GeoPoint(target.latitude, target.longitude),
-                                  zoom: 15,
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: _sheetMinPixels,
+                    child: RepaintBoundary(
+                      child: _homeMapParked
+                          ? const ColoredBox(color: Color(0xFFEEF1E8))
+                          : CustomGoogleMap(
+                              key: const ValueKey('home-map'),
+                              initialPosition: _initialPosition,
+                              markers: _markers,
+                              circles: _locationCircles,
+                              polygons: _locationDirection,
+                              myLocationEnabled: false,
+                              myLocationButtonEnabled: false,
+                              zoomControlsEnabled: false,
+                              mapToolbarEnabled: false,
+                              compassEnabled: false,
+                              trafficEnabled: false,
+                              buildingsEnabled: true,
+                              indoorViewEnabled: false,
+                              mapType: MapType.normal,
+                              customMapStyle: _premiumMapStyle,
+                              onCameraMove: _handleMapCameraMove,
+                              onMapCreated: (GoogleMapController controller) {
+                                _mapController = controller;
+                                AppScope.instance.maps.attach(
+                                  controller,
+                                  owner: MapOwners.home,
                                 );
-                              }
-                            },
-                            onTap: (LatLng position) {},
-                          ),
+                                AppScope.instance.mapLifecycle.created();
+                                final target = _currentLatLng;
+                                if (target != null) {
+                                  AppScope.instance.maps.animateCamera(
+                                    GeoPoint(target.latitude, target.longitude),
+                                    zoom: 15,
+                                  );
+                                }
+                              },
+                              onTap: (LatLng position) {},
+                            ),
+                    ),
                   ),
                   if (_showRecenterButton && _currentLatLng != null)
                     Positioned(

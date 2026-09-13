@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -18,10 +19,13 @@ abstract final class RideNavigator {
 
   static void home(BuildContext? context) {
     AppScope.instance.ride.restoreFromBackend(RideStatus.cancelledByRider);
-    RideRestoreCoordinator.instance.goHome();
+    setWebOverlayOpen(false);
+    // Pop first so Home is not disposed under Finding Driver.
     _popToRoot(context);
+    RideRestoreCoordinator.instance.goHome();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _popToRoot(context);
+      setWebOverlayOpen(false);
     });
   }
 
