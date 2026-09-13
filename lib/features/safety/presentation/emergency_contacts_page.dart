@@ -73,7 +73,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
         children: [
-          const Center(child: SafetyMark(SafetyMarks.contacts, size: 72)),
+          const Center(child: SafetyMark(SafetyMarks.contacts, size: 96)),
           const SizedBox(height: 16),
           Text(
             'Add people you trust so they can be reached quickly when you need help.',

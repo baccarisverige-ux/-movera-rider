@@ -34,7 +34,7 @@ class HowMoveraProtectsPage extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          const Center(child: SafetyMark(SafetyMarks.protect, size: 72)),
+          const Center(child: SafetyMark(SafetyMarks.protect, size: 96)),
           const SizedBox(height: 16),
           Text(
             'Learn about our safety features.',

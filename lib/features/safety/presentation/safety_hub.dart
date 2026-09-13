@@ -54,7 +54,7 @@ class _SafetyHubState extends State<SafetyHub> {
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
           const SizedBox(height: 8),
-          const Center(child: SafetyMark(SafetyMarks.shield, size: 96)),
+          const Center(child: SafetyMark(SafetyMarks.shield, size: 120)),
           const SizedBox(height: 18),
           Text(
             'Safety',

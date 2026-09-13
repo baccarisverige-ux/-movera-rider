@@ -100,11 +100,10 @@ class SafetyScaffold extends StatelessWidget {
 }
 
 class SafetyMarkWell extends StatelessWidget {
-  const SafetyMarkWell(this.asset, {super.key, this.size = 52, this.markSize = 34});
+  const SafetyMarkWell(this.asset, {super.key, this.size = 58});
 
   final String asset;
   final double size;
-  final double markSize;
 
   @override
   Widget build(BuildContext context) {
@@ -112,12 +111,13 @@ class SafetyMarkWell extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: SafetyUi.well,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: SafetyUi.line),
       ),
+      clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: SafetyMark(asset, size: markSize),
+      child: SafetyMark(asset, size: size - 8),
     );
   }
 }
@@ -179,7 +179,7 @@ class SafetyRow extends StatelessWidget {
         ),
         if (showDivider)
           const Padding(
-            padding: EdgeInsets.only(left: 80),
+            padding: EdgeInsets.only(left: 86),
             child: Divider(height: 1, color: SafetyUi.line),
           ),
       ],
@@ -216,7 +216,7 @@ class SafetyPinCadre extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const SafetyMark(SafetyMarks.pin, size: 54),
+            const SafetyMark(SafetyMarks.pin, size: 78),
             const SizedBox(height: 14),
             Text(
               'YOUR PIN',

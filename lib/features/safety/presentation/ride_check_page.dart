@@ -38,7 +38,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          const Center(child: SafetyMark(SafetyMarks.rideCheck, size: 72)),
+          const Center(child: SafetyMark(SafetyMarks.rideCheck, size: 96)),
           const SizedBox(height: 16),
           Text(
             'Movera can check on you when a ride appears to stop unexpectedly or move significantly off route.',
