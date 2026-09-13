@@ -12,8 +12,10 @@ import 'package:movera_rider/features/booking/application/booking_controller.dar
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
+import 'package:movera_rider/features/ride_selection/presentation/scheduled_pickup_picker.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -382,26 +384,9 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _chooseLater() async {
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: now.add(const Duration(days: 1)),
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 180)),
-      helpText: 'Choose ride date',
-    );
-    if (date == null || !mounted) return;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
-      helpText: 'Choose pickup time',
-    );
-    if (time == null || !mounted) return;
-    setState(() {
-      _selection.scheduleFor(
-        DateTime(date.year, date.month, date.day, time.hour, time.minute),
-      );
-    });
+    final when = await chooseScheduledPickup(context);
+    if (when == null || !mounted) return;
+    setState(() => _selection.scheduleFor(when));
   }
 
   Future<void> _showBookingPicker() async {
@@ -541,32 +526,22 @@ class _SelectRideState extends State<SelectRide>
     if (_selection.scheduledFor == null) {
       await _chooseLater();
     }
-    final selected = _selectedRide;
-    final when = _selection.scheduledFor;
-    if (when == null) return;
-    final created = await _reservations.create(
-      ReservationDraft(
-        scheduledPickupAt: when,
-        estimatedDropoffAt: when.add(Duration(minutes: selected.etaMin)),
-        pickup: ReservationPlace(
-          label: widget.pickupAddress,
-          lat: widget.pickupPosition.latitude,
-          lng: widget.pickupPosition.longitude,
-        ),
-        destination: ReservationPlace(
-          label: widget.destinationAddress,
-          lat: widget.destinationPosition.latitude,
-          lng: widget.destinationPosition.longitude,
-        ),
-        categoryId: selected.id,
-        categoryName: selected.name,
-        categoryImage: selected.image,
-        passengerCount: selected.seats,
-        price: _priceFor(selected),
-        paymentMethod: _payments[_selection.selectedPayment].name,
-        note: widget.note,
-        parentReservationId: widget.parentReservationId,
+    if (_selection.scheduledFor == null || !mounted) return;
+    final created = await ScheduledRideBooking.confirm(
+      reservations: _reservations,
+      selection: _selection,
+      pickup: ReservationPlace(
+        label: widget.pickupAddress,
+        lat: widget.pickupPosition.latitude,
+        lng: widget.pickupPosition.longitude,
       ),
+      destination: ReservationPlace(
+        label: widget.destinationAddress,
+        lat: widget.destinationPosition.latitude,
+        lng: widget.destinationPosition.longitude,
+      ),
+      note: widget.note,
+      parentReservationId: widget.parentReservationId,
     );
     if (!mounted) return;
     final opener = widget.onScheduled;
@@ -1158,7 +1133,7 @@ class _SelectRideState extends State<SelectRide>
                       height: 54,
                       child: Center(
                         child: Text(
-                          '${_selection.bookingMode.ctaVerb} ${selected.name}',
+                          _selection.bookingMode.ctaLabel(selected.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _text(

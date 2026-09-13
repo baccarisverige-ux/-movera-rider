@@ -105,5 +105,9 @@ void main() {
     expect(page.pickupPosition, const LatLng(59.65, 17.93));
     expect(page.destinationPosition, const LatLng(59.19, 17.62));
     expect(page.initialScheduledFor, DateTime.utc(2026, 9, 23, 9, 55));
+    expect(
+      BookingMode.scheduled.ctaLabel(origin.categoryName),
+      'Schedule Movera',
+    );
   });
 }

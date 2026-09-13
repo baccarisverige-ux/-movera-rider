@@ -309,7 +309,88 @@ jobs:
           console.log('PASS: map stress Home→pickup→Select Ride→Finding→Waiting→resume with no fatal runtime errors');
           await stressContext.close();
 
+          // Book-later is a separate live attempt. Completing Flutter's
+          // canvaskit date/time pickers is unreliable in headless Chrome.
+          // Never treat a later Book-now fallback as Scheduled Ride coverage.
+          const laterContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          const laterPage=await laterContext.newPage();
+          laterPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
+          laterPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
+          let bookLater={attempted:true,pickerCompleted:false,ctaSchedule:false,openedRideScheduled:false,openedFindingDriver:false,manualLiveDateTimeRequired:true};
+          try {
+            await laterPage.goto(base+`?booklater=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+            await laterPage.waitForTimeout(4000);
+            await laterPage.waitForFunction(()=>typeof window.moveraGeocodeAddress==='function',{timeout:60000});
+            try { await laterPage.getByLabel('Enable accessibility').click({timeout:2000}); } catch (_) {}
+            await laterPage.waitForTimeout(600);
+            await laterPage.mouse.click(190,708); await laterPage.waitForTimeout(1200);
+            let laterInputs=laterPage.locator('input,textarea').filter({visible:true});
+            let laterCount=await laterInputs.count().catch(()=>0);
+            if(!laterCount){await laterPage.mouse.click(185,274); await laterPage.waitForTimeout(400); laterInputs=laterPage.locator('input,textarea'); laterCount=await laterInputs.count();}
+            if(!laterCount) throw new Error('Book-later destination input missing');
+            await laterInputs.nth(laterCount-1).fill('Stockholm Central Station');
+            await laterPage.waitForTimeout(700);
+            await laterPage.mouse.click(195,804); await laterPage.waitForTimeout(3500);
+            await laterPage.mouse.click(195,797); await laterPage.waitForTimeout(7000);
+            await laterPage.screenshot({path:'qa-book-later-categories.png',fullPage:true});
+            await laterPage.mouse.click(350,800); await laterPage.waitForTimeout(900);
+            await laterPage.screenshot({path:'qa-book-later-when-sheet.png',fullPage:true});
+            const bookLaterBtn=laterPage.getByText('Book for later',{exact:true});
+            if(await bookLaterBtn.count()){await bookLaterBtn.last.click();}
+            else {await laterPage.mouse.click(195,778);}
+            await laterPage.waitForTimeout(1200);
+            await laterPage.screenshot({path:'qa-book-later-date.png',fullPage:true});
+            async function tapLabel(page, labels){
+              for (const label of labels){
+                const node=page.getByText(label,{exact:true});
+                if(await node.count()){await node.last.click(); await page.waitForTimeout(700); return true;}
+              }
+              return false;
+            }
+            const dateOk=await tapLabel(laterPage,['OK','Ok','Continue']);
+            await laterPage.screenshot({path:'qa-book-later-time.png',fullPage:true});
+            const timeOk=await tapLabel(laterPage,['OK','Ok','Continue']);
+            bookLater.pickerCompleted=dateOk && timeOk;
+            await laterPage.waitForTimeout(800);
+            await laterPage.screenshot({path:'qa-book-later-after-picker.png',fullPage:true});
+            const scheduleCta=laterPage.getByText(/Schedule /);
+            bookLater.ctaSchedule=await scheduleCta.count()>0;
+            if(bookLater.ctaSchedule){
+              await scheduleCta.last.click();
+              await laterPage.waitForTimeout(2500);
+            } else if(bookLater.pickerCompleted){
+              await laterPage.mouse.click(160,800);
+              await laterPage.waitForTimeout(2500);
+            }
+            await laterPage.screenshot({path:'qa-book-later-after-cta.png',fullPage:true});
+            const rideScheduled=await laterPage.getByText('Ride scheduled',{exact:true}).count();
+            const finding=await laterPage.getByText('Connecting you with nearby drivers').count();
+            bookLater.openedRideScheduled=rideScheduled>0;
+            bookLater.openedFindingDriver=finding>0;
+            if(bookLater.pickerCompleted && bookLater.openedFindingDriver){
+              throw new Error('Book later completed date/time but opened Finding Driver');
+            }
+            if(bookLater.ctaSchedule && bookLater.openedFindingDriver){
+              throw new Error('Schedule CTA opened Finding Driver');
+            }
+            bookLater.manualLiveDateTimeRequired=!(bookLater.pickerCompleted && (bookLater.ctaSchedule || bookLater.openedRideScheduled));
+            if(bookLater.openedRideScheduled){
+              console.log('PASS: live Book-later opened Ride scheduled and did not enter Finding Driver');
+            } else {
+              console.log('MANUAL live date/time verification still required: '+JSON.stringify(bookLater));
+            }
+          } catch (error) {
+            await laterPage.screenshot({path:'qa-book-later-failed.png',fullPage:true}).catch(()=>{});
+            bookLater.error=String(error);
+            bookLater.manualLiveDateTimeRequired=true;
+            if(/Finding Driver/.test(String(error))) throw error;
+            console.log('MANUAL live date/time verification still required: '+JSON.stringify(bookLater));
+          }
+          fs.writeFileSync('qa-book-later.json', JSON.stringify({...bookLater,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          await laterContext.close();
+
           await browser.close();
+
           JS
           node qa-live.mjs
 

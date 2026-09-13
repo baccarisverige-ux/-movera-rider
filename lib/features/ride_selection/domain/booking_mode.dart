@@ -11,4 +11,6 @@ extension BookingModeBehavior on BookingMode {
   bool get createsReservation => this == BookingMode.scheduled;
 
   String get ctaVerb => this == BookingMode.scheduled ? 'Schedule' : 'Select';
+
+  String ctaLabel(String categoryName) => '$ctaVerb $categoryName';
 }

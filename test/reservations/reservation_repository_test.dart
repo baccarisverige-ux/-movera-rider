@@ -99,6 +99,38 @@ void main() {
     expect(updated.destination.label, 'Stockholm C');
   });
 
+  test('edit destination keeps the same reservation id', () async {
+    final store = LocalReservationRepository(
+      storage: MemoryReservationStorage(),
+    );
+    final created = await store.createReservation(_draft());
+    final updated = await store.updateReservation(
+      created.reservationId,
+      ReservationPatch(
+        destination: const ReservationPlace(label: 'Arlanda Terminal 5'),
+      ),
+    );
+    expect(updated.reservationId, created.reservationId);
+    expect(updated.destination.label, 'Arlanda Terminal 5');
+    expect(updated.pickup.label, 'Klockarvägen 37');
+    expect(store.cached, hasLength(1));
+  });
+
+  test('edit payment keeps the same reservation id', () async {
+    final store = LocalReservationRepository(
+      storage: MemoryReservationStorage(),
+    );
+    final created = await store.createReservation(_draft());
+    final updated = await store.updateReservation(
+      created.reservationId,
+      const ReservationPatch(paymentMethod: 'Swish'),
+    );
+    expect(updated.reservationId, created.reservationId);
+    expect(updated.paymentMethod, 'Swish');
+    expect(updated.categoryName, 'Movera');
+    expect(store.cached, hasLength(1));
+  });
+
   test('cancel keeps the reservation in history', () async {
     final store = LocalReservationRepository(
       storage: MemoryReservationStorage(),

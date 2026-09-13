@@ -346,13 +346,14 @@ void main() {
     final scheduled = src.substring(scheduledStart, nowStart);
     expect(scheduled.contains('FindingDrivers'), isFalse);
     expect(scheduled.contains('submitFinding'), isFalse);
-    expect(scheduled.contains('_reservations.create'), isTrue);
-    expect(scheduled.contains('BookingMode.scheduled'), isTrue);
-    expect(scheduled.contains('onScheduled'), isTrue);
+    expect(scheduled.contains('ScheduledRideBooking.confirm'), isTrue);
+    expect(scheduled.contains('_reservations.create'), isFalse);
+    expect(src.contains('chooseScheduledPickup'), isTrue);
     final now = src.substring(nowStart);
     expect(now.contains('FindingDrivers'), isTrue);
     expect(now.contains('submitFinding'), isTrue);
     expect(now.contains('showQuickRideNotesSheet'), isTrue);
+    expect(now.contains('ScheduledRideBooking.confirm'), isFalse);
     expect(now.contains('_reservations.create'), isFalse);
     final home = File(
       'lib/features/home/presentation/home.dart',
@@ -386,4 +387,23 @@ void main() {
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
     expect(home.contains('const ScheduleRide()'), isTrue);
   });
+
+  test(
+    'scheduled booking flow test proves CTA, Ride scheduled, and no Finding Driver',
+    () {
+      final src = File(
+        'test/reservations/scheduled_booking_flow_test.dart',
+      ).readAsStringSync();
+      expect(src.contains('Schedule Movera'), isTrue);
+      expect(src.contains('Select Movera'), isTrue);
+      expect(src.contains('Choose ride date'), isTrue);
+      expect(src.contains('Choose pickup time'), isTrue);
+      expect(src.contains('Ride scheduled'), isTrue);
+      expect(src.contains('FindingDriverController.active'), isTrue);
+      expect(src.contains('Connecting you with nearby drivers'), isTrue);
+      expect(src.contains('ScheduledRideBooking.confirm'), isTrue);
+      expect(src.contains('chooseScheduledPickup'), isTrue);
+      expect(src.contains('return ride must not exist before confirm'), isTrue);
+    },
+  );
 }
