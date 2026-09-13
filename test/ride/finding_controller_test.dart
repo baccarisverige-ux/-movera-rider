@@ -84,6 +84,17 @@ void main() {
     rt.dispose();
   });
 
+  test('save after cancel cannot revive the snapshot', () async {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    final pending = RideSnapshotStore.save(
+      snap().copyWith(status: RideStatus.driverAssigned),
+    );
+    await RideSnapshotStore.clear();
+    await pending;
+    expect(await RideSnapshotStore.read(), isNull);
+  });
+
   test('event after dispose has no effect', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';

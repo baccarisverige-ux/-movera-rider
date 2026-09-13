@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -224,6 +226,9 @@ class _FindingDriversState extends State<FindingDrivers>
   void dispose() {
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
+    if (!_leaving && _match.matchCount == 0) {
+      unawaited(_match.cancelSearch());
+    }
     _match.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.finding);

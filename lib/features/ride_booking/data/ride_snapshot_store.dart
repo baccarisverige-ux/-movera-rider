@@ -136,9 +136,18 @@ class RideSnapshotStore {
   static const key = 'movera_active_ride';
   static const webStorageKey = 'flutter.movera_active_ride';
 
+  /// Bumped on every [clear] so an in-flight [save] cannot revive a cancelled ride.
+  static int epoch = 0;
+
   static Future<void> save(RideSnapshot snapshot) async {
+    if (snapshot.status.isTerminal) return;
+    final token = epoch;
     final prefs = await PreferencesStore.load();
+    if (token != epoch) return;
     await prefs.setString(key, jsonEncode(snapshot.toJson()));
+    if (token != epoch) {
+      await prefs.remove(key);
+    }
   }
 
   static Future<RideSnapshot?> read() async {
@@ -159,6 +168,7 @@ class RideSnapshotStore {
   }
 
   static Future<void> clear() async {
+    epoch += 1;
     final prefs = await PreferencesStore.load();
     await prefs.remove(key);
   }

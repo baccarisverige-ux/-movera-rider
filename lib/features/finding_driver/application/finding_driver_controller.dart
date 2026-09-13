@@ -261,8 +261,15 @@ class FindingDriverController {
       unawaited(_store.clear());
       return;
     }
+    unawaited(_persistAssigned(snapshot, matched));
+  }
+
+  Future<void> _persistAssigned(
+    RideSnapshot? snapshot,
+    void Function()? matched,
+  ) async {
     if (snapshot != null) {
-      _store.save(
+      await _store.save(
         snapshot.copyWith(
           status: RideStatus.driverAssigned,
           savedAt: DateTime.now(),
@@ -271,11 +278,12 @@ class FindingDriverController {
         ),
       );
     }
-    _reportQa();
     if (_cancelled || _disposed) {
-      unawaited(_store.clear());
+      ride.restoreFromBackend(RideStatus.cancelledByRider);
+      await _store.clear();
       return;
     }
+    _reportQa();
     matched?.call();
   }
 

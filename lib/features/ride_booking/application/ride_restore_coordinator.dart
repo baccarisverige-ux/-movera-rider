@@ -147,7 +147,10 @@ class RideRestoreCoordinator {
       } catch (_) {}
     }
     if (!atRoot) return null;
-    if (AppScope.instance.ride.suppressRestore) return null;
+    if (AppScope.instance.ride.suppressRestore) {
+      unawaited(RideSnapshotStore.clear());
+      return null;
+    }
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
     final page = pageFor(snapshot);
