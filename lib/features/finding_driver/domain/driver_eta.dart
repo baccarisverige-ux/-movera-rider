@@ -32,7 +32,8 @@ class DriverEta {
     final p2 = lat2 * pi / 180;
     final dLat = (lat2 - lat1) * pi / 180;
     final dLng = (lng2 - lng1) * pi / 180;
-    final a = sin(dLat / 2) * sin(dLat / 2) +
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(p1) * cos(p2) * sin(dLng / 2) * sin(dLng / 2);
     return 2 * radius * atan2(sqrt(a), sqrt(1 - a));
   }
@@ -70,7 +71,6 @@ class DriverEta {
     if (status == RideStatus.driverWaiting) return 'Driver has arrived';
     if (stale) return 'Updating driver location…';
     final distance = distanceMeters;
-    if (distance != null && distance < 50) return 'Driver has arrived';
     if (distance != null && distance < 180) return 'Driver is almost there';
     final eta = seconds;
     if (eta == null) return 'Driver is on the way';
@@ -85,9 +85,12 @@ class DriverEta {
   }) {
     if (stale) return 'Waiting for a fresh location update.';
     if (headline(status: status).contains('arrived')) {
-      return firstName == null ? 'Your driver is at the pickup.' : '$firstName is at the pickup.';
+      return firstName == null
+          ? 'Your driver is at the pickup.'
+          : '$firstName is at the pickup.';
     }
-    if (firstName == null || firstName.isEmpty) return 'Leave now to meet your driver.';
+    if (firstName == null || firstName.isEmpty)
+      return 'Leave now to meet your driver.';
     return 'Leave now to meet $firstName';
   }
 }

@@ -29,5 +29,6 @@ abstract class RideRealtime {
   Stream<RideRealtimeEvent> subscribe(String rideId);
   Future<void> reconnectAndResync(String rideId);
   void unsubscribe();
+  void cancelRide();
   void dispose();
 }

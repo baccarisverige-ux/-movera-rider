@@ -46,6 +46,14 @@ void main() {
     expect(c.pageFor(snap(RideStatus.driverAssigned)), isA<WaitingForDriver>());
   });
 
+  test('cold start arriving and waiting restore to matched', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    expect(c.pageFor(snap(RideStatus.driverArriving)), isA<WaitingForDriver>());
+    expect(c.showing, RestoredSurface.waiting);
+    expect(c.pageFor(snap(RideStatus.driverWaiting)), isA<WaitingForDriver>());
+    expect(c.showing, RestoredSurface.waiting);
+  });
+
   test('trip active uses waiting surface', () {
     final c = RideRestoreCoordinator(reader: () async => null);
     expect(c.pageFor(snap(RideStatus.tripInProgress)), isA<WaitingForDriver>());

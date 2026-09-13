@@ -2,19 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 
 void main() {
-  test('initial copy in the first 20 seconds', () {
+  test('phase-local copy at the required elapsed boundaries', () {
     expect(SearchCopy.forElapsed(0).headline, 'Finding your driver');
     expect(SearchCopy.forElapsed(12).headline, 'Checking for nearby drivers');
-    expect(SearchCopy.isDelayed(20), isFalse);
-  });
-
-  test('waiting copy before one minute', () {
-    final copy = SearchCopy.forElapsed(24);
-    expect(copy.headline, contains('best match'));
+    expect(SearchCopy.forElapsed(19).headline, 'Checking for nearby drivers');
+    expect(SearchCopy.isDelayed(19), isFalse);
+    expect(SearchCopy.forElapsed(20).headline, 'Still looking for the best match');
+    expect(SearchCopy.forElapsed(24).headline, contains('best match'));
     expect(SearchCopy.isDelayed(59), isFalse);
-  });
-
-  test('delayed copy after 60 seconds', () {
+    expect(SearchCopy.forElapsed(59).headline, 'Still looking for the best match');
     expect(SearchCopy.isDelayed(60), isTrue);
     expect(SearchCopy.forElapsed(60).headline, "It's busier than usual");
     expect(SearchCopy.forElapsed(72).headline, contains('little longer'));

@@ -25,10 +25,10 @@ class FindingDriverController {
     RideSession? ride,
     ApiClient? api,
     this.delayedAfter = SearchCopy.delayedAfter,
-  })  : _store = store ?? FindingDriverRepository(),
-        _realtime = realtime ?? AppScope.instance.rideRealtime,
-        _ride = ride,
-        _api = api;
+  }) : _store = store ?? FindingDriverRepository(),
+       _realtime = realtime ?? AppScope.instance.rideRealtime,
+       _ride = ride,
+       _api = api;
 
   static FindingDriverController? active;
 
@@ -60,7 +60,8 @@ class FindingDriverController {
 
   int get matchCount => _assigned ? 1 : 0;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
-  bool get showPriceBump => isDelayed && !_bumpDismissed && !_assigned && !_cancelled;
+  bool get showPriceBump =>
+      isDelayed && !_bumpDismissed && !_assigned && !_cancelled;
   double get currentPrice => _snapshot?.price ?? 0;
   SearchCopy get copy => SearchCopy.forElapsed(elapsedSeconds);
 
@@ -180,10 +181,12 @@ class FindingDriverController {
       ride.restoreFromBackend(RideStatus.searchDelayed);
       final snapshot = _snapshot;
       if (snapshot != null) {
-        _store.save(snapshot.copyWith(
-          status: RideStatus.searchDelayed,
-          savedAt: DateTime.now(),
-        ));
+        _store.save(
+          snapshot.copyWith(
+            status: RideStatus.searchDelayed,
+            savedAt: DateTime.now(),
+          ),
+        );
       }
       AppLog.info(
         'ride.finding.delayed',
@@ -200,7 +203,9 @@ class FindingDriverController {
       if (raw is! List) return;
       nearby = raw
           .whereType<Map>()
-          .map((item) => NearbyVehicle.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => NearbyVehicle.fromJson(Map<String, dynamic>.from(item)),
+          )
           .whereType<NearbyVehicle>()
           .toList();
       if (_disposed) return;
@@ -264,26 +269,41 @@ class FindingDriverController {
   }
 
   void cancelSearch({String? reasonId}) {
+    if (_cancelled || _disposed) return;
     _cancelled = true;
+    _tick?.cancel();
+    _tick = null;
+    _sub?.cancel();
+    _sub = null;
     Analytics.rideCancelled(rideId: ride.rideId);
     if (reasonId != null) {
-      AppLog.info('ride.cancelled', extra: {'reason': reasonId, 'rideId': ride.rideId});
+      AppLog.info(
+        'ride.cancelled',
+        extra: {'reason': reasonId, 'rideId': ride.rideId},
+      );
     }
     ride.restoreFromBackend(RideStatus.cancelledByRider);
     final id = _snapshot?.rideId ?? ride.rideId;
+    unawaited(_store.clear());
+    _realtime.cancelRide();
     if (id != null) {
-      try {
-        api.post(
-          '/api/v1/rides/$id/cancel',
-          body: {if (reasonId != null) 'reason': reasonId},
-          idempotencyKey: newIdempotencyKey('ride-cancel'),
-        );
-      } catch (_) {}
+      unawaited(_cancelViaAdapter(id, reasonId));
     }
-    _store.clear();
-    final realtime = _realtime;
-    if (realtime is MockRideRealtime) realtime.cancelRide();
-    _realtime.unsubscribe();
+  }
+
+  Future<void> _cancelViaAdapter(String id, String? reasonId) async {
+    try {
+      await api.post(
+        '/api/v1/rides/$id/cancel',
+        body: {if (reasonId != null) 'reason': reasonId},
+        idempotencyKey: newIdempotencyKey('ride-cancel'),
+      );
+    } catch (error) {
+      AppLog.warning(
+        'ride.cancel.adapter_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+    }
   }
 
   Future<void> resync() async {
@@ -293,17 +313,17 @@ class FindingDriverController {
   }
 
   Map<String, dynamic> qaSnapshot() => {
-        'elapsed': elapsedSeconds,
-        'delayed': isDelayed,
-        'bumpVisible': showPriceBump,
-        'price': currentPrice,
-        'priceUpdated': _priceUpdated,
-        'headline': copy.headline,
-        'rideId': _snapshot?.rideId ?? ride.rideId,
-        'assigned': _assigned,
-        'offerConfirmation': offerConfirmation,
-        'nearby': nearby.length,
-      };
+    'elapsed': elapsedSeconds,
+    'delayed': isDelayed,
+    'bumpVisible': showPriceBump,
+    'price': currentPrice,
+    'priceUpdated': _priceUpdated,
+    'headline': copy.headline,
+    'rideId': _snapshot?.rideId ?? ride.rideId,
+    'assigned': _assigned,
+    'offerConfirmation': offerConfirmation,
+    'nearby': nearby.length,
+  };
 
   void _reportQa() {
     reportSearchSnapshot(jsonEncode(qaSnapshot()));

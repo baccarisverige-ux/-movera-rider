@@ -37,14 +37,14 @@ class MockRideRealtime implements RideRealtime {
   double _progress = 0;
 
   static const mockDriver = MatchedDriver(
-    id: 'drv_mock_alex',
-    firstName: 'Alex',
-    rating: 4.92,
-    tripCount: 1284,
+    id: 'drv_mock_linnea',
+    firstName: 'Linnea',
+    rating: 4.97,
+    tripCount: 1842,
     vehicleMake: 'Volvo',
-    vehicleModel: 'XC40',
+    vehicleModel: 'XC60',
     vehicleColor: 'Black',
-    plate: 'MVR 421',
+    plate: 'MVR 418',
     photoAsset: 'assets/images/profile_img.png',
     vehicleImageAsset: 'assets/images/comfort_ride.png',
   );
@@ -249,6 +249,7 @@ class MockRideRealtime implements RideRealtime {
     _assign = null;
   }
 
+  @override
   void cancelRide() {
     cancelled = true;
     _gps?.cancel();
