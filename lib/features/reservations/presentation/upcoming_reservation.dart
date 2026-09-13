@@ -92,7 +92,6 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
         ),
       );
     }
-    final assigned = ride.driverAssigned;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -183,9 +182,19 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ),
                   positive: !ride.status.isCancelled,
                 ),
-                if (assigned && ride.driver != null) ...[
+                if (ride.revealsDriver && ride.driver != null) ...[
                   const SizedBox(height: 14),
                   _DriverCard(driver: ride.driver!),
+                ] else if (ride.driverAssigned) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    'Driver details appear when your driver is on the way.',
+                    style: reservationText(
+                      13,
+                      color: kReservationMuted,
+                      height: 1.4,
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 22),
                 ReservationFact(

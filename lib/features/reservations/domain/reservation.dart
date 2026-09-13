@@ -226,6 +226,10 @@ class Reservation {
 
   bool get driverAssigned => status.hasDriver && driver != null;
 
+  bool get isSearchingDriver => status.isSearchingDriver;
+
+  bool get revealsDriver => status.isDriverOnTheWay && driver != null;
+
   bool get hasPreferences => note != null && note!.trim().isNotEmpty;
 
   Reservation copyWith({

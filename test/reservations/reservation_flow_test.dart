@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
 import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
@@ -116,6 +118,43 @@ void main() {
     expect(c.byId('rsv_ui')!.scheduledPickupAt, DateTime(2026, 9, 24, 8, 15));
     expect(c.byId('rsv_ui')!.paymentMethod, 'Cash');
     expect(c.byId('rsv_ui')!.destination.label, 'Arlanda Express');
+  });
+
+  testWidgets('chrono appears after a reservation and opens its details', (
+    tester,
+  ) async {
+    final c = await seeded();
+    await pumpPhone(
+      tester,
+      Scaffold(body: HomeReservationChrono(controller: c)),
+    );
+    expect(find.text('Chrono'), findsOneWidget);
+    await tester.tap(find.text('Chrono'));
+    await tester.pumpAndSettle();
+    expect(find.text('Upcoming ride'), findsOneWidget);
+    expect(find.text('Klockarvägen 37'), findsWidgets);
+  });
+
+  testWidgets('driver details stay hidden until the driver is on the way', (
+    tester,
+  ) async {
+    final c = await seeded();
+    await c.assignMockDriver('rsv_ui');
+    await pumpPhone(
+      tester,
+      UpcomingReservationPage(reservationId: 'rsv_ui', controller: c),
+    );
+    expect(find.text('Linnea'), findsNothing);
+    expect(
+      find.text('Driver details appear when your driver is on the way.'),
+      findsOneWidget,
+    );
+    await c.update(
+      'rsv_ui',
+      const ReservationPatch(status: ReservationStatus.driverEnRoute),
+    );
+    await tester.pump();
+    expect(find.text('Linnea'), findsOneWidget);
   });
 
   testWidgets('assigned driver updates the same history card', (tester) async {

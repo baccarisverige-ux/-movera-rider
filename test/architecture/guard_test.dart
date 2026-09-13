@@ -388,6 +388,7 @@ void main() {
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
     expect(home.contains('const ScheduleRide()'), isTrue);
     expect(home.contains('_handleDestinationTap'), isTrue);
+    expect(home.contains('HomeReservationChrono'), isTrue);
     expect(home.contains('_PickupMapPickerPage'), isFalse);
     expect(home.contains('ConfirmPickupSpot.open'), isTrue);
   });

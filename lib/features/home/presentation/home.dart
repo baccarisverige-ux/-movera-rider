@@ -28,6 +28,7 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
@@ -2118,6 +2119,11 @@ class _HomeState extends State<Home> {
                         ),
                       ),
                     ),
+                  Positioned(
+                    left: screenHorizPadding,
+                    top: ResSize.h * 60,
+                    child: const HomeReservationChrono(),
+                  ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
