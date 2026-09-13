@@ -28,6 +28,7 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
@@ -119,7 +120,8 @@ class _HomeState extends State<Home> {
   Set<Marker> get _markers => _locationCtl.markers;
   set _markers(Set<Marker> value) => _locationCtl.markers = value;
   Set<Circle> get _locationCircles => _locationCtl.locationCircles;
-  set _locationCircles(Set<Circle> value) => _locationCtl.locationCircles = value;
+  set _locationCircles(Set<Circle> value) =>
+      _locationCtl.locationCircles = value;
   Set<Polygon> get _locationDirection => _locationCtl.locationDirection;
   set _locationDirection(Set<Polygon> value) =>
       _locationCtl.locationDirection = value;
@@ -461,6 +463,12 @@ class _HomeState extends State<Home> {
             pickupPosition: confirmedPickupPosition,
             destinationPosition: confirmedDestinationPosition,
             stops: List<String>.from(_routeStops),
+            bookingMode: BookingMode.now,
+            onScheduled: (context, id) => RideScheduledPage.open(
+              context,
+              reservationId: id,
+              replace: true,
+            ),
           ),
         ),
       );
@@ -640,7 +648,9 @@ class _HomeState extends State<Home> {
                                 confirmedDestinationLatLng = null;
                               }
                             });
-                            AppScope.instance.destinationSearch.type(value, (text) {
+                            AppScope.instance.destinationSearch.type(value, (
+                              text,
+                            ) {
                               if (!mounted) return;
                               setModalState(() => query = text);
                             });
@@ -1277,6 +1287,12 @@ class _HomeState extends State<Home> {
               pickupPosition: pickupPosition,
               destinationPosition: destinationPosition,
               stops: List<String>.from(stops),
+              bookingMode: BookingMode.now,
+              onScheduled: (context, id) => RideScheduledPage.open(
+                context,
+                reservationId: id,
+                replace: true,
+              ),
             ),
           ),
         );
@@ -1367,7 +1383,9 @@ class _HomeState extends State<Home> {
                         autofocus: true,
                         textInputAction: TextInputAction.search,
                         onChanged: (value) {
-                          AppScope.instance.destinationSearch.type(value, (text) {
+                          AppScope.instance.destinationSearch.type(value, (
+                            text,
+                          ) {
                             if (!mounted) return;
                             setModalState(() => query = text);
                           });
@@ -1775,11 +1793,7 @@ class _HomeState extends State<Home> {
       return;
     }
     setState(() {
-      _locationCtl.paintUserPuck(
-        target: target,
-        icon: icon,
-        heading: heading,
-      );
+      _locationCtl.paintUserPuck(target: target, icon: icon, heading: heading);
     });
   }
 
@@ -1794,7 +1808,8 @@ class _HomeState extends State<Home> {
     setState(() {
       _locationCtl.paintUserPuck(
         target: target,
-        icon: rotated ??
+        icon:
+            rotated ??
             (expanded ? _locationPuckExpanded : _locationPuckCompact)!,
         heading: rotated == null ? heading : 0,
       );
@@ -3592,7 +3607,10 @@ class _PickupMapPickerPageState extends State<_PickupMapPickerPage> {
     if (_pickup.resolving) return;
     setState(() => _resolving = true);
     final resolved = await _pickup.reverse(_position);
-    LocationPickerController().remember(_position.latitude, _position.longitude);
+    LocationPickerController().remember(
+      _position.latitude,
+      _position.longitude,
+    );
     if (!mounted) return;
     setState(() {
       if (resolved != null && resolved.trim().isNotEmpty) {

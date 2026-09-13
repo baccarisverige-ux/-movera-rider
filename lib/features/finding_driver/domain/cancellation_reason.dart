@@ -1,4 +1,4 @@
-enum CancelPhase { searching, matched }
+enum CancelPhase { searching, matched, reservation }
 
 class CancellationReason {
   const CancellationReason({required this.id, required this.label});
@@ -59,6 +59,14 @@ class CancellationReason {
           plansChanged,
           somethingElse,
         ];
+      case CancelPhase.reservation:
+        return const [
+          plansChanged,
+          requestedByMistake,
+          pickupIncorrect,
+          destinationChange,
+          somethingElse,
+        ];
     }
   }
 }
@@ -68,7 +76,7 @@ class CancelOutcome {
 
   const CancelOutcome.keep() : this._(cancelled: false);
   const CancelOutcome.cancel({String? reasonId})
-      : this._(cancelled: true, reasonId: reasonId);
+    : this._(cancelled: true, reasonId: reasonId);
 
   final bool cancelled;
   final String? reasonId;

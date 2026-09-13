@@ -69,7 +69,9 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Optional. This helps us improve matching.',
+              widget.phase == CancelPhase.reservation
+                  ? 'Optional. This helps us improve scheduled rides.'
+                  : 'Optional. This helps us improve matching.',
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 color: const Color(0xFF778189),

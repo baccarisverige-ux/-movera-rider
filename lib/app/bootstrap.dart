@@ -42,6 +42,7 @@ Future<void> bootstrap() async {
   };
 
   AppScope.instance.lifecycle.attach();
+  await AppScope.instance.reservations.hydrate();
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
   runZonedGuarded(

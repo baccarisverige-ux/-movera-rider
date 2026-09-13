@@ -3,6 +3,7 @@ import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
+import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 
 class RideSelectionController {
@@ -11,10 +12,12 @@ class RideSelectionController {
     QuoteRepository? quotes,
     FareController? fare,
     FeatureFlags? flags,
-  })  : _store = store ?? RideSelectionRepository(),
-        _quotes = quotes ?? AppScope.instance.quotes,
-        _fare = fare ?? FareController(),
-        _flags = flags ?? AppScope.instance.flags;
+    this.bookingMode = BookingMode.now,
+    this.lockBookingMode = false,
+  }) : _store = store ?? RideSelectionRepository(),
+       _quotes = quotes ?? AppScope.instance.quotes,
+       _fare = fare ?? FareController(),
+       _flags = flags ?? AppScope.instance.flags;
 
   final RideSelectionRepository _store;
   final QuoteRepository _quotes;
@@ -29,10 +32,24 @@ class RideSelectionController {
   String selectedRideId = 'movera';
   int selectedPayment = 1;
   DateTime? scheduledFor;
+  BookingMode bookingMode;
+  bool lockBookingMode;
 
-  bool get isScheduled => scheduledFor != null;
+  bool get isScheduled =>
+      bookingMode == BookingMode.scheduled && scheduledFor != null;
+
+  bool get entersFindingDriver => bookingMode.entersFindingDriver;
+
+  bool get createsReservation => bookingMode.createsReservation;
 
   List<RideCatalogItem> rides() => _store.rides();
+
+  RideCatalogItem rideById(String id) {
+    return rides().firstWhere(
+      (ride) => ride.id == id,
+      orElse: () => rides().first,
+    );
+  }
 
   List<RidePaymentItem> payments() {
     return _store.payments().where((item) {
@@ -81,8 +98,21 @@ class RideSelectionController {
     selectedPayment = index;
   }
 
+  void setBookingMode(BookingMode mode) {
+    if (lockBookingMode && mode != BookingMode.scheduled) return;
+    bookingMode = mode;
+    if (mode == BookingMode.now) {
+      scheduledFor = null;
+    }
+  }
+
   void scheduleFor(DateTime? at) {
     scheduledFor = at;
+    if (at == null) {
+      if (!lockBookingMode) bookingMode = BookingMode.now;
+      return;
+    }
+    bookingMode = BookingMode.scheduled;
   }
 
   String? quoteIdFor(String id) => quoteIds[id];
