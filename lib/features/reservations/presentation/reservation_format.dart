@@ -53,6 +53,44 @@ abstract final class ReservationFormat {
 
   static String kr(double amount) => 'kr ${amount.toStringAsFixed(0)}';
 
+  static String remainingCompact(DateTime when, {DateTime? now}) {
+    final left = when.difference(now ?? DateTime.now());
+    if (left.inSeconds < 60) return 'Now';
+    final days = left.inDays;
+    final hours = left.inHours % 24;
+    final minutes = left.inMinutes % 60;
+    if (days > 0) {
+      return hours > 0 ? '${days}d ${hours}h' : '${days}d';
+    }
+    if (hours > 0) {
+      return minutes > 0 ? '${hours}h ${minutes}m' : '${hours}h';
+    }
+    return '${minutes}m';
+  }
+
+  static ({String primary, String? secondary}) remainingParts(
+    DateTime when, {
+    DateTime? now,
+  }) {
+    final left = when.difference(now ?? DateTime.now());
+    if (left.inSeconds < 60) {
+      return (primary: 'Now', secondary: null);
+    }
+    final days = left.inDays;
+    final hours = left.inHours % 24;
+    final minutes = left.inMinutes % 60;
+    if (days > 0) {
+      return (primary: '${days}d', secondary: hours > 0 ? '${hours}h' : null);
+    }
+    if (hours > 0) {
+      return (
+        primary: '${hours}h',
+        secondary: minutes > 0 ? '${minutes}m' : null,
+      );
+    }
+    return (primary: '${minutes}m', secondary: null);
+  }
+
   static String shortPlace(String raw) {
     final clean = raw.trim();
     if (clean.isEmpty) return clean;

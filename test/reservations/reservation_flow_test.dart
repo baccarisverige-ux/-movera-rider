@@ -6,6 +6,7 @@ import 'package:movera_rider/features/reservations/data/local_reservation_reposi
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
 import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
@@ -120,16 +121,38 @@ void main() {
     expect(c.byId('rsv_ui')!.destination.label, 'Arlanda Express');
   });
 
+  test('remaining time is compact like 1d 2h', () {
+    expect(
+      ReservationFormat.remainingCompact(
+        DateTime(2026, 9, 15, 10),
+        now: DateTime(2026, 9, 13, 8),
+      ),
+      '2d 2h',
+    );
+    expect(
+      ReservationFormat.remainingParts(
+        DateTime(2026, 9, 15, 10),
+        now: DateTime(2026, 9, 13, 8),
+      ),
+      (primary: '2d', secondary: '2h'),
+    );
+  });
+
   testWidgets('chrono appears after a reservation and opens its details', (
     tester,
   ) async {
     final c = await seeded();
+    final now = DateTime(2026, 9, 13, 21);
     await pumpPhone(
       tester,
-      Scaffold(body: HomeReservationChrono(controller: c)),
+      Scaffold(
+        body: HomeReservationChrono(controller: c, now: () => now),
+      ),
     );
-    expect(find.text('Chrono'), findsOneWidget);
-    await tester.tap(find.text('Chrono'));
+    expect(find.text('Chrono'), findsNothing);
+    expect(find.text('9d'), findsOneWidget);
+    expect(find.text('9h'), findsOneWidget);
+    await tester.tap(find.byType(HomeReservationChrono));
     await tester.pumpAndSettle();
     expect(find.text('Upcoming ride'), findsOneWidget);
     expect(find.text('Klockarvägen 37'), findsWidgets);
