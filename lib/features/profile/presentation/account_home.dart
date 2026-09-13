@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
-import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
@@ -51,66 +49,65 @@ class _AccountHomePageState extends State<AccountHomePage> {
     final ride = _profile.profile;
     return AccountScaffold(
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 36),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHeadline(
-            'Account',
-            body: 'Your Movera profile and sign-in.',
-          ),
-          const SizedBox(height: 22),
-          Center(
-            child: Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                CircleAvatar(
-                  radius: 46,
-                  backgroundColor: AppColor.liteBlue,
-                  backgroundImage: AssetImage(ride.photoAsset),
-                ),
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: AppColor.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: Center(
-                    child: Image.asset(AppAssets.camera, height: 14),
-                  ),
-                ),
-              ],
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 18),
+            child: AccountHeadline(
+              'Account',
+              body: 'Your Movera profile and sign-in.',
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            ride.name,
-            textAlign: TextAlign.center,
-            style: accountText(22, weight: FontWeight.w700),
+          AccountGroup(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppColor.liteBlue,
+                      backgroundImage: AssetImage(ride.photoAsset),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ride.name,
+                            style: accountText(18, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            ride.email,
+                            style: accountText(13, color: kAccountMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            ride.email,
-            textAlign: TextAlign.center,
-            style: accountText(13.5, color: kAccountMuted),
-          ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 14),
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.person),
+                mark: const AccountIcon(Icons.person_outline_rounded),
                 title: 'Personal info',
                 body: 'Name, phone, email, language',
                 onTap: () => _open(PersonalInfoPage(controller: _profile)),
               ),
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.shield),
+                mark: const AccountIcon(Icons.verified_user_outlined),
                 title: 'Security',
                 body: 'Passkeys, 2-step, devices',
                 onTap: () => _open(SecurityPage(controller: _profile)),
               ),
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.lock),
+                mark: const AccountIcon(Icons.lock_outline_rounded),
                 title: 'Privacy',
                 body: 'How Movera uses your data',
                 showDivider: false,
@@ -119,74 +116,42 @@ class _AccountHomePageState extends State<AccountHomePage> {
             ],
           ),
           if (!ride.checkupComplete) ...[
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Material(
-                color: AppColor.liteBlue,
-                borderRadius: BorderRadius.circular(22),
-                child: InkWell(
+            const SizedBox(height: 14),
+            AccountGroup(
+              children: [
+                AccountTile(
+                  mark: const AccountIcon(Icons.task_alt_rounded),
+                  title: 'Finish your account',
+                  body: 'Add recovery and 2-step so this account stays yours.',
+                  showDivider: false,
                   onTap: () => _open(AccountCheckupPage(controller: _profile)),
-                  borderRadius: BorderRadius.circular(22),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                    child: Row(
-                      children: [
-                        Image.asset(AppAssets.verify, height: 56),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Finish your account',
-                                style: accountText(
-                                  15.5,
-                                  weight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Add recovery and 2-step so this account stays yours.',
-                                style: accountText(
-                                  13,
-                                  color: kAccountMuted,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-              ),
+              ],
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.shield),
+                mark: const AccountIcon(Icons.verified_outlined),
                 title: 'Safety',
                 body: 'Share a trip and reach help fast',
                 onTap: () => _open(const SafetyHub()),
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.headset),
+                mark: const AccountIcon(Icons.headset_mic_outlined),
                 title: 'Support',
                 body: 'Help with a ride or reservation',
                 onTap: () => _open(const SupportHome()),
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.document),
+                mark: const AccountIcon(Icons.description_outlined),
                 title: 'Terms',
                 body: 'How Movera rides work',
                 onTap: () => _open(const AccountLegalPage(kind: 'terms')),
               ),
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.lock),
+                mark: const AccountIcon(Icons.privacy_tip_outlined),
                 title: 'Privacy notice',
                 body: 'What we keep and why',
                 showDivider: false,
@@ -194,7 +159,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
           Center(
             child: TextButton(
               onPressed: () async {

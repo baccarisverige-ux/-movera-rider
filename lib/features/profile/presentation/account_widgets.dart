@@ -3,12 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-const Color kAccountInk = Color(0xFF172127);
-const Color kAccountMuted = Color(0xFF7B858B);
-const Color kAccountLine = Color(0xFFE4E7E8);
-const Color kAccountSoft = Color(0xFFF5F6F6);
+const Color kAccountInk = Color(0xFF1C2329);
+const Color kAccountMuted = Color(0xFF7A858E);
+const Color kAccountLine = Color(0xFFE8EBED);
+const Color kAccountSoft = Color(0xFFF3F5F6);
 const Color kAccountCta = Color(0xFF11181D);
-const Color kAccountAccent = Color(0xFF356879);
+const Color kAccountAccent = Color(0xFF2D5878);
+const Color kAccountIcon = Color(0xFF3A4550);
 
 TextStyle accountText(
   double size, {
@@ -35,7 +36,7 @@ class AccountScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: kAccountSoft,
       body: SafeArea(
         child: Column(
           children: [
@@ -69,6 +70,17 @@ class AccountScaffold extends StatelessWidget {
   }
 }
 
+class AccountIcon extends StatelessWidget {
+  const AccountIcon(this.icon, {super.key});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(icon, size: 22, color: kAccountIcon);
+  }
+}
+
 class AccountHeadline extends StatelessWidget {
   const AccountHeadline(this.title, {super.key, this.body});
 
@@ -78,7 +90,7 @@ class AccountHeadline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -115,7 +127,13 @@ class AccountGroup extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: kAccountLine),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x09000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
@@ -154,7 +172,9 @@ class AccountTile extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
               child: Row(
                 children: [
-                  if (mark != null) ...[mark!, const SizedBox(width: 14)],
+                  if (mark != null)
+                    SizedBox(width: 26, height: 26, child: mark),
+                  if (mark != null) const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,8 +182,8 @@ class AccountTile extends StatelessWidget {
                         Text(
                           title,
                           style: accountText(
-                            15.5,
-                            weight: FontWeight.w600,
+                            16,
+                            weight: FontWeight.w500,
                             color: danger
                                 ? const Color(0xFFB42318)
                                 : kAccountInk,
@@ -196,7 +216,7 @@ class AccountTile extends StatelessWidget {
           ),
         ),
         if (showDivider)
-          const Divider(height: 1, indent: 78, color: kAccountLine),
+          const Divider(height: 1, indent: 60, color: kAccountLine),
       ],
     );
   }

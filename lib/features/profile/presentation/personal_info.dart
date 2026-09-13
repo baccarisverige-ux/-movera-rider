@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
-import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 
 class PersonalInfoPage extends StatefulWidget {
@@ -39,7 +38,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     final ride = _profile.profile;
     return AccountScaffold(
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 36),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
           const AccountHeadline(
             'Personal info',
@@ -57,7 +56,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.person),
+                mark: const AccountIcon(Icons.badge_outlined),
                 title: 'Name',
                 body: ride.name,
                 onTap: () async {
@@ -72,7 +71,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.person),
+                mark: const AccountIcon(Icons.wc_outlined),
                 title: 'Gender',
                 body: ride.gender,
                 onTap: () async {
@@ -93,7 +92,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.phone),
+                mark: const AccountIcon(Icons.phone_outlined),
                 title: 'Phone',
                 body: '${ride.phone}  ·  Verified',
                 onTap: () async {
@@ -109,7 +108,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.mail),
+                mark: const AccountIcon(Icons.mail_outline_rounded),
                 title: 'Email',
                 body: '${ride.email}  ·  Verified',
                 onTap: () async {
@@ -125,7 +124,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.globe),
+                mark: const AccountIcon(Icons.language_rounded),
                 title: 'Language',
                 body: ride.language,
                 showDivider: false,

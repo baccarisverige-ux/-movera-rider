@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
-import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
@@ -41,9 +40,8 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
     final ride = _profile.profile;
     return AccountScaffold(
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 36),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHero(asset: AccountMarks.check, height: 108),
           const AccountHeadline(
             'Account check',
             body: 'A few steps keep this Movera account easy to recover.',
@@ -52,7 +50,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountLineWell(AccountLine.phone),
+                mark: const AccountIcon(Icons.phone_outlined),
                 title: 'Phone number',
                 body: ride.phoneVerified ? ride.phone : 'Add a phone number',
                 trailing: Icon(
@@ -71,7 +69,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.shield),
+                mark: const AccountIcon(Icons.security_outlined),
                 title: '2-step verification',
                 body: ride.twoStepEnabled
                     ? 'On'
@@ -90,7 +88,7 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.phone),
+                mark: const AccountIcon(Icons.phone_iphone_outlined),
                 title: 'Recovery phone',
                 body: ride.recoveryPhone ?? 'Add a backup number',
                 showDivider: false,

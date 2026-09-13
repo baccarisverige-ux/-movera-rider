@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
-import 'package:movera_rider/features/profile/presentation/account_marks.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -39,9 +38,8 @@ class _PrivacyPageState extends State<PrivacyPage> {
     final ride = _profile.profile;
     return AccountScaffold(
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 36),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
         children: [
-          const AccountHero(asset: AccountMarks.lock, height: 96),
           const AccountHeadline(
             'Privacy',
             body: 'What Movera keeps, and how we reach you.',
@@ -50,7 +48,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountLineWell(AccountLine.document),
+                mark: const AccountIcon(Icons.description_outlined),
                 title: 'Privacy notice',
                 body: 'What we store and how you control it',
                 showDivider: false,
@@ -80,7 +78,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountLineWell(AccountLine.bell),
+                mark: const AccountIcon(Icons.notifications_none_rounded),
                 title: 'Ride updates',
                 body: 'Pickup, driver, and reservation alerts',
                 trailing: Switch.adaptive(
@@ -91,7 +89,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 ),
               ),
               AccountTile(
-                mark: const AccountLineWell(AccountLine.mail),
+                mark: const AccountIcon(Icons.mail_outline_rounded),
                 title: 'Email',
                 body: 'Receipts and account notes',
                 trailing: Switch.adaptive(
@@ -102,7 +100,7 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 ),
               ),
               AccountTile(
-                mark: const AccountMarkWell(AccountMarks.tips),
+                mark: const AccountIcon(Icons.local_offer_outlined),
                 title: 'Offers',
                 body: 'Occasional Movera news. Off by default',
                 showDivider: false,
