@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 const Color kReservationInk = Color(0xFF172127);
 const Color kReservationMuted = Color(0xFF7B858B);
@@ -429,6 +430,80 @@ class ReservationEditButton extends StatelessWidget {
             14.5,
             weight: FontWeight.w600,
             color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ReservationFillButton extends StatelessWidget {
+  const ReservationFillButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PointerInterceptor(
+      child: SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: Material(
+          color: kReservationCta,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Center(
+              child: Text(
+                label,
+                style: reservationText(
+                  15,
+                  weight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ReservationGhostButton extends StatelessWidget {
+  const ReservationGhostButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return PointerInterceptor(
+      child: SizedBox(
+        width: double.infinity,
+        height: 54,
+        child: Material(
+          color: kReservationSoft,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Center(
+              child: Text(
+                label,
+                style: reservationText(15, weight: FontWeight.w600),
+              ),
+            ),
           ),
         ),
       ),

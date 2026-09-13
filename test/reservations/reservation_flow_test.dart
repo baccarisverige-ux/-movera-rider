@@ -63,13 +63,11 @@ void main() {
       RideScheduledPage(reservationId: 'rsv_ui', controller: c),
     );
     expect(find.text('Your ride is scheduled'), findsOneWidget);
-    expect(find.textContaining('ready for'), findsOneWidget);
     expect(find.textContaining('notify you'), findsOneWidget);
+    expect(find.text('Finding your driver later'), findsOneWidget);
+    expect(find.text('View reservation'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Plan a return ride'), 400);
     expect(find.text('Plan a return ride'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('View reservation'), 400);
-    expect(find.text('View reservation'), findsOneWidget);
-    expect(find.text('Finding your driver later'), findsOneWidget);
     expect(find.text('Bags · Pet'), findsOneWidget);
     expect(find.text('Your reservation is confirmed'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);

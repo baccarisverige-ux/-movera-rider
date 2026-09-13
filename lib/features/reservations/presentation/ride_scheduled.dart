@@ -122,117 +122,133 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
       body: Column(
         children: [
           SizedBox(height: top + 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              onPressed: _closeHome,
-              icon: const Icon(Icons.close_rounded, color: kReservationInk),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: _closeHome,
+                icon: const Icon(Icons.close_rounded, color: kReservationInk),
+              ),
             ),
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               children: [
-                const ReservationHeroArt(asset: AppAssets.sucess, height: 78),
-                const SizedBox(height: 8),
+                const ReservationHeroArt(asset: AppAssets.sucess, height: 86),
+                const SizedBox(height: 10),
                 Text(
                   'Your ride is scheduled',
                   textAlign: TextAlign.center,
                   style: reservationText(
-                    28,
+                    26,
                     weight: FontWeight.w700,
                     height: 1.15,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  ReservationFormat.scheduledReady(ride.scheduledPickupAt),
+                  ReservationFormat.notifyWhenAssigned,
                   textAlign: TextAlign.center,
                   style: reservationText(
-                    14.5,
+                    14,
                     color: kReservationMuted,
                     height: 1.45,
                   ),
                 ),
-                if (!ride.status.hasDriver && !ride.status.isCancelled) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    ReservationFormat.notifyWhenAssigned,
-                    textAlign: TextAlign.center,
-                    style: reservationText(
-                      13.5,
-                      color: kReservationMuted,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Center(child: ReservationDriverBadge(ride: ride)),
                 const SizedBox(height: 22),
-                ReservationHeroArt(asset: ride.categoryImage, height: 80),
-                const SizedBox(height: 6),
-                Text(
-                  ride.categoryName,
-                  textAlign: TextAlign.center,
-                  style: reservationText(20, weight: FontWeight.w700),
-                ),
-                Text(
-                  ReservationFormat.price(ride),
-                  textAlign: TextAlign.center,
-                  style: reservationText(16, weight: FontWeight.w600),
-                ),
-                const SizedBox(height: 18),
-                ReservationFact(
-                  asset: AppAssets.scheduleCalendar,
-                  label: 'Pickup',
-                  value:
-                      '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
-                ),
-                ReservationFact(
-                  asset: AppAssets.gps,
-                  label: 'From',
-                  value: ride.pickup.label,
-                ),
-                ReservationFact(
-                  asset: AppAssets.location,
-                  label: 'To',
-                  value: ride.destination.label,
-                ),
-                ReservationFact(
-                  asset: AppAssets.payment,
-                  label: 'Payment',
-                  value: ride.paymentMethod,
-                  trailing: ReservationPaymentMark(method: ride.paymentMethod),
-                ),
-                if (ride.hasPreferences)
-                  ReservationFact(
-                    asset: AppAssets.note,
-                    label: 'Preferences',
-                    value: ride.note!.trim(),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: kReservationLine),
                   ),
-                const SizedBox(height: 18),
+                  child: Column(
+                    children: [
+                      ReservationHeroArt(asset: ride.categoryImage, height: 72),
+                      const SizedBox(height: 4),
+                      Text(
+                        ride.categoryName,
+                        style: reservationText(18, weight: FontWeight.w700),
+                      ),
+                      Text(
+                        ReservationFormat.price(ride),
+                        style: reservationText(
+                          15,
+                          weight: FontWeight.w600,
+                          color: kReservationMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ReservationFact(
+                        asset: AppAssets.scheduleCalendar,
+                        label: 'Pickup',
+                        value:
+                            '${ReservationFormat.longDate(ride.scheduledPickupAt)}  ·  ${ReservationFormat.time(ride.scheduledPickupAt)}',
+                      ),
+                      ReservationFact(
+                        asset: AppAssets.gps,
+                        label: 'From',
+                        value: ReservationFormat.shortPlace(ride.pickup.label),
+                      ),
+                      ReservationFact(
+                        asset: AppAssets.location,
+                        label: 'To',
+                        value: ReservationFormat.shortPlace(
+                          ride.destination.label,
+                        ),
+                      ),
+                      ReservationFact(
+                        asset: AppAssets.payment,
+                        label: 'Payment',
+                        value: ride.paymentMethod,
+                        trailing: ReservationPaymentMark(
+                          method: ride.paymentMethod,
+                        ),
+                      ),
+                      if (ride.hasPreferences)
+                        ReservationFact(
+                          asset: AppAssets.note,
+                          label: 'Preferences',
+                          value: ride.note!.trim(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
                 _ReturnRow(onTap: () => _planReturn(ride)),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => _openDetails(ride),
-                  child: Text(
-                    'View reservation',
-                    style: reservationText(
-                      15,
-                      weight: FontWeight.w600,
-                      color: kReservationAccent,
-                    ),
-                  ),
-                ),
-                if (ride.status.canEdit)
-                  TextButton(
-                    onPressed: () => _editReservation(ride),
-                    child: Text(
-                      'Edit',
-                      style: reservationText(15, weight: FontWeight.w600),
-                    ),
-                  ),
               ],
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 18),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: kReservationLine)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  ReservationFillButton(
+                    label: 'View reservation',
+                    onTap: () => _openDetails(ride),
+                  ),
+                  if (ride.status.canEdit) ...[
+                    const SizedBox(height: 10),
+                    ReservationGhostButton(
+                      label: 'Edit',
+                      onTap: () => _editReservation(ride),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
@@ -249,19 +265,22 @@ class _ReturnRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: kReservationSoft,
-      borderRadius: BorderRadius.circular(22),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: const BorderSide(color: kReservationLine),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Row(
             children: [
               Image.asset(
                 AppAssets.calender,
-                width: 46,
-                height: 46,
+                width: 52,
+                height: 52,
                 fit: BoxFit.contain,
               ),
               const SizedBox(width: 12),
@@ -271,7 +290,7 @@ class _ReturnRow extends StatelessWidget {
                   children: [
                     Text(
                       'Plan a return ride',
-                      style: reservationText(15, weight: FontWeight.w600),
+                      style: reservationText(15, weight: FontWeight.w700),
                     ),
                     Text(
                       'Choose category, then confirm a new reservation',

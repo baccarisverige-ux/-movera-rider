@@ -53,6 +53,18 @@ abstract final class ReservationFormat {
 
   static String kr(double amount) => 'kr ${amount.toStringAsFixed(0)}';
 
+  static String shortPlace(String raw) {
+    final clean = raw.trim();
+    if (clean.isEmpty) return clean;
+    final parts = clean
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.length <= 2) return clean;
+    return '${parts[0]}, ${parts[1]}';
+  }
+
   static String cardDate(DateTime when) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
