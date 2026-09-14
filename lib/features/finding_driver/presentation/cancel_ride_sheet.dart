@@ -1,15 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// Confirm cancel, then optionally collect a why-reason.
 ///
-/// When [onCancelConfirmed] is provided it runs immediately after the user taps
-/// **Cancel request**, before the why-sheet. Matching and the ride snapshot must
-/// already be gone by then. **Keep ride** on the why-sheet must not undo cancel.
+/// **Cancel-first:** after **Cancel request**, matching + snapshot are cleared
+/// before the why-sheet (via [onCancelConfirmed] or the default path).
+/// **Keep ride** on the why-sheet must not undo cancel.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
   required bool takingLonger,
@@ -32,6 +40,8 @@ Future<CancelOutcome> showCancelRideSheet(
   // Cancel-first: commit cancel before the optional why-sheet.
   if (onCancelConfirmed != null) {
     await onCancelConfirmed();
+  } else {
+    await _defaultCancelFirst();
   }
   if (!context.mounted) return const CancelOutcome.cancel();
   final outcome = await showCancelReasonSheet(context, phase: phase);
@@ -40,6 +50,37 @@ Future<CancelOutcome> showCancelRideSheet(
     return const CancelOutcome.cancel();
   }
   return outcome;
+}
+
+Future<void> _defaultCancelFirst() async {
+  final active = FindingDriverController.active;
+  if (active != null) {
+    await active.cancelSearch();
+  } else {
+    final ride = AppScope.instance.ride;
+    final id = ride.rideId;
+    ride.restoreFromBackend(RideStatus.cancelledByRider);
+    AppScope.instance.rideRealtime.cancelRide();
+    if (id != null) {
+      unawaited(_cancelViaAdapter(id));
+    }
+  }
+  await RideSnapshotStore.clear();
+}
+
+Future<void> _cancelViaAdapter(String id) async {
+  try {
+    await AppScope.instance.api.post(
+      '/api/v1/rides/$id/cancel',
+      body: const <String, dynamic>{},
+      idempotencyKey: newIdempotencyKey('ride-cancel'),
+    );
+  } catch (error) {
+    AppLog.warning(
+      'ride.cancel.adapter_failed',
+      extra: {'rideId': id, 'error': error.toString()},
+    );
+  }
 }
 
 class CancelRideSheet extends StatelessWidget {
