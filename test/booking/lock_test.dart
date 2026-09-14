@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,6 +10,7 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    FindingDriverController.active = null;
     AppScope.instance.ride.restoreFromBackend(RideStatus.idle);
     AppScope.instance.ride.rideId = null;
   });
@@ -95,7 +97,6 @@ void main() {
       price: 259,
       paymentMethod: 'Apple Pay',
     );
-    // Mark finding active while first is in-flight -- coalesce must still reuse.
     AppScope.instance.ride.restoreFromBackend(
       RideStatus.findingDriver,
       id: 'r-other',

@@ -2,34 +2,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
-import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Extends finding_controller_test coverage for cancel-first races.
 RideSnapshot snap() => RideSnapshot(
-  status: RideStatus.findingDriver,
-  savedAt: DateTime.now(),
-  pickupAddress: 'A',
-  destinationAddress: 'B',
-  pickupLat: 59.3,
-  pickupLng: 18.0,
-  destinationLat: 59.4,
-  destinationLng: 18.1,
-  rideType: 'Movera',
-  price: 259,
-  paymentMethod: 'Apple Pay',
-  rideId: 'r1',
-);
+      status: RideStatus.findingDriver,
+      savedAt: DateTime.now(),
+      pickupAddress: 'A',
+      destinationAddress: 'B',
+      pickupLat: 59.3,
+      pickupLng: 18.0,
+      destinationLat: 59.4,
+      destinationLng: 18.1,
+      rideType: 'Movera',
+      price: 259,
+      paymentMethod: 'Apple Pay',
+      rideId: 'r1',
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     RideSnapshotStore.epoch = 0;
+    FindingDriverController.active = null;
   });
 
   test('keep-after-confirm stays cancelled (cancel-first)', () async {
@@ -103,8 +102,10 @@ void main() {
     expect(await RideSnapshotStore.read(), isNull);
     expect(ride.suppressRestore, isTrue);
     final restore = RideRestoreCoordinator(reader: RideSnapshotStore.read);
-    final root = await restore.root();
-    expect(root, isA<Home>());
+    expect(
+      restore.surfaceFor(await RideSnapshotStore.read()),
+      RestoredSurface.home,
+    );
     expect(await restore.resumeIfNeeded(), isNull);
     controller.dispose();
     rt.dispose();

@@ -1,22 +1,15 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/api/idempotency.dart';
-import 'package:movera_rider/core/logging/app_log.dart';
-import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// Confirm cancel, then optionally collect a why-reason.
 ///
 /// **Cancel-first:** after **Cancel request**, matching + snapshot are cleared
-/// before the why-sheet (via [onCancelConfirmed] or the default path).
+/// before the why-sheet (via [onCancelConfirmed] or [commitCancelFirst]).
 /// **Keep ride** on the why-sheet must not undo cancel.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
@@ -37,50 +30,17 @@ Future<CancelOutcome> showCancelRideSheet(
   SheetCoordinator.instance.close(RideSheet.cancel);
   if (confirmed != true) return const CancelOutcome.keep();
 
-  // Cancel-first: commit cancel before the optional why-sheet.
   if (onCancelConfirmed != null) {
     await onCancelConfirmed();
   } else {
-    await _defaultCancelFirst();
+    await commitCancelFirst();
   }
   if (!context.mounted) return const CancelOutcome.cancel();
   final outcome = await showCancelReasonSheet(context, phase: phase);
-  // Keep on why-sheet must NOT undo cancel — ride already gone / stay Home.
   if (!outcome.cancelled) {
     return const CancelOutcome.cancel();
   }
   return outcome;
-}
-
-Future<void> _defaultCancelFirst() async {
-  final active = FindingDriverController.active;
-  if (active != null) {
-    await active.cancelSearch();
-  } else {
-    final ride = AppScope.instance.ride;
-    final id = ride.rideId;
-    ride.restoreFromBackend(RideStatus.cancelledByRider);
-    AppScope.instance.rideRealtime.cancelRide();
-    if (id != null) {
-      unawaited(_cancelViaAdapter(id));
-    }
-  }
-  await RideSnapshotStore.clear();
-}
-
-Future<void> _cancelViaAdapter(String id) async {
-  try {
-    await AppScope.instance.api.post(
-      '/api/v1/rides/$id/cancel',
-      body: const <String, dynamic>{},
-      idempotencyKey: newIdempotencyKey('ride-cancel'),
-    );
-  } catch (error) {
-    AppLog.warning(
-      'ride.cancel.adapter_failed',
-      extra: {'rideId': id, 'error': error.toString()},
-    );
-  }
 }
 
 class CancelRideSheet extends StatelessWidget {
@@ -99,8 +59,8 @@ class CancelRideSheet extends StatelessWidget {
     final body = matched
         ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
         : takingLonger
-        ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
-        : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
+            ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
+            : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: Column(
@@ -183,8 +143,8 @@ class CancelRideSheet extends StatelessWidget {
                 matched
                     ? 'Keep ride'
                     : takingLonger
-                    ? 'Keep searching'
-                    : 'Wait for driver',
+                        ? 'Keep searching'
+                        : 'Wait for driver',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
