@@ -1,19 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+  <!-- base href set by flutter build -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -55,18 +43,11 @@
   </style>
 </head>
 <body>
+  <script src="movera_ride_snapshot_wipe.js"></script>
   <script>
-    // Public demo: drop leftover mock rides before Flutter boots.
-    // Chrome otherwise reopens Driver found from localStorage / bfcache.
+    // Public demo: ride snapshot keys wiped by movera_ride_snapshot_wipe.js
+    // (localStorage + IndexedDB key-only). Keep bfcache hard-reload.
     (function() {
-      try {
-        var remove = [];
-        for (var i = 0; i < localStorage.length; i++) {
-          var k = localStorage.key(i);
-          if (k && k.indexOf('movera_active_ride') !== -1) remove.push(k);
-        }
-        for (var j = 0; j < remove.length; j++) localStorage.removeItem(remove[j]);
-      } catch (_) {}
       window.addEventListener('pageshow', function(event) {
         if (event.persisted) location.reload();
       });
@@ -75,7 +56,7 @@
     // Old Flutter builds used a service worker on this same GitHub Pages scope.
     // Remove any surviving worker/cache before booting the current non-PWA app.
     (function() {
-      var resetKey = 'movera-web-cache-reset:v12';
+      var resetKey = 'movera-web-cache-reset:v15';
       var resetNeeded = false;
       var tasks = [];
 

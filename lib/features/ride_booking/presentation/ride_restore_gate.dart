@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
 class RideRestoreGate extends StatefulWidget {
@@ -40,6 +41,11 @@ class RideRestoreGateState extends State<RideRestoreGate> {
     super.initState();
     reportRestoreSurface('hold');
     RideRestoreCoordinator.instance.onReplaceRoot = show;
+    // Public web only: pagehide clears snapshot (+ goHome if Finding/Waiting).
+    // Do not listen to visibilitychange — tab switch must keep an in-progress ride.
+    if (RideRestoreCoordinator.defaultSkipRestore()) {
+      installWebRidePagehide(RideRestoreCoordinator.instance.onPageHide);
+    }
     RideRestoreCoordinator.instance.root().then((page) {
       if (!mounted) return;
       setState(() => _child = page);

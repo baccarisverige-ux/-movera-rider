@@ -50,6 +50,22 @@ class RideRestoreCoordinator {
     onReplaceRoot?.call(const Home());
   }
 
+  /// Chrome Refresh / bfcache leave fires pagehide (not visibilitychange).
+  /// Always drop the snapshot; on public web also force Home if Finding/Waiting
+  /// was still on screen from an incomplete reload.
+  void onPageHide() {
+    unawaited(() async {
+      try {
+        await RideSnapshotStore.clear();
+      } catch (_) {}
+    }());
+    if (_skipRestore() &&
+        (showing == RestoredSurface.finding ||
+            showing == RestoredSurface.waiting)) {
+      goHome();
+    }
+  }
+
   RestoredSurface surfaceFor(RideSnapshot? snapshot) {
     if (snapshot == null || snapshot.status.isTerminal || !snapshot.isFresh) {
       return RestoredSurface.home;
@@ -154,7 +170,12 @@ class RideRestoreCoordinator {
   Future<Widget?> resumeIfNeeded() async {
     if (_skipRestore()) {
       unawaited(RideSnapshotStore.clear());
-      showing = RestoredSurface.home;
+      if (showing == RestoredSurface.finding ||
+          showing == RestoredSurface.waiting) {
+        goHome();
+      } else {
+        showing = RestoredSurface.home;
+      }
       return null;
     }
     var snapshot = await _reader();

@@ -169,4 +169,59 @@ void main() {
     expect(replaced, isNull);
     expect(c.showing, RestoredSurface.home);
   });
+
+  test('pagehide clears snapshot and skipRestore forces Home from waiting',
+      () async {
+    await RideSnapshotStore.save(snap(RideStatus.driverAssigned));
+    expect(await RideSnapshotStore.read(), isNotNull);
+
+    Widget? shown;
+    final c = RideRestoreCoordinator(
+      reader: RideSnapshotStore.read,
+      skipRestore: () => true,
+    );
+    c.onReplaceRoot = (page) => shown = page;
+    c.showing = RestoredSurface.waiting;
+
+    c.onPageHide();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(await RideSnapshotStore.read(), isNull);
+    expect(c.showing, RestoredSurface.home);
+    expect(shown, isA<Home>());
+  });
+
+  test('pagehide clears snapshot but does not force Home when restore allowed',
+      () async {
+    await RideSnapshotStore.save(snap(RideStatus.findingDriver));
+    expect(await RideSnapshotStore.read(), isNotNull);
+
+    Widget? shown;
+    final c = RideRestoreCoordinator(
+      reader: RideSnapshotStore.read,
+      skipRestore: () => false,
+    );
+    c.onReplaceRoot = (page) => shown = page;
+    c.showing = RestoredSurface.finding;
+
+    c.onPageHide();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(await RideSnapshotStore.read(), isNull);
+    expect(c.showing, RestoredSurface.finding);
+    expect(shown, isNull);
+  });
+
+  test('skipRestore resume forces Home when showing waiting', () async {
+    Widget? shown;
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.driverAssigned),
+      skipRestore: () => true,
+    );
+    c.showing = RestoredSurface.waiting;
+    c.onReplaceRoot = (page) => shown = page;
+    expect(await c.resumeIfNeeded(), isNull);
+    expect(c.showing, RestoredSurface.home);
+    expect(shown, isA<Home>());
+  });
 }
