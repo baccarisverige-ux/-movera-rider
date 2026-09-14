@@ -2039,6 +2039,8 @@ class _HomeState extends State<Home> {
     final fullSheetPixels = viewportHeight - topInset;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFEEF1E8),
+      extendBody: true,
       drawer: RiderSideMenu(),
       drawerScrimColor: Colors.black.withOpacity(0.38),
       body: Listener(
@@ -2053,11 +2055,7 @@ class _HomeState extends State<Home> {
               width: double.infinity,
               child: Stack(
                 children: [
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: _sheetMinPixels,
+                  Positioned.fill(
                     child: RepaintBoundary(
                       child: _homeMapParked
                           ? const ColoredBox(color: Color(0xFFEEF1E8))
@@ -2067,6 +2065,7 @@ class _HomeState extends State<Home> {
                               markers: _markers,
                               circles: _locationCircles,
                               polygons: _locationDirection,
+                              padding: EdgeInsets.only(bottom: _sheetMinPixels),
                               myLocationEnabled: false,
                               myLocationButtonEnabled: false,
                               zoomControlsEnabled: false,
