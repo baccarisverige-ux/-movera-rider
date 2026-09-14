@@ -22,10 +22,12 @@ class RiderSideMenu extends StatelessWidget {
   static const Color _card = Color(0xFFFFFFFF);
   static const Color _icon = Color(0xFF3A4550);
 
-  void _pushPage(BuildContext context, Widget page) {
+  Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
-    Scaffold.of(context).closeDrawer();
-    nav.push(RightToLeftTransition(page));
+    final scaffold = Scaffold.of(context);
+    scaffold.closeDrawer();
+    await nav.push(RightToLeftTransition(page));
+    if (scaffold.mounted) scaffold.openDrawer();
   }
 
   @override
