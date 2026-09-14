@@ -9,6 +9,8 @@ import 'package:movera_rider/features/ride_booking/presentation/ride_restore_gat
 class MoveraApp extends StatelessWidget {
   const MoveraApp({super.key});
 
+  static final _homeHistoryObserver = HomeHistoryObserver();
+
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
@@ -20,7 +22,7 @@ class MoveraApp extends StatelessWidget {
         return GetMaterialApp(
           title: 'Movera',
           navigatorKey: moveraNavigatorKey,
-          navigatorObservers: [HomeHistoryObserver()],
+          navigatorObservers: [_homeHistoryObserver],
           locale: const Locale('en'),
           fallbackLocale: const Locale('en'),
           debugShowCheckedModeBanner: false,
