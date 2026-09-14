@@ -34,6 +34,20 @@ void _installHomeLock() {
     ..id = 'movera-home-lock-js'
     ..text = r'''
 (function() {
+  // The pushState/popstate sentinel below exists to stop a browser TAB's
+  // address-bar swipe-back gesture from treating Home sheet overscroll as
+  // history.back. An installed standalone PWA (Android "Add to Home
+  // Screen") has no address bar and a different back-gesture model, so
+  // that premise doesn't hold there -- and phantom history entries plus a
+  // global popstate interceptor is exactly the kind of thing that can
+  // misbehave in a navigation context it wasn't built for. Skip it when
+  // running standalone; still toggle the CSS lock class either way.
+  var isStandalone = false;
+  try {
+    isStandalone = !!(window.matchMedia &&
+      window.matchMedia('(display-mode: standalone)').matches);
+  } catch (_) {}
+
   if (history.scrollRestoration) history.scrollRestoration = 'manual';
   window._moveraHomeLock = false;
   window._moveraHomeSentinel = false;
@@ -42,6 +56,7 @@ void _installHomeLock() {
     try {
       document.documentElement.classList.toggle('movera-home-lock', !!lock);
     } catch (_) {}
+    if (isStandalone) return;
     if (!lock) {
       window._moveraHomeSentinel = false;
       return;
@@ -53,10 +68,12 @@ void _installHomeLock() {
       history.pushState({ moveraHome: 1 }, '', location.href);
     } catch (_) {}
   };
-  window.addEventListener('popstate', function() {
-    if (!window._moveraHomeLock) return;
-    try { history.pushState({ moveraHome: 1 }, '', location.href); } catch (_) {}
-  });
+  if (!isStandalone) {
+    window.addEventListener('popstate', function() {
+      if (!window._moveraHomeLock) return;
+      try { history.pushState({ moveraHome: 1 }, '', location.href); } catch (_) {}
+    });
+  }
 })();
 ''';
   web.document.head?.appendChild(script);
