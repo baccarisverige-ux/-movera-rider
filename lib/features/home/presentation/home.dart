@@ -1113,6 +1113,24 @@ class _HomeState extends State<Home> {
                                   fontWeight: fwNormal,
                                 ),
                                 onTap: () {
+                                  final address = query.trim();
+                                  if (address.isEmpty) return;
+                                  final controller = activeController();
+                                  controller.text = address;
+                                  controller.selection =
+                                      TextSelection.collapsed(
+                                        offset: address.length,
+                                      );
+                                  setModalState(() {
+                                    query = address;
+                                    if (activeField == 'pickup') {
+                                      pickupConfirmedOnMap = false;
+                                      confirmedPickupLatLng = null;
+                                    } else if (activeField == 'destination') {
+                                      destinationConfirmedOnMap = false;
+                                      confirmedDestinationLatLng = null;
+                                    }
+                                  });
                                   FocusScope.of(context).unfocus();
                                 },
                               ),
