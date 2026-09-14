@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -52,7 +51,7 @@ abstract final class RideNavigator {
       finish();
     }
 
-    final phase = SchedulerBinding.instance.schedulerPhase;
+    final phase = WidgetsBinding.instance.schedulerPhase;
     if (phase == SchedulerPhase.idle) {
       popToRoot();
     } else {
