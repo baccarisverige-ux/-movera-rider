@@ -41,9 +41,9 @@ abstract final class RideNavigator {
       return;
     }
 
-    // Finding/Waiting set PopScope.canPop via `_leaving` before this. Wait
-    // a frame, then popUntil the root. Do not removeRoute: on Flutter web
-    // that leaves the old ride in browser history, so Home bounces back.
+    // Finding/Waiting set PopScope.canPop via `_leaving` before this.
+    // Pop now if unlocked; otherwise wait one frame. Never removeRoute:
+    // on Flutter web that leaves the old ride in history, so Home bounces back.
     void popToRoot() {
       if (nav.canPop()) {
         nav.popUntil((route) => route.isFirst);
@@ -51,7 +51,11 @@ abstract final class RideNavigator {
       finish();
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => popToRoot());
+    if (nav.canPop()) {
+      popToRoot();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => popToRoot());
+    }
   }
 
   static const names = AppRoutes;

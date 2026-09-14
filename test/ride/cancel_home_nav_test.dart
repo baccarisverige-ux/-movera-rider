@@ -22,14 +22,11 @@ void main() {
         },
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     expect(find.text('searching'), findsOneWidget);
 
     await tester.tap(find.text('Cancel ride'));
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
     expect(find.text('home-root'), findsOneWidget);
     expect(find.text('searching'), findsNothing);
     expect(nav.canPop(), isFalse);
@@ -63,8 +60,6 @@ void main() {
     expect(find.text('searching'), findsOneWidget);
 
     await tester.tap(find.text('Cancel ride'));
-    await tester.pump();
-    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(find.text('searching'), findsNothing);
