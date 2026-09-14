@@ -22,6 +22,12 @@ class RiderSideMenu extends StatelessWidget {
   static const Color _card = Color(0xFFFFFFFF);
   static const Color _icon = Color(0xFF3A4550);
 
+  void _pushPage(BuildContext context, Widget page) {
+    final nav = Navigator.of(context);
+    Scaffold.of(context).closeDrawer();
+    nav.push(RightToLeftTransition(page));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -167,84 +173,50 @@ class RiderSideMenu extends StatelessWidget {
         icon: Icons.account_balance_wallet_outlined,
         image: null,
         title: 'Wallet',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(const WalletHome()),
-          );
-        },
+        onTap: () => _pushPage(context, const WalletHome()),
       ),
       (
         icon: Icons.history_rounded,
         image: null,
         title: 'Ride History',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(RideHistory()),
-          );
-        },
+        onTap: () => _pushPage(context, RideHistory()),
       ),
       (
         icon: Icons.credit_card_outlined,
         image: null,
         title: 'Payments',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(const WalletScreen()),
-          );
-        },
+        onTap: () => _pushPage(context, const WalletScreen()),
       ),
       (
         icon: null,
         image: AppAssets.safetyShield,
         title: 'Safety',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(const SafetyHub()),
-          );
-        },
+        onTap: () => _pushPage(context, const SafetyHub()),
       ),
       (
         icon: Icons.headset_mic_outlined,
         image: null,
         title: 'Support',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(const SupportHome()),
-          );
-        },
+        onTap: () => _pushPage(context, const SupportHome()),
       ),
       (
         icon: Icons.mail_outline_rounded,
         image: null,
         title: 'Invite Friends',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(const ReferAndEarn()),
-          );
-        },
+        onTap: () => _pushPage(context, const ReferAndEarn()),
       ),
       (
         icon: Icons.info_outline_rounded,
         image: null,
         title: 'About',
-        onTap: () {
-          Navigator.push(
-            context,
-            RightToLeftTransition(
-              const HelpArticle(
-                title: 'About Movera',
-                body:
-                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
-              ),
-            ),
-          );
-        },
+        onTap: () => _pushPage(
+          context,
+          const HelpArticle(
+            title: 'About Movera',
+            body:
+                'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+          ),
+        ),
       ),
     ];
 
