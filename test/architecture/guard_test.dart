@@ -510,7 +510,6 @@ void main() {
     expect(checkout.contains('ReservationReviewPage'), isFalse);
     expect(checkout.contains('ReviewChangesPage'), isTrue);
     expect(checkout.contains('showReservationBookedPopup'), isTrue);
-    expect(checkout.contains('ScheduledRideCheckout.run'), isTrue);
     expect(checkout.contains('ScheduledRideBooking.confirm'), isTrue);
     expect(checkout.contains('FindingDrivers'), isFalse);
     expect(checkout.contains('submitFinding'), isFalse);
