@@ -65,12 +65,10 @@ class RideRestoreCoordinator {
       case RideStatus.tripStarted:
       case RideStatus.tripInProgress:
         return RestoredSurface.waiting;
-      case RideStatus.tripCompleted:
-      case RideStatus.paymentProcessing:
-      case RideStatus.paymentFinalized:
-      case RideStatus.ratingPending:
-        return RestoredSurface.complete;
       default:
+        if (snapshot.status.isCompletedSurface) {
+          return RestoredSurface.complete;
+        }
         return RestoredSurface.home;
     }
   }
