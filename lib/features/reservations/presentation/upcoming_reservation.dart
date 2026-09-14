@@ -70,6 +70,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     final outcome = await showCancelReservationFlow(context, ride);
     if (!outcome.cancelled) return;
     await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
   Future<void> _planReturn(Reservation ride) async {
