@@ -30,9 +30,11 @@ import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
-import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
+import 'package:movera_rider/features/home/presentation/widgets/comfort_ride_carousel.dart';
+import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
+import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -488,7 +490,7 @@ class _HomeState extends State<Home> {
     }
   }
 
-  Future<_PickupMapResult?> _openPickupMapPicker(
+  Future<PickupMapResult?> _openPickupMapPicker(
     String address, {
     bool isDestination = false,
   }) async {
@@ -512,7 +514,7 @@ class _HomeState extends State<Home> {
         confirmLabel: isDestination ? 'Confirm destination' : 'Confirm pickup',
       );
       if (result == null) return null;
-      return _PickupMapResult(
+      return PickupMapResult(
         address: result.address,
         position: result.position,
       );
@@ -698,7 +700,7 @@ class _HomeState extends State<Home> {
                               ),
                           child: Padding(
                             padding: EdgeInsets.only(left: ResSize.w * 3),
-                            child: _PremiumRouteLocationBadge(
+                            child: PremiumRouteLocationBadge(
                               color: badgeColor,
                               size: ResSize.h * 35.2,
                             ),
@@ -2340,7 +2342,10 @@ class _HomeState extends State<Home> {
                               children: [
                                 _advanceBookingCard(),
                                 14.height,
-                                _comfortRideCarousel(),
+                                ComfortRideCarousel(
+                                  onDestinationTap: _handleDestinationTap,
+                                  onOpenSchedule: _openSchedule,
+                                ),
                               ],
                             ),
                           ),
@@ -2397,7 +2402,7 @@ class _HomeState extends State<Home> {
                       Row(
                         children: [
                           Expanded(
-                            child: _premiumBottomNavItem(
+                            child: PremiumBottomNavItem(
                               iconAsset: AppAssets.navMap,
                               label: 'Map',
                               active: true,
@@ -2408,7 +2413,7 @@ class _HomeState extends State<Home> {
                             ),
                           ),
                           Expanded(
-                            child: _premiumBottomNavItem(
+                            child: PremiumBottomNavItem(
                               iconAsset: AppAssets.navPayment,
                               label: 'Payment',
                               floatingFraction: 1 - sheetProgress,
@@ -2416,7 +2421,7 @@ class _HomeState extends State<Home> {
                             ),
                           ),
                           Expanded(
-                            child: _premiumBottomNavItem(
+                            child: PremiumBottomNavItem(
                               iconAsset: AppAssets.navSchedule,
                               label: 'Schedule ride',
                               floatingFraction: 1 - sheetProgress,
@@ -2424,7 +2429,7 @@ class _HomeState extends State<Home> {
                             ),
                           ),
                           Expanded(
-                            child: _premiumBottomNavItem(
+                            child: PremiumBottomNavItem(
                               iconAsset: AppAssets.navAccount,
                               label: 'Account',
                               floatingFraction: 1 - sheetProgress,
@@ -2439,175 +2444,6 @@ class _HomeState extends State<Home> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _comfortRideCarousel() {
-    final viewportWidth = MediaQuery.of(context).size.width;
-    final cardWidth = (viewportWidth * 0.78).clamp(270.0, 330.0).toDouble();
-    final imageHeight = ResSize.h * 112;
-    final bandHeight = ResSize.h * 64;
-
-    return SizedBox(
-      height: imageHeight + bandHeight + ResSize.h * 2,
-      width: double.infinity,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.only(right: ResSize.w * 8),
-        children: [
-          _homePromoCard(
-            cardWidth: cardWidth,
-            imageHeight: imageHeight,
-            bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_comfort_ride.jpeg',
-            title: 'Movera Comfort',
-            subtitle: 'Extra space. Elevated comfort. A smoother way to ride.',
-            onTap: _handleDestinationTap,
-          ),
-          SizedBox(width: ResSize.w * 12),
-          _homePromoCard(
-            cardWidth: cardWidth,
-            imageHeight: imageHeight,
-            bandHeight: bandHeight,
-            imageAsset: 'assets/images/pin_verification.png',
-            title: 'Safety Toolkit',
-            subtitle: 'Essential safety tools, ready throughout every ride.',
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(const SafetyHub()),
-              );
-            },
-          ),
-          SizedBox(width: ResSize.w * 12),
-          _homePromoCard(
-            cardWidth: cardWidth,
-            imageHeight: imageHeight,
-            bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_airport_premium.jpeg',
-            title: 'Fly with ease',
-            subtitle:
-                'Reserve your airport ride ahead and travel with less stress.',
-            onTap: _openSchedule,
-          ),
-          SizedBox(width: ResSize.w * 12),
-          _homePromoCard(
-            cardWidth: cardWidth,
-            imageHeight: imageHeight,
-            bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_events_premium.jpeg',
-            title: 'Reserve for events',
-            subtitle:
-                'Plan your ride early and arrive exactly when you need to.',
-            onTap: _openSchedule,
-          ),
-          SizedBox(width: ResSize.w * 12),
-          _homePromoCard(
-            cardWidth: cardWidth,
-            imageHeight: imageHeight,
-            bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_business_premium.jpeg',
-            title: 'Reserve work rides',
-            subtitle:
-                'Reliable scheduled rides for meetings and important workdays.',
-            onTap: _openSchedule,
-          ),
-          SizedBox(width: ResSize.w * 12),
-          _homePromoCard(
-            cardWidth: cardWidth,
-            imageHeight: imageHeight,
-            bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_outings_premium.jpeg',
-            title: 'Plan for outings',
-            subtitle:
-                'Book ahead for dinners, appointments and plans around town.',
-            onTap: _openSchedule,
-          ),
-          SizedBox(width: ResSize.w * 18),
-        ],
-      ),
-    );
-  }
-
-  Widget _homePromoCard({
-    required double cardWidth,
-    required double imageHeight,
-    required double bandHeight,
-    required String imageAsset,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      width: cardWidth,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: Container(
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: AppColor.white,
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: _premiumLine, width: 0.8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.055),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: imageHeight,
-                  child: Image.asset(
-                    imageAsset,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-                Container(
-                  width: double.infinity,
-                  height: bandHeight,
-                  color: AppColor.white,
-                  padding: EdgeInsets.fromLTRB(
-                    ResSize.w * 13,
-                    ResSize.h * 8,
-                    ResSize.w * 13,
-                    ResSize.h * 7,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextWidget(
-                        text: title,
-                        color: _premiumInk,
-                        fontSize: 13.6,
-                        fontWeight: fwBold,
-                      ),
-                      3.height,
-                      TextWidget(
-                        text: subtitle,
-                        color: _premiumMuted,
-                        fontSize: 9.2,
-                        fontWeight: fwNormal,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -3059,237 +2895,5 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _premiumBottomNavItem({
-    required String iconAsset,
-    required String label,
-    required VoidCallback onTap,
-    bool active = false,
-    double floatingFraction = 0,
-  }) {
-    final activeColor = Color.lerp(
-      const Color(0xFF2A7A84),
-      _premiumInk,
-      floatingFraction,
-    )!;
-    final color = active ? activeColor : const Color(0xFF899197);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          height: ResSize.h * 52,
-          margin: EdgeInsets.symmetric(
-            horizontal: ResSize.w * 2.5 * floatingFraction,
-          ),
-          decoration: BoxDecoration(
-            color: active
-                ? Color.lerp(
-                    Colors.transparent,
-                    const Color(0xFFF2F2F2),
-                    floatingFraction,
-                  )
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(
-              24 * floatingFraction + 14 * (1 - floatingFraction),
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                height: ResSize.h * 30,
-                width: ResSize.w * 30,
-                child: Center(
-                  child: Opacity(
-                    opacity: active ? 1 : 0.86,
-                    child: Image.asset(
-                      iconAsset,
-                      height: ResSize.h * 18.68,
-                      width: ResSize.w * 18.68,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                  ),
-                ),
-              ),
-              3.height,
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 2),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: TextWidget(
-                    text: label,
-                    color: color,
-                    fontSize: 9.5,
-                    fontWeight: active ? fwSemiBold : fwMedium,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-}
-
-class _PremiumRouteLocationBadge extends StatelessWidget {
-  const _PremiumRouteLocationBadge({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final corner = size * 0.25;
-    final road = size * 0.105;
-    final pinOutline = size * 0.65;
-    final pinSize = size * 0.57;
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(corner),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFFFFFF), Color(0xFFF1F0EC)],
-          ),
-          border: Border.all(color: const Color(0xFFD2D6D8), width: 0.8),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x190D1A20),
-              blurRadius: 7,
-              offset: Offset(0, 3),
-            ),
-            BoxShadow(
-              color: Color(0xA6FFFFFF),
-              blurRadius: 1,
-              offset: Offset(0, -1),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(corner - 1),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Positioned(
-                left: -size * 0.06,
-                top: size * 0.23,
-                child: Container(
-                  width: size * 0.74,
-                  height: road,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.98),
-                    borderRadius: BorderRadius.circular(road),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: size * 0.17,
-                top: -size * 0.04,
-                child: Container(
-                  width: road,
-                  height: size * 0.65,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.97),
-                    borderRadius: BorderRadius.circular(road),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: -size * 0.08,
-                bottom: size * 0.10,
-                child: Transform.rotate(
-                  angle: -0.52,
-                  child: Container(
-                    width: size * 0.70,
-                    height: road,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFFFFF),
-                      borderRadius: BorderRadius.circular(road),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: size * 0.11,
-                bottom: -size * 0.04,
-                child: Container(
-                  width: size * 0.10,
-                  height: size * 0.50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0E3E5),
-                    borderRadius: BorderRadius.circular(size),
-                  ),
-                ),
-              ),
-              Transform.translate(
-                offset: Offset(0, size * 0.035),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      Icons.location_on_rounded,
-                      color: const Color(0xFFFDFDFD),
-                      size: pinOutline,
-                      shadows: const [
-                        Shadow(
-                          color: Color(0x30000000),
-                          blurRadius: 5,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    ShaderMask(
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (bounds) => LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color.lerp(color, Colors.white, 0.22)!,
-                          color,
-                          Color.lerp(color, Colors.black, 0.24)!,
-                        ],
-                        stops: const [0.0, 0.48, 1.0],
-                      ).createShader(bounds),
-                      child: Icon(
-                        Icons.location_on_rounded,
-                        color: Colors.white,
-                        size: pinSize,
-                      ),
-                    ),
-                    Positioned(
-                      top: size * 0.17,
-                      left: size * 0.43,
-                      child: Container(
-                        width: size * 0.075,
-                        height: size * 0.075,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.55),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PickupMapResult {
-  const _PickupMapResult({required this.address, required this.position});
-  final String address;
-  final LatLng position;
 }
