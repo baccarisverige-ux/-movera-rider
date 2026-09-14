@@ -10,8 +10,9 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: ['Odenplan'],
     );
+    // Future legal Stockholm slot — captureSchedule clamps past times.
     session.captureSchedule(
-      DateTime(2026, 9, 13, 10, 30),
+      DateTime(2026, 9, 23, 10, 30),
       timezone: 'Europe/Stockholm',
     );
     session.captureNote('Ring the bell');
@@ -20,7 +21,7 @@ void main() {
     expect(session.pickup, 'Current location');
     expect(session.dropoff, 'Stockholm Central Station');
     expect(session.stops, ['Odenplan']);
-    expect(session.scheduledAt, DateTime(2026, 9, 13, 10, 30));
+    expect(session.scheduledAt, DateTime(2026, 9, 23, 10, 30));
     expect(session.timezone, 'Europe/Stockholm');
     expect(session.note, 'Ring the bell');
     expect(session.paymentMethod, 'Cash');
@@ -36,7 +37,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: const [],
     );
-    session.captureSchedule(DateTime(2026, 9, 13, 10, 30));
+    session.captureSchedule(DateTime(2026, 9, 23, 10, 30));
     session.capturePayment('Wallet');
     session.captureRideType('movera', quoteId: 'q_sched_1');
     final id = await session.confirm(book: () async => 'b_sched_1');
