@@ -4,7 +4,6 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
-import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
