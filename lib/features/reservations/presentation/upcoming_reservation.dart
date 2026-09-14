@@ -171,7 +171,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                             style: reservationText(20, weight: FontWeight.w700),
                           ),
                           Text(
-                            '${ride.passengerCount} seats  \u00b7  ${ride.paymentMethod}',
+                            '${ride.passengerCount} seats  ·  ${ride.paymentMethod}',
                             style: reservationText(
                               12.5,
                               color: kReservationMuted,
