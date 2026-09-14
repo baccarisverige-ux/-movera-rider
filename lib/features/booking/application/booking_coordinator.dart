@@ -1,4 +1,5 @@
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -7,12 +8,29 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 class BookingCoordinator {
   Future<String>? _inflight;
 
+  /// True when matching is already live (AppScope.ride searching or active controller).
+  bool get _findingAlreadyActive {
+    final ride = AppScope.instance.ride;
+    if (ride.status.isSearching) return true;
+    if (FindingDriverController.active != null) return true;
+    return false;
+  }
+
+  Future<String> _refuseOrExisting() {
+    final id = AppScope.instance.ride.rideId;
+    if (id != null) return Future<String>.value(id);
+    return Future<String>.error(StateError('Finding already active'));
+  }
+
   Future<String> requestBooking({
     required String rideType,
     required String paymentMethod,
     String? scheduledAt,
   }) {
     if (_inflight != null) return _inflight!;
+    if (scheduledAt == null && _findingAlreadyActive) {
+      return _refuseOrExisting();
+    }
     final started = _requestBooking(
       rideType: rideType,
       paymentMethod: paymentMethod,
@@ -67,6 +85,9 @@ class BookingCoordinator {
     required String paymentMethod,
   }) {
     if (_inflight != null) return _inflight!;
+    if (_findingAlreadyActive) {
+      return _refuseOrExisting();
+    }
     final started = _submitFinding(
       pickupAddress: pickupAddress,
       destinationAddress: destinationAddress,
