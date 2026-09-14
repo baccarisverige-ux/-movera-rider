@@ -8,13 +8,10 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 class BookingCoordinator {
   Future<String>? _inflight;
 
-  /// True when matching is already live (AppScope.ride searching or active controller).
-  bool get _findingAlreadyActive {
-    final ride = AppScope.instance.ride;
-    if (ride.status.isSearching) return true;
-    if (FindingDriverController.active != null) return true;
-    return false;
-  }
+  /// Lock only while the Finding UI is actually mounted.
+  /// Do not treat a leftover [RideSession] status as an active search — tests
+  /// and a dismissed route share the process-wide [AppScope].
+  bool get _findingAlreadyActive => FindingDriverController.active != null;
 
   Future<String> _refuseOrExisting() {
     final id = AppScope.instance.ride.rideId;

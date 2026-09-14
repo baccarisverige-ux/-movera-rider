@@ -9,12 +9,12 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// Commit cancel immediately (matching + snapshot), before any why-sheet.
 Future<void> commitCancelFirst({String? reasonId}) async {
-  final active = FindingDriverController.active;
-  if (active != null) {
-    await active.cancelSearch(reasonId: reasonId);
-    return;
-  }
   try {
+    final active = FindingDriverController.active;
+    if (active != null) {
+      await active.cancelSearch(reasonId: reasonId);
+      return;
+    }
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
     ride.restoreFromBackend(RideStatus.cancelledByRider);
@@ -22,10 +22,12 @@ Future<void> commitCancelFirst({String? reasonId}) async {
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));
     }
-  } catch (_) {}
-  try {
     await RideSnapshotStore.clear();
-  } catch (_) {}
+  } catch (_) {
+    try {
+      await RideSnapshotStore.clear();
+    } catch (_) {}
+  }
 }
 
 Future<void> _cancelViaAdapter(String id, String? reasonId) async {
