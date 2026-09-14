@@ -147,7 +147,7 @@ void main() {
     expect(outcome?.cancelled, isFalse);
   });
 
-  testWidgets('Cancel request leaves immediately without a reason sheet', (
+  testWidgets('Cancel request then shows why, Skip still cancels', (
     tester,
   ) async {
     await phoneSurface(tester);
@@ -167,10 +167,12 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('Cancel request'), findsOneWidget);
-    expect(find.text('Why are you cancelling?'), findsNothing);
     await tester.tap(find.text('Cancel request'));
     await tester.pumpAndSettle();
+    expect(find.text('Why are you cancelling?'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
     expect(outcome?.cancelled, isTrue);
-    expect(find.text('Why are you cancelling?'), findsNothing);
+    expect(outcome?.reasonId, isNull);
   });
 }

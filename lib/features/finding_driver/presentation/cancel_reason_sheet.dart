@@ -14,7 +14,8 @@ Future<CancelOutcome> showCancelReasonSheet(
     builder: (_) => CancelReasonSheet(phase: phase),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
-  return result ?? const CancelOutcome.keep();
+  // Already confirmed cancel on the previous sheet. Dismiss still cancels.
+  return result ?? const CancelOutcome.cancel();
 }
 
 class CancelReasonSheet extends StatefulWidget {

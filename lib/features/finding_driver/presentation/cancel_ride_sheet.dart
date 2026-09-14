@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
@@ -20,8 +21,9 @@ Future<CancelOutcome> showCancelRideSheet(
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
-  if (confirmed == true) return const CancelOutcome.cancel();
-  return const CancelOutcome.keep();
+  if (confirmed != true) return const CancelOutcome.keep();
+  if (!context.mounted) return const CancelOutcome.cancel();
+  return showCancelReasonSheet(context, phase: phase);
 }
 
 class CancelRideSheet extends StatelessWidget {
