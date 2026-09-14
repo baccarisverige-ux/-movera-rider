@@ -145,4 +145,28 @@ void main() {
     c.debugAtRoot = () => true;
     expect(await c.resumeIfNeeded(), isNull);
   });
+
+  test('public web cold start ignores assigned snapshot', () async {
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.driverAssigned),
+      skipRestore: () => true,
+    );
+    final page = await c.root();
+    expect(page, isA<Home>());
+    expect(c.showing, RestoredSurface.home);
+  });
+
+  test('public web resume does not restore finding', () async {
+    Widget? replaced;
+    final c = RideRestoreCoordinator(
+      reader: () async => snap(RideStatus.findingDriver),
+      skipRestore: () => true,
+    );
+    c.showing = RestoredSurface.home;
+    c.debugAtRoot = () => true;
+    c.onReplaceRoot = (page) => replaced = page;
+    expect(await c.resumeIfNeeded(), isNull);
+    expect(replaced, isNull);
+    expect(c.showing, RestoredSurface.home);
+  });
 }

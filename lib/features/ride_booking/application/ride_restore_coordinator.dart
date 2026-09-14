@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
@@ -16,10 +18,14 @@ import 'package:movera_rider/features/ride_complete/presentation/ride_completed.
 enum RestoredSurface { home, finding, waiting, complete }
 
 class RideRestoreCoordinator {
-  RideRestoreCoordinator({RideSnapshotStoreReader? reader})
-    : _reader = reader ?? RideSnapshotStore.read;
+  RideRestoreCoordinator({
+    RideSnapshotStoreReader? reader,
+    bool Function()? skipRestore,
+  }) : _reader = reader ?? RideSnapshotStore.read,
+       _skipRestore = skipRestore ?? defaultSkipRestore;
 
   final Future<RideSnapshot?> Function() _reader;
+  final bool Function() _skipRestore;
   RestoredSurface showing = RestoredSurface.home;
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
@@ -28,6 +34,10 @@ class RideRestoreCoordinator {
   bool Function()? debugAtRoot;
 
   static final instance = RideRestoreCoordinator();
+
+  /// Public GitHub Pages has no QA hooks. A leftover mock snapshot must not
+  /// open Driver found / Finding when someone taps the live link.
+  static bool defaultSkipRestore() => kIsWeb && !moveraQaHooksEnabled;
 
   void goHome() {
     showing = RestoredSurface.home;
@@ -108,6 +118,12 @@ class RideRestoreCoordinator {
 
   Future<Widget> root() async {
     reportRestoreSurface('hold');
+    if (_skipRestore()) {
+      showing = RestoredSurface.home;
+      reportRestoreSurface(RestoredSurface.home.name);
+      unawaited(RideSnapshotStore.clear());
+      return const Home();
+    }
     try {
       final snapshot = await _reader();
       AppLog.info(
@@ -136,6 +152,11 @@ class RideRestoreCoordinator {
   }
 
   Future<Widget?> resumeIfNeeded() async {
+    if (_skipRestore()) {
+      unawaited(RideSnapshotStore.clear());
+      showing = RestoredSurface.home;
+      return null;
+    }
     var snapshot = await _reader();
     final id = snapshot?.rideId;
     if (id != null) {
