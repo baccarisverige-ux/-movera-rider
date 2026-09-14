@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -84,6 +85,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     _center = widget.initialPosition;
     _address = widget.initialAddress;
     _search.text = widget.initialAddress;
+    setWebOverlayOpen(false);
     Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
       if (mounted) setState(() => _mapReady = true);
     });
@@ -163,7 +165,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     },
                     onCameraMove: (position) {
                       _moving = true;
-                      setState(() => _center = position.target);
+                      _center = position.target;
                     },
                     onCameraIdle: () {
                       _moving = false;
@@ -171,13 +173,15 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                       _idle();
                     },
                   ),
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: 28),
-                    child: Icon(
-                      Icons.location_on,
-                      size: 44,
-                      color: Color(0xFF11181D),
+                const IgnorePointer(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 28),
+                      child: Icon(
+                        Icons.location_on,
+                        size: 44,
+                        color: Color(0xFF11181D),
+                      ),
                     ),
                   ),
                 ),

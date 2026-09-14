@@ -481,6 +481,7 @@ class _HomeState extends State<Home> {
   Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
     final parkedNow = !_homeMapParked;
     if (parkedNow) {
+      setWebOverlayOpen(false);
       setState(() => _homeMapParked = true);
       AppScope.instance.mapLifecycle.park();
       AppScope.instance.maps.detach(owner: MapOwners.home);
