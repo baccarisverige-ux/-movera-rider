@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 
 class SecurityPage extends StatefulWidget {
   const SecurityPage({super.key, this.controller});
@@ -114,7 +115,14 @@ class _SecurityPageState extends State<SecurityPage> {
                     : 'Off  ·  add an extra check after password',
                 trailing: Switch.adaptive(
                   value: ride.twoStepEnabled,
-                  activeColor: kAccountAccent,
+                  activeThumbColor: adaptiveSwitchThumbColor(
+                    context,
+                    kAccountAccent,
+                  ),
+                  activeTrackColor: adaptiveSwitchTrackColor(
+                    context,
+                    kAccountAccent,
+                  ),
                   onChanged: (on) {
                     _profile.update(ride.copyWith(twoStepEnabled: on));
                   },

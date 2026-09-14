@@ -125,7 +125,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
                   boxShadow: [
                     BoxShadow(
                       // ignore: deprecated_member_use
-                      color: Color(0xff555555).withOpacity(0.12),
+                      color: Color(0xff555555).withValues(alpha: 0.12),
                       blurRadius: 10,
                       spreadRadius: 6,
                       offset: const Offset(0, 4),

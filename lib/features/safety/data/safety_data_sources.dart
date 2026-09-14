@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
@@ -111,10 +112,15 @@ abstract class SafetyLocalDataSource {
 }
 
 class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
-  PreferencesSafetyLocalDataSource({this.memoryOnly = false});
+  PreferencesSafetyLocalDataSource({
+    this.memoryOnly = false,
+    SecureRidePinStore? pinStore,
+  }) : _pinStore = pinStore ?? const SecureRidePinStore();
 
   static const cacheKey = 'movera_safety_cache_v1';
+  static const _pinPlaceholder = '0000';
   final bool memoryOnly;
+  final SecureRidePinStore _pinStore;
   SafetyCache _memory = SafetyCache();
   bool _seeded = false;
 
@@ -130,12 +136,27 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
     try {
       final prefs = await PreferencesStore.load();
       final raw = prefs.getString(cacheKey);
+      SafetyCache cache;
       if (raw == null || raw.isEmpty) {
-        _memory = SafetyCache();
-        await prefs.setString(cacheKey, jsonEncode(_memory.toJson()));
-        return _copy(_memory);
+        cache = SafetyCache();
+      } else {
+        cache = SafetyCache.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       }
-      _memory = SafetyCache.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      // On iOS/Android, the PIN digits live in Keychain/Keystore, not in
+      // this plaintext prefs blob. Elsewhere (web, desktop, tests) nothing
+      // changes: the PIN stays embedded in `cache` exactly as before.
+      if (_pinStore.isNativeSecure) {
+        final securePin = await _pinStore.read();
+        if (securePin != null) {
+          cache.pin = cache.pin.copyWith(pin: securePin);
+        } else if (cache.pin.pin != _pinPlaceholder) {
+          // First run on this store, or migrating an older plaintext cache
+          // that still carries a real PIN: adopt it into secure storage.
+          await _pinStore.write(cache.pin.pin);
+        }
+      }
+      _memory = cache;
+      await _persist(cache, prefs: prefs, raw: raw);
       return _copy(_memory);
     } catch (_) {
       if (!_seeded) {
@@ -150,10 +171,27 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
   Future<void> save(SafetyCache cache) async {
     _memory = _copy(cache);
     if (memoryOnly) return;
+    if (_pinStore.isNativeSecure) {
+      await _pinStore.write(cache.pin.pin);
+    }
     try {
-      final prefs = await PreferencesStore.load();
-      await prefs.setString(cacheKey, jsonEncode(cache.toJson()));
+      await _persist(cache);
     } catch (_) {}
+  }
+
+  Future<void> _persist(
+    SafetyCache cache, {
+    PreferencesStore? prefs,
+    String? raw,
+  }) async {
+    final store = prefs ?? await PreferencesStore.load();
+    if (_pinStore.isNativeSecure) {
+      final scrubbed = _copy(cache)..pin = cache.pin.copyWith(pin: _pinPlaceholder);
+      await store.setString(cacheKey, jsonEncode(scrubbed.toJson()));
+    } else if (raw == null || raw.isEmpty) {
+      // Only re-write on a fresh/empty cache load; save() always persists.
+      await store.setString(cacheKey, jsonEncode(cache.toJson()));
+    }
   }
 
   SafetyCache _copy(SafetyCache cache) => SafetyCache.fromJson(cache.toJson());

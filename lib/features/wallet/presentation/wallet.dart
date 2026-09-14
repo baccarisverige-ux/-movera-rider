@@ -5,11 +5,9 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
-typedef _VoucherOffer = VoucherOffer;
-
 final _wallet = WalletController();
 
-_VoucherOffer? lookupMoveraVoucher(String raw) => _wallet.lookup(raw);
+VoucherOffer? lookupMoveraVoucher(String raw) => _wallet.lookup(raw);
 
 String _voucherDateLabel(DateTime date) {
   const months = [
@@ -23,7 +21,7 @@ Future<Set<String>> _usedVoucherCodes() => _wallet.usedCodes();
 
 Future<void> _markVoucherUsed(String code) => _wallet.markUsed(code);
 
-Future<_VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
+Future<VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);
   const muted = Color(0xFF7B8388);
   const line = Color(0xFFE6E8E7);
@@ -38,10 +36,11 @@ Future<_VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
 
   final controller = TextEditingController();
   final used = await _usedVoucherCodes();
-  final offer = await MoveraSheet.show<_VoucherOffer>(
+  if (!context.mounted) return null;
+  final offer = await MoveraSheet.show<VoucherOffer>(
     context: context,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withOpacity(0.28),
+    barrierColor: Colors.black.withValues(alpha: 0.28),
     builder: (sheetContext) {
       return StatefulBuilder(
         builder: (context, setSheetState) {
@@ -132,7 +131,7 @@ Future<_VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
                             : null,
                         style: FilledButton.styleFrom(
                           backgroundColor: ink,
-                          disabledBackgroundColor: ink.withOpacity(0.16),
+                          disabledBackgroundColor: ink.withValues(alpha: 0.16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -220,7 +219,7 @@ class _WalletHomeState extends State<WalletHome> {
     final funded = await MoveraSheet.show<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -433,16 +432,20 @@ class _WalletHomeState extends State<WalletHome> {
             children: [
               Row(
                 children: [
-                  Material(
-                    color: Colors.white,
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      customBorder: const CircleBorder(),
-                      child: const SizedBox(
-                        width: 42,
-                        height: 42,
-                        child: Icon(Icons.arrow_back_rounded, color: _ink),
+                  Semantics(
+                    button: true,
+                    label: 'Back',
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        customBorder: const CircleBorder(),
+                        child: const SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: Icon(Icons.arrow_back_rounded, color: _ink),
+                        ),
                       ),
                     ),
                   ),
@@ -490,7 +493,7 @@ class _WalletHomeState extends State<WalletHome> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF11181D).withOpacity(0.28),
+                      color: const Color(0xFF11181D).withValues(alpha: 0.28),
                       blurRadius: 28,
                       offset: const Offset(0, 16),
                     ),
@@ -506,13 +509,13 @@ class _WalletHomeState extends State<WalletHome> {
                           style: _style(
                             11,
                             weight: FontWeight.w700,
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                           ).copyWith(letterSpacing: 2.2),
                         ),
                         const Spacer(),
                         Icon(
                           Icons.contactless_rounded,
-                          color: Colors.white.withOpacity(0.86),
+                          color: Colors.white.withValues(alpha: 0.86),
                         ),
                       ],
                     ),
@@ -522,7 +525,7 @@ class _WalletHomeState extends State<WalletHome> {
                       style: _style(
                         12,
                         weight: FontWeight.w400,
-                        color: Colors.white.withOpacity(0.72),
+                        color: Colors.white.withValues(alpha: 0.72),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -662,7 +665,7 @@ class _WalletScreenState extends State<WalletScreen> {
     final method = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -696,6 +699,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       onPressed: () => Navigator.pop(sheetContext),
                       icon: const Icon(Icons.close_rounded),
                       color: _muted,
+                      tooltip: 'Close',
                     ),
                   ],
                 ),
@@ -804,7 +808,7 @@ class _WalletScreenState extends State<WalletScreen> {
     final lastFour = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -852,6 +856,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             onPressed: () => Navigator.pop(sheetContext),
                             icon: const Icon(Icons.close_rounded),
                             color: _muted,
+                            tooltip: 'Close',
                           ),
                         ],
                       ),
@@ -908,7 +913,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _ink,
-                            disabledBackgroundColor: _ink.withOpacity(0.16),
+                            disabledBackgroundColor: _ink.withValues(alpha: 0.16),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1075,7 +1080,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         border: Border.all(color: _line),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.035),
+                            color: Colors.black.withValues(alpha: 0.035),
                             blurRadius: 22,
                             offset: const Offset(0, 9),
                           ),
@@ -1210,6 +1215,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 },
                                 icon: const Icon(Icons.close_rounded),
                                 color: _muted,
+                                tooltip: 'Remove voucher',
                                 iconSize: 19,
                               ),
                             ),
@@ -1251,19 +1257,23 @@ class _WalletScreenState extends State<WalletScreen> {
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
       child: Row(
         children: [
-          Material(
-            color: _surface,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: () => Navigator.pop(context),
-              customBorder: const CircleBorder(),
-              child: const SizedBox(
-                width: 42,
-                height: 42,
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: _ink,
-                  size: 22,
+          Semantics(
+            button: true,
+            label: 'Back',
+            child: Material(
+              color: _surface,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: () => Navigator.pop(context),
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 42,
+                  height: 42,
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: _ink,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -1327,7 +1337,7 @@ class _WalletScreenState extends State<WalletScreen> {
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.055),
+                        color: Colors.black.withValues(alpha: 0.055),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),

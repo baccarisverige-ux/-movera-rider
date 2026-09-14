@@ -1,7 +1,6 @@
-// ignore_for_file: avoid_print
-
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 class LocationService {
   // Check if location services are enabled
@@ -51,7 +50,7 @@ class LocationService {
 
       return position;
     } catch (e) {
-      print('Error getting location: $e');
+      AppLog.warning('location.get_current_position.failed', extra: {'error': '$e'});
       return null;
     }
   }
@@ -74,7 +73,7 @@ class LocationService {
       }
       return 'Address not found';
     } catch (e) {
-      print('Error getting address: $e');
+      AppLog.warning('location.get_address_from_coordinates.failed', extra: {'error': '$e'});
       return 'Unable to get address';
     }
   }

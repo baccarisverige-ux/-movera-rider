@@ -254,11 +254,11 @@ class RiderProfile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       splashColor: isLogout
-          ? AppColor.red.withOpacity(0.1)
-          : AppColor.primary.withOpacity(0.1),
+          ? AppColor.red.withValues(alpha: 0.1)
+          : AppColor.primary.withValues(alpha: 0.1),
       highlightColor: isLogout
-          ? AppColor.red.withOpacity(0.1)
-          : AppColor.primary.withOpacity(0.1),
+          ? AppColor.red.withValues(alpha: 0.1)
+          : AppColor.primary.withValues(alpha: 0.1),
       child: Container(
         padding: EdgeInsets.symmetric(
           vertical: 12 * ResSize.h,

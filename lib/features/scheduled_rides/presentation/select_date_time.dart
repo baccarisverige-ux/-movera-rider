@@ -124,7 +124,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final result = await MoveraSheet.show<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -251,7 +251,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     final result = await MoveraSheet.show<TimeOfDay>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.28),
+      barrierColor: Colors.black.withValues(alpha: 0.28),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -569,7 +569,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 0.06),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -598,7 +598,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
         border: Border.all(color: _line),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
+            color: Colors.black.withValues(alpha: 0.035),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
@@ -713,7 +713,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             height: 52,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: legal ? _ink : _ink.withOpacity(0.38),
+              color: legal ? _ink : _ink.withValues(alpha: 0.38),
               borderRadius: BorderRadius.circular(17),
             ),
             child: Text(

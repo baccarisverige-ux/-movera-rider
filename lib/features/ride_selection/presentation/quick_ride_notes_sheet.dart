@@ -229,7 +229,7 @@ class _NoteTile extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: selected
-                            ? Colors.white.withOpacity(0.12)
+                            ? Colors.white.withValues(alpha: 0.12)
                             : const Color(0xFFF6F8FA),
                         borderRadius: BorderRadius.circular(14),
                       ),

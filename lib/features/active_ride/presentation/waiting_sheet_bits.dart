@@ -67,18 +67,22 @@ class WaitingShareButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFF6F8FA),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: () => _share(context),
-        child: const Padding(
-          padding: EdgeInsets.all(10),
-          child: Icon(
-            Icons.ios_share_rounded,
-            size: 20,
-            color: MoveraTokens.ink,
+    return Semantics(
+      button: true,
+      label: 'Share trip',
+      child: Material(
+        color: const Color(0xFFF6F8FA),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => _share(context),
+          child: const Padding(
+            padding: EdgeInsets.all(10),
+            child: Icon(
+              Icons.ios_share_rounded,
+              size: 20,
+              color: MoveraTokens.ink,
+            ),
           ),
         ),
       ),
@@ -147,6 +151,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
           IconButton(
             onPressed: onMore,
             icon: const Icon(Icons.more_horiz_rounded),
+            tooltip: 'Ride details',
           ),
         ],
       ),
@@ -342,9 +347,17 @@ class WaitingDriverCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _IconChip(icon: Icons.phone_outlined, onTap: onCall),
+              _IconChip(
+                icon: Icons.phone_outlined,
+                onTap: onCall,
+                semanticLabel: 'Call driver',
+              ),
               const SizedBox(width: 8),
-              _IconChip(icon: Icons.more_horiz_rounded, onTap: onMore),
+              _IconChip(
+                icon: Icons.more_horiz_rounded,
+                onTap: onMore,
+                semanticLabel: 'More options',
+              ),
             ],
           ),
         ],
@@ -423,22 +436,31 @@ class WaitingNotesAndPin extends StatelessWidget {
 }
 
 class _IconChip extends StatelessWidget {
-  const _IconChip({required this.icon, required this.onTap});
+  const _IconChip({
+    required this.icon,
+    required this.onTap,
+    required this.semanticLabel,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFF6F8FA),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: const Color(0xFFF6F8FA),
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, size: 20, color: MoveraTokens.ink),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Icon(icon, size: 20, color: MoveraTokens.ink),
+          ),
         ),
       ),
     );
