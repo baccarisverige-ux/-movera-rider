@@ -9,6 +9,8 @@ permissions:
   contents: read
 jobs:
   diagnose:
+    # Disabled: diagnostic rewrite job left off by default.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

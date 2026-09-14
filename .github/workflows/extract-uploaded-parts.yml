@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   extract:
+    # Disabled: must not auto-push extracted uploads to main.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
