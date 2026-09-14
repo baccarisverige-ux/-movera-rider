@@ -312,18 +312,30 @@ void main() {
     }
   });
 
-  test('old scheduled confirmation is not deleted during migration', () {
+  test('old scheduled confirmation screens are removed', () {
     expect(
       File(
         'lib/features/scheduled_rides/presentation/ride_confirmed.dart',
       ).existsSync(),
-      isTrue,
+      isFalse,
+    );
+    expect(
+      File(
+        'lib/features/scheduled_rides/presentation/ride_pending.dart',
+      ).existsSync(),
+      isFalse,
     );
     expect(
       File(
         'lib/features/scheduled_rides/presentation/confirm_booking.dart',
-      ).readAsStringSync().contains('ScheduleRidePending'),
-      isTrue,
+      ).existsSync(),
+      isFalse,
+    );
+    expect(
+      File(
+        'lib/features/scheduled_rides/presentation/add_note.dart',
+      ).existsSync(),
+      isFalse,
     );
   });
 
@@ -380,7 +392,7 @@ void main() {
     expect(selectRide.contains('bookingMode: BookingMode.scheduled'), isTrue);
   });
 
-  test('history still uses the old Schedule a ride route during migration', () {
+  test('history Schedule a ride still opens Plan your ride', () {
     final history = File(
       'lib/features/history/presentation/ride_history.dart',
     ).readAsStringSync();
@@ -399,6 +411,26 @@ void main() {
     expect(home.contains('Uber account'), isFalse);
   });
 
+  test('book now always opens Confirm pickup; GPS only prefills', () {
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+    expect(home.contains('Book now always confirms pickup; GPS only prefills.'), isTrue);
+    expect(home.contains('if (!pickupConfirmedOnMap)'), isFalse);
+    expect(
+      home.contains('var pickupPosition = _tripPickupLatLng ?? _currentLatLng;'),
+      isFalse,
+    );
+    expect(home.contains('bookingMode: BookingMode.now'), isTrue);
+    expect(home.contains('_openPickupMapPicker'), isTrue);
+    final selectRide = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    final nowStart = selectRide.indexOf('void _bookNow()');
+    final now = selectRide.substring(nowStart);
+    expect(now.contains('FindingDrivers'), isTrue);
+  });
+
   test(
     'Later/Schedule ride goes Plan your ride → calendar → shared categories',
     () {
@@ -409,8 +441,8 @@ void main() {
       expect(schedule.contains('ConfirmPickupSpot'), isTrue);
       expect(schedule.contains('ScheduleDateTimeSelector'), isTrue);
       expect(schedule.contains('openScheduledCategorySelector'), isTrue);
-      expect(schedule.contains('ScheduleAddNote'), isTrue);
-      expect(schedule.contains('ScheduleConfirmBooking'), isTrue);
+      expect(schedule.contains('ScheduleAddNote'), isFalse);
+      expect(schedule.contains('ScheduleConfirmBooking'), isFalse);
       final gate = File(
         'lib/features/reservations/presentation/scheduled_category_gate.dart',
       ).readAsStringSync();

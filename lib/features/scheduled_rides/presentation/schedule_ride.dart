@@ -9,8 +9,6 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
-import 'package:movera_rider/features/scheduled_rides/presentation/confirm_booking.dart';
-import 'package:movera_rider/features/scheduled_rides/presentation/add_note.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -190,22 +188,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
   Widget _buildPanelContent() {
     if (currentStep == 0) {
       return _buildAddressStep();
-    } else if (currentStep == 1) {
-      return ScheduleDateTimeSelector(
-        onConfirm: goToNextStep,
-        onBack: goToPreviousStep,
-        body: body(),
-        session: _session,
-      );
-    } else if (currentStep == 2) {
-      return ScheduleAddNote(
-        onConfirm: goToNextStep,
-        body: body(),
-        session: _session,
-      );
-    } else {
-      return ScheduleConfirmBooking(body: body(), session: _session);
     }
+    return ScheduleDateTimeSelector(
+      onConfirm: goToNextStep,
+      onBack: goToPreviousStep,
+      body: body(),
+      session: _session,
+    );
   }
 
   Widget _buildAddressStep() {

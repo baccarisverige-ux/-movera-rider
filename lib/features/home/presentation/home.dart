@@ -425,18 +425,15 @@ class _HomeState extends State<Home> {
     });
     await _persistAddressData();
     await _withParkedHomeMap(() async {
-      var pickupPosition = _tripPickupLatLng ?? _currentLatLng;
-      if (pickupPosition == null) {
-        final pickupResult = await _openPickupMapPicker(
-          _pickupAddress ?? 'Current location',
-        );
-        if (pickupResult == null || !mounted) return null;
-        pickupPosition = pickupResult.position;
-        setState(() {
-          _pickupAddress = pickupResult.address;
-          _tripPickupLatLng = pickupResult.position;
-        });
-      }
+      final pickupResult = await _openPickupMapPicker(
+        _pickupAddress ?? 'Current location',
+      );
+      if (pickupResult == null || !mounted) return null;
+      final pickupPosition = pickupResult.position;
+      setState(() {
+        _pickupAddress = pickupResult.address;
+        _tripPickupLatLng = pickupResult.position;
+      });
       if (!mounted) return null;
       final confirmedPickupPosition = pickupPosition;
       var resolvedDestination = destination;
@@ -552,7 +549,9 @@ class _HomeState extends State<Home> {
     var query = initialField == 'pickup'
         ? pickupController.text
         : destinationController.text;
+    // ignore: unused_local_variable
     var pickupConfirmedOnMap = false;
+    // ignore: unused_local_variable
     LatLng? confirmedPickupLatLng;
     var destinationConfirmedOnMap = false;
     LatLng? confirmedDestinationLatLng;
@@ -1148,15 +1147,13 @@ class _HomeState extends State<Home> {
                               ? null
                               : () async {
                                   FocusScope.of(context).unfocus();
-                                  var exactPosition = confirmedPickupLatLng;
-                                  if (!pickupConfirmedOnMap) {
-                                    final result = await _openPickupMapPicker(
-                                      pickupController.text.trim(),
-                                    );
-                                    if (result == null || !mounted) return;
-                                    pickupController.text = result.address;
-                                    exactPosition = result.position;
-                                  }
+                                  // Book now always confirms pickup; GPS only prefills.
+                                  final result = await _openPickupMapPicker(
+                                    pickupController.text.trim(),
+                                  );
+                                  if (result == null || !mounted) return;
+                                  pickupController.text = result.address;
+                                  final exactPosition = result.position;
 
                                   var exactDestinationPosition =
                                       confirmedDestinationLatLng;
@@ -1185,7 +1182,6 @@ class _HomeState extends State<Home> {
                                     }
                                   }
                                   if (!mounted ||
-                                      exactPosition == null ||
                                       exactDestinationPosition == null) {
                                     return;
                                   }
