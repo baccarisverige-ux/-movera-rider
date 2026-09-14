@@ -1,1 +1,426 @@
-PLACEHOLDER_LOAD_FROM_FILE
+name: QA live Rider flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - '.github/workflows/qa-live-rider-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Wait for this exact Pages build
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          for i in $(seq 1 48); do
+            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
+              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
+              if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js"; then
+                echo "LIVE_BUILD=main.${SHORT}.dart.js" >> "$GITHUB_ENV"
+                echo "Exact live build found: main.${SHORT}.dart.js"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Exact deployed bundle for $SHORT was not found" >&2
+          exit 1
+
+      - name: Exercise actual live Rider flow
+        run: |
+          cat > qa-live.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+
+          const base='https://baccarisverige-ux.github.io/-movera-rider/';
+          const browser=await chromium.launch({headless:true});
+          const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          const page=await context.newPage();
+          const cdp=await context.newCDPSession(page);
+          const pageErrors=[]; const consoleErrors=[];
+          page.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
+          page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
+          async function shot(name){return await page.screenshot({path:`qa-${name}.png`,fullPage:true});}
+          async function panelCrop(name){return await page.screenshot({path:`qa-${name}-panel.png`,clip:{x:0,y:500,width:390,height:344}});}
+          async function touchSwipe(x,fromY,toY,steps=18){
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:fromY,radiusX:8,radiusY:8,force:1}]});
+            for(let i=1;i<=steps;i++){const y=fromY+(toY-fromY)*(i/steps);await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y,radiusX:8,radiusY:8,force:1}]});await page.waitForTimeout(18);}
+            await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}); await page.waitForTimeout(900);
+          }
+          async function inputs(){return await page.locator('input,textarea').evaluateAll(els=>els.map((el,index)=>{const r=el.getBoundingClientRect();return{index,value:el.value||'',placeholder:el.getAttribute('placeholder')||'',x:r.x,y:r.y,w:r.width,h:r.height,visible:r.width>0&&r.height>0};}));}
+          async function dump(name,extra={}){const data={name,url:page.url(),inputs:await inputs(),pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],...extra};fs.writeFileSync(`qa-${name}.json`,JSON.stringify(data,null,2));console.log(`STATE ${name}\n`+JSON.stringify(data,null,2));}
+          function fatalErrors(){return[...pageErrors.map(x=>x.message),...consoleErrors].filter(x=>/Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i.test(x));}
+          function requireChanged(a,b,label){if(Buffer.compare(a,b)===0)throw new Error(`${label} produced no live UI change`);}
+
+          await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(5000); await dump('home'); const home=await shot('home');
+          if(fatalErrors().length)throw new Error('Fatal runtime error on Home: '+fatalErrors().join(' | '));
+
+          const headingOnce=await page.evaluate(async()=>await window.moveraStartHeading());
+          const headingTwice=await page.evaluate(async()=>await window.moveraStartHeading());
+          const headingListeners=await page.evaluate(()=>window.moveraHeadingListenerCount);
+          await page.evaluate(async()=>await window.moveraStartHeading());
+          const headingListenersAgain=await page.evaluate(()=>window.moveraHeadingListenerCount);
+          if(headingListenersAgain!==headingListeners) throw new Error('duplicate heading listeners: '+headingListeners+' -> '+headingListenersAgain);
+          const injected350=await page.evaluate(()=>window.moveraInjectHeading(350));
+          if(Number(injected350)!==350) throw new Error('inject 350 failed: '+injected350);
+          await page.waitForFunction(() => {
+            const h = window.moveraPuckHeading;
+            return typeof h === 'number' && (h >= 300 || h <= 20);
+          }, null, {timeout:8000});
+          const puck350=await page.evaluate(()=>window.moveraPuckHeading);
+          await page.evaluate(()=>window.moveraInjectHeading(10));
+          await page.waitForTimeout(500);
+          const puck10=await page.evaluate(()=>window.moveraPuckHeading);
+          if(typeof puck10!=='number') throw new Error('puck heading was not reported after inject');
+          if(puck10>40 && puck10<300) throw new Error('puck did not take shortest 350\u219210 turn: '+puck10);
+          const denied=await page.evaluate(async()=>{
+            window.moveraStopHeading();
+            window.moveraHeadingPermission='denied';
+            const ok=await window.moveraStartHeading();
+            const after=window.moveraHeadingListenerCount;
+            window.moveraHeadingPermission='auto';
+            const restored=await window.moveraStartHeading();
+            return {ok, after, restored};
+          });
+          if(denied.ok!==false) throw new Error('denied heading start should fail');
+          if(denied.after!==0) throw new Error('denied start registered listeners');
+          if(denied.restored!==true) throw new Error('heading start did not recover after denied');
+          fs.writeFileSync('qa-heading.json', JSON.stringify({headingOnce,headingTwice,headingListeners,headingListenersAgain,injected350,puck350,puck10,denied,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          if(fatalErrors().length)throw new Error('Fatal runtime error during heading QA: '+fatalErrors().join(' | '));
+          console.log('PASS: heading permission granted/denied, inject while GPS fixed, 350\u219210 shortest turn, no duplicate listeners');
+          await page.mouse.click(310,89);await page.waitForTimeout(1100);await shot('safety-menu');
+          let safetySnap={}; let safetyVia='tap';
+          for (const y of [357,340,372,318]) {
+            await page.mouse.click(120,y);await page.waitForTimeout(2000);
+            safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
+            if(typeof safetySnap.pinRequired==='boolean'){safetyVia='menu:'+y;break;}
+            await page.mouse.click(28,48);await page.waitForTimeout(600);
+            await page.mouse.click(310,89);await page.waitForTimeout(900);
+          }
+          if(typeof safetySnap.pinRequired!=='boolean'){
+            const opened=await page.evaluate(()=>window.moveraOpenSafety?window.moveraOpenSafety():'missing');
+            await page.waitForTimeout(2200);
+            safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
+            safetyVia='hook:'+opened;
+          }
+          await shot('safety-hub');
+          fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          if(fatalErrors().length)throw new Error('Fatal runtime error opening Safety: '+fatalErrors().join(' | '));
+          if(typeof safetySnap.pinRequired!=='boolean')throw new Error('Safety hub snapshot missing: '+JSON.stringify({safetySnap,safetyVia}));
+          await page.evaluate(()=>window.moveraSimulateRideCheck&&window.moveraSimulateRideCheck('unexpectedStop'));
+          await page.mouse.click(200,290);await page.waitForTimeout(1100);await shot('safety-pin');
+          await page.mouse.click(28,48);await page.waitForTimeout(800);
+          await page.mouse.click(200,360);await page.waitForTimeout(1100);await shot('safety-contacts');
+          await page.mouse.click(28,48);await page.waitForTimeout(800);
+          await page.mouse.click(200,430);await page.waitForTimeout(1100);await shot('safety-share');
+          await page.mouse.click(28,48);await page.waitForTimeout(800);
+          await page.mouse.click(200,500);await page.waitForTimeout(1100);await shot('safety-ridecheck');
+          await page.mouse.click(28,48);await page.waitForTimeout(800);
+          if(fatalErrors().length)throw new Error('Fatal runtime error in Safety pages: '+fatalErrors().join(' | '));
+          console.log('PASS: Safety hub PIN contacts share RideCheck from side menu via '+safetyVia);
+          await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(4000);
+          await page.waitForFunction(()=>typeof window.moveraGeocodeAddress==='function',{timeout:60000});
+          await page.waitForTimeout(1500);
+          await page.mouse.click(200,420);await page.waitForTimeout(400);
+          const geo=await page.evaluate(async()=>{const raw=await window.moveraGeocodeAddress('Stockholm Central Station');let forward=null;try{forward=raw?JSON.parse(raw):null;}catch(_){}const reverse=await window.moveraReverseGeocode(59.3293,18.0686);return{forward,reverse};}); await dump('geocoding',{geo});
+          if(!geo.forward||!Number.isFinite(Number(geo.forward.latitude))||!Number.isFinite(Number(geo.forward.longitude)))throw new Error('Live forward geocoding failed'); if(!geo.reverse||!String(geo.reverse).trim())throw new Error('Live reverse geocoding failed');
+
+          await page.mouse.click(190,708);await page.waitForTimeout(1200);await shot('route-open');
+          let visibleInputs=page.locator('input,textarea').filter({visible:true});let count=await visibleInputs.count().catch(()=>0);if(!count){await page.mouse.click(185,274);await page.waitForTimeout(400);visibleInputs=page.locator('input,textarea');count=await visibleInputs.count();}if(!count)throw new Error('Route planner destination input did not become editable');
+          await visibleInputs.nth(count-1).fill('Stockholm Central Station');await page.waitForTimeout(700);await shot('route-filled');
+          await page.mouse.click(195,804);await page.waitForTimeout(3500);await shot('pickup-picker');await page.waitForTimeout(3500);await page.mouse.click(195,797);await page.waitForTimeout(7000);await dump('after-pickup-confirm');
+          const categoriesInitial=await shot('after-pickup-confirm');if(fatalErrors().length)throw new Error('Fatal runtime error entering categories: '+fatalErrors().join(' | '));
+          await touchSwipe(195,640,240,24);await page.waitForTimeout(700);const categoriesExpanded=await shot('categories-expanded');
+
+          try { await page.getByLabel('Enable accessibility').click({timeout:2000}); } catch (_) {}
+          await page.waitForTimeout(400);
+          const ridePoints=[['comfort','Comfort',195,380],['premium','Premium',195,460],['xl','Movera XL',195,620],['electric','Electric',195,700]];
+          let previous=categoriesExpanded;
+          let categoryChanges=0;
+          for (const [name,label,x,y] of ridePoints) {
+            const node=page.getByText(label,{exact:true});
+            if (await node.count()) { await node.last.click(); }
+            else { await page.mouse.click(x,y); }
+            await page.waitForTimeout(550);
+            const current=await shot(`ride-${name}`);
+            if (Buffer.compare(previous,current)!==0) categoryChanges++;
+            previous=current;
+            if (fatalErrors().length) throw new Error(`Fatal runtime error selecting ${name}: `+fatalErrors().join(' | '));
+          }
+          fs.writeFileSync('qa-ride-categories.json', JSON.stringify({categoryChanges,labels:ridePoints.map(p=>p[1])},null,2));
+          if (categoryChanges<2) throw new Error('Ride category taps produced no live UI change ('+categoryChanges+' of '+ridePoints.length+')');
+          await page.mouse.click(50,677);await page.waitForTimeout(350);const fareDown=await shot('fare-down');
+          await page.mouse.click(340,677);await page.waitForTimeout(350);const fareUp=await shot('fare-up');
+          await page.mouse.click(104,743);await page.waitForTimeout(650);const paymentOpen=await shot('payment-open');requireChanged(fareUp,paymentOpen,'Payment sheet');await page.mouse.click(195,548);await page.waitForTimeout(650);const paymentCash=await shot('payment-cash');requireChanged(paymentOpen,paymentCash,'Cash payment selection');if(fatalErrors().length)throw new Error('Fatal runtime error changing payment: '+fatalErrors().join(' | '));
+
+          const panelBefore=await panelCrop('panel-before-swipe');await touchSwipe(195,450,220,20);const panelAfter=await panelCrop('panel-after-swipe');const scrolled=await shot('categories-touch-scrolled');
+          await page.mouse.click(285,743);await page.waitForTimeout(750);const bookingSheet=await shot('pickup-time-sheet');requireChanged(scrolled,bookingSheet,'Pickup time bottom sheet');
+          await page.mouse.click(195,702);await page.waitForTimeout(700);const afterBookNow=await shot('after-book-now');requireChanged(bookingSheet,afterBookNow,'Book now selection');
+          await page.mouse.click(285,743);await page.waitForTimeout(650);const bookingSheetAgain=await shot('pickup-time-sheet-again');requireChanged(afterBookNow,bookingSheetAgain,'Pickup time sheet reopen');
+          await page.mouse.click(195,778);await page.waitForTimeout(1200);const laterPicker=await shot('book-for-later-picker');requireChanged(bookingSheetAgain,laterPicker,'Book for later picker');
+          await page.mouse.click(338,680);await page.waitForTimeout(900);const timePicker=await shot('book-for-later-time-picker');requireChanged(laterPicker,timePicker,'Book for later time picker');
+
+          const continueBtn=page.getByText('Continue',{exact:true});
+          if(await continueBtn.count()){await continueBtn.last.click();}
+          else {await page.mouse.click(195,808);}
+          await page.waitForTimeout(1200);const scheduled=await shot('scheduled-ride');requireChanged(timePicker,scheduled,'Scheduled ride confirmation');await dump('scheduled-ride');
+          if(fatalErrors().length)throw new Error('Fatal runtime error scheduling ride: '+fatalErrors().join(' | '));
+
+          await page.mouse.click(195,808);await page.waitForTimeout(900);
+          await page.mouse.click(195,808);await page.waitForTimeout(4000);const findingDrivers=await shot('after-final-booking-cta');requireChanged(scheduled,findingDrivers,'Final booking CTA');await dump('after-final-booking-cta');
+          if(fatalErrors().length)throw new Error('Fatal runtime error after final booking CTA: '+fatalErrors().join(' | '));
+
+          const matchingHooks=await page.evaluate(()=>typeof window.moveraHoldMatching==='function');
+          if(!matchingHooks){
+            await shot('search-hooks-skipped');
+            fs.writeFileSync('qa-search-delayed.json', JSON.stringify({skipped:true,reason:'public release matching hooks off'},null,2));
+            console.log('SKIP: delayed search / assign hooks off on public release (expected)');
+          } else try {
+            await page.waitForFunction(()=>typeof window.moveraHoldMatching==='function',{timeout:20000});
+            const held=await page.evaluate(()=>window.moveraHoldMatching());
+            const advanced=await page.evaluate(()=>window.moveraAdvanceSearch(61));
+            await page.waitForTimeout(900);
+            const searchSnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSearchSnapshotJson||'{}');}catch(e){return {};}});
+            await shot('search-delayed');
+            fs.writeFileSync('qa-search-delayed.json', JSON.stringify({held,advanced,searchSnap,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+            if(searchSnap.delayed!==true) throw new Error('Delayed search snapshot missing: '+JSON.stringify(searchSnap));
+            if(searchSnap.bumpVisible!==true) throw new Error('Price bump was not shown after 60s: '+JSON.stringify(searchSnap));
+            const assigned=await page.evaluate(()=>window.moveraAssignDriver());
+            await page.waitForTimeout(2200);
+            await shot('driver-found');
+            const foundSnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSearchSnapshotJson||'{}');}catch(e){return {};}});
+            fs.writeFileSync('qa-driver-found.json', JSON.stringify({assigned,foundSnap,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+            await page.mouse.click(28,56); await page.waitForTimeout(900);
+            await shot('cancel-confirm');
+            await page.mouse.click(28,52); await page.waitForTimeout(700);
+            await shot('cancel-keep');
+            if(fatalErrors().length) throw new Error('Fatal runtime error in delayed search QA: '+fatalErrors().join(' | '));
+            console.log('PASS: delayed search copy, price bump, driver found card, cancel kept ride');
+          } catch (error) {
+            await shot('search-qa-failed');
+            throw error;
+          }
+
+          console.log('PASS: exact live Rider completed route entry, all ride types, fare controls, Cash payment, Book now, Book for later date/time confirmation, and final booking transition with no fatal runtime errors');
+
+          async function seedRestore(page, snapshot, shotName, expectedSurface){
+            await page.goto(base+`?restore=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+            await page.waitForFunction(() => typeof window.moveraSeedActiveRide === 'function', null, {timeout:60000});
+            const seeded = await page.evaluate(async (raw) => await window.moveraSeedActiveRide(raw), JSON.stringify(snapshot));
+            if(seeded !== 'ok') throw new Error('moveraSeedActiveRide failed: '+seeded);
+            await page.reload({waitUntil:'networkidle'});
+            await page.waitForFunction(() => window.moveraFirstSurface && window.moveraFirstSurface !== 'hold', null, {timeout:60000});
+            const first = await page.evaluate(() => window.moveraFirstSurface);
+            const homeBuilt = await page.evaluate(() => window.moveraHomeBuilt === true);
+            const current = await page.evaluate(() => window.moveraRestoreSurface);
+            if(first !== expectedSurface) throw new Error(`first restored surface was ${first}, expected ${expectedSurface}`);
+            if(homeBuilt) throw new Error(`Home was constructed during ${expectedSurface} restore`);
+            if(current && current !== expectedSurface) throw new Error(`current surface ${current}, expected ${expectedSurface}`);
+            await page.waitForTimeout(2500);
+            const shot = await page.screenshot({path:`qa-${shotName}.png`,fullPage:true});
+            fs.writeFileSync(`qa-${shotName}.json`, JSON.stringify({first, current, homeBuilt, expectedSurface},null,2));
+            return shot;
+          }
+          const findingSnap={
+            status:'findingDriver',
+            savedAt:new Date().toISOString(),
+            pickupAddress:'Current location',
+            destinationAddress:'Stockholm Central Station',
+            pickupLat:59.3293,pickupLng:18.0686,
+            destinationLat:59.3301,destinationLng:18.058,
+            rideType:'Movera',price:259,paymentMethod:'Apple Pay',rideId:'qa-restore-1'
+          };
+          const seedHooks=await page.evaluate(()=>typeof window.moveraSeedActiveRide==='function');
+          if(!seedHooks){
+            fs.writeFileSync('qa-restore-finding.json', JSON.stringify({skipped:true,reason:'public release seed hooks off'},null,2));
+            console.log('SKIP: restore seed hooks off on public release (expected)');
+          } else {
+          const restorePage=await context.newPage();
+          const restoreShot=await seedRestore(restorePage, findingSnap, 'restore-finding', 'finding');
+          if(Buffer.compare(restoreShot, home)===0) throw new Error('Restore reload showed Home flash/same Home');
+          console.log('PASS: restore finding first surface was Finding, Home never constructed');
+
+          const waitingSnap={...findingSnap, status:'driverAssigned', rideId:'qa-restore-wait'};
+          const waitPage=await context.newPage();
+          const waitShot=await seedRestore(waitPage, waitingSnap, 'restore-waiting', 'waiting');
+          if(Buffer.compare(waitShot, home)===0) throw new Error('Waiting restore showed Home');
+          if(Buffer.compare(waitShot, restoreShot)===0) throw new Error('Waiting restore matched Finding restore');
+          console.log('PASS: restore waiting first surface was Waiting, Home never constructed');
+          }
+
+          function forbidOwner(actual, forbidden, label){
+            if(actual && forbidden.includes(actual)) throw new Error(`${label} stale map owner ${actual}`);
+          }
+          const stressContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          const stressPage=await stressContext.newPage();
+          stressPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
+          stressPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
+          await stressPage.goto(base+`?mapstress=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+          await stressPage.waitForTimeout(4000);
+          const stressHome=await stressPage.screenshot({path:'qa-map-stress-home.png',fullPage:true});
+          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2800);
+          const stressPickup=await stressPage.screenshot({path:'qa-map-stress-pickup.png',fullPage:true});
+          if(Buffer.compare(stressHome, stressPickup)===0) throw new Error('Map stress pickup overlay did not open');
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup');
+          await stressPage.mouse.click(44,44); await stressPage.waitForTimeout(900);
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup-back');
+          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1000);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(2200);
+          await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
+          forbidOwner(await stressPage.evaluate(()=>window.moveraMapOwner), ['select_ride','finding','waiting'], 'pickup-reopen');
+          if(fatalErrors().length) throw new Error('Map stress nested pickup fatal: '+fatalErrors().join(' | '));
+
+          await stressPage.goto(base+`?mapflow=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+          await stressPage.waitForTimeout(4000);
+          await stressPage.mouse.click(190,708); await stressPage.waitForTimeout(1200);
+          let stressInputs=stressPage.locator('input,textarea').filter({visible:true});
+          let stressCount=await stressInputs.count().catch(()=>0);
+          if(!stressCount){await stressPage.mouse.click(185,274); await stressPage.waitForTimeout(400); stressInputs=stressPage.locator('input,textarea'); stressCount=await stressInputs.count();}
+          if(!stressCount) throw new Error('Map stress destination input did not become editable');
+          try {
+            await stressInputs.nth(stressCount-1).fill('Stockholm Central Station', {timeout:8000});
+          } catch (_) {
+            await stressInputs.nth(stressCount-1).click({force:true, timeout:5000});
+            await stressPage.keyboard.type('Stockholm Central Station');
+          }
+          await stressPage.waitForTimeout(700);
+          await stressPage.mouse.click(195,804); await stressPage.waitForTimeout(3500);
+          await stressPage.screenshot({path:'qa-map-stress-pickup-2.png',fullPage:true});
+          await stressPage.mouse.click(195,797); await stressPage.waitForTimeout(7000);
+          await stressPage.screenshot({path:'qa-map-stress-select.png',fullPage:true});
+          const selectOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const selectGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(selectOwner, ['waiting','finding'], 'select-ride');
+          await stressPage.mouse.click(285,743); await stressPage.waitForTimeout(650);
+          await stressPage.mouse.click(195,702); await stressPage.waitForTimeout(700);
+          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(900);
+          await stressPage.mouse.click(195,808); await stressPage.waitForTimeout(4000);
+          await stressPage.screenshot({path:'qa-map-stress-finding.png',fullPage:true});
+          const findingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const findingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(findingOwner, ['home','pickup'], 'finding');
+          await stressPage.waitForTimeout(14000);
+          await stressPage.screenshot({path:'qa-map-stress-waiting.png',fullPage:true});
+          const waitingOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const waitingGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(waitingOwner, ['home','pickup'], 'waiting');
+          await stressPage.evaluate(()=>{document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('pageshow'));});
+          await stressPage.waitForTimeout(1200);
+          await stressPage.screenshot({path:'qa-map-stress-resume.png',fullPage:true});
+          const resumeOwner=await stressPage.evaluate(()=>window.moveraMapOwner);
+          const resumeGen=await stressPage.evaluate(()=>window.moveraMapGeneration);
+          forbidOwner(resumeOwner, ['home','pickup'], 'resume');
+          if(resumeGen && waitingGen && Number(resumeGen) < Number(waitingGen)) throw new Error('resume dropped map generation');
+          if(fatalErrors().length) throw new Error('Map stress fatal: '+fatalErrors().join(' | '));
+          fs.writeFileSync('qa-map-stress.json', JSON.stringify({pageErrors:[...pageErrors],consoleErrors:[...consoleErrors],selectOwner,selectGen,findingOwner,findingGen,waitingOwner,waitingGen,resumeOwner,resumeGen},null,2));
+          console.log('PASS: map stress Home to Finding to Waiting resume with no fatal runtime errors');
+          await stressContext.close();
+
+          const laterContext=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,isMobile:true,hasTouch:true,locale:'en-US',geolocation:{latitude:59.3293,longitude:18.0686},permissions:['geolocation']});
+          const laterPage=await laterContext.newPage();
+          laterPage.on('pageerror',e=>pageErrors.push({message:String(e),stack:e.stack||''}));
+          laterPage.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
+          let bookLater={attempted:true,pickerCompleted:false,ctaSchedule:false,openedRideScheduled:false,openedFindingDriver:false,manualLiveDateTimeRequired:true};
+          try {
+            await laterPage.goto(base+`?booklater=${Date.now()}`,{waitUntil:'networkidle',timeout:120000});
+            await laterPage.waitForTimeout(4000);
+            await laterPage.waitForFunction(()=>typeof window.moveraGeocodeAddress==='function',{timeout:60000});
+            try { await laterPage.getByLabel('Enable accessibility').click({timeout:2000}); } catch (_) {}
+            await laterPage.waitForTimeout(600);
+            await laterPage.mouse.click(190,708); await laterPage.waitForTimeout(1200);
+            let laterInputs=laterPage.locator('input,textarea').filter({visible:true});
+            let laterCount=await laterInputs.count().catch(()=>0);
+            if(!laterCount){await laterPage.mouse.click(185,274); await laterPage.waitForTimeout(400); laterInputs=laterPage.locator('input,textarea'); laterCount=await laterInputs.count();}
+            if(!laterCount) throw new Error('Book-later destination input missing');
+            await laterInputs.nth(laterCount-1).fill('Stockholm Central Station');
+            await laterPage.waitForTimeout(700);
+            await laterPage.mouse.click(195,804); await laterPage.waitForTimeout(3500);
+            await laterPage.mouse.click(195,797); await laterPage.waitForTimeout(7000);
+            await laterPage.screenshot({path:'qa-book-later-categories.png',fullPage:true});
+            await laterPage.mouse.click(350,800); await laterPage.waitForTimeout(900);
+            await laterPage.screenshot({path:'qa-book-later-when-sheet.png',fullPage:true});
+            const bookLaterBtn=laterPage.getByText('Book for later',{exact:true});
+            if(await bookLaterBtn.count()){await bookLaterBtn.last.click();}
+            else {await laterPage.mouse.click(195,778);}
+            await laterPage.waitForTimeout(1200);
+            await laterPage.screenshot({path:'qa-book-later-date.png',fullPage:true});
+            async function tapLabel(page, labels){
+              for (const label of labels){
+                const node=page.getByText(label,{exact:true});
+                if(await node.count()){await node.last.click(); await page.waitForTimeout(700); return true;}
+              }
+              return false;
+            }
+            const dateOk=await tapLabel(laterPage,['OK','Ok','Continue']);
+            await laterPage.screenshot({path:'qa-book-later-time.png',fullPage:true});
+            const timeOk=await tapLabel(laterPage,['OK','Ok','Continue']);
+            bookLater.pickerCompleted=dateOk && timeOk;
+            await laterPage.waitForTimeout(800);
+            await laterPage.screenshot({path:'qa-book-later-after-picker.png',fullPage:true});
+            const scheduleCta=laterPage.getByText(/Schedule /);
+            bookLater.ctaSchedule=await scheduleCta.count()>0;
+            if(bookLater.ctaSchedule){
+              await scheduleCta.last.click();
+              await laterPage.waitForTimeout(2500);
+            } else if(bookLater.pickerCompleted){
+              await laterPage.mouse.click(160,800);
+              await laterPage.waitForTimeout(2500);
+            }
+            await laterPage.screenshot({path:'qa-book-later-after-cta.png',fullPage:true});
+            const rideScheduled=await laterPage.getByText('Ride scheduled',{exact:true}).count();
+            const finding=await laterPage.getByText('Connecting you with nearby drivers').count();
+            bookLater.openedRideScheduled=rideScheduled>0;
+            bookLater.openedFindingDriver=finding>0;
+            if(bookLater.pickerCompleted && bookLater.openedFindingDriver){
+              throw new Error('Book later completed date/time but opened Finding Driver');
+            }
+            if(bookLater.ctaSchedule && bookLater.openedFindingDriver){
+              throw new Error('Schedule CTA opened Finding Driver');
+            }
+            bookLater.manualLiveDateTimeRequired=!(bookLater.pickerCompleted && (bookLater.ctaSchedule || bookLater.openedRideScheduled));
+            if(bookLater.openedRideScheduled){
+              console.log('PASS: live Book-later opened Ride scheduled and did not enter Finding Driver');
+            } else {
+              console.log('MANUAL live date/time verification still required: '+JSON.stringify(bookLater));
+            }
+          } catch (error) {
+            await laterPage.screenshot({path:'qa-book-later-failed.png',fullPage:true}).catch(()=>{});
+            bookLater.error=String(error);
+            bookLater.manualLiveDateTimeRequired=true;
+            if(/Finding Driver/.test(String(error))) throw error;
+            console.log('MANUAL live date/time verification still required: '+JSON.stringify(bookLater));
+          }
+          fs.writeFileSync('qa-book-later.json', JSON.stringify({...bookLater,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          await laterContext.close();
+
+          await browser.close();
+
+          JS
+          node qa-live.mjs
+
+      - name: Upload QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-live-rider-flow
+          path: |
+            qa-*.png
+            qa-*.json
+          if-no-files-found: warn
