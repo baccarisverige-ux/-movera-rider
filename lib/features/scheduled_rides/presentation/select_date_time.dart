@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -61,15 +62,9 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     super.initState();
     setWebOverlayOpen(true);
     final existing = widget.session?.scheduledAt;
-    if (existing != null) {
-      _selectedDateTime = existing;
-    } else {
-      final candidate = DateTime.now().add(const Duration(minutes: 30));
-      final remainder = candidate.minute % 5;
-      _selectedDateTime = candidate.add(
-        Duration(minutes: remainder == 0 ? 0 : 5 - remainder),
-      );
-    }
+    _selectedDateTime = existing != null
+        ? StockholmSchedule.clampPickup(existing)
+        : StockholmSchedule.defaultPickup();
     _commitSchedule();
   }
 
@@ -81,6 +76,13 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   void _goNext() {
     if (_continuing) return;
+    if (!StockholmSchedule.isLegalPickup(_selectedDateTime)) {
+      setState(() {
+        _selectedDateTime = StockholmSchedule.clampPickup(_selectedDateTime);
+      });
+      _commitSchedule();
+      return;
+    }
     _continuing = true;
     _commitSchedule();
     if (widget.popOnConfirm) {
@@ -114,6 +116,11 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
+    final first = StockholmSchedule.stockholmNow();
+    final last = first.add(const Duration(days: 365));
+    if (draftDate.isBefore(first)) {
+      draftDate = StockholmSchedule.clampPickup(draftDate);
+    }
     final result = await MoveraSheet.show<DateTime>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -179,10 +186,8 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                         ),
                         child: CalendarDatePicker(
                           initialDate: draftDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 365),
-                          ),
+                          firstDate: first,
+                          lastDate: last,
                           onDateChanged: (date) {
                             setSheetState(() => draftDate = date);
                           },
@@ -219,20 +224,25 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     );
     if (result == null || !mounted) return;
     setState(() {
-      _selectedDateTime = DateTime(
-        result.year,
-        result.month,
-        result.day,
-        _selectedDateTime.hour,
-        _selectedDateTime.minute,
+      _selectedDateTime = StockholmSchedule.clampPickup(
+        DateTime(
+          result.year,
+          result.month,
+          result.day,
+          _selectedDateTime.hour,
+          _selectedDateTime.minute,
+        ),
       );
     });
     _commitSchedule();
   }
 
   Future<void> _chooseTime() async {
-    var draftHour = _selectedDateTime.hour;
-    var draftMinute = (_selectedDateTime.minute ~/ 5) * 5;
+    final min = StockholmSchedule.timePickerMinFor(_selectedDateTime);
+    var draft = _selectedDateTime;
+    if (draft.isBefore(min)) draft = min;
+    var draftHour = draft.hour;
+    var draftMinute = (draft.minute ~/ 5) * 5;
     final hourController = FixedExtentScrollController(initialItem: draftHour);
     final minuteController = FixedExtentScrollController(
       initialItem: draftMinute ~/ 5,
@@ -373,12 +383,14 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     minuteController.dispose();
     if (result == null || !mounted) return;
     setState(() {
-      _selectedDateTime = DateTime(
-        _selectedDateTime.year,
-        _selectedDateTime.month,
-        _selectedDateTime.day,
-        result.hour,
-        result.minute,
+      _selectedDateTime = StockholmSchedule.clampPickup(
+        DateTime(
+          _selectedDateTime.year,
+          _selectedDateTime.month,
+          _selectedDateTime.day,
+          result.hour,
+          result.minute,
+        ),
       );
     });
     _commitSchedule();
@@ -679,6 +691,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
+    final legal = StockholmSchedule.isLegalPickup(_selectedDateTime);
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return PointerInterceptor(
       child: Listener(
@@ -700,7 +713,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
             height: 52,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _ink,
+              color: legal ? _ink : _ink.withOpacity(0.38),
               borderRadius: BorderRadius.circular(17),
             ),
             child: Text(
