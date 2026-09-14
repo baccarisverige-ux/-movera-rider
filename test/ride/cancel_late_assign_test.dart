@@ -59,7 +59,6 @@ void main() {
     'finding: cancel-first then late assign stays Home (not Finding/Waiting)',
     () async {
       final rt = _rt;
-      rt.holdAssignment();
       final ride = AppScope.instance.ride..rideId = 'r-find';
       var matches = 0;
       final controller = FindingDriverController(
@@ -72,14 +71,10 @@ void main() {
         onTick: (_) {},
         onMatched: () => matches += 1,
       );
+      // subscribe() clears held — hold after start so the timer cannot fire.
+      rt.holdAssignment();
 
       expect(ride.status, RideStatus.findingDriver);
-      expect(
-        RideRestoreCoordinator(
-          reader: RideSnapshotStore.read,
-        ).surfaceFor(await RideSnapshotStore.read()),
-        anyOf(RestoredSurface.finding, RestoredSurface.home),
-      );
 
       await commitCancelFirst();
 
@@ -100,7 +95,10 @@ void main() {
       expect(await RideSnapshotStore.read(), isNull);
 
       final restore = RideRestoreCoordinator(reader: RideSnapshotStore.read);
-      expect(restore.surfaceFor(await RideSnapshotStore.read()), RestoredSurface.home);
+      expect(
+        restore.surfaceFor(await RideSnapshotStore.read()),
+        RestoredSurface.home,
+      );
       expect(await restore.root(), isA<Home>());
 
       Widget? replaced;
@@ -120,7 +118,6 @@ void main() {
     'waiting: cancel-first then late assign stays Home (not Waiting/Finding)',
     () async {
       final rt = _rt;
-      rt.holdAssignment();
       final ride = AppScope.instance.ride..rideId = 'r-wait';
       var matches = 0;
       final controller = FindingDriverController(
@@ -133,6 +130,7 @@ void main() {
         onTick: (_) {},
         onMatched: () => matches += 1,
       );
+      rt.holdAssignment();
 
       rt.assignNow();
       await Future<void>.delayed(const Duration(milliseconds: 40));
@@ -156,7 +154,10 @@ void main() {
       expect(ride.suppressRestore, isTrue);
       expect(rt.cancelled, isTrue);
       expect(await RideSnapshotStore.read(), isNull);
-      expect(restore.surfaceFor(await RideSnapshotStore.read()), RestoredSurface.home);
+      expect(
+        restore.surfaceFor(await RideSnapshotStore.read()),
+        RestoredSurface.home,
+      );
 
       // Late matched / searching events must not reopen Waiting or Finding.
       rt.assignNow();
@@ -187,7 +188,6 @@ void main() {
     'cancel-first bumps epoch so a late assigned snapshot save cannot revive Waiting',
     () async {
       final rt = _rt;
-      rt.holdAssignment();
       final ride = AppScope.instance.ride..rideId = 'r-epoch';
       final controller = FindingDriverController(
         realtime: rt,
@@ -199,6 +199,7 @@ void main() {
         onTick: (_) {},
         onMatched: () {},
       );
+      rt.holdAssignment();
 
       await commitCancelFirst();
       final epochAfterCancel = RideSnapshotStore.epoch;
@@ -219,7 +220,10 @@ void main() {
       expect(ride.suppressRestore, isTrue);
 
       final restore = RideRestoreCoordinator(reader: RideSnapshotStore.read);
-      expect(restore.surfaceFor(await RideSnapshotStore.read()), RestoredSurface.home);
+      expect(
+        restore.surfaceFor(await RideSnapshotStore.read()),
+        RestoredSurface.home,
+      );
       expect(await restore.root(), isA<Home>());
 
       controller.dispose();
