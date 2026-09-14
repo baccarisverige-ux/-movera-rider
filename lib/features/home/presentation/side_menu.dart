@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';

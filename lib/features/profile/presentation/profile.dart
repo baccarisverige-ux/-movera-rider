@@ -7,6 +7,8 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/presentation/account_home.dart';
+import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -147,7 +149,16 @@ class RiderProfile extends StatelessWidget {
                   },
                 ),
                 15.width,
-                card(icon: AppAssets.setting, title: "Settings"),
+                card(
+                  icon: AppAssets.setting,
+                  title: "Settings",
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      RightToLeftTransition(const AccountHomePage()),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -158,8 +169,24 @@ class RiderProfile extends StatelessWidget {
             color: Color(0xffF3F3F3),
           ),
           16.height,
-          _menuItem(title: 'Terms & conditions', onTap: () {}),
-          _menuItem(title: 'Privacy policy', onTap: () {}),
+          _menuItem(
+            title: 'Terms & conditions',
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const AccountLegalPage(kind: 'terms')),
+              );
+            },
+          ),
+          _menuItem(
+            title: 'Privacy policy',
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const AccountLegalPage(kind: 'privacy')),
+              );
+            },
+          ),
           _menuItem(
             title: 'Need help?',
             onTap: () {
@@ -169,7 +196,17 @@ class RiderProfile extends StatelessWidget {
               );
             },
           ),
-          _menuItem(title: 'Log out', onTap: () {}, isLogout: true),
+          _menuItem(
+            title: 'Log out',
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Demo account stays signed in.'),
+                ),
+              );
+            },
+            isLogout: true,
+          ),
 
           // ✅ Rest of your code untouched
         ],

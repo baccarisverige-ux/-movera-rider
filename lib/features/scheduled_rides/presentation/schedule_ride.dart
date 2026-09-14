@@ -43,6 +43,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
   final TextEditingController _dropoffController = TextEditingController();
   final List<TextEditingController> _stopControllers = [];
 
+  // ignore: unused_field
   GoogleMapController? _mapController;
   Set<Marker> _markers = {};
   final ScheduledRideSession _session = ScheduledRideSession();

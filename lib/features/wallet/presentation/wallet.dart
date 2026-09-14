@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -170,6 +169,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _ink = Color(0xFF11181D);
   static const Color _muted = Color(0xFF7B8388);
   static const Color _line = Color(0xFFE6E8E7);
+  // ignore: unused_field
   static const Color _accent = Color(0xFF2D5878);
   final _wallet = WalletController();
 
@@ -1016,7 +1016,7 @@ class _WalletScreenState extends State<WalletScreen> {
     if (offer == null || !mounted) return;
     await _markVoucherUsed(offer.code);
     final current = await _wallet.loadBalance();
-    final next = await _wallet.redeemVoucher(previous: current, offer: offer);
+    await _wallet.redeemVoucher(previous: current, offer: offer);
     if (!mounted) return;
     setState(() {
       _voucherCode = offer.code;

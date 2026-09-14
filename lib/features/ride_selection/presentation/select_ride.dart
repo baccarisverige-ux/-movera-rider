@@ -202,6 +202,7 @@ class _SelectRideState extends State<SelectRide>
   RideNotes _notes = RideNotes.empty;
   late String _pickupAddress;
   late LatLng _pickupPosition;
+  // ignore: unused_field
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
 

@@ -140,7 +140,25 @@ class ReferAndEarn extends StatelessWidget {
                               child: CustomButton(
                                 centerContent: "Share",
                                 onPressed: () {
-                                  // TODO: implement share functionality
+                                  final text =
+                                      'Ride with Movera. Use my code $referralCode';
+                                  Clipboard.setData(ClipboardData(text: text));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Invite copied. Share it with a friend.',
+                                        style: TextStyle(
+                                          color: AppColor.secondary,
+                                        ),
+                                      ),
+                                      backgroundColor: AppColor.primary,
+                                      duration: const Duration(seconds: 2),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
                                 },
                                 icon: Padding(
                                   padding: EdgeInsets.only(

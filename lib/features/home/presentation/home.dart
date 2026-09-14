@@ -1,4 +1,4 @@
-// ignore_for_file: deprecated_member_use
+// ignore_for_file: deprecated_member_use, unused_element, unused_field
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -22,7 +22,6 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
-import 'package:movera_rider/features/location_picker/application/location_picker_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/promotions/application/promotions_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
@@ -33,6 +32,7 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride.da
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
@@ -117,7 +117,6 @@ class _HomeState extends State<Home> {
   static const int _maxRecentAddresses = HomePlacesController.maxRecent;
   static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
-  // ignore: unused_field
   GoogleMapController? _mapController;
   bool _homeMapParked = false;
   Set<Marker> get _markers => _locationCtl.markers;
@@ -458,7 +457,7 @@ class _HomeState extends State<Home> {
         destinationPosition = result.position;
       }
       final confirmedDestinationPosition = destinationPosition;
-      if (confirmedDestinationPosition == null || !mounted) return null;
+      if (!mounted) return null;
       return Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => SelectRide(
@@ -2434,7 +2433,9 @@ class _HomeState extends State<Home> {
                               label: 'Map',
                               active: true,
                               floatingFraction: 1 - sheetProgress,
-                              onTap: () {},
+                              onTap: () => _animateHomeSheetTo(
+                                SheetOffset.absolute(_sheetMinPixels),
+                              ),
                             ),
                           ),
                           Expanded(
@@ -2505,7 +2506,12 @@ class _HomeState extends State<Home> {
             imageAsset: 'assets/images/pin_verification.png',
             title: 'Safety Toolkit',
             subtitle: 'Essential safety tools, ready throughout every ride.',
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                RightToLeftTransition(const SafetyHub()),
+              );
+            },
           ),
           SizedBox(width: ResSize.w * 12),
           _homePromoCard(
@@ -3212,7 +3218,7 @@ class _HomeState extends State<Home> {
                   fit: BoxFit.scaleDown,
                   child: TextWidget(
                     text: label,
-                    color: Colors.black,
+                    color: color,
                     fontSize: 9.5,
                     fontWeight: active ? fwSemiBold : fwMedium,
                   ),
@@ -3324,16 +3330,17 @@ class _HomeState extends State<Home> {
           _buildProfileOption(
             icon: Icons.account_circle_outlined,
             title: "Edit Profile",
-            onTap: () {},
+            onTap: () {
+              _profilePanelController.close();
+              _openAccount();
+            },
           ),
           _buildProfileOption(
             icon: Icons.history,
             title: "Ride History",
             onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(const RideHistory()),
-              );
+              _profilePanelController.close();
+              _openRideHistory();
             },
           ),
           _buildProfileOption(
@@ -3369,7 +3376,10 @@ class _HomeState extends State<Home> {
           _buildProfileOption(
             icon: Icons.settings_outlined,
             title: "Settings",
-            onTap: () {},
+            onTap: () {
+              _profilePanelController.close();
+              _openAccount();
+            },
           ),
           16.height,
           Divider(color: AppColor.border, thickness: 0.4),
@@ -3377,7 +3387,14 @@ class _HomeState extends State<Home> {
           _buildProfileOption(
             icon: Icons.logout,
             title: "Sign Out",
-            onTap: () {},
+            onTap: () {
+              _profilePanelController.close();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Demo account stays signed in.'),
+                ),
+              );
+            },
             isDestructive: true,
           ),
         ],

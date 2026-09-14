@@ -11,7 +11,7 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class SavedPlaces extends StatelessWidget {
   SavedPlaces({super.key});
-  List<SavedPlacesModel> savedPlaces = SavedPlacesController().options();
+  final List<SavedPlacesModel> savedPlaces = SavedPlacesController().options();
   @override
   Widget build(BuildContext context) {
     return Scaffold(

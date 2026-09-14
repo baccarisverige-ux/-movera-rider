@@ -26,7 +26,8 @@ class SecureTokenStore implements TokenStore {
   }
 
   TokenStore get _active {
-    if (_override != null) return _override!;
+    final override = _override;
+    if (override != null) return override;
     if (!_nativeSecure) return _memory;
     return _NativeSecureStore(
       const FlutterSecureStorage(

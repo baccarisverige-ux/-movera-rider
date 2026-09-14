@@ -95,6 +95,7 @@ void showCancelRideReasonDialog(BuildContext context) {
                     if (selectedReason == "Other") ...[
                       12.height,
                       customTextfield(
+                        controller: otherReasonController,
                         hint: "Kindly share the reason for canceling the ride.",
                         maxline: 4,
                         fontSize: 13,
