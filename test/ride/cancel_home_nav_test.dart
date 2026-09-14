@@ -22,19 +22,17 @@ void main() {
         },
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     expect(find.text('searching'), findsOneWidget);
 
     await tester.tap(find.text('Cancel ride'));
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
     expect(find.text('home-root'), findsOneWidget);
     expect(find.text('searching'), findsNothing);
+    expect(nav.canPop(), isFalse);
   });
 
-  testWidgets('cancel removes searching even when PopScope blocks pop', (
+  testWidgets('cancel pops the whole ride stack, not only searching', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -43,32 +41,31 @@ void main() {
         home: const Scaffold(body: Text('home-root')),
       ),
     );
-    moveraNavigatorKey.currentState!.push(
+
+    final nav = moveraNavigatorKey.currentState!;
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('select-ride')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    nav.push(
       MaterialPageRoute<void>(
         builder: (context) {
-          return PopScope(
-            canPop: false,
-            child: Scaffold(
-              body: Column(
-                children: [
-                  const Text('searching'),
-                  TextButton(
-                    onPressed: () => RideNavigator.home(context),
-                    child: const Text('Cancel ride'),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _LockedSearch(onLeave: () => RideNavigator.home(context));
         },
       ),
     );
     await tester.pumpAndSettle();
     expect(find.text('searching'), findsOneWidget);
+
     await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle();
+
     expect(find.text('searching'), findsNothing);
+    expect(find.text('select-ride'), findsNothing);
     expect(find.text('home-root'), findsOneWidget);
+    expect(nav.canPop(), isFalse);
   });
 }
 

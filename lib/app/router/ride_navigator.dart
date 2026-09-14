@@ -24,7 +24,6 @@ abstract final class RideNavigator {
     AppScope.instance.ride.restoreFromBackend(RideStatus.cancelledByRider);
     SheetCoordinator.instance.current = RideSheet.none;
     setWebOverlayOpen(false);
-    unawaited(RideSnapshotStore.clear());
 
     final nav =
         moveraNavigatorKey.currentState ??
@@ -32,18 +31,31 @@ abstract final class RideNavigator {
             ? Navigator.maybeOf(context, rootNavigator: true)
             : null);
 
-    // PopScope(canPop: false) blocks popUntil. removeRoute does not.
-    if (context != null && context.mounted && nav != null) {
-      final route = ModalRoute.of(context);
-      if (route != null && route.isActive) {
-        nav.removeRoute(route);
-      }
+    void finish() {
+      unawaited(RideSnapshotStore.clear());
+      RideRestoreCoordinator.instance.goHome();
     }
 
-    if (nav != null && nav.canPop()) {
-      nav.popUntil((route) => route.isFirst);
+    if (nav == null) {
+      finish();
+      return;
     }
-    RideRestoreCoordinator.instance.goHome();
+
+    // Finding/Waiting set PopScope.canPop via `_leaving` before this.
+    // Pop now if unlocked; otherwise wait one frame. Never removeRoute:
+    // on Flutter web that leaves the old ride in history, so Home bounces back.
+    void popToRoot() {
+      if (nav.canPop()) {
+        nav.popUntil((route) => route.isFirst);
+      }
+      finish();
+    }
+
+    if (nav.canPop()) {
+      popToRoot();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => popToRoot());
+    }
   }
 
   static const names = AppRoutes;
