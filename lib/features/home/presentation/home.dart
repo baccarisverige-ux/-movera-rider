@@ -33,7 +33,12 @@ import 'package:movera_rider/features/reservations/presentation/ride_scheduled.d
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/comfort_ride_carousel.dart';
+import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
+import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
+import 'package:movera_rider/features/home/presentation/widgets/ride_promotion_ticket.dart';
+import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
+import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
@@ -2119,7 +2124,7 @@ class _HomeState extends State<Home> {
                       child: Align(
                         alignment: Alignment.topRight,
                         child: Builder(
-                          builder: (drawerContext) => _premiumTopActions(
+                          builder: (drawerContext) => PremiumTopActions(
                             onMenuTap: () {
                               Scaffold.of(drawerContext).openDrawer();
                             },
@@ -2191,83 +2196,6 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _premiumTopActions({
-    required VoidCallback onMenuTap,
-    required VoidCallback onAccountTap,
-  }) {
-    return Container(
-      height: ResSize.h * 50,
-      padding: EdgeInsets.all(ResSize.h * 3),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColor.white.withValues(alpha: 0.99),
-            const Color(0xFFF8FAFA).withValues(alpha: 0.98),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _premiumLine, width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF162C36).withValues(alpha: 0.13),
-            blurRadius: 22,
-            offset: const Offset(0, 7),
-          ),
-          BoxShadow(
-            color: AppColor.white.withValues(alpha: 0.88),
-            blurRadius: 2,
-            offset: const Offset(0, -1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _premiumTopAction(
-            icon: Icons.menu_open_rounded,
-            semanticLabel: 'Menu',
-            onTap: onMenuTap,
-          ),
-          Container(height: ResSize.h * 23, width: 0.8, color: _premiumLine),
-          _premiumTopAction(
-            icon: Icons.person_rounded,
-            semanticLabel: 'Account',
-            onTap: onAccountTap,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _premiumTopAction({
-    required IconData icon,
-    required String semanticLabel,
-    required VoidCallback onTap,
-  }) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(19),
-          child: SizedBox(
-            height: ResSize.h * 44,
-            width: ResSize.w * 46,
-            child: Icon(
-              icon,
-              size: ResSize.h * 24,
-              color: const Color(0xFF11181D),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _premiumCollapsedSheet(
     double sheetProgress,
     double detailProgress,
@@ -2311,8 +2239,19 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   12.height,
-                  if (_promotionVisible) ...[_ridePromotionTicket(), 9.height],
-                  _whereToCard(),
+                  if (_promotionVisible) ...[
+                    RidePromotionTicket(
+                      title: _promotionTitle,
+                      onTap: _handleDestinationTap,
+                      onDismiss: _dismissPromotion,
+                    ),
+                    9.height,
+                  ],
+                  WhereToCard(
+                    destinationAddress: _destinationAddress,
+                    onDestinationTap: _handleDestinationTap,
+                    onOpenSchedule: _openSchedule,
+                  ),
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
                     child: ClipRect(
@@ -2322,7 +2261,16 @@ class _HomeState extends State<Home> {
                         child: Opacity(
                           opacity: sheetProgress,
                           child: Column(
-                            children: [15.height, _savedPlacesRow()],
+                            children: [
+                              15.height,
+                              SavedPlacesRow(
+                                homeAddress: _homeAddress,
+                                workAddress: _workAddress,
+                                savedPlaces: _savedPlaces,
+                                onUseSavedPlace: _useSavedPlaceAsDestination,
+                                onAddPlace: _openAddPlacePicker,
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -2340,7 +2288,7 @@ class _HomeState extends State<Home> {
                             padding: EdgeInsets.only(top: ResSize.h * 24),
                             child: Column(
                               children: [
-                                _advanceBookingCard(),
+                                AdvanceBookingCard(onOpenSchedule: _openSchedule),
                                 14.height,
                                 ComfortRideCarousel(
                                   onDestinationTap: _handleDestinationTap,
@@ -2444,452 +2392,6 @@ class _HomeState extends State<Home> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _savedPlacesRow() {
-    final cards = <Widget>[
-      SizedBox(
-        width: ResSize.w * 108,
-        child: _quickPlaceCard(
-          iconAsset: AppAssets.quickHome,
-          title: 'Home',
-          subtitle: _shortAddress(_homeAddress, maxLength: 15),
-          onTap: () =>
-              _useSavedPlaceAsDestination(_homeAddress, target: 'home'),
-        ),
-      ),
-      8.width,
-      SizedBox(
-        width: ResSize.w * 108,
-        child: _quickPlaceCard(
-          iconAsset: AppAssets.quickWork,
-          title: 'Work',
-          subtitle: _shortAddress(_workAddress, maxLength: 15),
-          onTap: () =>
-              _useSavedPlaceAsDestination(_workAddress, target: 'work'),
-        ),
-      ),
-      8.width,
-      SizedBox(
-        width: ResSize.w * 108,
-        child: _quickPlaceCard(
-          iconAsset: AppAssets.quickAdd,
-          title: 'Add',
-          subtitle: 'New place',
-          onTap: _openAddPlacePicker,
-        ),
-      ),
-    ];
-    for (final place in _savedPlaces) {
-      cards
-        ..add(8.width)
-        ..add(SizedBox(width: ResSize.w * 108, child: _customPlaceCard(place)));
-    }
-    return SizedBox(
-      height: ResSize.h * 46,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(children: cards),
-      ),
-    );
-  }
-
-  Widget _customPlaceCard(_SavedPlaceData place) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _useSavedPlaceAsDestination(
-          place.address,
-          target: 'custom',
-          customType: place.type,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: ResSize.h * 44,
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFFFFF), Color(0xFFF5F9F9)],
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDDE7E9), width: 0.8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                _placeIcon(place.type),
-                size: ResSize.h * 13,
-                color: _premiumAccent,
-              ),
-              7.width,
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: _placeLabel(place.type),
-                      color: _premiumInk,
-                      fontSize: 10.5,
-                      fontWeight: fwSemiBold,
-                    ),
-                    2.height,
-                    TextWidget(
-                      text: _shortAddress(place.address, maxLength: 15),
-                      color: _premiumMuted.withValues(alpha: 0.82),
-                      fontSize: 7.8,
-                      fontWeight: fwNormal,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _advanceBookingCard() {
-    return InkWell(
-      onTap: _openSchedule,
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.fromLTRB(
-          ResSize.w * 12,
-          ResSize.h * 12,
-          ResSize.w * 12,
-          ResSize.h * 15,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFA),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: _premiumLine, width: 0.8),
-          boxShadow: [
-            BoxShadow(
-              color: _premiumAccent.withValues(alpha: 0.06),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: SizedBox(
-                width: double.infinity,
-                height: ResSize.h * 142,
-                child: Image.asset(
-                  'assets/images/advance_booking_driver.png',
-                  fit: BoxFit.cover,
-                  alignment: const Alignment(0, -0.28),
-                  filterQuality: FilterQuality.high,
-                ),
-              ),
-            ),
-            15.height,
-            TextWidget(
-              text: 'Plan ahead. Ride on time.',
-              color: _premiumInk,
-              fontSize: 17,
-              fontWeight: fwBold,
-            ),
-            7.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
-              child: TextWidget(
-                text:
-                    'Book your ride in advance and we’ll help arrange a driver for the time you choose.',
-                color: _premiumMuted,
-                fontSize: 11.5,
-                fontWeight: fwNormal,
-                textAlign: TextAlign.center,
-              ),
-            ),
-            14.height,
-            Container(
-              height: ResSize.h * 42,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: _premiumAccent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.center,
-              child: TextWidget(
-                text: 'Schedule a ride',
-                color: AppColor.white,
-                fontSize: 12.5,
-                fontWeight: fwSemiBold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _ridePromotionTicket() {
-    return Semantics(
-      button: true,
-      label: _promotionTitle,
-      child: Container(
-        height: ResSize.h * 48,
-        decoration: BoxDecoration(
-          color: AppColor.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFDDE2E4), width: 0.9),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF142D39).withValues(alpha: 0.09),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _handleDestinationTap,
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(15),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.only(left: ResSize.w * 11),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: ResSize.w * 45,
-                          height: ResSize.h * 34,
-                          alignment: Alignment.center,
-                          child: Image.asset(
-                            'assets/images/promo_card_img.png',
-                            width: ResSize.w * 43,
-                            height: ResSize.h * 31,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                          ),
-                        ),
-                        8.width,
-                        Expanded(
-                          child: TextWidget(
-                            text: _promotionTitle,
-                            color: _premiumInk,
-                            fontSize: 12.2,
-                            fontWeight: fwSemiBold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Container(width: 0.8, height: ResSize.h * 24, color: _premiumLine),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _dismissPromotion,
-                borderRadius: const BorderRadius.horizontal(
-                  right: Radius.circular(15),
-                ),
-                child: SizedBox(
-                  width: ResSize.w * 45,
-                  height: double.infinity,
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: ResSize.h * 20,
-                    color: _premiumMuted,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _whereToCard() {
-    return Container(
-      height: ResSize.h * 58,
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(ResSize.w * 4, 0, ResSize.w * 7, 0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9F9),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8EDEF), width: 0.8),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF173B4D).withValues(alpha: 0.035),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _handleDestinationTap,
-                borderRadius: BorderRadius.circular(18),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search_rounded,
-                        size: ResSize.h * 26,
-                        color: _premiumInk,
-                      ),
-                      12.width,
-                      Expanded(
-                        child: TextWidget(
-                          text: _destinationAddress == null
-                              ? 'Where to?'
-                              : _shortAddress(
-                                  _destinationAddress,
-                                  maxLength: 28,
-                                ),
-                          color: _premiumInk.withValues(alpha: 0.72),
-                          fontSize: _destinationAddress == null ? 16.5 : 12.5,
-                          fontWeight: fwMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _openSchedule,
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                height: ResSize.h * 28.4,
-                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
-                decoration: BoxDecoration(
-                  color: AppColor.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _premiumLine, width: 0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.045),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(
-                      AppAssets.navSchedule,
-                      height: ResSize.h * 20.4,
-                      width: ResSize.w * 20.4,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                    4.width,
-                    TextWidget(
-                      text: 'Later',
-                      color: _premiumInk,
-                      fontSize: 9.2,
-                      fontWeight: fwSemiBold,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _quickPlaceCard({
-    required String iconAsset,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          height: ResSize.h * 44,
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFFFFFFF), Color(0xFFF5F9F9)],
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFDDE7E9), width: 0.8),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF174E55).withValues(alpha: 0.055),
-                blurRadius: 15,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: AppColor.white.withValues(alpha: 0.9),
-                blurRadius: 2,
-                offset: const Offset(0, -1),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Image.asset(
-                iconAsset,
-                height: ResSize.h * 12.3,
-                width: ResSize.w * 12.3,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-              8.width,
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: title,
-                      color: _premiumInk,
-                      fontSize: 11.5,
-                      fontWeight: fwSemiBold,
-                    ),
-                    2.height,
-                    TextWidget(
-                      text: subtitle,
-                      color: _premiumMuted.withValues(alpha: 0.82),
-                      fontSize: 8.25,
-                      fontWeight: fwNormal,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
