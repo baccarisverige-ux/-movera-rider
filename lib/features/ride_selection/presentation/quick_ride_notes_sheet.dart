@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 Future<RideNotes?> showQuickRideNotesSheet(
@@ -40,7 +40,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
   TextStyle _text(
     double size, {
     FontWeight weight = FontWeight.w400,
-    Color color = const Color(0xFF1D252C),
+    Color color = MoveraTokens.ink,
   }) {
     return GoogleFonts.poppins(
       fontSize: size,
@@ -79,7 +79,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE7EBEE),
+                  color: MoveraTokens.line,
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
@@ -164,14 +164,14 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
               child: FilledButton(
                 onPressed: _submit,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF11181D),
+                  backgroundColor: MoveraTokens.cta,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
                 child: Text(
-                  'Save',
+                  'Find driver',
                   style: _text(
                     16,
                     weight: FontWeight.w600,
@@ -203,7 +203,7 @@ class _NoteTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColor.liteBlue : Colors.white,
+      color: selected ? MoveraTokens.ink : Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
@@ -215,29 +215,52 @@ class _NoteTile extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: selected
-                    ? const Color(0xFF2D5878)
-                    : const Color(0xFFE7EBEE),
+                color: selected ? MoveraTokens.ink : MoveraTokens.line,
                 width: selected ? 1.5 : 1,
               ),
             ),
-            child: Column(
+            child: Stack(
               children: [
-                Image.asset(
-                  art,
-                  height: 72,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
+                Column(
+                  children: [
+                    Container(
+                      height: 72,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? Colors.white.withOpacity(0.12)
+                            : const Color(0xFFF6F8FA),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Image.asset(
+                        art,
+                        height: 64,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      label,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: selected ? Colors.white : MoveraTokens.ink,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1D252C),
+                if (selected)
+                  const Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

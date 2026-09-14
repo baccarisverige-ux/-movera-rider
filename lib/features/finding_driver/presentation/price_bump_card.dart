@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 
+/// Flat offer controls for delayed search — no nested dialog chrome.
 class PriceBumpCard extends StatefulWidget {
   const PriceBumpCard({
     super.key,
@@ -74,191 +76,175 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
   @override
   Widget build(BuildContext context) {
     final next = _current + (_increase ?? 0);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE7EBEE)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF2F8),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  'Offer',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF2D5878),
-                  ),
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Offer',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+                color: MoveraTokens.muted,
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: widget.onKeepWaiting,
-                child: const Icon(Icons.close_rounded, size: 20),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: widget.onKeepWaiting,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(
+                Icons.close_rounded,
+                size: 20,
+                color: MoveraTokens.muted,
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Want to improve your chances?',
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1D252C),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Raise your offer. Nearby drivers see the new price first.',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              height: 1.35,
-              color: const Color(0xFF5C656C),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Current $_current kr',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF778189),
-            ),
-          ),
-          const SizedBox(height: 10),
-          for (var row = 0; row < widget.steps.length; row += 2) ...[
-            if (row > 0) const SizedBox(height: 8),
-            Row(
-              children: [
-                for (
-                  var i = row;
-                  i < row + 2 && i < widget.steps.length;
-                  i++
-                ) ...[
-                  if (i > row) const SizedBox(width: 8),
-                  Expanded(
-                    child: _Step(
-                      label: '+${widget.steps[i]} kr',
-                      selected: _selectedStep == widget.steps[i],
-                      onTap: () => _selectStep(widget.steps[i]),
-                    ),
-                  ),
-                ],
-              ],
             ),
           ],
-          const SizedBox(height: 14),
-          Text(
-            'Or set a new price',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Want to improve your chances?',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: MoveraTokens.ink,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Raise your offer. Nearby drivers see the new price first.',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            height: 1.35,
+            color: const Color(0xFF5C656C),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'Current $_current kr',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF778189),
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (var row = 0; row < widget.steps.length; row += 2) ...[
+          if (row > 0) const SizedBox(height: 8),
+          Row(
+            children: [
+              for (
+                var i = row;
+                i < row + 2 && i < widget.steps.length;
+                i++
+              ) ...[
+                if (i > row) const SizedBox(width: 8),
+                Expanded(
+                  child: _Step(
+                    label: '+${widget.steps[i]} kr',
+                    selected: _selectedStep == widget.steps[i],
+                    onTap: () => _selectStep(widget.steps[i]),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+        const SizedBox(height: 14),
+        Text(
+          'Or set a new price',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: MoveraTokens.ink,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _price,
+          focusNode: _focus,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          onChanged: _onTyped,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: MoveraTokens.ink,
+          ),
+          decoration: InputDecoration(
+            hintText: '$_current',
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF9AA3A9),
+            ),
+            suffixText: 'kr',
+            suffixStyle: GoogleFonts.poppins(
+              fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: const Color(0xFF1D252C),
+              color: const Color(0xFF5C656C),
+            ),
+            filled: true,
+            fillColor: const Color(0xFFF6F8FA),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: MoveraTokens.line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: MoveraTokens.line),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: MoveraTokens.accent),
             ),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _price,
-            focusNode: _focus,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: _onTyped,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1D252C),
-            ),
-            decoration: InputDecoration(
-              hintText: '$_current',
-              hintStyle: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF9AA3A9),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton(
+            onPressed: _canConfirm ? () => widget.onConfirm(_increase!) : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: MoveraTokens.cta,
+              disabledBackgroundColor: MoveraTokens.line,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-              suffixText: 'kr',
-              suffixStyle: GoogleFonts.poppins(
-                fontSize: 14,
+            ),
+            child: Text(
+              _canConfirm ? 'Confirm $next kr' : 'Set new price',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: _canConfirm ? Colors.white : const Color(0xFF9AA3A9),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: TextButton(
+            onPressed: widget.onKeepWaiting,
+            child: Text(
+              'Keep waiting',
+              style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF5C656C),
               ),
-              filled: true,
-              fillColor: const Color(0xFFF6F8FA),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE7EBEE)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE7EBEE)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFF2D5878)),
-              ),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FilledButton(
-              onPressed: _canConfirm
-                  ? () => widget.onConfirm(_increase!)
-                  : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF11181D),
-                disabledBackgroundColor: const Color(0xFFE7EBEE),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(
-                _canConfirm ? 'Confirm $next kr' : 'Set new price',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  color: _canConfirm ? Colors.white : const Color(0xFF9AA3A9),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: TextButton(
-              onPressed: widget.onKeepWaiting,
-              child: Text(
-                'Keep waiting',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF5C656C),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -279,7 +265,7 @@ class _Step extends StatelessWidget {
     return MoveraMotion.selection(
       selected: selected,
       child: Material(
-        color: selected ? const Color(0xFFEAF2F8) : Colors.white,
+        color: selected ? MoveraTokens.ink : Colors.white,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
@@ -289,9 +275,7 @@ class _Step extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected
-                    ? const Color(0xFF2D5878)
-                    : const Color(0xFFE7EBEE),
+                color: selected ? MoveraTokens.ink : MoveraTokens.line,
               ),
             ),
             child: Text(
@@ -300,7 +284,7 @@ class _Step extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF1D252C),
+                color: selected ? Colors.white : MoveraTokens.ink,
               ),
             ),
           ),

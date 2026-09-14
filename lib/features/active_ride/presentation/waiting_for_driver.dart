@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
@@ -9,20 +8,20 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
-import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
-import 'package:movera_rider/features/safety/presentation/safety_suggestion_banner.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -65,8 +64,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   );
   late final CameraPosition _initialPosition;
   late final AnimationController _sheetSlide;
-  Timer? _suggestTick;
-  int _suggest = 0;
   bool _leaving = false;
   bool _overlayOn = false;
 
@@ -95,9 +92,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         },
       );
     }
-    _suggestTick = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (mounted) setState(() => _suggest += 1);
-    });
   }
 
   void _loadMarkers() {
@@ -105,12 +99,13 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       Marker(
         markerId: const MarkerId('pickup'),
         position: widget.pickupPosition,
-        infoWindow: InfoWindow(title: widget.pickupAddress),
+        infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
       ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
-        infoWindow: InfoWindow(title: widget.destinationAddress),
+        infoWindow:
+            InfoWindow(title: shortPickupPlace(widget.destinationAddress)),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
       if (_tracking.eta?.latitude != null && _tracking.eta?.longitude != null)
@@ -173,7 +168,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void dispose() {
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
-    _suggestTick?.cancel();
     _tracking.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
@@ -187,18 +181,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     setWebOverlayOpen(cover);
   }
 
-  String _shortPlace(String value) {
-    final parts = value
-        .split(',')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .where((part) => !RegExp(r'^\d{3,}$').hasMatch(part))
-        .toList();
-    if (parts.isEmpty) return value;
-    if (parts.length == 1) return parts.first;
-    return '${parts[0]}, ${parts[1]}';
-  }
-
   double _minSheet(MediaQueryData media) => 390 + media.padding.bottom;
 
   double _maxSheet(MediaQueryData media) {
@@ -210,8 +192,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
     final range = _maxSheet(media) - _minSheet(media);
     if (range <= 0) return;
-    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
-        .clamp(0.0, 1.0);
+    _sheetSlide.value =
+        (_sheetSlide.value - details.primaryDelta! / range).clamp(0.0, 1.0);
   }
 
   void _onSheetDragEnd(DragEndDetails details) {
@@ -219,10 +201,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final target = velocity < -480
         ? 1.0
         : velocity > 480
-        ? 0.0
-        : _sheetSlide.value >= 0.42
-        ? 1.0
-        : 0.0;
+            ? 0.0
+            : _sheetSlide.value >= 0.42
+                ? 1.0
+                : 0.0;
     _sheetSlide.animateTo(
       target,
       duration: MoveraMotion.of(context, MoveraDurations.large),
@@ -237,9 +219,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
     final subtitle =
         eta?.subtitle(firstName: driver?.firstName, status: _tracking.status) ??
-        (driver == null
-            ? 'Driver details will appear when matching confirms them.'
-            : 'Leave now to meet ${driver.firstName}');
+            (driver == null
+                ? 'Driver details will appear when matching confirms them.'
+                : 'Leave now to meet ${driver.firstName}');
     final media = MediaQuery.of(context);
     const mapReserve = 300.0;
     return PopScope(
@@ -377,351 +359,47 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            headline,
-            style: GoogleFonts.poppins(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1D252C),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: const Color(0xFF778189),
-            ),
-          ),
-          const SizedBox(height: 14),
-          SafetySuggestionBanner(
-            rideId: AppScope.instance.ride.rideId,
-            tick: _suggest,
-          ),
-          const SizedBox(height: 12),
-          _rideDetailsCard(),
-          const SizedBox(height: 12),
-          _driverCard(driver),
-          if (!widget.notes.isEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final label in widget.notes.selected)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F6FB),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      label,
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF2D5878),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-          if (SafetyController.shared.preferences.pinRequired) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF6F8FA),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Show this PIN to your driver',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: const Color(0xFF778189),
-                    ),
-                  ),
-                  Text(
-                    SafetyController.shared.pin.pin,
-                    style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          SafetyKitSheetRow(rideId: AppScope.instance.ride.rideId),
-        ],
-      ),
-    );
-  }
-
-  Widget _rideDetailsCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE7EBEE)),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${widget.rideType} details',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: const Color(0xFF778189),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Meet at ${_shortPlace(widget.pickupAddress)}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1D252C),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${widget.paymentMethod} · ${widget.price.round()} kr',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF2D5878),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: _openDetails,
-            icon: const Icon(Icons.more_horiz_rounded),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _driverCard(MatchedDriver? driver) {
-    if (driver == null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE7EBEE)),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          'Driver details will appear when matching confirms them.',
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: const Color(0xFF778189),
-          ),
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE7EBEE)),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: _openProfile,
-            child: Row(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 26,
-                      backgroundImage: driver.photoAsset != null
-                          ? AssetImage(driver.photoAsset!)
-                          : null,
-                      backgroundColor: const Color(0xFFF3F6FB),
-                      child: driver.photoAsset == null
-                          ? Text(driver.firstName[0])
-                          : null,
+                    Text(
+                      headline,
+                      style: waitingText(22, weight: FontWeight.w700),
                     ),
-                    if (driver.ratingLabel != null)
-                      Positioned(
-                        left: 4,
-                        right: 4,
-                        bottom: -8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1D252C),
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Text(
-                            '★ ${driver.ratingLabel}',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: waitingText(14, color: const Color(0xFF778189)),
+                    ),
                   ],
                 ),
-                const SizedBox(width: 14),
-                if (driver.vehicleImageAsset != null)
-                  Expanded(
-                    child: Image.asset(
-                      driver.vehicleImageAsset!,
-                      height: 48,
-                      fit: BoxFit.contain,
-                    ),
-                  )
-                else
-                  const Spacer(),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (driver.plate != null)
-                      Text(
-                        driver.plate!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    if (driver.vehicleLabel.isNotEmpty)
-                      Text(
-                        driver.vehicleLabel,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: const Color(0xFF778189),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              WaitingShareButton(rideId: AppScope.instance.ride.rideId),
+            ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: _openProfile,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        driver.firstName,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (driver.tripsLabel != null)
-                        Text(
-                          driver.tripsLabel!,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: const Color(0xFF778189),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          WaitingDriverCard(
+            driver: driver,
+            onOpenProfile: _openProfile,
+            onCall: () =>
+                SafetyController.shared.record(SafetyKind.maskedCall),
+            onMore: _openDetails,
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _action(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  label: 'Message',
-                  onTap: () =>
-                      Navigator.push(context, BottomToTopTransition(Chat())),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _iconAction(
-                Icons.phone_outlined,
-                () => SafetyController.shared.record(SafetyKind.maskedCall),
-              ),
-              const SizedBox(width: 8),
-              _iconAction(Icons.more_horiz_rounded, _openDetails),
-            ],
+          WaitingRideDetailsCard(
+            rideType: widget.rideType,
+            pickupAddress: widget.pickupAddress,
+            paymentMethod: widget.paymentMethod,
+            price: widget.price,
+            onMore: _openDetails,
           ),
+          WaitingNotesAndPin(notes: widget.notes),
         ],
-      ),
-    );
-  }
-
-  Widget _action({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: const Color(0xFFF6F8FA),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: const Color(0xFF1D252C)),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _iconAction(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: const Color(0xFFF6F8FA),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, size: 20, color: const Color(0xFF1D252C)),
-        ),
       ),
     );
   }
@@ -736,7 +414,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 22, color: const Color(0xFF1D252C)),
+          child: Icon(icon, size: 22, color: MoveraTokens.ink),
         ),
       ),
     );
