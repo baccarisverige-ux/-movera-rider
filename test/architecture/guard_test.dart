@@ -249,7 +249,7 @@ void main() {
     expect(menu.contains('Support'), isTrue);
     expect(menu.contains('Invite Friends'), isTrue);
     expect(menu.contains('About'), isTrue);
-    expect(menu.contains('Become a driver'), isTrue);
+    expect(menu.contains('Become a driver'), isFalse);
   });
 
   test('safety presentation stays off the data and platform layers', () {
@@ -510,6 +510,7 @@ void main() {
     expect(checkout.contains('ReservationReviewPage'), isFalse);
     expect(checkout.contains('ReviewChangesPage'), isTrue);
     expect(checkout.contains('showReservationBookedPopup'), isTrue);
+    expect(checkout.contains('ScheduledRideCheckout.run'), isTrue);
     expect(checkout.contains('ScheduledRideBooking.confirm'), isTrue);
     expect(checkout.contains('FindingDrivers'), isFalse);
     expect(checkout.contains('submitFinding'), isFalse);
