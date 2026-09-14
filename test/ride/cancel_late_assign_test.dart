@@ -201,23 +201,24 @@ void main() {
       );
       rt.holdAssignment();
 
-      await commitCancelFirst();
-      final epochAfterCancel = RideSnapshotStore.epoch;
-
-      // In-flight matching persist that races after cancel-first.
-      await RideSnapshotStore.save(
+      // In-flight persist started before cancel-first (captures old epoch).
+      final pending = RideSnapshotStore.save(
         findingSnap(rideId: 'r-epoch').copyWith(
           status: RideStatus.driverAssigned,
           savedAt: DateTime.now(),
           driver: MockRideRealtime.mockDriver,
         ),
       );
+      await commitCancelFirst();
+      await pending;
+
+      expect(ride.status, RideStatus.cancelledByRider);
+      expect(ride.suppressRestore, isTrue);
+      expect(await RideSnapshotStore.read(), isNull);
+
       rt.assignNow();
       await Future<void>.delayed(const Duration(milliseconds: 20));
-
-      expect(RideSnapshotStore.epoch, greaterThanOrEqualTo(epochAfterCancel));
       expect(await RideSnapshotStore.read(), isNull);
-      expect(ride.suppressRestore, isTrue);
 
       final restore = RideRestoreCoordinator(reader: RideSnapshotStore.read);
       expect(
