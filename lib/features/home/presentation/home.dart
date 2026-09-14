@@ -569,7 +569,7 @@ class _HomeState extends State<Home> {
     final draft = await MoveraSheet.show<Map<String, dynamic>>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.26),
+      barrierColor: Colors.black.withValues(alpha: 0.26),
       builder: (sheetContext) {
         return PointerInterceptor(
           child: StatefulBuilder(
@@ -678,7 +678,7 @@ class _HomeState extends State<Home> {
                             fontWeight: FontWeight.w600,
                           ),
                           hintStyle: TextStyle(
-                            color: _premiumMuted.withOpacity(0.68),
+                            color: _premiumMuted.withValues(alpha: 0.68),
                             fontSize: ResSize.setSp(13),
                             fontWeight: FontWeight.w400,
                           ),
@@ -887,7 +887,7 @@ class _HomeState extends State<Home> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.045),
+                                    color: Colors.black.withValues(alpha: 0.045),
                                     blurRadius: 18,
                                     offset: const Offset(0, 7),
                                   ),
@@ -901,7 +901,7 @@ class _HomeState extends State<Home> {
                                     bottom: ResSize.h * 25,
                                     child: Container(
                                       width: 1.4,
-                                      color: _premiumInk.withOpacity(0.72),
+                                      color: _premiumInk.withValues(alpha: 0.72),
                                     ),
                                   ),
                                   Column(children: routeRows),
@@ -940,7 +940,7 @@ class _HomeState extends State<Home> {
                                 child: Icon(
                                   Icons.add_rounded,
                                   color: stopControllers.length >= 3
-                                      ? _premiumMuted.withOpacity(0.4)
+                                      ? _premiumMuted.withValues(alpha: 0.4)
                                       : _premiumInk,
                                   size: ResSize.h * 27,
                                 ),
@@ -1139,7 +1139,7 @@ class _HomeState extends State<Home> {
                       10.height,
                       Material(
                         color: destinationController.text.trim().isEmpty
-                            ? _premiumAccent.withOpacity(0.42)
+                            ? _premiumAccent.withValues(alpha: 0.42)
                             : _premiumAccent,
                         borderRadius: BorderRadius.circular(18),
                         child: InkWell(
@@ -1334,7 +1334,7 @@ class _HomeState extends State<Home> {
     final selected = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.24),
+      barrierColor: Colors.black.withValues(alpha: 0.24),
       builder: (sheetContext) {
         return PointerInterceptor(
           child: StatefulBuilder(
@@ -1425,12 +1425,12 @@ class _HomeState extends State<Home> {
                         decoration: InputDecoration(
                           hintText: 'Search or enter an address',
                           hintStyle: TextStyle(
-                            color: _premiumMuted.withOpacity(0.72),
+                            color: _premiumMuted.withValues(alpha: 0.72),
                             fontSize: ResSize.setSp(14),
                           ),
                           prefixIcon: Icon(
                             Icons.search_rounded,
-                            color: _premiumInk.withOpacity(0.72),
+                            color: _premiumInk.withValues(alpha: 0.72),
                           ),
                           suffixIcon: query.isEmpty
                               ? null
@@ -1470,7 +1470,7 @@ class _HomeState extends State<Home> {
                               vertical: ResSize.h * 11,
                             ),
                             decoration: BoxDecoration(
-                              color: _premiumAccentSoft.withOpacity(0.62),
+                              color: _premiumAccentSoft.withValues(alpha: 0.62),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
@@ -1615,7 +1615,7 @@ class _HomeState extends State<Home> {
     final type = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.24),
+      barrierColor: Colors.black.withValues(alpha: 0.24),
       builder: (sheetContext) {
         return PointerInterceptor(
           child: Container(
@@ -2056,7 +2056,7 @@ class _HomeState extends State<Home> {
       backgroundColor: const Color(0xFFEEF1E8),
       extendBody: true,
       drawer: RiderSideMenu(),
-      drawerScrimColor: Colors.black.withOpacity(0.38),
+      drawerScrimColor: Colors.black.withValues(alpha: 0.38),
       body: Listener(
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => _cancelSheetIdleTimer(),
@@ -2142,7 +2142,7 @@ class _HomeState extends State<Home> {
                         child: BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
                           child: Container(
-                            color: AppColor.white.withOpacity(0.05),
+                            color: AppColor.white.withValues(alpha: 0.05),
                           ),
                         ),
                       ),
@@ -2247,20 +2247,20 @@ class _HomeState extends State<Home> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            AppColor.white.withOpacity(0.99),
-            const Color(0xFFF8FAFA).withOpacity(0.98),
+            AppColor.white.withValues(alpha: 0.99),
+            const Color(0xFFF8FAFA).withValues(alpha: 0.98),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _premiumLine, width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF162C36).withOpacity(0.13),
+            color: const Color(0xFF162C36).withValues(alpha: 0.13),
             blurRadius: 22,
             offset: const Offset(0, 7),
           ),
           BoxShadow(
-            color: AppColor.white.withOpacity(0.88),
+            color: AppColor.white.withValues(alpha: 0.88),
             blurRadius: 2,
             offset: const Offset(0, -1),
           ),
@@ -2415,12 +2415,12 @@ class _HomeState extends State<Home> {
                       32 * (1 - sheetProgress),
                     ),
                     border: Border.all(
-                      color: _premiumLine.withOpacity(1 - sheetProgress),
+                      color: _premiumLine.withValues(alpha: 1 - sheetProgress),
                       width: 0.8,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(
+                        color: Colors.black.withValues(alpha: 
                           0.14 * (1 - sheetProgress),
                         ),
                         blurRadius: 28 * (1 - sheetProgress),
@@ -2602,7 +2602,7 @@ class _HomeState extends State<Home> {
               border: Border.all(color: _premiumLine, width: 0.8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.055),
+                  color: Colors.black.withValues(alpha: 0.055),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -2818,7 +2818,7 @@ class _HomeState extends State<Home> {
                     2.height,
                     TextWidget(
                       text: _shortAddress(place.address, maxLength: 15),
-                      color: _premiumMuted.withOpacity(0.82),
+                      color: _premiumMuted.withValues(alpha: 0.82),
                       fontSize: 7.8,
                       fontWeight: fwNormal,
                     ),
@@ -2850,7 +2850,7 @@ class _HomeState extends State<Home> {
           border: Border.all(color: _premiumLine, width: 0.8),
           boxShadow: [
             BoxShadow(
-              color: _premiumAccent.withOpacity(0.06),
+              color: _premiumAccent.withValues(alpha: 0.06),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -2924,7 +2924,7 @@ class _HomeState extends State<Home> {
           border: Border.all(color: const Color(0xFFDDE2E4), width: 0.9),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF142D39).withOpacity(0.09),
+              color: const Color(0xFF142D39).withValues(alpha: 0.09),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),
@@ -3007,7 +3007,7 @@ class _HomeState extends State<Home> {
         border: Border.all(color: const Color(0xFFE8EDEF), width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF173B4D).withOpacity(0.035),
+            color: const Color(0xFF173B4D).withValues(alpha: 0.035),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -3039,7 +3039,7 @@ class _HomeState extends State<Home> {
                                   _destinationAddress,
                                   maxLength: 28,
                                 ),
-                          color: _premiumInk.withOpacity(0.72),
+                          color: _premiumInk.withValues(alpha: 0.72),
                           fontSize: _destinationAddress == null ? 16.5 : 12.5,
                           fontWeight: fwMedium,
                         ),
@@ -3064,7 +3064,7 @@ class _HomeState extends State<Home> {
                   border: Border.all(color: _premiumLine, width: 0.8),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.045),
+                      color: Colors.black.withValues(alpha: 0.045),
                       blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
@@ -3122,12 +3122,12 @@ class _HomeState extends State<Home> {
             border: Border.all(color: const Color(0xFFDDE7E9), width: 0.8),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF174E55).withOpacity(0.055),
+                color: const Color(0xFF174E55).withValues(alpha: 0.055),
                 blurRadius: 15,
                 offset: const Offset(0, 6),
               ),
               BoxShadow(
-                color: AppColor.white.withOpacity(0.9),
+                color: AppColor.white.withValues(alpha: 0.9),
                 blurRadius: 2,
                 offset: const Offset(0, -1),
               ),
@@ -3157,7 +3157,7 @@ class _HomeState extends State<Home> {
                     2.height,
                     TextWidget(
                       text: subtitle,
-                      color: _premiumMuted.withOpacity(0.82),
+                      color: _premiumMuted.withValues(alpha: 0.82),
                       fontSize: 8.25,
                       fontWeight: fwNormal,
                     ),
@@ -3509,7 +3509,7 @@ class _PremiumRouteLocationBadge extends StatelessWidget {
                   width: size * 0.74,
                   height: road,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.98),
+                    color: Colors.white.withValues(alpha: 0.98),
                     borderRadius: BorderRadius.circular(road),
                   ),
                 ),
@@ -3521,7 +3521,7 @@ class _PremiumRouteLocationBadge extends StatelessWidget {
                   width: road,
                   height: size * 0.65,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.97),
+                    color: Colors.white.withValues(alpha: 0.97),
                     borderRadius: BorderRadius.circular(road),
                   ),
                 ),
@@ -3595,7 +3595,7 @@ class _PremiumRouteLocationBadge extends StatelessWidget {
                         width: size * 0.075,
                         height: size * 0.075,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.55),
+                          color: Colors.white.withValues(alpha: 0.55),
                           shape: BoxShape.circle,
                         ),
                       ),

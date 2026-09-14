@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
+import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 
 class RideCheckPage extends StatefulWidget {
   const RideCheckPage({super.key, required this.controller});
@@ -52,11 +53,21 @@ class _RideCheckPageState extends State<RideCheckPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('RideCheck alerts', style: SafetyUi.text(15.5, weight: FontWeight.w500)),
+                  child: Text(
+                    'RideCheck alerts',
+                    style: SafetyUi.text(15.5, weight: FontWeight.w500),
+                  ),
                 ),
                 Switch.adaptive(
                   value: on,
-                  activeColor: SafetyUi.accent,
+                  activeThumbColor: adaptiveSwitchThumbColor(
+                    context,
+                    SafetyUi.accent,
+                  ),
+                  activeTrackColor: adaptiveSwitchTrackColor(
+                    context,
+                    SafetyUi.accent,
+                  ),
                   onChanged: _ctl.setRideCheck,
                 ),
               ],
@@ -69,16 +80,27 @@ class _RideCheckPageState extends State<RideCheckPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('What RideCheck looks for', style: SafetyUi.text(15, weight: FontWeight.w600)),
+                Text(
+                  'What RideCheck looks for',
+                  style: SafetyUi.text(15, weight: FontWeight.w600),
+                ),
                 const SizedBox(height: 10),
                 Text(
                   'Unexpected long stops, major route changes, a trip continuing well past the destination, or a sudden loss of movement.',
-                  style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
+                  style: SafetyUi.text(
+                    13.5,
+                    color: SafetyUi.muted,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'Live route monitoring is not connected to a production backend yet. Turning this on saves your preference so Movera can use it when RideCheck is fully active.',
-                  style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
+                  style: SafetyUi.text(
+                    13.5,
+                    color: SafetyUi.muted,
+                    height: 1.45,
+                  ),
                 ),
               ],
             ),

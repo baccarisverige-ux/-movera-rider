@@ -817,7 +817,7 @@ class _SelectRideState extends State<SelectRide>
                   child: Material(
                     color: Colors.white,
                     elevation: 18,
-                    shadowColor: const Color(0xFF162C36).withOpacity(0.16),
+                    shadowColor: const Color(0xFF162C36).withValues(alpha: 0.16),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -899,18 +899,18 @@ class _SelectRideState extends State<SelectRide>
 
   Widget _searchBar() {
     return Material(
-      color: Colors.white.withOpacity(0.96),
+      color: Colors.white.withValues(alpha: 0.96),
       borderRadius: BorderRadius.circular(22),
       elevation: 0,
       child: Container(
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.96),
+          color: Colors.white.withValues(alpha: 0.96),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _line),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF162C36).withOpacity(0.08),
+              color: const Color(0xFF162C36).withValues(alpha: 0.08),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),
@@ -992,7 +992,7 @@ class _SelectRideState extends State<SelectRide>
           child: Icon(
             icon,
             size: 18,
-            color: enabled ? _ink : _muted.withOpacity(0.45),
+            color: enabled ? _ink : _muted.withValues(alpha: 0.45),
           ),
         ),
       ),
@@ -1087,7 +1087,7 @@ class _SelectRideState extends State<SelectRide>
               boxShadow: selected
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF162C36).withOpacity(0.06),
+                        color: const Color(0xFF162C36).withValues(alpha: 0.06),
                         blurRadius: 16,
                         offset: const Offset(0, 6),
                       ),
@@ -1371,7 +1371,7 @@ class _SelectRideState extends State<SelectRide>
             border: Border.all(color: _line),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.035),
+                color: Colors.black.withValues(alpha: 0.035),
                 blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
@@ -1604,7 +1604,7 @@ class _RoutePainter extends CustomPainter {
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, sky);
 
-    final water = Paint()..color = const Color(0xFFC9D9D4).withOpacity(0.7);
+    final water = Paint()..color = const Color(0xFFC9D9D4).withValues(alpha: 0.7);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
@@ -1633,7 +1633,7 @@ class _RoutePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF2D5878).withOpacity(0.18)
+        ..color = const Color(0xFF2D5878).withValues(alpha: 0.18)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 10
         ..strokeCap = StrokeCap.round,

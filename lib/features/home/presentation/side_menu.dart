@@ -84,7 +84,7 @@ class RiderSideMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.035),
+            color: Colors.black.withValues(alpha: 0.035),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -253,8 +253,8 @@ class RiderSideMenu extends StatelessWidget {
           top: isFirst ? const Radius.circular(22) : Radius.zero,
           bottom: isLast ? const Radius.circular(22) : Radius.zero,
         ),
-        splashColor: _accent.withOpacity(0.05),
-        highlightColor: _accent.withOpacity(0.03),
+        splashColor: _accent.withValues(alpha: 0.05),
+        highlightColor: _accent.withValues(alpha: 0.03),
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             ResSize.w * 18,

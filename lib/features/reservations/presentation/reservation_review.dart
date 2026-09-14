@@ -73,7 +73,7 @@ class ReservationReviewPage extends StatelessWidget {
                 Text(
                   minutes == null
                       ? ReservationFormat.kr(draft.price)
-                      : '${minutes} min  ·  ${ReservationFormat.kr(draft.price)}',
+                      : '$minutes min  ·  ${ReservationFormat.kr(draft.price)}',
                   textAlign: TextAlign.center,
                   style: reservationText(14, color: kReservationMuted),
                 ),

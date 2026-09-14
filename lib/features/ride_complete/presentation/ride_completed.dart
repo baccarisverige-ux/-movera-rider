@@ -51,7 +51,7 @@ class _RideCompletedState extends State<RideCompleted> {
                         boxShadow: [
                           BoxShadow(
                             // ignore: deprecated_member_use
-                            color: Color(0xff999999).withOpacity(0.1),
+                            color: Color(0xff999999).withValues(alpha: 0.1),
                             blurRadius: 40,
                             offset: const Offset(0, 4),
                             spreadRadius: 0,

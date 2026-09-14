@@ -293,7 +293,7 @@ class HomeLocationController {
         anchor: const Offset(0.5, 0.66),
         rotation: heading,
         flat: true,
-        zIndex: 20,
+        zIndexInt: 20,
       ),
     };
   }

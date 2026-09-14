@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class PrivacyPage extends StatefulWidget {
@@ -83,7 +84,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 body: 'Pickup, driver, and reservation alerts',
                 trailing: Switch.adaptive(
                   value: ride.rideUpdates,
-                  activeColor: kAccountAccent,
+                  activeThumbColor: adaptiveSwitchThumbColor(
+                    context,
+                    kAccountAccent,
+                  ),
+                  activeTrackColor: adaptiveSwitchTrackColor(
+                    context,
+                    kAccountAccent,
+                  ),
                   onChanged: (on) =>
                       _profile.update(ride.copyWith(rideUpdates: on)),
                 ),
@@ -94,7 +102,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 body: 'Receipts and account notes',
                 trailing: Switch.adaptive(
                   value: ride.emailUpdates,
-                  activeColor: kAccountAccent,
+                  activeThumbColor: adaptiveSwitchThumbColor(
+                    context,
+                    kAccountAccent,
+                  ),
+                  activeTrackColor: adaptiveSwitchTrackColor(
+                    context,
+                    kAccountAccent,
+                  ),
                   onChanged: (on) =>
                       _profile.update(ride.copyWith(emailUpdates: on)),
                 ),
@@ -106,7 +121,14 @@ class _PrivacyPageState extends State<PrivacyPage> {
                 showDivider: false,
                 trailing: Switch.adaptive(
                   value: ride.promotions,
-                  activeColor: kAccountAccent,
+                  activeThumbColor: adaptiveSwitchThumbColor(
+                    context,
+                    kAccountAccent,
+                  ),
+                  activeTrackColor: adaptiveSwitchTrackColor(
+                    context,
+                    kAccountAccent,
+                  ),
                   onChanged: (on) =>
                       _profile.update(ride.copyWith(promotions: on)),
                 ),

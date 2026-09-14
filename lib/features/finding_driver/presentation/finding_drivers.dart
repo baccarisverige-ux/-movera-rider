@@ -387,7 +387,7 @@ class _FindingDriversState extends State<FindingDrivers>
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36).withOpacity(0.14),
+                      shadowColor: const Color(0xFF162C36).withValues(alpha: 0.14),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),

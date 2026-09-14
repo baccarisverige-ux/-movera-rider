@@ -4,6 +4,7 @@ import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
+import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
@@ -36,7 +37,8 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
   Future<void> _edit([EmergencyContact? existing]) async {
     await MoveraSheet.show<void>(
       context: context,
-      builder: (context) => _ContactEditor(controller: _ctl, existing: existing),
+      builder: (context) =>
+          _ContactEditor(controller: _ctl, existing: existing),
     );
   }
 
@@ -51,17 +53,27 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
           height: 52,
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: items.length >= kMaxEmergencyContacts ? null : () => _edit(),
+            onPressed: items.length >= kMaxEmergencyContacts
+                ? null
+                : () => _edit(),
             style: ElevatedButton.styleFrom(
               backgroundColor: SafetyUi.ink,
               foregroundColor: Colors.white,
               disabledBackgroundColor: const Color(0xFFD8DEE3),
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: Text(
-              items.length >= kMaxEmergencyContacts ? 'Maximum 5 contacts' : 'Add contact',
-              style: SafetyUi.text(15.5, weight: FontWeight.w600, color: Colors.white),
+              items.length >= kMaxEmergencyContacts
+                  ? 'Maximum 5 contacts'
+                  : 'Add contact',
+              style: SafetyUi.text(
+                15.5,
+                weight: FontWeight.w600,
+                color: Colors.white,
+              ),
             ),
           ),
         ),
@@ -130,7 +142,10 @@ class _ContactTile extends StatelessWidget {
       children: [
         ListTile(
           contentPadding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
-          title: Text(contact.name, style: SafetyUi.text(16, weight: FontWeight.w500)),
+          title: Text(
+            contact.name,
+            style: SafetyUi.text(16, weight: FontWeight.w500),
+          ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
@@ -153,7 +168,10 @@ class _ContactTile extends StatelessWidget {
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'edit', child: Text('Edit')),
               if (!contact.isPrimary)
-                const PopupMenuItem(value: 'primary', child: Text('Make primary')),
+                const PopupMenuItem(
+                  value: 'primary',
+                  child: Text('Make primary'),
+                ),
               const PopupMenuItem(value: 'delete', child: Text('Delete')),
             ],
           ),
@@ -275,7 +293,7 @@ class _ContactEditorState extends State<_ContactEditor> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _relationship,
+              initialValue: _relationship,
               decoration: const InputDecoration(labelText: 'Relationship'),
               items: [
                 for (final label in kEmergencyContactRelationships)
@@ -287,9 +305,19 @@ class _ContactEditorState extends State<_ContactEditor> {
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: Text('Share trips with this person', style: SafetyUi.text(14.5)),
+              title: Text(
+                'Share trips with this person',
+                style: SafetyUi.text(14.5),
+              ),
               value: _share,
-              activeColor: SafetyUi.accent,
+              activeThumbColor: adaptiveSwitchThumbColor(
+                context,
+                SafetyUi.accent,
+              ),
+              activeTrackColor: adaptiveSwitchTrackColor(
+                context,
+                SafetyUi.accent,
+              ),
               onChanged: (value) => setState(() => _share = value),
             ),
             if (widget.existing != null)
@@ -297,13 +325,23 @@ class _ContactEditorState extends State<_ContactEditor> {
                 contentPadding: EdgeInsets.zero,
                 title: Text('Enabled', style: SafetyUi.text(14.5)),
                 value: _enabled,
-                activeColor: SafetyUi.accent,
+                activeThumbColor: adaptiveSwitchThumbColor(
+                  context,
+                  SafetyUi.accent,
+                ),
+                activeTrackColor: adaptiveSwitchTrackColor(
+                  context,
+                  SafetyUi.accent,
+                ),
                 onChanged: (value) => setState(() => _enabled = value),
               ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(_error!, style: SafetyUi.text(13, color: SafetyUi.danger)),
+                child: Text(
+                  _error!,
+                  style: SafetyUi.text(13, color: SafetyUi.danger),
+                ),
               ),
             SizedBox(
               width: double.infinity,
@@ -314,9 +352,18 @@ class _ContactEditorState extends State<_ContactEditor> {
                   backgroundColor: SafetyUi.ink,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: Text(_saving ? 'Saving…' : 'Save', style: SafetyUi.text(15.5, weight: FontWeight.w600, color: Colors.white)),
+                child: Text(
+                  _saving ? 'Saving…' : 'Save',
+                  style: SafetyUi.text(
+                    15.5,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ],

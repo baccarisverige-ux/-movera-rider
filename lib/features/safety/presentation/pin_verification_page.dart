@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
+import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 
 class PinVerificationPage extends StatefulWidget {
   const PinVerificationPage({super.key, required this.controller});
@@ -35,8 +36,13 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: SafetyUi.card,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          title: Text('Change PIN?', style: SafetyUi.text(18, weight: FontWeight.w600)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: Text(
+            'Change PIN?',
+            style: SafetyUi.text(18, weight: FontWeight.w600),
+          ),
           content: Text(
             'Movera will create a new 4-digit PIN. Share it with your driver only when the ride begins.',
             style: SafetyUi.text(14, color: SafetyUi.muted, height: 1.4),
@@ -44,11 +50,21 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: Text('Cancel', style: SafetyUi.text(14, color: SafetyUi.muted)),
+              child: Text(
+                'Cancel',
+                style: SafetyUi.text(14, color: SafetyUi.muted),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: Text('Change PIN', style: SafetyUi.text(14, color: SafetyUi.accent, weight: FontWeight.w600)),
+              child: Text(
+                'Change PIN',
+                style: SafetyUi.text(
+                  14,
+                  color: SafetyUi.accent,
+                  weight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         );
@@ -76,11 +92,21 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('Verify rides with a PIN', style: SafetyUi.text(15.5, weight: FontWeight.w500)),
+                  child: Text(
+                    'Verify rides with a PIN',
+                    style: SafetyUi.text(15.5, weight: FontWeight.w500),
+                  ),
                 ),
                 Switch.adaptive(
                   value: _ctl.preferences.pinRequired,
-                  activeColor: SafetyUi.accent,
+                  activeThumbColor: adaptiveSwitchThumbColor(
+                    context,
+                    SafetyUi.accent,
+                  ),
+                  activeTrackColor: adaptiveSwitchTrackColor(
+                    context,
+                    SafetyUi.accent,
+                  ),
                   onChanged: _ctl.setPinRequired,
                 ),
               ],
@@ -101,9 +127,14 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: SafetyUi.ink,
                 side: const BorderSide(color: SafetyUi.line),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
-              child: Text('Change PIN', style: SafetyUi.text(15.5, weight: FontWeight.w600)),
+              child: Text(
+                'Change PIN',
+                style: SafetyUi.text(15.5, weight: FontWeight.w600),
+              ),
             ),
           ),
         ],

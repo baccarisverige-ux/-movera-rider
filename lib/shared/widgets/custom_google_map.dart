@@ -116,7 +116,7 @@ class CustomGoogleMap extends StatefulWidget {
   final String? customMapStyle;
 
   const CustomGoogleMap({
-    Key? key,
+    super.key,
     this.initialPosition,
     this.markers,
     this.polylines,
@@ -142,7 +142,7 @@ class CustomGoogleMap extends StatefulWidget {
     this.onCameraIdle,
     this.padding = EdgeInsets.zero,
     this.customMapStyle,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomGoogleMap> createState() => _CustomGoogleMapState();
@@ -219,27 +219,6 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
   }
 }
 
-extension CustomGoogleMapExtensions on _CustomGoogleMapState {
-  Future<void> animateToPosition(LatLng position, {double zoom = 14.0}) async {
-    await _mapController?.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(target: position, zoom: zoom),
-      ),
-    );
-  }
-
-  Future<void> animateToFitBounds(LatLngBounds bounds) async {
-    await _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(bounds, 100.0),
-    );
-  }
-
-  Future<LatLngBounds> getVisibleRegion() async {
-    return await _mapController?.getVisibleRegion() ??
-        LatLngBounds(southwest: LatLng(0, 0), northeast: LatLng(0, 0));
-  }
-}
-
 class MapHelper {
   static Future<Marker> createCustomMarker({
     required String markerId,
@@ -283,7 +262,7 @@ class MapHelper {
       circleId: CircleId(circleId),
       center: center,
       radius: radius,
-      fillColor: fillColor.withOpacity(0.3),
+      fillColor: fillColor.withValues(alpha: 0.3),
       strokeColor: strokeColor,
       strokeWidth: strokeWidth.toInt(),
     );

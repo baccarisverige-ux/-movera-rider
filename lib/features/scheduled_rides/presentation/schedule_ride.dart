@@ -43,7 +43,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   // ignore: unused_field
   GoogleMapController? _mapController;
-  Set<Marker> _markers = {};
+  final Set<Marker> _markers = {};
   final ScheduledRideSession _session = ScheduledRideSession();
 
   // Default location
@@ -269,7 +269,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                         border: Border.all(color: _scheduleLine),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.045),
+                            color: Colors.black.withValues(alpha: 0.045),
                             blurRadius: 22,
                             offset: const Offset(0, 9),
                           ),
@@ -380,7 +380,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                       onPressed: canContinue ? goToNextStep : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _scheduleInk,
-                        disabledBackgroundColor: _scheduleInk.withOpacity(0.18),
+                        disabledBackgroundColor: _scheduleInk.withValues(alpha: 0.18),
                         foregroundColor: Colors.white,
                         disabledForegroundColor: Colors.white,
                         elevation: 0,
@@ -442,7 +442,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                 fontWeight: FontWeight.w500,
               ),
               hintStyle: GoogleFonts.poppins(
-                color: _scheduleMuted.withOpacity(0.7),
+                color: _scheduleMuted.withValues(alpha: 0.7),
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
               ),
@@ -598,7 +598,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                 color: Color(
                                   0xff606060,
                                   // ignore: deprecated_member_use
-                                ).withOpacity(0.12),
+                                ).withValues(alpha: 0.12),
                                 spreadRadius: 6,
                                 blurRadius: 40,
                               ),

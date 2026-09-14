@@ -204,7 +204,7 @@ class SafetyPinCadre extends StatelessWidget {
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: SafetyUi.ink.withOpacity(0.16)),
+        border: Border.all(color: SafetyUi.ink.withValues(alpha: 0.16)),
       ),
       child: Container(
         width: double.infinity,
@@ -212,7 +212,7 @@ class SafetyPinCadre extends StatelessWidget {
         decoration: BoxDecoration(
           color: SafetyUi.card,
           borderRadius: BorderRadius.circular(27),
-          border: Border.all(color: SafetyUi.ink.withOpacity(0.22)),
+          border: Border.all(color: SafetyUi.ink.withValues(alpha: 0.22)),
         ),
         child: Column(
           children: [
@@ -262,7 +262,7 @@ class _PinDigit extends StatelessWidget {
       decoration: BoxDecoration(
         color: SafetyUi.well,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SafetyUi.ink.withOpacity(0.12)),
+        border: Border.all(color: SafetyUi.ink.withValues(alpha: 0.12)),
       ),
       alignment: Alignment.center,
       child: Text(

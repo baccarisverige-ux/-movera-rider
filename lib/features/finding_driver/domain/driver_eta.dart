@@ -89,8 +89,9 @@ class DriverEta {
           ? 'Your driver is at the pickup.'
           : '$firstName is at the pickup.';
     }
-    if (firstName == null || firstName.isEmpty)
+    if (firstName == null || firstName.isEmpty) {
       return 'Leave now to meet your driver.';
+    }
     return 'Leave now to meet $firstName';
   }
 }
