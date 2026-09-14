@@ -38,9 +38,11 @@ void main() {
     expect(rt.lastStatus, RideStatus.findingDriver);
     rt.cancelRide();
     expect(rt.cancelled, isTrue);
+    expect(rt.lastStatus, RideStatus.cancelledByRider);
     rt.assignNow();
     await Future<void>.delayed(const Duration(milliseconds: 10));
-    expect(rt.lastStatus, RideStatus.findingDriver);
+    expect(rt.lastStatus, RideStatus.cancelledByRider);
+    expect(rt.lastDriver, isNull);
     rt.dispose();
   });
 
