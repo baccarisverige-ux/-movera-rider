@@ -30,6 +30,11 @@ void main() {
     expect(find.text('home-root'), findsOneWidget);
     expect(find.text('searching'), findsNothing);
     expect(nav.canPop(), isFalse);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('home-root'), findsOneWidget);
+    expect(find.text('searching'), findsNothing);
   });
 
   testWidgets('cancel pops the whole ride stack, not only searching', (
@@ -66,6 +71,39 @@ void main() {
     expect(find.text('select-ride'), findsNothing);
     expect(find.text('home-root'), findsOneWidget);
     expect(nav.canPop(), isFalse);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('home-root'), findsOneWidget);
+    expect(find.text('searching'), findsNothing);
+  });
+
+  testWidgets('locked home above waiting does not pop back to waiting', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: moveraNavigatorKey,
+        home: const Scaffold(body: Text('waiting-under')),
+      ),
+    );
+
+    moveraNavigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: Scaffold(body: Text('home-sheet')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('home-sheet'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('home-sheet'), findsOneWidget);
+    expect(find.text('waiting-under'), findsNothing);
   });
 }
 

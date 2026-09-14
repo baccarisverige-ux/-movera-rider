@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
 class RideRestoreGate extends StatefulWidget {
@@ -21,6 +24,15 @@ class RideRestoreGateState extends State<RideRestoreGate> {
   void show(Widget page) {
     if (!mounted) return;
     setState(() => _child = page);
+    _lockHomeIfRoot();
+  }
+
+  void _lockHomeIfRoot() {
+    final nav = moveraNavigatorKey.currentState;
+    final atRoot = nav == null || !nav.canPop();
+    final home =
+        RideRestoreCoordinator.instance.showing == RestoredSurface.home;
+    setWebHomeLock(atRoot && home);
   }
 
   @override
@@ -31,6 +43,7 @@ class RideRestoreGateState extends State<RideRestoreGate> {
     RideRestoreCoordinator.instance.root().then((page) {
       if (!mounted) return;
       setState(() => _child = page);
+      _lockHomeIfRoot();
     });
   }
 
@@ -44,7 +57,12 @@ class RideRestoreGateState extends State<RideRestoreGate> {
 
   @override
   Widget build(BuildContext context) {
-    return _child ??
+    final child =
+        _child ??
         const ColoredBox(color: Color(0xFFFFFFFF), child: SizedBox.expand());
+    return PopScope(
+      canPop: !kIsWeb,
+      child: child,
+    );
   }
 }
