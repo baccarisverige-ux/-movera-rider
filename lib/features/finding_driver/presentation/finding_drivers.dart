@@ -345,13 +345,17 @@ class _FindingDriversState extends State<FindingDrivers>
               child: PointerInterceptor(
                 child: Row(
                   children: [
-                    _roundBtn(Icons.keyboard_arrow_down_rounded, () {
-                      if (_sheetSlide.value > 0.2) {
-                        _sheetSlide.animateTo(0);
-                      } else {
-                        _confirmCancel();
-                      }
-                    }),
+                    _roundBtn(
+                      Icons.keyboard_arrow_down_rounded,
+                      () {
+                        if (_sheetSlide.value > 0.2) {
+                          _sheetSlide.animateTo(0);
+                        } else {
+                          _confirmCancel();
+                        }
+                      },
+                      semanticLabel: 'Collapse',
+                    ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _match.ride.rideId),
                   ],
@@ -362,14 +366,18 @@ class _FindingDriversState extends State<FindingDrivers>
               right: 12,
               bottom: mapReserve + 16,
               child: PointerInterceptor(
-                child: _roundBtn(Icons.my_location_rounded, () {
-                  AppScope.instance.camera.focusOnPickup(
-                    GeoPoint(
-                      _pickupPosition.latitude,
-                      _pickupPosition.longitude,
-                    ),
-                  );
-                }),
+                child: _roundBtn(
+                  Icons.my_location_rounded,
+                  () {
+                    AppScope.instance.camera.focusOnPickup(
+                      GeoPoint(
+                        _pickupPosition.latitude,
+                        _pickupPosition.longitude,
+                      ),
+                    );
+                  },
+                  semanticLabel: 'Recenter map',
+                ),
               ),
             ),
             AnimatedBuilder(
@@ -551,6 +559,7 @@ class _FindingDriversState extends State<FindingDrivers>
                 IconButton(
                   onPressed: _openDetails,
                   icon: const Icon(Icons.more_horiz_rounded),
+                  tooltip: 'Ride details',
                 ),
               ],
             ),
@@ -562,18 +571,22 @@ class _FindingDriversState extends State<FindingDrivers>
     );
   }
 
-  Widget _roundBtn(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 2,
-      shadowColor: const Color(0x33000000),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 22, color: const Color(0xFF1D252C)),
+  Widget _roundBtn(IconData icon, VoidCallback onTap, {required String semanticLabel}) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 2,
+        shadowColor: const Color(0x33000000),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Icon(icon, size: 22, color: const Color(0xFF1D252C)),
+          ),
         ),
       ),
     );

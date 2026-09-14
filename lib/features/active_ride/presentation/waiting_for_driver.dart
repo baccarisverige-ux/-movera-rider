@@ -275,6 +275,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                     _roundBtn(
                       Icons.keyboard_arrow_down_rounded,
                       _confirmCancel,
+                      semanticLabel: 'Cancel ride',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
@@ -286,14 +287,18 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               right: 12,
               bottom: mapReserve + 16,
               child: PointerInterceptor(
-                child: _roundBtn(Icons.my_location_rounded, () {
-                  AppScope.instance.camera.focusOnPickup(
-                    GeoPoint(
-                      widget.pickupPosition.latitude,
-                      widget.pickupPosition.longitude,
-                    ),
-                  );
-                }),
+                child: _roundBtn(
+                  Icons.my_location_rounded,
+                  () {
+                    AppScope.instance.camera.focusOnPickup(
+                      GeoPoint(
+                        widget.pickupPosition.latitude,
+                        widget.pickupPosition.longitude,
+                      ),
+                    );
+                  },
+                  semanticLabel: 'Recenter map',
+                ),
               ),
             ),
             AnimatedBuilder(
@@ -405,17 +410,21 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
-  Widget _roundBtn(IconData icon, VoidCallback onTap) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Icon(icon, size: 22, color: MoveraTokens.ink),
+  Widget _roundBtn(IconData icon, VoidCallback onTap, {required String semanticLabel}) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 2,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Icon(icon, size: 22, color: MoveraTokens.ink),
+          ),
         ),
       ),
     );

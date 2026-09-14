@@ -208,6 +208,7 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded, color: _ink),
+                  tooltip: 'Close',
                 ),
                 Expanded(
                   child: Text(

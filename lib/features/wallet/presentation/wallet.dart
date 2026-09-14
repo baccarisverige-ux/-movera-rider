@@ -432,16 +432,20 @@ class _WalletHomeState extends State<WalletHome> {
             children: [
               Row(
                 children: [
-                  Material(
-                    color: Colors.white,
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      customBorder: const CircleBorder(),
-                      child: const SizedBox(
-                        width: 42,
-                        height: 42,
-                        child: Icon(Icons.arrow_back_rounded, color: _ink),
+                  Semantics(
+                    button: true,
+                    label: 'Back',
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        customBorder: const CircleBorder(),
+                        child: const SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: Icon(Icons.arrow_back_rounded, color: _ink),
+                        ),
                       ),
                     ),
                   ),
@@ -695,6 +699,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       onPressed: () => Navigator.pop(sheetContext),
                       icon: const Icon(Icons.close_rounded),
                       color: _muted,
+                      tooltip: 'Close',
                     ),
                   ],
                 ),
@@ -851,6 +856,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             onPressed: () => Navigator.pop(sheetContext),
                             icon: const Icon(Icons.close_rounded),
                             color: _muted,
+                            tooltip: 'Close',
                           ),
                         ],
                       ),
@@ -1209,6 +1215,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 },
                                 icon: const Icon(Icons.close_rounded),
                                 color: _muted,
+                                tooltip: 'Remove voucher',
                                 iconSize: 19,
                               ),
                             ),
@@ -1250,19 +1257,23 @@ class _WalletScreenState extends State<WalletScreen> {
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
       child: Row(
         children: [
-          Material(
-            color: _surface,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: () => Navigator.pop(context),
-              customBorder: const CircleBorder(),
-              child: const SizedBox(
-                width: 42,
-                height: 42,
-                child: Icon(
-                  Icons.arrow_back_rounded,
-                  color: _ink,
-                  size: 22,
+          Semantics(
+            button: true,
+            label: 'Back',
+            child: Material(
+              color: _surface,
+              shape: const CircleBorder(),
+              child: InkWell(
+                onTap: () => Navigator.pop(context),
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 42,
+                  height: 42,
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: _ink,
+                    size: 22,
+                  ),
                 ),
               ),
             ),

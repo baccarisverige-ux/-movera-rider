@@ -78,6 +78,7 @@ class SafetyScaffold extends StatelessWidget {
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                       color: SafetyUi.ink,
+                      tooltip: 'Back',
                     ),
                     if (showTitle)
                       Expanded(
