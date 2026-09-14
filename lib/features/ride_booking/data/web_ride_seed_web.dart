@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 
 void registerWebQaHooks() {
+  if (!moveraQaHooksEnabled) return;
   globalContext.setProperty(
     'moveraSeedActiveRide'.toJS,
     ((JSString raw) {

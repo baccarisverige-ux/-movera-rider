@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -45,6 +46,7 @@ void reportSafetySnapshot(String json) {
 }
 
 void installSafetyQaOpener(void Function() open) {
+  if (!moveraQaHooksEnabled) return;
   globalContext.setProperty(
     'moveraOpenSafety'.toJS,
     (() {
@@ -67,6 +69,7 @@ void installMatchingQaHooks({
   required void Function() assign,
   required void Function(int seconds) advance,
 }) {
+  if (!moveraQaHooksEnabled) return;
   globalContext.setProperty(
     'moveraHoldMatching'.toJS,
     (() {
