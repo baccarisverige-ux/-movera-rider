@@ -1182,6 +1182,7 @@ class _HomeState extends State<Home> {
                                     }
                                   }
                                   if (!mounted ||
+                                      !sheetContext.mounted ||
                                       exactDestinationPosition == null) {
                                     return;
                                   }

@@ -175,6 +175,7 @@ class _FindingDriversState extends State<FindingDrivers>
     _leaving = true;
     setState(() {});
     await _match.cancelSearch(reasonId: outcome.reasonId);
+    if (!mounted) return;
     RideNavigator.home(context);
   }
 

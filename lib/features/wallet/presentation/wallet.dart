@@ -36,6 +36,7 @@ Future<VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
 
   final controller = TextEditingController();
   final used = await _usedVoucherCodes();
+  if (!context.mounted) return null;
   final offer = await MoveraSheet.show<VoucherOffer>(
     context: context,
     backgroundColor: Colors.transparent,

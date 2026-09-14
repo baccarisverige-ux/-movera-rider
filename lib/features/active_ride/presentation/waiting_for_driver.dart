@@ -131,6 +131,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     setState(() {});
     _tracking.dispose();
     await _ride.markCancelled(reasonId: outcome.reasonId);
+    if (!mounted) return;
     RideNavigator.home(context);
   }
 
