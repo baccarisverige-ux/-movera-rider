@@ -27,16 +27,12 @@ import 'package:movera_rider/features/promotions/application/promotions_controll
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
-import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
-import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
-import 'package:movera_rider/features/support/presentation/support.dart';
-import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -79,8 +75,6 @@ class _HomeState extends State<Home> {
   static const double _sheetPromoMinHeight = 244;
   static const double _sheetMaxHeight = 294;
 
-  bool get _promotionEnabled => _promos.homeCampaign().active;
-  String get _promotionId => _promos.homeCampaign().id;
   String get _promotionTitle => _promos.homeCampaign().title;
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
@@ -114,7 +108,6 @@ class _HomeState extends State<Home> {
   List<_SavedPlaceData> get _savedPlaces => _places.savedPlaces;
   set _savedPlaces(List<_SavedPlaceData> value) => _places.savedPlaces = value;
 
-  static const int _maxRecentAddresses = HomePlacesController.maxRecent;
   static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
   GoogleMapController? _mapController;
@@ -136,10 +129,8 @@ class _HomeState extends State<Home> {
   static const Color _premiumInk = Color(0xFF1D252C);
   static const Color _premiumMuted = Color(0xFF778189);
   static const Color _premiumLine = Color(0xFFE7EBEE);
-  static const Color _premiumField = Color(0xFFF6F5F1);
   static const Color _premiumAccent = Color(0xFF2D5878);
   static const Color _premiumAccentSoft = Color(0xFFEAF2F8);
-  static const Color _premiumSurface = Color(0xFFF7F8F6);
 
   static const String _premiumMapStyle = '''
 [
@@ -1839,24 +1830,6 @@ class _HomeState extends State<Home> {
     });
   }
 
-  void _startLocationPulse() {
-    _locationCtl.startPulse(
-      isMounted: () => mounted,
-      onTick: _updateLocationVisuals,
-    );
-  }
-
-  void _startLocationTracking() {
-    _locationCtl.startTracking(
-      isMounted: () => mounted,
-      onFix: (latLng, heading) {
-        _currentLatLng = latLng;
-        _locationHeading = heading;
-        _updateLocationVisuals();
-      },
-    );
-  }
-
   Future<bool> _startHeadingTracking() {
     return _locationCtl.startHeading(
       isMounted: () => mounted,
@@ -1907,12 +1880,6 @@ class _HomeState extends State<Home> {
 
   void _loadMarkers() {
     _locationCtl.clearOverlays();
-  }
-
-  double _fullSheetHeight() {
-    final viewportHeight = MediaQuery.of(context).size.height;
-    final topInset = MediaQuery.of(context).padding.top + 8;
-    return ((viewportHeight - topInset) / ResSize.h).clamp(520.0, 1000.0);
   }
 
   double get _sheetMinPixels =>
@@ -2016,24 +1983,10 @@ class _HomeState extends State<Home> {
     });
   }
 
-  void _openRideHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RideHistory()),
-    );
-  }
-
   void _openPayment() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const WalletScreen()),
-    );
-  }
-
-  void _openAddPlace() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AddPlace()),
     );
   }
 
@@ -2660,72 +2613,6 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget _pickupAddressField() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _showRouteAddressPicker(initialField: 'pickup'),
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: ResSize.h * 52,
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(horizontal: ResSize.w * 14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F9F9),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFFE8EDEF), width: 0.8),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: ResSize.w * 32,
-                height: ResSize.h * 32,
-                decoration: BoxDecoration(
-                  color: _premiumAccentSoft,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.my_location_rounded,
-                  color: _premiumAccent,
-                  size: ResSize.h * 17,
-                ),
-              ),
-              11.width,
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: 'Pickup',
-                      color: _premiumMuted,
-                      fontSize: 8.5,
-                      fontWeight: fwMedium,
-                    ),
-                    2.height,
-                    TextWidget(
-                      text: _findingLocation
-                          ? 'Finding your current location…'
-                          : _shortAddress(_pickupAddress, maxLength: 35),
-                      color: _premiumInk,
-                      fontSize: 11.5,
-                      fontWeight: fwSemiBold,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.edit_location_alt_outlined,
-                color: _premiumMuted,
-                size: ResSize.h * 18,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _savedPlacesRow() {
     final cards = <Widget>[
       SizedBox(
@@ -3247,217 +3134,6 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Widget profilePanelColumn(ScrollController sc) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: screenHorizPadding,
-        vertical: ResSize.h * 20,
-      ),
-      controller: sc,
-      child: Column(
-        children: [
-          Container(
-            width: ResSize.w * 40,
-            height: ResSize.h * 4,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          20.height,
-          Row(
-            children: [
-              Container(
-                height: ResSize.h * 60,
-                width: ResSize.w * 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColor.liteBlue,
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.person,
-                    size: ResSize.h * 35,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              16.width,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: "John Doe",
-                      fontSize: 18,
-                      fontWeight: fwBold,
-                      color: AppColor.title,
-                    ),
-                    4.height,
-                    TextWidget(
-                      text: "john.doe@email.com",
-                      fontSize: 14,
-                      fontWeight: fwNormal,
-                      color: AppColor.subtitle,
-                    ),
-                    4.height,
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star,
-                          size: ResSize.h * 16,
-                          color: Colors.amber,
-                        ),
-                        4.width,
-                        TextWidget(
-                          text: "4.8 (125 rides)",
-                          fontSize: 12,
-                          fontWeight: fwMedium,
-                          color: AppColor.subtitle,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  _profilePanelController.close();
-                },
-                child: Container(
-                  height: ResSize.h * 30,
-                  width: ResSize.w * 30,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.grey[100],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.close,
-                      size: ResSize.h * 20,
-                      color: AppColor.title,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          24.height,
-          _buildProfileOption(
-            icon: Icons.account_circle_outlined,
-            title: "Edit Profile",
-            onTap: () {
-              _profilePanelController.close();
-              _openAccount();
-            },
-          ),
-          _buildProfileOption(
-            icon: Icons.history,
-            title: "Ride History",
-            onTap: () {
-              _profilePanelController.close();
-              _openRideHistory();
-            },
-          ),
-          _buildProfileOption(
-            icon: Icons.payment_outlined,
-            title: "Payment Methods",
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(const WalletScreen()),
-              );
-            },
-          ),
-          _buildProfileOption(
-            icon: Icons.notifications_outlined,
-            title: "Notifications",
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(const NotificationScreen()),
-              );
-            },
-          ),
-          _buildProfileOption(
-            icon: Icons.help_outline,
-            title: "Help & Support",
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(const SupportHome()),
-              );
-            },
-          ),
-          _buildProfileOption(
-            icon: Icons.settings_outlined,
-            title: "Settings",
-            onTap: () {
-              _profilePanelController.close();
-              _openAccount();
-            },
-          ),
-          16.height,
-          Divider(color: AppColor.border, thickness: 0.4),
-          16.height,
-          _buildProfileOption(
-            icon: Icons.logout,
-            title: "Sign Out",
-            onTap: () {
-              _profilePanelController.close();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Demo account stays signed in.'),
-                ),
-              );
-            },
-            isDestructive: true,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileOption({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: ResSize.h * 16,
-          horizontal: ResSize.w * 4,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: ResSize.h * 24,
-              color: isDestructive ? Colors.red : AppColor.title,
-            ),
-            16.width,
-            Expanded(
-              child: TextWidget(
-                text: title,
-                fontSize: 16,
-                fontWeight: fwMedium,
-                color: isDestructive ? Colors.red : AppColor.title,
-              ),
-            ),
-            if (!isDestructive)
-              Icon(
-                Icons.arrow_forward_ios,
-                size: ResSize.h * 16,
-                color: AppColor.subtitle,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _PremiumRouteLocationBadge extends StatelessWidget {
