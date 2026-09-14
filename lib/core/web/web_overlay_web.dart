@@ -35,14 +35,22 @@ void _installHomeLock() {
 (function() {
   if (history.scrollRestoration) history.scrollRestoration = 'manual';
   window._moveraHomeLock = false;
+  window._moveraHomeSentinel = false;
   window.moveraSetHomeLock = function(lock) {
     window._moveraHomeLock = !!lock;
     try {
       document.documentElement.classList.toggle('movera-home-lock', !!lock);
     } catch (_) {}
-    if (lock) {
-      try { history.replaceState({ moveraHome: 1 }, '', location.href); } catch (_) {}
+    if (!lock) {
+      window._moveraHomeSentinel = false;
+      return;
     }
+    if (window._moveraHomeSentinel) return;
+    window._moveraHomeSentinel = true;
+    try {
+      history.replaceState({ moveraHome: 1 }, '', location.href);
+      history.pushState({ moveraHome: 1 }, '', location.href);
+    } catch (_) {}
   };
   window.addEventListener('popstate', function() {
     if (!window._moveraHomeLock) return;
