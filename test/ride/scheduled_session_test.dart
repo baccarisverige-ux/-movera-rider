@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -10,8 +11,9 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: ['Odenplan'],
     );
+    final when = DateTime(2026, 9, 23, 10, 30);
     session.captureSchedule(
-      DateTime(2026, 9, 13, 10, 30),
+      when,
       timezone: 'Europe/Stockholm',
     );
     session.captureNote('Ring the bell');
@@ -20,13 +22,21 @@ void main() {
     expect(session.pickup, 'Current location');
     expect(session.dropoff, 'Stockholm Central Station');
     expect(session.stops, ['Odenplan']);
-    expect(session.scheduledAt, DateTime(2026, 9, 13, 10, 30));
+    expect(session.scheduledAt, when);
     expect(session.timezone, 'Europe/Stockholm');
     expect(session.note, 'Ring the bell');
     expect(session.paymentMethod, 'Cash');
     expect(session.rideType, 'movera');
     expect(session.quoteId, 'q_sched_movera');
     expect(session.bookingId, isNull);
+  });
+
+  test('captureSchedule clamps a past pickup to Stockholm now+30', () {
+    final session = ScheduledRideSession();
+    session.captureSchedule(DateTime(2026, 9, 13, 10, 30));
+    expect(session.scheduledAt, isNotNull);
+    expect(StockholmSchedule.isLegalPickup(session.scheduledAt!), isTrue);
+    expect(session.scheduledAt, StockholmSchedule.minimumPickup());
   });
 
   test('confirm writes booking id onto the session', () async {
@@ -36,7 +46,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: const [],
     );
-    session.captureSchedule(DateTime(2026, 9, 13, 10, 30));
+    session.captureSchedule(DateTime(2026, 9, 23, 10, 30));
     session.capturePayment('Wallet');
     session.captureRideType('movera', quoteId: 'q_sched_1');
     final id = await session.confirm(book: () async => 'b_sched_1');

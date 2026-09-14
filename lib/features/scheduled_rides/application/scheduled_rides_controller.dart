@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/history/data/scheduled_ride_cards.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/data/scheduled_rides_repository.dart';
 import 'package:movera_rider/shared/models/onboarding.dart';
 
@@ -36,7 +37,7 @@ class ScheduledRideSession {
   }
 
   void captureSchedule(DateTime at, {String timezone = 'Europe/Stockholm'}) {
-    scheduledAt = at;
+    scheduledAt = StockholmSchedule.clampPickup(at);
     this.timezone = timezone;
   }
 
