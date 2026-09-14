@@ -5,10 +5,16 @@ import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
+/// Confirm cancel, then optionally collect a why-reason.
+///
+/// When [onCancelConfirmed] is provided it runs immediately after the user taps
+/// **Cancel request**, before the why-sheet. Matching and the ride snapshot must
+/// already be gone by then. **Keep ride** on the why-sheet must not undo cancel.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
   required bool takingLonger,
   CancelPhase phase = CancelPhase.searching,
+  Future<void> Function()? onCancelConfirmed,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancel);
   final confirmed = await MoveraSheet.show<bool>(
@@ -22,8 +28,18 @@ Future<CancelOutcome> showCancelRideSheet(
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
   if (confirmed != true) return const CancelOutcome.keep();
+
+  // Cancel-first: commit cancel before the optional why-sheet.
+  if (onCancelConfirmed != null) {
+    await onCancelConfirmed();
+  }
   if (!context.mounted) return const CancelOutcome.cancel();
-  return showCancelReasonSheet(context, phase: phase);
+  final outcome = await showCancelReasonSheet(context, phase: phase);
+  // Keep on why-sheet must NOT undo cancel — ride already gone / stay Home.
+  if (!outcome.cancelled) {
+    return const CancelOutcome.cancel();
+  }
+  return outcome;
 }
 
 class CancelRideSheet extends StatelessWidget {
