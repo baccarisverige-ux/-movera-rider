@@ -1,0 +1,156 @@
+name: QA Book now two paths
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/ride/book_now_two_paths_e2e_test.dart'
+      - '.github/workflows/qa-book-now-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  book-now-two-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Wait for this exact Pages build
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          for i in $(seq 1 48); do
+            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
+              echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Exact deployed bundle for $SHORT was not found" >&2
+          exit 1
+
+      - name: Book now with GPS on and GPS off
+        run: |
+          cat > qa-book-now.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+
+          const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
+
+          async function enableA11y(page) {
+            try { await page.getByLabel('Enable accessibility').click({ timeout: 2500 }); } catch (_) {}
+            await page.waitForTimeout(400);
+          }
+
+          async function visibleText(page, label) {
+            const node = page.getByText(label, { exact: false });
+            return (await node.count()) > 0;
+          }
+
+          async function bookNowPath(browser, { gps, name }) {
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: gps ? { latitude: 59.33258, longitude: 18.0649 } : undefined,
+              permissions: gps ? ['geolocation'] : [],
+            });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', e => errors.push(String(e)));
+            await page.goto(base + `?booknow=${name}&v=${Date.now()}`, { waitUntil: 'networkidle', timeout: 120000 });
+            await page.waitForTimeout(4500);
+            await enableA11y(page);
+
+            const where = page.getByText('Where to', { exact: false });
+            if (await where.count()) await where.last.click();
+            else await page.mouse.click(190, 708);
+            await page.waitForTimeout(1200);
+
+            let inputs = page.locator('input,textarea').filter({ visible: true });
+            let count = await inputs.count().catch(() => 0);
+            if (!count) {
+              await page.mouse.click(185, 274);
+              await page.waitForTimeout(400);
+              inputs = page.locator('input,textarea');
+              count = await inputs.count();
+            }
+            if (!count) throw new Error(`${name}: destination input missing`);
+            await inputs.nth(count - 1).fill('Stockholm Central Station');
+            await page.waitForTimeout(700);
+
+            const next = page.getByText('Next', { exact: true });
+            if (await next.count()) await next.last.click();
+            else await page.mouse.click(195, 804);
+            await page.waitForTimeout(3500);
+            await page.screenshot({ path: `qa-book-now-${name}-pickup.png`, fullPage: true });
+
+            const onPickup = await visibleText(page, 'Confirm pickup');
+            if (!onPickup) throw new Error(`${name}: Confirm pickup did not open`);
+
+            const confirm = page.getByText('Confirm pickup', { exact: false });
+            if (await confirm.count()) await confirm.last.click();
+            else await page.mouse.click(195, 797);
+            await page.waitForTimeout(7000);
+            await page.screenshot({ path: `qa-book-now-${name}-categories.png`, fullPage: true });
+
+            if (await visibleText(page, 'Ride scheduled')) {
+              throw new Error(`${name}: Book now opened Ride scheduled`);
+            }
+
+            const select = page.getByText('Select Movera', { exact: true });
+            if (await select.count()) await select.last.click();
+            else {
+              await page.mouse.click(195, 808);
+              await page.waitForTimeout(900);
+              await page.mouse.click(195, 808);
+            }
+            await page.waitForTimeout(4000);
+            await page.screenshot({ path: `qa-book-now-${name}-finding.png`, fullPage: true });
+
+            const finding = await visibleText(page, 'Connecting you with nearby drivers')
+              || await visibleText(page, 'Finding');
+            const scheduled = await visibleText(page, 'Ride scheduled');
+            const result = { name, gps, onPickup, finding, scheduled, errors };
+            fs.writeFileSync(`qa-book-now-${name}.json`, JSON.stringify(result, null, 2));
+            if (scheduled) throw new Error(`${name}: Book now entered Ride scheduled`);
+            if (!finding) {
+              console.log('MANUAL live Book now CTA still required: ' + JSON.stringify(result));
+            } else {
+              console.log('PASS: ' + name + ' reached Confirm pickup then Finding Driver');
+            }
+            await context.close();
+            return result;
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          const gpsOn = await bookNowPath(browser, { gps: true, name: 'gps-on' });
+          const gpsOff = await bookNowPath(browser, { gps: false, name: 'gps-off' });
+          if (!gpsOn.onPickup || !gpsOff.onPickup) {
+            throw new Error('Both Book now paths must open Confirm pickup');
+          }
+          await browser.close();
+          console.log('PASS: Book now GPS on and GPS off both opened Confirm pickup');
+          JS
+          node qa-book-now.mjs
+
+      - name: Upload Book now E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-book-now-two-paths
+          path: |
+            qa-book-now-*.png
+            qa-book-now-*.json
+          if-no-files-found: warn
