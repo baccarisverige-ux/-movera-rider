@@ -4,6 +4,23 @@ Manual / live checks derived from QA live Rider flow, plus cancel-first and
 book-later regressions. Public Pages builds do **not** expose `window.movera*`
 hooks unless built with debug or `--dart-define=MOVERA_QA=true`.
 
+## Automated coverage (CI gates)
+
+- `Global E2E UAT` (`.github/workflows/global-e2e-uat.yml`) — every push/PR:
+  runs the full `flutter test` unit/widget suite (all areas under `test/`)
+  plus `integration_test/` against the in-process mock backend, including
+  `integration_test/global_uat_flow_test.dart` which drives booking, wallet
+  top-up/debit, reservation create+cancel, and profile update through the
+  real controllers in one flow.
+- `Architecture gates` (`.github/workflows/architecture-gates.yml`) — analyze
+  + unit/widget suite.
+- `QA live Rider flow` / `QA Book now two paths` — live-site Playwright E2E,
+  ride-booking path only (see below); these still require manual/QA-build
+  follow-up for the areas they skip.
+
+Everything below this line is manual / live-site verification not yet
+automated end-to-end.
+
 ## Smoke
 
 - [ ] Home loads without fatal console errors
@@ -36,6 +53,27 @@ hooks unless built with debug or `--dart-define=MOVERA_QA=true`.
 - [ ] Safety hub from menu
 - [ ] Nested pickup map owner does not stick after back
 - [ ] Select Ride → Finding → Waiting map owners advance
+
+## Wallet
+
+- [ ] Top-up succeeds and balance reflects the credited amount
+- [ ] Injected top-up failure surfaces an error, does not silently credit
+- [ ] Voucher redemption applies once; expired/unknown codes are rejected
+- [ ] Ride debit against wallet balance matches the ride price
+
+## Reservations / scheduled rides
+
+- [ ] Creating a reservation puts it in Upcoming with the entered pickup/drop
+- [ ] Editing a reservation (time, note, category) updates the same record
+- [ ] Cancelling moves it out of Upcoming and into Cancelled with a reason
+- [ ] "Plan a return ride" pre-fills pickup/drop swapped from the origin leg
+- [ ] Driver auto-assigns and status advances as pickup time approaches
+
+## Profile / account
+
+- [ ] Editing name/email/phone persists across app restart
+- [ ] Two-step / passkey / recovery-phone toggles reflect in `checkupComplete`
+- [ ] Notification and marketing preference toggles persist
 
 ## Mock contract
 
