@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
+/// Confirm cancel, then optionally collect a why-reason.
+///
+/// **Cancel-first:** after **Cancel request**, matching + snapshot are cleared
+/// before the why-sheet (via [onCancelConfirmed] or [commitCancelFirst]).
+/// **Keep ride** on the why-sheet must not undo cancel.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
   required bool takingLonger,
   CancelPhase phase = CancelPhase.searching,
+  Future<void> Function()? onCancelConfirmed,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancel);
   final confirmed = await MoveraSheet.show<bool>(
@@ -22,8 +29,18 @@ Future<CancelOutcome> showCancelRideSheet(
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
   if (confirmed != true) return const CancelOutcome.keep();
+
+  if (onCancelConfirmed != null) {
+    await onCancelConfirmed();
+  } else {
+    await commitCancelFirst();
+  }
   if (!context.mounted) return const CancelOutcome.cancel();
-  return showCancelReasonSheet(context, phase: phase);
+  final outcome = await showCancelReasonSheet(context, phase: phase);
+  if (!outcome.cancelled) {
+    return const CancelOutcome.cancel();
+  }
+  return outcome;
 }
 
 class CancelRideSheet extends StatelessWidget {
@@ -42,8 +59,8 @@ class CancelRideSheet extends StatelessWidget {
     final body = matched
         ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
         : takingLonger
-        ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
-        : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
+            ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
+            : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: Column(
@@ -126,8 +143,8 @@ class CancelRideSheet extends StatelessWidget {
                 matched
                     ? 'Keep ride'
                     : takingLonger
-                    ? 'Keep searching'
-                    : 'Wait for driver',
+                        ? 'Keep searching'
+                        : 'Wait for driver',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,

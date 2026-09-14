@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
@@ -13,12 +14,15 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  registerWebQaHooks();
-  installSafetyQaOpener(() {
-    final nav = moveraNavigatorKey.currentState;
-    if (nav == null) return;
-    nav.push(RightToLeftTransition(const SafetyHub()));
-  });
+  // window.movera* hooks stay OFF on public web release unless debug / MOVERA_QA.
+  if (moveraQaHooksEnabled) {
+    registerWebQaHooks();
+    installSafetyQaOpener(() {
+      final nav = moveraNavigatorKey.currentState;
+      if (nav == null) return;
+      nav.push(RightToLeftTransition(const SafetyHub()));
+    });
+  }
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
 
   FlutterError.onError = (details) {

@@ -8,17 +8,19 @@ const pricesKr = {
   pet: 279,
 };
 
-function quote({ rideType = 'movera', distanceMeters = 3000 }) {
+function quote({ rideType = 'movera', distanceMeters = 3000 } = {}) {
   const kr = pricesKr[rideType] || 259;
   const amountMinor = kr * 100;
+  const id = `q_${rideType}_${Date.now()}`;
   return {
-    id: `q_${rideType}_${Date.now()}`,
-    quoteId: `q_${rideType}_${Date.now()}`,
+    id,
+    quoteId: id,
     rideType,
     totalMinor: amountMinor,
     amountMinor,
     currency: 'SEK',
     expiresInSec: 120,
+    expiresAt: new Date(Date.now() + 120000).toISOString(),
     breakdown: { baseMinor: amountMinor, distanceMinor: 0, timeMinor: 0, bookingFeeMinor: 0 },
     signedPayload: 'mock-api',
   };

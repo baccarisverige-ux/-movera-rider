@@ -15,6 +15,8 @@ permissions:
 
 jobs:
   canonicalize:
+    # Disabled: write job must not auto-commit/push architecture rewrites.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
