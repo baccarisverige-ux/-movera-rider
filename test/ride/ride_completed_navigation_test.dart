@@ -22,28 +22,33 @@ void main() {
       ..status = RideStatus.tripCompleted;
   });
 
-  Future<void> phone(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(390, 844);
+  Future<void> navigationViewport(WidgetTester tester) async {
+    // This suite verifies navigation/state behavior, not the legacy responsive
+    // layout of RideCompleted. Give the existing screen enough room so an
+    // unrelated pre-existing RenderFlex overflow cannot mask navigation bugs.
+    tester.view.physicalSize = const Size(1200, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
+  Widget app() {
+    return ScreenUtilInit(
+      designSize: const Size(1200, 1600),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (_, __) => MaterialApp(
+        navigatorKey: moveraNavigatorKey,
+        home: const Scaffold(body: Text('home-root')),
+      ),
+    );
+  }
+
   testWidgets('RideCompleted Done returns to root and closes the ride', (
     tester,
   ) async {
-    await phone(tester);
-    await tester.pumpWidget(
-      ScreenUtilInit(
-        designSize: const Size(375, 812),
-        minTextAdapt: true,
-        splitScreenMode: true,
-        builder: (_, __) => MaterialApp(
-          navigatorKey: moveraNavigatorKey,
-          home: const Scaffold(body: Text('home-root')),
-        ),
-      ),
-    );
+    await navigationViewport(tester);
+    await tester.pumpWidget(app());
 
     moveraNavigatorKey.currentState!.push(
       MaterialPageRoute<void>(builder: (_) => const RideCompleted()),
@@ -61,18 +66,8 @@ void main() {
   });
 
   testWidgets('RideCompleted back affordance returns to root', (tester) async {
-    await phone(tester);
-    await tester.pumpWidget(
-      ScreenUtilInit(
-        designSize: const Size(375, 812),
-        minTextAdapt: true,
-        splitScreenMode: true,
-        builder: (_, __) => MaterialApp(
-          navigatorKey: moveraNavigatorKey,
-          home: const Scaffold(body: Text('home-root')),
-        ),
-      ),
-    );
+    await navigationViewport(tester);
+    await tester.pumpWidget(app());
 
     moveraNavigatorKey.currentState!.push(
       MaterialPageRoute<void>(builder: (_) => const RideCompleted()),
