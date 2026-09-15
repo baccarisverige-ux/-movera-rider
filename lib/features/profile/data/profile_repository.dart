@@ -55,6 +55,8 @@ class ProfileRepository {
   }
 
   RiderProfileData _sanitizeLegacyDemoProfile(RiderProfileData source) {
+    final hasLegacyIdentitySeed =
+        source.email == _legacyEmail && source.phone == _legacyPhone;
     final hasLegacyLoginSeed = source.logins.length == 2 &&
         source.logins[0].device == 'This browser' &&
         source.logins[0].place == 'Stockholm, Sweden' &&
@@ -69,10 +71,14 @@ class ProfileRepository {
       name: source.name == _legacyName ? '' : source.name,
       email: source.email == _legacyEmail ? '' : source.email,
       phone: source.phone == _legacyPhone ? '' : source.phone,
+      gender: hasLegacyIdentitySeed && source.gender == 'Man'
+          ? 'Prefer not to say'
+          : source.gender,
       photoAsset: source.photoAsset == _legacyPhoto ? '' : source.photoAsset,
       passwordUpdatedAt: source.passwordUpdatedAt == DateTime(2025, 11, 4)
           ? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true)
           : source.passwordUpdatedAt,
+      appleConnected: hasLegacyIdentitySeed ? false : source.appleConnected,
       logins: hasLegacyLoginSeed ? const [] : source.logins,
     );
   }
