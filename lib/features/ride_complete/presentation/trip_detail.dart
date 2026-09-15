@@ -54,77 +54,13 @@ class RideCompletedTripDetail extends StatelessWidget {
                   ),
                   8.height,
                 ] else ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextWidget(
-                        text: 'Pickup location',
-                        color: AppColor.title,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                      TextWidget(
-                        text: trip.pickup,
-                        color: AppColor.subtitle,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                    ],
-                  ),
+                  _detailRow('Pickup location', trip.pickup),
                   8.height,
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextWidget(
-                        text: 'Destination',
-                        color: AppColor.title,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                      TextWidget(
-                        text: trip.destination,
-                        color: AppColor.subtitle,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                    ],
-                  ),
+                  _detailRow('Destination', trip.destination),
                   8.height,
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextWidget(
-                        text: 'Total Payment',
-                        color: AppColor.title,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                      TextWidget(
-                        text: trip.total,
-                        color: AppColor.subtitle,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                    ],
-                  ),
+                  _detailRow('Total Payment', trip.total),
                   8.height,
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextWidget(
-                        text: 'Payment method',
-                        color: AppColor.title,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                      TextWidget(
-                        text: trip.method,
-                        color: AppColor.subtitle,
-                        fontSize: 14,
-                        fontWeight: fwMedium,
-                      ),
-                    ],
-                  ),
+                  _detailRow('Payment method', trip.method),
                   8.height,
                 ],
               ],
@@ -132,6 +68,34 @@ class RideCompletedTripDetail extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 4,
+          child: TextWidget(
+            text: label,
+            color: AppColor.title,
+            fontSize: 14,
+            fontWeight: fwMedium,
+          ),
+        ),
+        12.width,
+        Expanded(
+          flex: 6,
+          child: TextWidget(
+            text: value,
+            color: AppColor.subtitle,
+            fontSize: 14,
+            fontWeight: fwMedium,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 }
