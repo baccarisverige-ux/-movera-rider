@@ -35,6 +35,10 @@ void main() {
     expect(find.text('Help'), findsOneWidget);
     expect(find.text('No rides to review'), findsOneWidget);
     expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
+    expect(
+      find.text('Your completed rides will appear here when support can review them.'),
+      findsOneWidget,
+    );
     expect(find.text('Browse all help topics'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Support messaging'), 180);
     expect(find.text('Support messaging'), findsOneWidget);
@@ -57,8 +61,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No active cases'), findsOneWidget);
+    expect(
+      find.text('New support conversations will appear here.'),
+      findsOneWidget,
+    );
     await tester.scrollUntilVisible(find.text('No closed cases'), 160);
     expect(find.text('No closed cases'), findsOneWidget);
+    expect(
+      find.text('Resolved conversations will appear here.'),
+      findsOneWidget,
+    );
     expect(find.text('I was charged for cancellation'), findsNothing);
     expect(find.text('I want to cancel my delayed order'), findsNothing);
     expect(find.text('29 October 2024'), findsNothing);
