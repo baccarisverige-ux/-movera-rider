@@ -15,6 +15,8 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
@@ -65,6 +67,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   late final CameraPosition _initialPosition;
   late final AnimationController _sheetSlide;
   bool _leaving = false;
+  bool _completedOpened = false;
   bool _overlayOn = false;
 
   @override
@@ -89,6 +92,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         onChange: () {
           if (!mounted) return;
           setState(_loadMarkers);
+          _maybeOpenCompleted();
         },
       );
     }
@@ -117,6 +121,24 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           ),
         ),
     };
+  }
+
+  void _maybeOpenCompleted() {
+    if (!mounted || _leaving || _completedOpened) return;
+    final status = _tracking.status;
+    if (!status.isCompletedSurface) return;
+    unawaited(_openCompleted(status));
+  }
+
+  Future<void> _openCompleted(RideStatus status) async {
+    if (!mounted || _leaving || _completedOpened) return;
+    _completedOpened = true;
+    await _ride.markCompleted(status);
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      BottomToTopTransition(const RideCompleted()),
+    );
   }
 
   Future<void> _confirmCancel() async {
