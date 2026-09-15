@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/data/notifications_repository.dart';
@@ -20,11 +21,16 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(
-      const MaterialApp(
-        home: NotificationScreen(),
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) => const MaterialApp(
+          home: NotificationScreen(),
+        ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Notification'), findsOneWidget);
     expect(find.text('No notifications yet'), findsOneWidget);
