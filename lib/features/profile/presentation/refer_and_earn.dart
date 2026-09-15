@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // <-- Needed for Clipboard
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/profile/application/profile_controller.dart';
-import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class ReferAndEarn extends StatelessWidget {
   const ReferAndEarn({super.key});
-
-  String get referralCode => ProfileController().referralCode();
 
   @override
   Widget build(BuildContext context) {
@@ -33,152 +27,68 @@ class ReferAndEarn extends StatelessWidget {
                   ),
                 ),
                 TextWidget(
-                  text: "Refer & Earn",
+                  text: 'Refer & Earn',
                   color: AppColor.primary,
                   fontSize: 18,
                   fontWeight: fwSemiBold,
                 ),
-                IconButton(
-                  onPressed: () {},
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  icon: SizedBox(),
-                ),
+                const SizedBox(width: 48, height: 48),
               ],
             ),
             40.height,
             Padding(
               padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-              child: Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(ResSize.w * 16),
-                    decoration: BoxDecoration(
-                      color: AppColor.secondary,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          offset: const Offset(0, 5),
-                          color: Color(0xff000000).withValues(alpha: 0.08),
-                          blurRadius: 20,
-                          spreadRadius: 0,
-                        ),
-                      ],
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: ResSize.w * 24,
+                  vertical: ResSize.h * 32,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColor.secondary,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      offset: const Offset(0, 5),
+                      color: const Color(0xff000000).withValues(alpha: 0.08),
+                      blurRadius: 20,
                     ),
-                    child: Column(
-                      children: [
-                        TextWidget(
-                          textAlign: TextAlign.center,
-                          text: "Earn \$5 for every friend you refer!",
-                          color: AppColor.primary,
-                          fontSize: 18,
-                          fontWeight: fwSemiBold,
-                        ),
-                        16.height,
-                        TextWidget(
-                          text: "Your Referral code",
-                          color: AppColor.primary,
-                          fontSize: 18,
-                          fontWeight: fwNormal,
-                        ),
-                        TextWidget(
-                          text: referralCode,
-                          color: AppColor.primary,
-                          fontSize: 24,
-                          fontWeight: fwSemiBold,
-                        ),
-                        32.height,
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomButton(
-                                textColor: AppColor.primary,
-                                borderColor: AppColor.primary,
-                                borderwidth: 1,
-                                icon: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: ResSize.w * 10,
-                                  ),
-                                  child: Icon(
-                                    Icons.copy_rounded,
-                                    color: AppColor.primary,
-                                    size: ResSize.h * 20,
-                                  ),
-                                ),
-                                btncolor: Colors.transparent,
-                                centerContent: "Copy",
-                                fontSize: 16,
-                                height: 50,
-                                onPressed: () {
-                                  // 1️⃣ Copy to clipboard
-                                  Clipboard.setData(
-                                    ClipboardData(text: referralCode),
-                                  );
-
-                                  // 2️⃣ Show snackbar
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "Referral code copied!",
-                                        style: TextStyle(
-                                          color: AppColor.secondary,
-                                        ),
-                                      ),
-                                      backgroundColor: AppColor.primary,
-                                      duration: Duration(seconds: 2),
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            16.width,
-                            Expanded(
-                              child: CustomButton(
-                                centerContent: "Share",
-                                onPressed: () {
-                                  final text =
-                                      'Ride with Movera. Use my code $referralCode';
-                                  Clipboard.setData(ClipboardData(text: text));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Invite copied. Share it with a friend.',
-                                        style: TextStyle(
-                                          color: AppColor.secondary,
-                                        ),
-                                      ),
-                                      backgroundColor: AppColor.primary,
-                                      duration: const Duration(seconds: 2),
-                                      behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                  );
-                                },
-                                icon: Padding(
-                                  padding: EdgeInsets.only(
-                                    right: ResSize.w * 10,
-                                  ),
-                                  child: Image.asset(
-                                    AppAssets.share,
-                                    height: ResSize.h * 20,
-                                    color: AppColor.secondary,
-                                  ),
-                                ),
-                                height: 50,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: ResSize.w * 64,
+                      height: ResSize.w * 64,
+                      decoration: BoxDecoration(
+                        color: AppColor.primary.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.group_add_outlined,
+                        color: AppColor.primary,
+                        size: ResSize.w * 30,
+                      ),
                     ),
-                  ),
-                ],
+                    20.height,
+                    TextWidget(
+                      textAlign: TextAlign.center,
+                      text: 'Referrals aren’t available yet',
+                      color: AppColor.primary,
+                      fontSize: 18,
+                      fontWeight: fwSemiBold,
+                    ),
+                    8.height,
+                    TextWidget(
+                      textAlign: TextAlign.center,
+                      text:
+                          'Your referral code and rewards will appear here when the Movera referral programme launches.',
+                      color: AppColor.subtitle,
+                      fontSize: 13,
+                      fontWeight: fwNormal,
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
