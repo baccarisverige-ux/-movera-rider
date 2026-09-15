@@ -10,7 +10,11 @@ import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/promotions/presentation/promotions.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
+import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
+import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
@@ -40,6 +44,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       ScreenUtilInit(
+        key: ValueKey('${viewport.width}x${viewport.height}-$label'),
         designSize: const Size(390, 844),
         minTextAdapt: true,
         splitScreenMode: true,
@@ -82,42 +87,71 @@ void main() {
     );
   }
 
+  const componentViewport = Size(390, 844);
+  final completionComponents = <(String, Widget)>[
+    ('Completion driver', const RideCompletedDriverInfo()),
+    ('Completion rating', const RideCompletedGiveReview()),
+    ('Completion tip', const RideCompletedAddTip()),
+    ('Completion receipt', const RideCompletedTripDetail()),
+  ];
+  for (final entry in completionComponents) {
+    testWidgets('${entry.$1} fits independently', (tester) async {
+      await setViewport(tester, componentViewport);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await pumpResponsive(
+        tester,
+        Scaffold(body: SingleChildScrollView(child: entry.$2)),
+        viewport: componentViewport,
+        label: entry.$1,
+      );
+    });
+  }
+
   for (final viewport in const [Size(320, 568), Size(844, 390)]) {
-    testWidgets(
-      'primary frontend surfaces fit ${viewport.width.toInt()}x'
-      '${viewport.height.toInt()}',
-      (tester) async {
-        await setViewport(tester, viewport);
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
+    for (final name in const [
+      'Notifications',
+      'Promotions',
+      'Support',
+      'Profile',
+      'History',
+      'Schedule',
+      'Wallet',
+    ]) {
+      testWidgets(
+        '$name fits ${viewport.width.toInt()}x'
+        '${viewport.height.toInt()}',
+        (tester) async {
+          await setViewport(tester, viewport);
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
 
-        final profile = ProfileController(
-          store: ProfileRepository(storageKey: 'responsive_profile'),
-        );
-        final reservations = ReservationController(
-          store: LocalReservationRepository(
-            storage: MemoryReservationStorage(),
-          ),
-        );
-        final screens = <(String, Widget)>[
-          ('Notifications', const NotificationScreen()),
-          ('Promotions', const Promotions()),
-          ('Support', const SupportHome()),
-          ('Profile', AccountHomePage(controller: profile)),
-          ('History', RideHistory(reservations: reservations)),
-          ('Schedule', const ScheduleRide()),
-          ('Wallet', const WalletHome()),
-        ];
-
-        for (final entry in screens) {
+          final profile = ProfileController(
+            store: ProfileRepository(storageKey: 'responsive_profile'),
+          );
+          final reservations = ReservationController(
+            store: LocalReservationRepository(
+              storage: MemoryReservationStorage(),
+            ),
+          );
+          final screen = switch (name) {
+            'Notifications' => const NotificationScreen(),
+            'Promotions' => const Promotions(),
+            'Support' => const SupportHome(),
+            'Profile' => AccountHomePage(controller: profile),
+            'History' => RideHistory(reservations: reservations),
+            'Schedule' => const ScheduleRide(),
+            'Wallet' => const WalletHome(),
+            _ => throw StateError('Unknown responsive screen: $name'),
+          };
           await pumpResponsive(
             tester,
-            entry.$2,
+            screen,
             viewport: viewport,
-            label: entry.$1,
+            label: name,
           );
-        }
-      },
-    );
+        },
+      );
+    }
   }
 }
