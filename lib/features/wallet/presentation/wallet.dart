@@ -7,154 +7,59 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 final _wallet = WalletController();
 
-VoucherOffer? lookupMoveraVoucher(String raw) => _wallet.lookup(raw);
-
-String _voucherDateLabel(DateTime date) {
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
-}
-
-Future<Set<String>> _usedVoucherCodes() => _wallet.usedCodes();
-
-Future<void> _markVoucherUsed(String code) => _wallet.markUsed(code);
-
-Future<VoucherOffer?> showAddVoucherSheet(BuildContext context) async {
+Future<void> showVoucherUnavailableSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);
   const muted = Color(0xFF7B8388);
-  const line = Color(0xFFE6E8E7);
-  const accent = Color(0xFF2D5878);
-  TextStyle style(
-    double size, {
-    FontWeight weight = FontWeight.w500,
-    Color color = ink,
-  }) {
-    return GoogleFonts.poppins(fontSize: size, fontWeight: weight, color: color);
-  }
 
-  final controller = TextEditingController();
-  final used = await _usedVoucherCodes();
-  if (!context.mounted) return null;
-  final offer = await MoveraSheet.show<VoucherOffer>(
+  await MoveraSheet.show<void>(
     context: context,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.28),
     builder: (sheetContext) {
-      return StatefulBuilder(
-        builder: (context, setSheetState) {
-          final typed = controller.text;
-          final found = lookupMoveraVoucher(typed);
-          final alreadyUsed = found != null && used.contains(found.code);
-          String status;
-          Color statusColor = muted;
-          if (typed.trim().length < 4) {
-            status = 'Try MOVERA100, WELCOME50 or RIDE200';
-          } else if (found == null) {
-            status = 'Code not found';
-            statusColor = const Color(0xFFB42318);
-          } else if (alreadyUsed) {
-            status = 'Already used · kr ${found.amountKr}';
-            statusColor = const Color(0xFFB42318);
-          } else if (found.expired) {
-            status =
-                'kr ${found.amountKr} · expired ${_voucherDateLabel(found.expires)}';
-            statusColor = const Color(0xFFB42318);
-          } else {
-            status =
-                'kr ${found.amountKr} · expires ${_voucherDateLabel(found.expires)}';
-            statusColor = accent;
-          }
-          final canApply =
-              found != null && !found.expired && !alreadyUsed;
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-            ),
-            child: SafeArea(
-              top: false,
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 38,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: line,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Add voucher', style: style(20, weight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'We detect the amount and expiry, then add the funds.',
-                      style: style(12, color: muted),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: controller,
-                      textCapitalization: TextCapitalization.characters,
-                      style: style(14, weight: FontWeight.w600),
-                      onChanged: (_) => setSheetState(() {}),
-                      decoration: InputDecoration(
-                        hintText: 'Voucher code',
-                        hintStyle: style(13, color: muted),
-                        filled: true,
-                        fillColor: const Color(0xFFF4F5F4),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(status, style: style(12, weight: FontWeight.w600, color: statusColor)),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: FilledButton(
-                        onPressed: canApply
-                            ? () => Navigator.pop(sheetContext, found)
-                            : null,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: ink,
-                          disabledBackgroundColor: ink.withValues(alpha: 0.16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: Text(
-                          found == null
-                              ? 'Apply voucher'
-                              : 'Add kr ${found.amountKr}',
-                          style: style(14, weight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
+      return SafeArea(
+        top: false,
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.confirmation_number_outlined,
+                color: ink,
+                size: 34,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Vouchers aren’t available yet',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: ink,
                 ),
               ),
-            ),
-          );
-        },
+              const SizedBox(height: 6),
+              Text(
+                'Validated Movera voucher codes will appear here when the service launches.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: muted,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
+        ),
       );
     },
   );
-  controller.dispose();
-  return offer;
 }
 
 class WalletHome extends StatefulWidget {
@@ -173,7 +78,6 @@ class _WalletHomeState extends State<WalletHome> {
   final _wallet = WalletController();
 
   double _balance = 0;
-  String? _voucherCode;
 
   @override
   void initState() {
@@ -197,11 +101,9 @@ class _WalletHomeState extends State<WalletHome> {
 
   Future<void> _restore() async {
     final balance = await _wallet.loadBalance();
-    final voucher = await _wallet.loadVoucherCode();
     if (!mounted) return;
     setState(() {
       _balance = balance;
-      _voucherCode = voucher;
     });
   }
 
@@ -336,22 +238,7 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _openVoucher() async {
-    final offer = await showAddVoucherSheet(context);
-    if (offer == null || !mounted) return;
-    await _markVoucherUsed(offer.code);
-    final next = await _wallet.redeemVoucher(previous: _balance, offer: offer);
-    if (!mounted) return;
-    setState(() {
-      _voucherCode = offer.code;
-      if (next != null) _balance = next;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'kr ${offer.amountKr} added · expires ${_voucherDateLabel(offer.expires)}',
-        ),
-      ),
-    );
+    await showVoucherUnavailableSheet(context);
   }
 
   Widget _fundMethod({
@@ -475,7 +362,7 @@ class _WalletHomeState extends State<WalletHome> {
               const SizedBox(height: 4),
               Center(
                 child: Text(
-                  'Top up for rides, or add a voucher code.',
+                  'Top up for rides.',
                   textAlign: TextAlign.center,
                   style: _style(12, color: _muted),
                 ),
@@ -569,16 +456,14 @@ class _WalletHomeState extends State<WalletHome> {
                     ),
                   ),
                   child: Text(
-                    _voucherCode == null
-                        ? 'Add voucher'
-                        : 'Voucher ${_voucherCode!}',
+                    'Vouchers unavailable',
                     style: _style(14, weight: FontWeight.w600),
                   ),
                 ),
               ),
               const SizedBox(height: 18),
               Text(
-                'Add funds with card, Swish, Apple Pay or PayPal. Add a voucher if you have a Movera code.',
+                'Add funds with card, Swish, Apple Pay or PayPal.',
                 style: _style(12.5, color: _muted, height: 1.45),
               ),
             ],
@@ -606,7 +491,6 @@ class _WalletScreenState extends State<WalletScreen> {
 
   bool _businessProfile = false;
   String _selectedMethod = 'apple';
-  String? _voucherCode;
   List<Map<String, String>> _extraMethods = [];
 
   @override
@@ -635,7 +519,6 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() {
       _selectedMethod = saved.defaultMethod;
       _businessProfile = saved.business;
-      _voucherCode = saved.voucherCode;
       _extraMethods = saved.extraMethods;
     });
   }
@@ -645,7 +528,6 @@ class _WalletScreenState extends State<WalletScreen> {
       WalletPaymentSettings(
         defaultMethod: _selectedMethod,
         business: _businessProfile,
-        voucherCode: _voucherCode,
         extraMethods: _extraMethods,
       ),
     );
@@ -1017,23 +899,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _openVoucherForm() async {
-    final offer = await showAddVoucherSheet(context);
-    if (offer == null || !mounted) return;
-    await _markVoucherUsed(offer.code);
-    final current = await _wallet.loadBalance();
-    await _wallet.redeemVoucher(previous: current, offer: offer);
-    if (!mounted) return;
-    setState(() {
-      _voucherCode = offer.code;
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'kr ${offer.amountKr} added · expires ${_voucherDateLabel(offer.expires)}',
-        ),
-      ),
-    );
+    await showVoucherUnavailableSheet(context);
   }
 
   @override
@@ -1178,47 +1044,11 @@ class _WalletScreenState extends State<WalletScreen> {
                         color: _surface,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: _voucherCode == null
-                          ? _actionTile(
-                              icon: Icons.confirmation_number_outlined,
-                              title: 'Add voucher code',
-                              onTap: _openVoucherForm,
-                            )
-                          : ListTile(
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 15,
-                                vertical: 4,
-                              ),
-                              leading: const Icon(
-                                Icons.confirmation_number_outlined,
-                                color: _ink,
-                              ),
-                              title: Text(
-                                _voucherCode!,
-                                style: _style(
-                                  12.5,
-                                  weight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Voucher applied',
-                                style: _style(
-                                  9.5,
-                                  weight: FontWeight.w400,
-                                  color: _muted,
-                                ),
-                              ),
-                              trailing: IconButton(
-                                onPressed: () {
-                                  setState(() => _voucherCode = null);
-                                  _savePaymentSettings();
-                                },
-                                icon: const Icon(Icons.close_rounded),
-                                color: _muted,
-                                tooltip: 'Remove voucher',
-                                iconSize: 19,
-                              ),
-                            ),
+                      child: _actionTile(
+                        icon: Icons.confirmation_number_outlined,
+                        title: 'Vouchers unavailable',
+                        onTap: _openVoucherForm,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Row(
