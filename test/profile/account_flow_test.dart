@@ -153,12 +153,16 @@ void main() {
     expect(find.text('Passkeys'), findsOneWidget);
     expect(find.text('2-step verification'), findsOneWidget);
     expect(find.text('Not set'), findsOneWidget);
-    expect(find.text('No login activity available'), findsOneWidget);
-    expect(find.text('Stockholm, Sweden'), findsNothing);
     expect(c.profile.twoStepEnabled, isFalse);
     await tester.tap(find.byType(Switch).first);
     await tester.pump();
     expect(c.profile.twoStepEnabled, isTrue);
+
+    final emptyActivity = find.text('No login activity available');
+    await tester.scrollUntilVisible(emptyActivity, 300);
+    await tester.pumpAndSettle();
+    expect(emptyActivity, findsOneWidget);
+    expect(find.text('Stockholm, Sweden'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });
 
