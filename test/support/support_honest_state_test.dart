@@ -35,6 +35,7 @@ void main() {
     expect(find.text('Help'), findsOneWidget);
     expect(find.text('No rides to review'), findsOneWidget);
     expect(find.text('Browse all help topics'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Support messaging'), 180);
     expect(find.text('Support messaging'), findsOneWidget);
 
     expect(find.textContaining('Arlanda'), findsNothing);
@@ -55,6 +56,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No active cases'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('No closed cases'), 160);
     expect(find.text('No closed cases'), findsOneWidget);
     expect(find.text('I was charged for cancellation'), findsNothing);
     expect(find.text('I want to cancel my delayed order'), findsNothing);
