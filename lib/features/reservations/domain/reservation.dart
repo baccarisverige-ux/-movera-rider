@@ -87,14 +87,6 @@ class ReservationDriver {
       photoAsset: map['photoAsset'] as String?,
     );
   }
-
-  static const mockAssigned = ReservationDriver(
-    firstName: 'Linnea',
-    rating: 4.94,
-    vehicle: 'Volvo XC40',
-    plate: 'MOVERA 1',
-    photoAsset: 'assets/images/profile_img.png',
-  );
 }
 
 class ReservationDraft {

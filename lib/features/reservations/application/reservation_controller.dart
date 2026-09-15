@@ -75,8 +75,12 @@ class ReservationController extends ChangeNotifier {
     for (final ride in upcoming()) {
       if (ride.revealsDriver) continue;
       if (ride.scheduledPickupAt.difference(clock).inMinutes > 2) continue;
-      if (!ride.driverAssigned) {
-        await _store.assignDriver(ride.reservationId);
+      if (ride.driver == null) {
+        if (ride.status != ReservationStatus.driverAssignmentPending) {
+          await _store.assignDriver(ride.reservationId);
+          changed = true;
+        }
+        continue;
       }
       await _store.updateReservation(
         ride.reservationId,

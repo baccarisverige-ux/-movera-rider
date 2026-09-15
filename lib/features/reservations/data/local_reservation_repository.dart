@@ -214,11 +214,20 @@ class LocalReservationRepository implements ReservationRepository {
     String reservationId, {
     ReservationDriver? driver,
   }) {
+    if (driver == null) {
+      return updateReservation(
+        reservationId,
+        const ReservationPatch(
+          status: ReservationStatus.driverAssignmentPending,
+          clearDriver: true,
+        ),
+      );
+    }
     return updateReservation(
       reservationId,
       ReservationPatch(
         status: ReservationStatus.driverAssigned,
-        driver: driver ?? ReservationDriver.mockAssigned,
+        driver: driver,
       ),
     );
   }

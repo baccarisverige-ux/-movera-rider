@@ -19,6 +19,13 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
+  const realDriver = ReservationDriver(
+    firstName: 'Amina',
+    rating: 4.9,
+    vehicle: 'Volvo EX40',
+    plate: 'ABC 123',
+  );
+
   Future<ReservationController> seeded() async {
     final c = ReservationController(
       store: LocalReservationRepository(
@@ -162,38 +169,49 @@ void main() {
     tester,
   ) async {
     final c = await seeded();
-    await c.assignMockDriver('rsv_ui');
+    await c.assignMockDriver('rsv_ui', driver: realDriver);
     await pumpPhone(
       tester,
       UpcomingReservationPage(reservationId: 'rsv_ui', controller: c),
     );
-    expect(find.text('Linnea'), findsNothing);
+    expect(find.text('Amina'), findsNothing);
     expect(
       find.text('Driver details appear when your driver is on the way.'),
       findsOneWidget,
     );
   });
 
-  test('pickup time starts the live driver-on-the-way state', () async {
+  test('pickup time without a real driver stays assignment pending', () async {
     final c = await seeded();
+    await c.startLiveIfDue(now: DateTime(2026, 9, 23, 6, 55));
+    final ride = c.byId('rsv_ui')!;
+    expect(ride.status, ReservationStatus.driverAssignmentPending);
+    expect(ride.driver, isNull);
+    expect(ride.driverAssigned, isFalse);
+    expect(ride.revealsDriver, isFalse);
+  });
+
+  test('pickup time with a real driver starts the live on-the-way state', () async {
+    final c = await seeded();
+    await c.assignMockDriver('rsv_ui', driver: realDriver);
     await c.startLiveIfDue(now: DateTime(2026, 9, 23, 6, 55));
     final ride = c.byId('rsv_ui')!;
     expect(ride.status, ReservationStatus.driverEnRoute);
     expect(ride.revealsDriver, isTrue);
-    expect(ride.driver?.firstName, 'Linnea');
+    expect(ride.driver?.firstName, 'Amina');
     final page = ReservationLiveRide.pageFor(ride);
     expect(page.pickupAddress, 'Klockarvägen 37');
     expect(page.destinationAddress, 'Arlanda Express');
     expect(page.rideType, 'Movera');
-    expect(page.driver?.firstName, 'Linnea');
-    expect(page.driver?.plate, 'MOVERA 1');
+    expect(page.driver?.firstName, 'Amina');
+    expect(page.driver?.plate, 'ABC 123');
   });
 
   testWidgets('assigned driver updates the same history card', (tester) async {
     final c = await seeded();
     await pumpPhone(tester, RideHistory(reservations: c));
     expect(find.text('Driver pending'), findsOneWidget);
-    await c.assignMockDriver('rsv_ui');
+    await c.assignMockDriver('rsv_ui', driver: realDriver);
     await tester.pump();
     expect(find.text('Driver assigned'), findsOneWidget);
     expect(find.text('Driver pending'), findsNothing);

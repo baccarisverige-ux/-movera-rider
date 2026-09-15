@@ -90,8 +90,8 @@ void main() {
     final created = await store.createReservation(_draft());
     final updated = await store.updateReservation(
       created.reservationId,
-      ReservationPatch(
-        pickup: const ReservationPlace(label: 'Arlanda Express'),
+      const ReservationPatch(
+        pickup: ReservationPlace(label: 'Arlanda Express'),
       ),
     );
     expect(updated.reservationId, created.reservationId);
@@ -106,8 +106,8 @@ void main() {
     final created = await store.createReservation(_draft());
     final updated = await store.updateReservation(
       created.reservationId,
-      ReservationPatch(
-        destination: const ReservationPlace(label: 'Arlanda Terminal 5'),
+      const ReservationPatch(
+        destination: ReservationPlace(label: 'Arlanda Terminal 5'),
       ),
     );
     expect(updated.reservationId, created.reservationId);
@@ -148,15 +148,38 @@ void main() {
     expect(history.first.cancellationReason, 'plans_changed');
   });
 
-  test('assigning a driver updates the same reservation', () async {
+  test('missing driver payload stays pending without inventing identity', () async {
     final store = LocalReservationRepository(
       storage: MemoryReservationStorage(),
     );
     final created = await store.createReservation(_draft());
-    final assigned = await store.assignDriver(created.reservationId);
+    final pending = await store.assignDriver(created.reservationId);
+    expect(pending.reservationId, created.reservationId);
+    expect(pending.status, ReservationStatus.driverAssignmentPending);
+    expect(pending.driver, isNull);
+    expect(pending.driverAssigned, isFalse);
+    expect(await store.getUpcomingReservations(), hasLength(1));
+  });
+
+  test('explicit driver payload updates the same reservation', () async {
+    final store = LocalReservationRepository(
+      storage: MemoryReservationStorage(),
+    );
+    final created = await store.createReservation(_draft());
+    const driver = ReservationDriver(
+      firstName: 'Amina',
+      rating: 4.9,
+      vehicle: 'Volvo EX40',
+      plate: 'ABC 123',
+    );
+    final assigned = await store.assignDriver(
+      created.reservationId,
+      driver: driver,
+    );
     expect(assigned.reservationId, created.reservationId);
     expect(assigned.status, ReservationStatus.driverAssigned);
-    expect(assigned.driver?.firstName, 'Linnea');
+    expect(assigned.driver?.firstName, 'Amina');
+    expect(assigned.driver?.plate, 'ABC 123');
     expect(await store.getUpcomingReservations(), hasLength(1));
   });
 

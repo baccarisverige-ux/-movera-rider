@@ -25,6 +25,13 @@ void main() {
     paymentMethod: 'Cash',
   );
 
+  const realDriver = ReservationDriver(
+    firstName: 'Amina',
+    rating: 4.9,
+    vehicle: 'Volvo EX40',
+    plate: 'ABC 123',
+  );
+
   test('opening details does not create another reservation', () async {
     final c = controller();
     await c.create(draft);
@@ -45,13 +52,26 @@ void main() {
     expect(c.completed(), isEmpty);
   });
 
-  test('mock driver assignment is the same reservation', () async {
+  test('missing driver payload stays pending on the same reservation', () async {
     final c = controller();
     await c.create(draft);
     await c.assignMockDriver('rsv_ctrl');
     final ride = c.byId('rsv_ctrl')!;
+    expect(ride.status, ReservationStatus.driverAssignmentPending);
+    expect(ride.driverAssigned, isFalse);
+    expect(ride.driver, isNull);
+    expect(c.upcoming(), hasLength(1));
+  });
+
+  test('explicit driver assignment is the same reservation', () async {
+    final c = controller();
+    await c.create(draft);
+    await c.assignMockDriver('rsv_ctrl', driver: realDriver);
+    final ride = c.byId('rsv_ctrl')!;
     expect(ride.status, ReservationStatus.driverAssigned);
     expect(ride.driverAssigned, isTrue);
+    expect(ride.driver?.firstName, 'Amina');
+    expect(ride.driver?.plate, 'ABC 123');
     expect(c.upcoming(), hasLength(1));
   });
 
@@ -110,7 +130,7 @@ void main() {
     await c.create(draft);
     final updated = await c.update(
       'rsv_ctrl',
-      ReservationPatch(paymentMethod: 'Swish', note: 'Child'),
+      const ReservationPatch(paymentMethod: 'Swish', note: 'Child'),
     );
     expect(updated.reservationId, 'rsv_ctrl');
     expect(updated.categoryName, 'Comfort');
