@@ -206,7 +206,7 @@ void main() {
         findingSnap(rideId: 'r-epoch').copyWith(
           status: RideStatus.driverAssigned,
           savedAt: DateTime.now(),
-          driver: MockRideRealtime.mockDriver,
+          driver: null,
         ),
       );
       await commitCancelFirst();
