@@ -7,11 +7,13 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RideCompletedTripDetail extends StatelessWidget {
-  const RideCompletedTripDetail({super.key});
+  const RideCompletedTripDetail({super.key, this.controller});
+
+  final RideCompleteController? controller;
 
   @override
   Widget build(BuildContext context) {
-    final trip = RideCompleteController().receipt();
+    final trip = (controller ?? RideCompleteController()).receipt();
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -23,101 +25,69 @@ class RideCompletedTripDetail extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
-              color: Color(0xffFAFAFA),
+              color: const Color(0xffFAFAFA),
               border: Border.all(color: AppColor.border, width: 0.2),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextWidget(
-                  text: "Trip Details",
+                  text: 'Trip Details',
                   color: AppColor.title,
                   fontSize: 16,
                   fontWeight: fwSemiBold,
                 ),
                 12.height,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextWidget(
-                      text: "Pickup location",
-                      color: AppColor.title,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                    TextWidget(
-                      text: trip.pickup,
-                      color: AppColor.subtitle,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                  ],
-                ),
-                8.height,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                  children: [
-                    TextWidget(
-                      text: "Destination",
-                      color: AppColor.title,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                    TextWidget(
-                      text: trip.destination,
-                      color: AppColor.subtitle,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                  ],
-                ),
-                8.height,
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                  children: [
-                    TextWidget(
-                      text: "Total Payment",
-                      color: AppColor.title,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                    TextWidget(
-                      text: trip.total,
-                      color: AppColor.subtitle,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                  ],
-                ),
-                8.height,
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-
-                  children: [
-                    TextWidget(
-                      text: "Payment method",
-                      color: AppColor.title,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                    TextWidget(
-                      text: trip.method,
-                      color: AppColor.subtitle,
-                      fontSize: 14,
-                      fontWeight: fwMedium,
-                    ),
-                  ],
-                ),
-                8.height,
+                if (trip == null)
+                  TextWidget(
+                    text: 'Trip details unavailable',
+                    color: AppColor.subtitle,
+                    fontSize: 14,
+                    fontWeight: fwMedium,
+                  )
+                else ...[
+                  _detailRow('Pickup location', trip.pickup),
+                  8.height,
+                  _detailRow('Destination', trip.destination),
+                  8.height,
+                  _detailRow('Total Payment', trip.total),
+                  8.height,
+                  _detailRow('Payment method', trip.method),
+                  8.height,
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          flex: 4,
+          child: TextWidget(
+            text: label,
+            color: AppColor.title,
+            fontSize: 14,
+            fontWeight: fwMedium,
+          ),
+        ),
+        12.width,
+        Expanded(
+          flex: 6,
+          child: TextWidget(
+            text: value,
+            color: AppColor.subtitle,
+            fontSize: 14,
+            fontWeight: fwMedium,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 }
