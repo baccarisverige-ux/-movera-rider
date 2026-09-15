@@ -123,8 +123,10 @@ void main() {
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline_rounded), findsWidgets);
     expect(find.text('Profile not set'), findsOneWidget);
     expect(find.text('Email not added'), findsOneWidget);
+    expect(find.text('Name, phone, email, language'), findsOneWidget);
     expect(find.text('Ben Gleason'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });
@@ -162,6 +164,11 @@ void main() {
     await tester.scrollUntilVisible(emptyActivity, 300);
     await tester.pumpAndSettle();
     expect(emptyActivity, findsOneWidget);
+    expect(find.byIcon(Icons.devices_outlined), findsOneWidget);
+    expect(
+      find.text('Sign-in history will appear here when available.'),
+      findsOneWidget,
+    );
     expect(find.text('Stockholm, Sweden'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });

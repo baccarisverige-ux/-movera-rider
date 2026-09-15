@@ -33,6 +33,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Notification'), findsOneWidget);
+    expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
     expect(find.text('No notifications yet'), findsOneWidget);
     expect(
       find.text('Ride and account updates will appear here when available.'),
