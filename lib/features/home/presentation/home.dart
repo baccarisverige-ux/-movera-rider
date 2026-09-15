@@ -28,6 +28,9 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/core/web/web_search_interrupted.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
@@ -229,6 +232,30 @@ class _HomeState extends State<Home> {
     _loadMarkers();
     _restoreAddressData();
     _startHeadingTracking();
+    _announceInterruptedSearch();
+  }
+
+  /// A reload during Finding Driver drops the search. Landing on an empty Home
+  /// with no explanation reads as though the ride was never requested, so say
+  /// what happened.
+  void _announceInterruptedSearch() {
+    // Two sources: builds that keep the snapshot leave the coordinator a flag;
+    // the web build's snapshot is gone before Flutter starts, so it leaves a
+    // note in the session instead.
+    final interrupted =
+        RideRestoreCoordinator.instance.takeSearchInterrupted() |
+        takeWebSearchInterrupted();
+    if (!interrupted) return;
+    // Let the first frame settle so the messenger has a Scaffold to put this
+    // in, and leave it up long enough to actually be read.
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      MoveraToast.show(
+        context,
+        'Your ride search was interrupted. Book again when you are ready.',
+        duration: const Duration(seconds: 8),
+      );
+    });
   }
 
   @override

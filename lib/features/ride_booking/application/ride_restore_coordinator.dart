@@ -7,6 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -30,6 +31,27 @@ class RideRestoreCoordinator {
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
 
+  /// Set when a ride search was dropped rather than restored, so Home can say
+  /// so instead of just appearing empty as though nothing had been going on.
+  bool _searchInterrupted = false;
+
+  /// Reads the flag and clears it, so the rider is told once.
+  bool takeSearchInterrupted() {
+    if (!_searchInterrupted) return false;
+    _searchInterrupted = false;
+    return true;
+  }
+
+  /// Record that a live ride was dropped rather than resumed.
+  void noteSearchInterrupted() => _searchInterrupted = true;
+
+  void _noteDropped(RestoredSurface surface) {
+    if (surface == RestoredSurface.finding ||
+        surface == RestoredSurface.waiting) {
+      noteSearchInterrupted();
+    }
+  }
+
   /// Tests: pretend Profile/Wallet is open so resume must not navigate.
   bool Function()? debugAtRoot;
 
@@ -40,6 +62,8 @@ class RideRestoreCoordinator {
   static bool defaultSkipRestore() => kIsWeb && !moveraQaHooksEnabled;
 
   void goHome() {
+    // Deliberately back to Home: nothing to explain on the next load.
+    clearSearchLive();
     showing = RestoredSurface.home;
     reportRestoreSurface(RestoredSurface.home.name);
     unawaited(() async {
@@ -135,6 +159,12 @@ class RideRestoreCoordinator {
   Future<Widget> root() async {
     reportRestoreSurface('hold');
     if (_skipRestore()) {
+      // Read the snapshot before dropping it: on builds that keep it, this is
+      // the evidence a search was in flight. (On web the snapshot is already
+      // gone by now, so Home reads the session note instead.)
+      try {
+        _noteDropped(surfaceFor(await _reader()));
+      } catch (_) {}
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
@@ -172,6 +202,7 @@ class RideRestoreCoordinator {
       unawaited(RideSnapshotStore.clear());
       if (showing == RestoredSurface.finding ||
           showing == RestoredSurface.waiting) {
+        _noteDropped(showing);
         goHome();
       } else {
         showing = RestoredSurface.home;

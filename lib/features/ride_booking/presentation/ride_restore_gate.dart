@@ -66,9 +66,6 @@ class RideRestoreGateState extends State<RideRestoreGate> {
     final child =
         _child ??
         const ColoredBox(color: Color(0xFFFFFFFF), child: SizedBox.expand());
-    return PopScope(
-      canPop: !kIsWeb,
-      child: child,
-    );
+    return PopScope(canPop: !kIsWeb, child: child);
   }
 }
