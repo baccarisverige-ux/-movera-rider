@@ -42,7 +42,7 @@ class RiderProfileData {
     required this.passwordUpdatedAt,
     this.recoveryPhone,
     this.googleConnected = false,
-    this.appleConnected = true,
+    this.appleConnected = false,
     this.rideUpdates = true,
     this.promotions = false,
     this.emailUpdates = true,
@@ -68,8 +68,9 @@ class RiderProfileData {
   final List<LoginSession> logins;
 
   String get firstName {
-    final parts = name.trim().split(' ');
-    return parts.isEmpty ? name : parts.first;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed.split(' ').first;
   }
 
   bool get phoneVerified => phone.trim().isNotEmpty;
@@ -158,7 +159,7 @@ class RiderProfileData {
           fallback.passwordUpdatedAt,
       recoveryPhone: map['recoveryPhone'] as String?,
       googleConnected: map['googleConnected'] == true,
-      appleConnected: map['appleConnected'] != false,
+      appleConnected: map['appleConnected'] == true,
       rideUpdates: map['rideUpdates'] != false,
       promotions: map['promotions'] == true,
       emailUpdates: map['emailUpdates'] != false,
@@ -176,27 +177,13 @@ class RiderProfileData {
 
   static RiderProfileData defaults() {
     return RiderProfileData(
-      name: 'Ben Gleason',
-      email: 'ben.gleason@movera.se',
-      phone: '+46 70 123 45 67',
-      gender: 'Man',
+      name: '',
+      email: '',
+      phone: '',
+      gender: 'Prefer not to say',
       language: 'English',
-      photoAsset: 'assets/images/profile_img.png',
-      passwordUpdatedAt: DateTime(2025, 11, 4),
-      appleConnected: true,
-      logins: const [
-        LoginSession(
-          device: 'This browser',
-          place: 'Stockholm, Sweden',
-          source: 'Movera Web',
-          current: true,
-        ),
-        LoginSession(
-          device: 'iPhone',
-          place: 'Stockholm, Sweden',
-          source: 'Movera iOS',
-        ),
-      ],
+      photoAsset: '',
+      passwordUpdatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
 }
