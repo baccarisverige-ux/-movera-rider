@@ -50,7 +50,9 @@ class ScheduledRideTermsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Confirmed scheduled-ride fees and time windows are not available yet. No fee or window is assumed unless it is shown before booking.',
+                  'Confirmed scheduled-ride fees and time windows are not available '
+                  'yet. No fee or window is assumed unless it is shown before '
+                  'booking.',
                   style: reservationText(
                     14,
                     color: kReservationMuted,
