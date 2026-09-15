@@ -88,18 +88,26 @@ class _RideCompletedState extends State<RideCompleted> {
               width: double.infinity,
               child: Padding(
                 padding: EdgeInsetsGeometry.symmetric(vertical: ResSize.h * 11),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextWidget(
-                      text: "Make sure your belonging are not left behind",
-                      color: AppColor.title,
-                      fontSize: 12,
-                      fontWeight: fwMedium,
-                    ),
-                    7.width,
-                    Image.asset(AppAssets.eyeEmoji, height: ResSize.h * 20),
-                  ],
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: screenHorizPadding,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: TextWidget(
+                          text: "Make sure your belongings are not left behind",
+                          color: AppColor.title,
+                          fontSize: 12,
+                          fontWeight: fwMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      7.width,
+                      Image.asset(AppAssets.eyeEmoji, height: ResSize.h * 20),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -284,32 +284,49 @@ class _RideHistoryState extends State<RideHistory> {
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       child: Column(
         children: [
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 140,
-            child: Image.asset(
-              'assets/images/schedule_timeline_exact_v3.png',
-              fit: BoxFit.contain,
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 20, bottom: 20),
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 140,
+                      child: Image.asset(
+                        'assets/images/schedule_timeline_exact_v3.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      'No upcoming rides',
+                      style: _text(22, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Whatever is on your schedule, a Scheduled Ride can get you there on time',
+                      textAlign: TextAlign.center,
+                      style: _text(14.5, color: _muted, height: 1.45),
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: _showHowItWorks,
+                      child: Text(
+                        'Learn how it works',
+                        style: _text(
+                          15,
+                          weight: FontWeight.w600,
+                          color: _accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 28),
-          Text('No upcoming rides', style: _text(22, weight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          Text(
-            'Whatever is on your schedule, a Scheduled Ride can get you there on time',
-            textAlign: TextAlign.center,
-            style: _text(14.5, color: _muted, height: 1.45),
-          ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: _showHowItWorks,
-            child: Text(
-              'Learn how it works',
-              style: _text(15, weight: FontWeight.w600, color: _accent),
-            ),
-          ),
-          const Spacer(),
           SizedBox(
             width: double.infinity,
             height: 56,

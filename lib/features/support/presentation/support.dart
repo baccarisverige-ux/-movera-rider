@@ -49,12 +49,14 @@ class SupportHome extends StatelessWidget {
                   icon: const Icon(Icons.close_rounded, color: ink),
                 ),
                 const Spacer(),
-                _PillButton(
-                  icon: Icons.mail_outline_rounded,
-                  label: 'Messages',
-                  onTap: () => Navigator.push(
-                    context,
-                    RightToLeftTransition(const SupportMessages()),
+                Flexible(
+                  child: _PillButton(
+                    icon: Icons.mail_outline_rounded,
+                    label: 'Messages',
+                    onTap: () => Navigator.push(
+                      context,
+                      RightToLeftTransition(const SupportMessages()),
+                    ),
                   ),
                 ),
               ],
@@ -89,8 +91,15 @@ class SupportHome extends StatelessWidget {
             const SizedBox(height: 28),
             Row(
               children: [
-                Text('Select a ride', style: text(16, weight: FontWeight.w700)),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    'Select a ride',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text(16, weight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
@@ -1045,9 +1054,13 @@ class _PillButton extends StatelessWidget {
                 Icon(icon, size: 16, color: SupportHome.ink),
                 const SizedBox(width: 6),
               ],
-              Text(
-                label,
-                style: SupportHome.text(13.5, weight: FontWeight.w600),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SupportHome.text(13.5, weight: FontWeight.w600),
+                ),
               ),
             ],
           ),
