@@ -115,6 +115,7 @@ class SupportHome extends StatelessWidget {
             const SizedBox(height: 12),
             if (recent.isEmpty)
               const _EmptyCard(
+                icon: Icons.inbox_outlined,
                 title: 'No rides to review',
                 subtitle:
                     'Completed or cancelled rides will appear here when real ride history is available.',
@@ -258,6 +259,7 @@ class SelectSupportRide extends StatelessWidget {
         children: [
           if (grouped.isEmpty)
             const _EmptyCard(
+              icon: Icons.event_busy_outlined,
               title: 'No rides yet',
               subtitle:
                   'Completed and cancelled rides will appear here when real ride history is available.',
@@ -452,6 +454,7 @@ class SupportMessages extends StatelessWidget {
           Text('Active', style: SupportHome.text(18, weight: FontWeight.w700)),
           const SizedBox(height: 12),
           const _EmptyCard(
+            icon: Icons.forum_outlined,
             title: 'No active cases',
             subtitle:
                 'Support messaging is not connected in this build, so no active conversations are shown.',
@@ -460,6 +463,7 @@ class SupportMessages extends StatelessWidget {
           Text('Closed', style: SupportHome.text(18, weight: FontWeight.w700)),
           const SizedBox(height: 12),
           const _EmptyCard(
+            icon: Icons.inventory_2_outlined,
             title: 'No closed cases',
             subtitle:
                 'Closed support conversations will appear here when real support messaging is connected.',
@@ -849,9 +853,9 @@ class _CompactTrip extends StatelessWidget {
 
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard({
+    required this.icon,
     required this.title,
     required this.subtitle,
-    this.icon = Icons.inbox_outlined,
   });
 
   final String title;
