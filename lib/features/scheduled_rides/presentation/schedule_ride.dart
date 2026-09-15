@@ -662,8 +662,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                       onTap: _editRoute,
                                       child: horizentalLocation(
                                         title: "Pick-Up",
-                                        location:
-                                            _session.pickup,
+                                        location: _session.pickup,
                                       ),
                                     ),
                                     9.height,
@@ -677,8 +676,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     horizentalLocation(
                                       title: "Stop Point A",
                                       isStop: true,
-                                      location:
-                                          _session.stops.isNotEmpty ? _session.stops[0] : 'Not added',
+                                      location: _session.stops.isNotEmpty
+                                          ? _session.stops[0]
+                                          : 'Not added',
                                     ),
                                     9.height,
                                     Divider(
@@ -691,8 +691,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     horizentalLocation(
                                       isStop: true,
                                       title: "Stop Point B",
-                                      location:
-                                          _session.stops.length > 1 ? _session.stops[1] : 'Not added',
+                                      location: _session.stops.length > 1
+                                          ? _session.stops[1]
+                                          : 'Not added',
                                     ),
                                     9.height,
                                     Divider(
@@ -704,8 +705,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
                                     horizentalLocation(
                                       title: "Drop Off",
-                                      location:
-                                          _session.dropoff,
+                                      location: _session.dropoff,
                                     ),
                                   ],
                                 ),
