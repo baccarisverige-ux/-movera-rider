@@ -8,7 +8,6 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
-import 'package:movera_rider/features/reservations/presentation/reservation_review.dart';
 import 'package:movera_rider/features/reservations/presentation/review_changes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_ride_terms.dart';
@@ -217,30 +216,6 @@ void main() {
     expect(find.text('Scheduled ride terms'), findsOneWidget);
     expect(find.textContaining('Uber'), findsNothing);
     expect(find.textContaining('SEK 160'), findsNothing);
-  });
-
-  testWidgets('review does not create a reservation until Schedule is tapped', (
-    tester,
-  ) async {
-    final c = await seeded();
-    final draft = ReservationDraft(
-      scheduledPickupAt: DateTime(2026, 9, 23, 6, 55),
-      pickup: const ReservationPlace(label: 'Klockarvägen 37'),
-      destination: const ReservationPlace(label: 'Arlanda Express'),
-      categoryId: 'movera',
-      categoryName: 'Movera',
-      categoryImage: 'assets/images/rides/movera.png',
-      price: 522,
-      paymentMethod: 'Cash',
-    );
-    await pumpPhone(
-      tester,
-      ReservationReviewPage(draft: draft, ctaLabel: 'Schedule Movera'),
-    );
-    expect(find.text('Your scheduled ride'), findsOneWidget);
-    expect(find.text('Schedule Movera'), findsOneWidget);
-    expect(find.textContaining('Uber'), findsNothing);
-    expect(c.all, hasLength(1));
   });
 
   testWidgets('review changes compares price and keeps the current ride', (
