@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
@@ -10,9 +13,10 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class RideHistory extends StatefulWidget {
-  const RideHistory({super.key, this.reservations});
+  const RideHistory({super.key, this.reservations, this.onDemandReader});
 
   final ReservationController? reservations;
+  final Future<List<Reservation>> Function()? onDemandReader;
 
   @override
   State<RideHistory> createState() => _RideHistoryState();
@@ -24,7 +28,10 @@ class _RideHistoryState extends State<RideHistory> {
   static const Color _line = Color(0xFFE7EBEE);
   static const Color _accent = Color(0xFF2D5878);
   static const Color _cta = Color(0xFF11181D);
+  static const OnDemandHistoryController _onDemandController =
+      OnDemandHistoryController();
   late final ReservationController _reservations;
+  List<Reservation> _onDemand = const [];
 
   int _tab = 0;
 
@@ -33,6 +40,7 @@ class _RideHistoryState extends State<RideHistory> {
     super.initState();
     _reservations = widget.reservations ?? AppScope.instance.reservations;
     _reservations.addListener(_onReservations);
+    _loadOnDemand();
   }
 
   @override
@@ -43,6 +51,18 @@ class _RideHistoryState extends State<RideHistory> {
 
   void _onReservations() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadOnDemand() async {
+    try {
+      final reader = widget.onDemandReader ?? _onDemandController.load;
+      final rides = await reader();
+      if (!mounted) return;
+      setState(() => _onDemand = rides);
+    } catch (_) {
+      // Scheduled reservation history remains usable if local archive data is
+      // unavailable or corrupt.
+    }
   }
 
   TextStyle _text(
@@ -316,12 +336,24 @@ class _RideHistoryState extends State<RideHistory> {
     );
   }
 
-  Widget _completedList() => _reservationHistory(_reservations.completed());
+  Widget _completedList() =>
+      _combinedHistory(_reservations.completed(), completed: true);
 
-  Widget _cancelledList() => _reservationHistory(_reservations.cancelled());
+  Widget _cancelledList() =>
+      _combinedHistory(_reservations.cancelled(), completed: false);
 
-  // On-demand (Book Now) rides are not archived anywhere yet, so they cannot
-  // appear here. Reservations are the only real history the app persists.
+  Widget _combinedHistory(
+    List<Reservation> reservations, {
+    required bool completed,
+  }) {
+    final rides = _onDemandController.combine(
+      reservations,
+      _onDemand,
+      completed: completed,
+    );
+    return _reservationHistory(rides);
+  }
+
   Widget _reservationHistory(List<Reservation> reservations) {
     if (reservations.isEmpty) {
       return Center(
@@ -334,19 +366,79 @@ class _RideHistoryState extends State<RideHistory> {
         for (final ride in reservations)
           ReservationHistoryCard(
             ride: ride,
-            onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(
-                  UpcomingReservationPage(
-                    reservationId: ride.reservationId,
-                    controller: _reservations,
-                  ),
-                ),
-              );
-            },
+            onTap: () => _openHistoryRide(ride),
           ),
       ],
+    );
+  }
+
+  void _openHistoryRide(Reservation ride) {
+    if (!ride.reservationId.startsWith('ondemand-')) {
+      Navigator.push(
+        context,
+        RightToLeftTransition(
+          UpcomingReservationPage(
+            reservationId: ride.reservationId,
+            controller: _reservations,
+          ),
+        ),
+      );
+      return;
+    }
+    MoveraSheet.show<void>(
+      context: context,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _line,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              ride.status.isCompleted ? 'Completed ride' : 'Cancelled ride',
+              style: _text(21, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 14),
+            ReservationRoutePreview(
+              pickup: ride.pickup.label,
+              destination: ride.destination.label,
+              height: 132,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '${ride.categoryName} · ${ReservationFormat.price(ride)}',
+              style: _text(15, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              ReservationFormat.historyWhen(ride),
+              style: _text(13.5, color: _muted),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Paid with ${ride.paymentMethod}',
+              style: _text(13.5, color: _muted),
+            ),
+            if (ride.cancellationReason?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 5),
+              Text(
+                'Reason: ${ride.cancellationReason}',
+                style: _text(13.5, color: _muted),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
