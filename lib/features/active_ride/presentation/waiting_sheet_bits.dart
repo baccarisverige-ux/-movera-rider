@@ -7,6 +7,7 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -178,14 +179,17 @@ class WaitingDriverCard extends StatelessWidget {
     if (driver == null) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           border: Border.all(color: MoveraTokens.line),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(
-          'Driver details will appear when matching confirms them.',
-          style: waitingText(14, color: const Color(0xFF778189)),
+        child: const MoveraEmptyState(
+          icon: Icons.person_search_outlined,
+          title: 'Driver details unavailable',
+          message:
+              'Verified driver and vehicle information will appear here when matching confirms them.',
+          compact: true,
         ),
       );
     }
@@ -322,7 +326,7 @@ class WaitingDriverCard extends StatelessWidget {
                   child: InkWell(
                     onTap: () => Navigator.push(
                       context,
-                      BottomToTopTransition(Chat()),
+                      BottomToTopTransition(Chat(driverName: d.firstName)),
                     ),
                     borderRadius: BorderRadius.circular(14),
                     child: Padding(

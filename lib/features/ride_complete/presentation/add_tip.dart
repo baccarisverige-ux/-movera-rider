@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RideCompletedAddTip extends StatelessWidget {
   const RideCompletedAddTip({super.key});
@@ -19,23 +19,11 @@ class RideCompletedAddTip extends StatelessWidget {
             fontWeight: fwSemiBold,
           ),
         ),
-        8.height,
-        Center(
-          child: TextWidget(
-            text: 'Tips unavailable',
-            color: AppColor.title,
-            fontSize: 14,
-            fontWeight: fwMedium,
-          ),
-        ),
-        4.height,
-        Center(
-          child: TextWidget(
-            text: "Tipping isn't available in this build.",
-            color: AppColor.subtitle,
-            fontSize: 12,
-            fontWeight: fwNormal,
-          ),
+        const MoveraEmptyState(
+          icon: Icons.volunteer_activism_outlined,
+          title: 'Tips unavailable',
+          message: "Tipping isn't available in this build.",
+          compact: true,
         ),
       ],
     );

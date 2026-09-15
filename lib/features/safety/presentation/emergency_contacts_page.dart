@@ -5,6 +5,7 @@ import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
@@ -90,14 +91,11 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
           ),
           const SizedBox(height: 20),
           if (items.isEmpty)
-            Container(
-              decoration: SafetyUi.cardDecoration(),
-              padding: const EdgeInsets.fromLTRB(18, 28, 18, 28),
-              child: Text(
-                'No emergency contacts yet. Add someone you trust.',
-                textAlign: TextAlign.center,
-                style: SafetyUi.text(14.5, color: SafetyUi.muted, height: 1.4),
-              ),
+            const MoveraEmptyState(
+              icon: Icons.group_outlined,
+              title: 'No emergency contacts yet',
+              message: 'Add someone you trust so they can be reached quickly.',
+              compact: true,
             )
           else
             Container(

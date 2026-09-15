@@ -7,8 +7,15 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   ReservationController controller({String id = 'rsv_hist'}) {
     return ReservationController(
       store: LocalReservationRepository(
@@ -44,10 +51,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  void expectSettledHistory() {
+    expect(find.text('Loading rides'), findsNothing);
+    expect(find.text('Couldn’t load rides'), findsNothing);
+  }
+
   testWidgets('never booked: Completed and Cancelled are empty', (
     tester,
   ) async {
     await pumpHistory(tester, controller());
+    expectSettledHistory();
 
     expect(find.text('No upcoming rides'), findsOneWidget);
     expect(
@@ -57,6 +70,7 @@ void main() {
     expect(find.text('Schedule a ride'), findsOneWidget);
 
     await openTab(tester, 'Completed');
+    expectSettledHistory();
     expect(find.byIcon(Icons.route_outlined), findsOneWidget);
     expect(find.text('No completed rides yet'), findsOneWidget);
     expect(
@@ -66,6 +80,7 @@ void main() {
     expect(find.text('Book a ride'), findsOneWidget);
 
     await openTab(tester, 'Cancelled');
+    expectSettledHistory();
     expect(find.byIcon(Icons.event_busy_outlined), findsOneWidget);
     expect(find.text('No cancelled rides'), findsOneWidget);
     expect(
@@ -89,10 +104,12 @@ void main() {
     await pumpHistory(tester, reservations);
 
     await openTab(tester, 'Completed');
+    expectSettledHistory();
     expect(find.text('No completed rides yet'), findsNothing);
     expect(find.textContaining('T-Centralen'), findsWidgets);
 
     await openTab(tester, 'Cancelled');
+    expectSettledHistory();
     expect(find.text('No cancelled rides'), findsOneWidget);
   });
 
@@ -105,10 +122,12 @@ void main() {
     await pumpHistory(tester, reservations);
 
     await openTab(tester, 'Cancelled');
+    expectSettledHistory();
     expect(find.text('No cancelled rides'), findsNothing);
     expect(find.textContaining('T-Centralen'), findsWidgets);
 
     await openTab(tester, 'Completed');
+    expectSettledHistory();
     expect(find.text('No completed rides yet'), findsOneWidget);
   });
 
