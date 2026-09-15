@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -6,6 +7,7 @@ import 'package:movera_rider/features/ride_complete/application/ride_complete_co
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -40,7 +42,10 @@ class _RideCompletedState extends State<RideCompleted> {
                 children: [
                   InkWell(
                     onTap: () {
-                      Navigator.pop(context);
+                      RideNavigator.home(
+                        context,
+                        status: RideStatus.closed,
+                      );
                     },
                     child: Container(
                       height: ResSize.h * 30,
@@ -109,7 +114,13 @@ class _RideCompletedState extends State<RideCompleted> {
             24.height,
             Padding(
               padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-              child: CustomButton(centerContent: "Done", onPressed: () {}),
+              child: CustomButton(
+                centerContent: "Done",
+                onPressed: () => RideNavigator.home(
+                  context,
+                  status: RideStatus.closed,
+                ),
+              ),
             ),
             24.height,
           ],
