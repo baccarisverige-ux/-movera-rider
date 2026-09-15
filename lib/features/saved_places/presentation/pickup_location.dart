@@ -4,7 +4,6 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
-import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -19,12 +18,10 @@ class RiderSearchPickupLocation extends StatefulWidget {
 }
 
 class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
-  List<bool> trips = List.generate(3, (index) {
-    return false;
-  });
-
   @override
   Widget build(BuildContext context) {
+    final shortcuts = SavedPlacesController().shortcuts();
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Padding(
@@ -38,7 +35,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                 children: [
                   InkWell(
                     onTap: () {
-                      Navigator.of(context).pop(); // Closes the dialog
+                      Navigator.of(context).pop();
                     },
                     child: Container(
                       height: ResSize.h * 26,
@@ -56,9 +53,9 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               Container(
                 padding: EdgeInsets.symmetric(vertical: ResSize.h * 8),
                 decoration: BoxDecoration(
-                  color: Color(0xffF3F6FB),
+                  color: const Color(0xffF3F6FB),
                   border: Border.all(color: AppColor.border, width: 0.5),
-                  borderRadius: BorderRadius.only(
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(10),
                     topRight: Radius.circular(10),
                   ),
@@ -70,7 +67,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       borderWidth: 0,
                       borderRadius: 0,
                       contentHorizPadding: 10,
-                      hint: "Pick-Up Location",
+                      hint: 'Pick-Up Location',
                       contentVertPadding: 0,
                       fontSize: 16,
                       textColor: AppColor.black,
@@ -94,7 +91,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                                   ),
                                   4.width,
                                   TextWidget(
-                                    text: "CURRENT",
+                                    text: 'CURRENT',
                                     fontSize: 8,
                                     fontWeight: fwBold,
                                     color: AppColor.black,
@@ -112,31 +109,22 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               2.height,
               Row(
                 children: [
-                  for (var i = 0;
-                      i < SavedPlacesController().shortcuts().length;
-                      i++) ...[
+                  for (var i = 0; i < shortcuts.length; i++) ...[
                     if (i > 0) 2.width,
                     Expanded(
                       child: _buildSavedPlace(
-                        icon: SavedPlacesController().shortcuts()[i].kind ==
-                                'office'
+                        icon: shortcuts[i].kind == 'office'
                             ? AppAssets.office
                             : AppAssets.home,
-                        title: SavedPlacesController().shortcuts()[i].title,
-                        subtitle:
-                            SavedPlacesController().shortcuts()[i].subtitle,
+                        title: shortcuts[i].title,
+                        subtitle: shortcuts[i].subtitle,
                         isLeftRounded: i == 0,
                       ),
                     ),
                   ],
-                  2.width,
+                  if (shortcuts.isNotEmpty) 2.width,
                   InkWell(
-                    onTap: () {
-                      // Navigator.push(
-                      //   context,
-                      //   BottomToTopTransition(SavedPlaces()),
-                      // );
-                    },
+                    onTap: () {},
                     child: _buildFavorite(),
                   ),
                 ],
@@ -156,148 +144,34 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: "Your Last Trip",
+                      text: 'Your Last Trip',
                       color: AppColor.black,
                       fontSize: 16,
                       fontWeight: fwSemiBold,
                     ),
                     10.height,
-                    ...List.generate(trips.length, (index) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          top: index == 0 ? 0 : ResSize.h * 5,
-                        ),
-                        child: InkWell(
-                          onTap: () {
-                            showPickupLocationBottomSheet(context);
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: ResSize.w * 10,
-                              vertical: ResSize.h * 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColor.white,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColor.border,
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Image.asset(
-                                  AppAssets.location,
-                                  height: ResSize.h * 24,
-                                ),
-                                12.width,
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      TextWidget(
-                                        text: "30 Main Street",
-                                        color: AppColor.black,
-                                        fontSize: 12,
-                                        fontWeight: fwSemiBold,
-                                      ),
-                                      2.height,
-                                      TextWidget(
-                                        text: "5.9km|30 Main Street, London",
-                                        color: Color(0xff5E5E5E),
-                                        fontSize: 10,
-                                        fontWeight: fwNormal,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                InkWell(
-                                  onTap: () {
-                                    setState(() {
-                                      trips[index] = !trips[index];
-                                    });
-                                  },
-                                  child: Container(
-                                    child: trips[index]
-                                        ? Image.asset(
-                                            AppAssets.starFill,
-                                            height: ResSize.h * 22,
-                                          )
-                                        : Image.asset(
-                                            AppAssets.star,
-                                            color: Color(0xff083321),
-                                            height: ResSize.h * 22,
-                                          ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
+                    _buildEmptyState(
+                      title: 'No recent trips yet',
+                      subtitle:
+                          'Completed trips will appear here when real ride history is available.',
+                    ),
                   ],
                 ),
               ),
               24.height,
               TextWidget(
-                text: "Search Result",
+                text: 'Search Result',
                 color: AppColor.black,
                 fontSize: 16,
                 fontWeight: fwSemiBold,
               ),
               10.height,
-              ...List.generate(8, (index) {
-                return Padding(
-                  padding: EdgeInsets.only(top: index == 0 ? 0 : ResSize.h * 5),
-                  child: InkWell(
-                    onTap: () {
-                      showPickupLocationBottomSheet(context);
-                    },
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ResSize.w * 10,
-                        vertical: ResSize.h * 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Color(0xffF5F4F1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColor.border, width: 0.5),
-                      ),
-                      child: Row(
-                        children: [
-                          Image.asset(
-                            AppAssets.location,
-                            height: ResSize.h * 24,
-                          ),
-                          12.width,
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextWidget(
-                                  text: "30 Main Street",
-                                  color: AppColor.black,
-                                  fontSize: 12,
-                                  fontWeight: fwSemiBold,
-                                ),
-                                2.height,
-                                TextWidget(
-                                  text: "5.9km|30 Main Street, London",
-                                  color: Color(0xff5E5E5E),
-                                  fontSize: 10,
-                                  fontWeight: fwNormal,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
+              _buildEmptyState(
+                title: 'No search results',
+                subtitle:
+                    'Place search isn’t connected in this build yet.',
+                backgroundColor: const Color(0xffF5F4F1),
+              ),
               20.height,
             ],
           ),
@@ -358,7 +232,6 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     );
   }
 
-  // 🔹 Favorite Box
   Widget _buildFavorite() {
     return Container(
       height: ResSize.h * 57,
@@ -375,13 +248,50 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
             Image.asset(AppAssets.star, height: ResSize.h * 18),
             4.height,
             TextWidget(
-              text: "Favorite",
+              text: 'Favorite',
               fontSize: 12,
               fontWeight: fwSemiBold,
               color: const Color(0xff5E5E5E),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required String title,
+    required String subtitle,
+    Color? backgroundColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: ResSize.w * 10,
+        vertical: ResSize.h * 12,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor ?? AppColor.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColor.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextWidget(
+            text: title,
+            color: AppColor.black,
+            fontSize: 12,
+            fontWeight: fwSemiBold,
+          ),
+          2.height,
+          TextWidget(
+            text: subtitle,
+            color: const Color(0xff5E5E5E),
+            fontSize: 10,
+            fontWeight: fwNormal,
+          ),
+        ],
       ),
     );
   }

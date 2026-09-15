@@ -10,16 +10,5 @@ class SavedPlacesRepository {
         SavedPlacesModel(title: 'Add Gym', icon: Icons.bookmark_outline_rounded),
       ];
 
-  List<PlaceShortcut> shortcuts() => const [
-        PlaceShortcut(
-          title: 'Home',
-          subtitle: '3.5km| Dubai hotel...',
-          kind: 'home',
-        ),
-        PlaceShortcut(
-          title: 'Office',
-          subtitle: '5.1km| Sharjah mall...',
-          kind: 'office',
-        ),
-      ];
+  List<PlaceShortcut> shortcuts() => const [];
 }
