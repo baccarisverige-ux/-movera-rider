@@ -63,8 +63,6 @@ class RiderSideMenu extends StatelessWidget {
                       _profileCard(),
                       14.height,
                       _menuCard(context),
-                      14.height,
-                      _becomeDriverCard(),
                     ],
                   ),
                 ),
@@ -289,30 +287,6 @@ class RiderSideMenu extends StatelessWidget {
     );
   }
 
-  Widget _becomeDriverCard() {
-    return _cardSurface(
-      padding: EdgeInsets.symmetric(
-        horizontal: ResSize.w * 18,
-        vertical: ResSize.h * 16,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.directions_car_outlined,
-            size: 22 * ResSize.h,
-            color: _accent,
-          ),
-          16.width,
-          TextWidget(
-            text: 'Become a driver',
-            color: _ink,
-            fontSize: 16,
-            fontWeight: fwMedium,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _footer() {
     return Padding(

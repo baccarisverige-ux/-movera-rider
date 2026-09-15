@@ -49,4 +49,11 @@ extension RideStatusX on RideStatus {
       this == RideStatus.driverWaiting ||
       this == RideStatus.tripStarted ||
       this == RideStatus.tripInProgress;
+
+  /// Surfaces that show RideCompleted (live + restore).
+  bool get isCompletedSurface =>
+      this == RideStatus.tripCompleted ||
+      this == RideStatus.paymentProcessing ||
+      this == RideStatus.paymentFinalized ||
+      this == RideStatus.ratingPending;
 }

@@ -249,7 +249,7 @@ void main() {
     expect(menu.contains('Support'), isTrue);
     expect(menu.contains('Invite Friends'), isTrue);
     expect(menu.contains('About'), isTrue);
-    expect(menu.contains('Become a driver'), isTrue);
+    expect(menu.contains('Become a driver'), isFalse);
   });
 
   test('safety presentation stays off the data and platform layers', () {
