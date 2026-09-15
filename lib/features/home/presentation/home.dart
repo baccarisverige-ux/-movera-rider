@@ -74,8 +74,9 @@ class _HomeState extends State<Home> {
   );
   late final HomePlacesController _places = HomePlacesController();
   final PromotionsController _promos = PromotionsController();
+  late final _homeCampaign = _promos.homeCampaign();
   bool _showRecenterButton = true;
-  late bool _promotionVisible = _promos.homeCampaign().active;
+  late bool _promotionVisible = _homeCampaign?.active ?? false;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
   ui.Image? _puckCompactImage;
@@ -86,7 +87,7 @@ class _HomeState extends State<Home> {
   static const double _sheetPromoMinHeight = 244;
   static const double _sheetMaxHeight = 294;
 
-  String get _promotionTitle => _promos.homeCampaign().title;
+  String get _promotionTitle => _homeCampaign?.title ?? '';
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
 
