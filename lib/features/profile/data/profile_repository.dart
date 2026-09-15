@@ -22,8 +22,6 @@ class ProfileRepository {
     return name.isEmpty ? 'Profile not set' : name;
   }
 
-  String referralCode() => 'RID2ESSA';
-
   Future<void> hydrate() async {
     if (_hydrated) return;
     _hydrated = true;
