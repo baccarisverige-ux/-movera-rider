@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -33,9 +34,14 @@ void main() {
   ) async {
     await phone(tester);
     await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: moveraNavigatorKey,
-        home: const Scaffold(body: Text('home-root')),
+      ScreenUtilInit(
+        designSize: const Size(375, 812),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) => MaterialApp(
+          navigatorKey: moveraNavigatorKey,
+          home: const Scaffold(body: Text('home-root')),
+        ),
       ),
     );
 
@@ -57,9 +63,14 @@ void main() {
   testWidgets('RideCompleted back affordance returns to root', (tester) async {
     await phone(tester);
     await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: moveraNavigatorKey,
-        home: const Scaffold(body: Text('home-root')),
+      ScreenUtilInit(
+        designSize: const Size(375, 812),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) => MaterialApp(
+          navigatorKey: moveraNavigatorKey,
+          home: const Scaffold(body: Text('home-root')),
+        ),
       ),
     );
 
