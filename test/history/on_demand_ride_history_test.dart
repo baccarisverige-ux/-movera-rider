@@ -261,11 +261,11 @@ void main() {
     await tester.tap(find.text('Completed'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Book Now destination'), findsOneWidget);
-    expect(find.text('Nothing here yet'), findsNothing);
+    expect(find.text('No cancelled rides'), findsNothing);
 
     await tester.tap(find.text('Cancelled'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Book Now destination'), findsNothing);
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No cancelled rides'), findsOneWidget);
   });
 }
