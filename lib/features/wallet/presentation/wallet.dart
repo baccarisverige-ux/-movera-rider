@@ -62,7 +62,9 @@ Future<void> showVoucherUnavailableSheet(BuildContext context) async {
 }
 
 class WalletHome extends StatefulWidget {
-  const WalletHome({super.key});
+  const WalletHome({super.key, this.wallet});
+
+  final WalletController? wallet;
 
   @override
   State<WalletHome> createState() => _WalletHomeState();
@@ -72,9 +74,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _ink = Color(0xFF11181D);
   static const Color _muted = Color(0xFF7B8388);
   static const Color _line = Color(0xFFE6E8E7);
-  // ignore: unused_field
-  static const Color _accent = Color(0xFF2D5878);
-  final _wallet = WalletController();
+  late final WalletController _wallet = widget.wallet ?? WalletController();
 
   double _balance = 0;
   bool _loading = true;

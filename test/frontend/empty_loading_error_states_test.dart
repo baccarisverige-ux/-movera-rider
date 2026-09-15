@@ -30,6 +30,8 @@ import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -432,6 +434,132 @@ void main() {
     expect(find.textContaining('MOVERA100'), findsNothing);
   });
 
+  testWidgets('delayed wallet read shows loading without balance', (
+    tester,
+  ) async {
+    final delayed = Completer<double>();
+    await pumpScreen(
+      tester,
+      WalletHome(
+        wallet: WalletController(
+          store: _ScriptedWalletStore(() => delayed.future),
+        ),
+      ),
+      settle: false,
+    );
+
+    expect(find.text('Loading wallet'), findsOneWidget);
+    expect(find.text('Checking your balance.'), findsOneWidget);
+    expect(find.text('Available balance'), findsNothing);
+    expect(find.textContaining('kr '), findsNothing);
+    expect(find.text('Couldn’t load wallet'), findsNothing);
+    expect(find.text('MOVERA'), findsNothing);
+
+    delayed.complete(0);
+    await tester.pumpAndSettle();
+    expect(find.text('Loading wallet'), findsNothing);
+    expect(find.text('Available balance'), findsOneWidget);
+    expect(find.text('kr 0'), findsOneWidget);
+  });
+
+  testWidgets('wallet error offers a real retry without raw exceptions', (
+    tester,
+  ) async {
+    var calls = 0;
+    await pumpScreen(
+      tester,
+      WalletHome(
+        wallet: WalletController(
+          store: _ScriptedWalletStore(() async {
+            calls += 1;
+            if (calls == 1) {
+              throw StateError('disk-corrupt-xyz');
+            }
+            return 125;
+          }),
+        ),
+      ),
+    );
+
+    expect(find.text('Couldn’t load wallet'), findsOneWidget);
+    expect(find.text('Your balance couldn’t be read. Try again.'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.textContaining('disk-corrupt-xyz'), findsNothing);
+    expect(find.textContaining('StateError'), findsNothing);
+    expect(find.text('Available balance'), findsNothing);
+    expect(find.text('Loading wallet'), findsNothing);
+    expect(find.text('kr 125'), findsNothing);
+
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    expect(find.text('Couldn’t load wallet'), findsNothing);
+    expect(find.text('Loading wallet'), findsNothing);
+    expect(find.text('Available balance'), findsOneWidget);
+    expect(find.text('kr 125'), findsOneWidget);
+  });
+
+  for (final viewport in const [
+    Size(320, 568),
+    Size(390, 844),
+    Size(844, 390),
+  ]) {
+    testWidgets(
+      'wallet loading fits ${viewport.width.toInt()}x${viewport.height.toInt()}',
+      (tester) async {
+        final delayed = Completer<double>();
+        await pumpScreen(
+          tester,
+          WalletHome(
+            wallet: WalletController(
+              store: _ScriptedWalletStore(() => delayed.future),
+            ),
+          ),
+          viewport: viewport,
+          settle: false,
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason:
+              'wallet loading overflowed at ${viewport.width.toInt()}x${viewport.height.toInt()}',
+        );
+        expect(find.text('Loading wallet'), findsOneWidget);
+        expect(find.text('Available balance'), findsNothing);
+        expect(find.textContaining('kr '), findsNothing);
+        delayed.complete(0);
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'wallet error fits ${viewport.width.toInt()}x${viewport.height.toInt()}',
+      (tester) async {
+        await pumpScreen(
+          tester,
+          WalletHome(
+            wallet: WalletController(
+              store: _ScriptedWalletStore(() async {
+                throw StateError('disk-corrupt-xyz');
+              }),
+            ),
+          ),
+          viewport: viewport,
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason:
+              'wallet error overflowed at ${viewport.width.toInt()}x${viewport.height.toInt()}',
+        );
+        expect(find.text('Couldn’t load wallet'), findsOneWidget);
+        expect(find.text('Retry'), findsOneWidget);
+        expect(find.textContaining('disk-corrupt-xyz'), findsNothing);
+        expect(find.text('Available balance'), findsNothing);
+      },
+    );
+  }
+
   Widget Function() screenFor(String name) {
     switch (name) {
       case 'Notifications':
@@ -628,4 +756,13 @@ void main() {
       );
     }
   }
+}
+
+class _ScriptedWalletStore extends WalletStore {
+  _ScriptedWalletStore(this._onLoad);
+
+  final Future<double> Function() _onLoad;
+
+  @override
+  Future<double> loadBalance() => _onLoad();
 }
