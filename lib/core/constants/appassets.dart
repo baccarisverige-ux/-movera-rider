@@ -122,7 +122,6 @@ class AppAssets {
   static const String chatProf2 = 'assets/images/chat_prof2.png';
   static const String calender = 'assets/images/calender.png';
   static const String car = 'assets/images/car.png';
-  static const String skypulse = 'assets/images/skypulse.png';
   static const String driversImages = 'assets/images/drivers_images.png';
   static const String cash = 'assets/images/cash.png';
   static const String mastercard = 'assets/images/mastercard.png';
