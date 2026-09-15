@@ -65,19 +65,27 @@ class RideCompletedTripDetail extends StatelessWidget {
 
   Widget _detailRow(String label, String value) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextWidget(
-          text: label,
-          color: AppColor.title,
-          fontSize: 14,
-          fontWeight: fwMedium,
+        Flexible(
+          flex: 4,
+          child: TextWidget(
+            text: label,
+            color: AppColor.title,
+            fontSize: 14,
+            fontWeight: fwMedium,
+          ),
         ),
-        TextWidget(
-          text: value,
-          color: AppColor.subtitle,
-          fontSize: 14,
-          fontWeight: fwMedium,
+        12.width,
+        Expanded(
+          flex: 6,
+          child: TextWidget(
+            text: value,
+            color: AppColor.subtitle,
+            fontSize: 14,
+            fontWeight: fwMedium,
+            textAlign: TextAlign.right,
+          ),
         ),
       ],
     );
