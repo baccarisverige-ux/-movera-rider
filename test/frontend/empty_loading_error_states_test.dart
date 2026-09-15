@@ -111,15 +111,11 @@ void main() {
     required String reason,
     bool containing = false,
   }) async {
-    Finder onstage() => containing
-        ? find.textContaining(text)
-        : find.text(text);
-    if (onstage().evaluate().isEmpty) {
-      final hidden = containing
-          ? find.textContaining(text, skipOffstage: false)
-          : find.text(text, skipOffstage: false);
-      expect(hidden, findsWidgets, reason: reason);
-      await tester.ensureVisible(hidden.first);
+    Finder onstage() =>
+        containing ? find.textContaining(text) : find.text(text);
+    if (onstage().evaluate().isEmpty &&
+        find.byType(Scrollable).evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(onstage(), 240);
       await tester.pump();
     }
     expect(onstage(), findsWidgets, reason: reason);

@@ -234,7 +234,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
             ? const BorderRadius.only(bottomLeft: Radius.circular(10))
             : BorderRadius.zero,
         child: Container(
-          height: _chipHeight(),
+          constraints: BoxConstraints(minHeight: _chipHeight()),
           decoration: BoxDecoration(
             borderRadius: isLeftRounded
                 ? const BorderRadius.only(bottomLeft: Radius.circular(10))
@@ -250,6 +250,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                 10.width,
                 Expanded(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -283,7 +284,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
 
   Widget _buildFavorite() {
     return Container(
-      height: _chipHeight(),
+      constraints: BoxConstraints(minHeight: _chipHeight()),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(bottomRight: Radius.circular(10)),
         color: AppColor.liteBlue,
@@ -292,6 +293,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(AppAssets.star, height: ResSize.h * 18),
