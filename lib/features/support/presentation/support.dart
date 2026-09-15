@@ -69,10 +69,17 @@ class SupportHome extends StatelessWidget {
                     children: [
                       Text(
                         'Help',
-                        style: text(34, weight: FontWeight.w700, letterSpacing: -0.8),
+                        style: text(
+                          34,
+                          weight: FontWeight.w700,
+                          letterSpacing: -0.8,
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      Text('What can we help with?', style: text(16, color: muted)),
+                      Text(
+                        'What can we help with?',
+                        style: text(16, color: muted),
+                      ),
                     ],
                   ),
                 ),
@@ -89,21 +96,34 @@ class SupportHome extends StatelessWidget {
                     context,
                     RightToLeftTransition(const SelectSupportRide()),
                   ),
-                  child: Text('View all', style: text(14, weight: FontWeight.w500, color: muted)),
+                  child: Text(
+                    'View all',
+                    style: text(14, weight: FontWeight.w500, color: muted),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            for (final ride in recent)
-              _RideCard(
-                ride: ride,
-                onTap: () => Navigator.push(
-                  context,
-                  RightToLeftTransition(SelectIssue(ride: ride)),
+            if (recent.isEmpty)
+              const _EmptyCard(
+                title: 'No rides to review',
+                subtitle:
+                    'Completed or cancelled rides will appear here when real ride history is available.',
+              )
+            else
+              for (final ride in recent)
+                _RideCard(
+                  ride: ride,
+                  onTap: () => Navigator.push(
+                    context,
+                    RightToLeftTransition(SelectIssue(ride: ride)),
+                  ),
                 ),
-              ),
             const SizedBox(height: 20),
-            Text('Browse all help topics', style: text(16, weight: FontWeight.w700)),
+            Text(
+              'Browse all help topics',
+              style: text(16, weight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -124,7 +144,7 @@ class SupportHome extends StatelessWidget {
                       const HelpArticle(
                         title: 'Payments and pricing',
                         body:
-                            'Pay with Apple Pay, Google Pay, card, Swish, Wallet, or cash to the driver. Fares are shown before you confirm. If a charge looks wrong, open the trip and contact Movera Support.',
+                            'Payment and pricing help will use your real booking and payment data when those support services are connected.',
                       ),
                     ),
                   ),
@@ -137,7 +157,7 @@ class SupportHome extends StatelessWidget {
                       const HelpArticle(
                         title: 'Account and data',
                         body:
-                            'Update your phone, name, and saved places in Account. Movera only uses trip data to run your ride and support cases.',
+                            'Update the account information that is available in the app. Support will only show account or trip details when real data is available.',
                       ),
                     ),
                   ),
@@ -148,7 +168,7 @@ class SupportHome extends StatelessWidget {
             Text('Something else', style: text(16, weight: FontWeight.w700)),
             const SizedBox(height: 10),
             _ActionCard(
-              title: 'Contact a support agent',
+              title: 'Support messaging',
               icon: Icons.headset_mic_rounded,
               onTap: () => Navigator.push(
                 context,
@@ -227,19 +247,29 @@ class SelectSupportRide extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          for (final entry in grouped.entries) ...[
-            Text(entry.key, style: SupportHome.text(16, weight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            for (final ride in entry.value)
-              _RideRow(
-                ride: ride,
-                onTap: () => Navigator.push(
-                  context,
-                  RightToLeftTransition(SelectIssue(ride: ride)),
-                ),
+          if (grouped.isEmpty)
+            const _EmptyCard(
+              title: 'No rides yet',
+              subtitle:
+                  'Completed and cancelled rides will appear here when real ride history is available.',
+            )
+          else
+            for (final entry in grouped.entries) ...[
+              Text(
+                entry.key,
+                style: SupportHome.text(16, weight: FontWeight.w700),
               ),
-            const SizedBox(height: 16),
-          ],
+              const SizedBox(height: 6),
+              for (final ride in entry.value)
+                _RideRow(
+                  ride: ride,
+                  onTap: () => Navigator.push(
+                    context,
+                    RightToLeftTransition(SelectIssue(ride: ride)),
+                  ),
+                ),
+              const SizedBox(height: 16),
+            ],
         ],
       ),
     );
@@ -271,7 +301,10 @@ class SelectIssue extends StatelessWidget {
         children: [
           _CompactTrip(ride: ride),
           const SizedBox(height: 28),
-          Text('Select an issue', style: SupportHome.text(22, weight: FontWeight.w700)),
+          Text(
+            'Select an issue',
+            style: SupportHome.text(22, weight: FontWeight.w700),
+          ),
           const SizedBox(height: 8),
           for (final issue in issues)
             _LineItem(
@@ -299,12 +332,30 @@ class HelpArticles extends StatelessWidget {
   const HelpArticles({super.key});
 
   static const topics = [
-    ('About Movera', 'Movera is a Stockholm-area ride app. Choose Movera, Comfort, Premium, Priority, XL, Electric, or Pet, then pay with Apple Pay, card, Swish, Wallet, or cash.'),
-    ('App and features', 'Use the map to set pickup and drop-off, pick a category, and follow the driver. Schedule a ride when you need a later pickup.'),
-    ('Account and data', 'Your number, saved places, and trip history stay in your account. You can update them anytime in Account.'),
-    ('Payments and pricing', 'The fare is shown before you confirm. Offer a different amount with the stepper, or pay the driver in cash or Swish.'),
-    ('Using Movera', 'Confirm pickup, choose a ride, and wait for a nearby driver. Cancel before pickup if plans change.'),
-    ('Safety', 'Share your trip, call the driver from the app, and contact support if something feels off.'),
+    (
+      'About Movera',
+      'Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.'
+    ),
+    (
+      'App and features',
+      'Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.'
+    ),
+    (
+      'Account and data',
+      'Your account only shows information that is actually available in this build. You can edit supported profile fields from Account.'
+    ),
+    (
+      'Payments and pricing',
+      'Pricing and payment support will use the real booking and payment record when those services are connected.'
+    ),
+    (
+      'Using Movera',
+      'Confirm pickup, choose a ride category, and follow the booking flow shown in the app.'
+    ),
+    (
+      'Safety',
+      'Use the available Safety tools in the app if you need safety-related help during a ride.'
+    ),
   ];
 
   @override
@@ -320,7 +371,9 @@ class HelpArticles extends StatelessWidget {
               title: topic.$1,
               onTap: () => Navigator.push(
                 context,
-                RightToLeftTransition(HelpArticle(title: topic.$1, body: topic.$2)),
+                RightToLeftTransition(
+                  HelpArticle(title: topic.$1, body: topic.$2),
+                ),
               ),
             ),
         ],
@@ -361,8 +414,12 @@ class HelpArticle extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'Contact support',
-                  style: SupportHome.text(15.5, weight: FontWeight.w600, color: Colors.white),
+                  'Support options',
+                  style: SupportHome.text(
+                    15.5,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -384,42 +441,19 @@ class SupportMessages extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Text('Active', style: SupportHome.text(18, weight: FontWeight.w700)),
-          const SizedBox(height: 16),
-          Text('No messages found', style: SupportHome.text(14, color: SupportHome.muted)),
-          const SizedBox(height: 32),
+          const SizedBox(height: 12),
+          const _EmptyCard(
+            title: 'No active cases',
+            subtitle:
+                'Support messaging is not connected in this build, so no active conversations are shown.',
+          ),
+          const SizedBox(height: 28),
           Text('Closed', style: SupportHome.text(18, weight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          _CaseRow(
-            title: 'I was charged for cancellation',
-            preview: 'Hi. Thanks for getting in touch. After checking this trip…',
-            date: '29 October 2024',
-            onTap: () => Navigator.push(
-              context,
-              RightToLeftTransition(
-                SupportChat(
-                  ride: SupportHome.rides[1],
-                  issue: 'I was charged for cancellation',
-                ),
-              ),
-            ),
-          ),
-          _CaseRow(
-            title: 'I want to cancel my delayed order',
-            preview: 'Thanks for reaching out again. Please summarize…',
-            date: '28 October 2024',
-            onTap: () => Navigator.push(
-              context,
-              RightToLeftTransition(const SupportChat(issue: 'I want to cancel my delayed order')),
-            ),
-          ),
-          _CaseRow(
-            title: 'I want to cancel my delayed order',
-            preview: 'Yes',
-            date: '28 October 2024',
-            onTap: () => Navigator.push(
-              context,
-              RightToLeftTransition(const SupportChat(issue: 'I want to cancel my delayed order')),
-            ),
+          const SizedBox(height: 12),
+          const _EmptyCard(
+            title: 'No closed cases',
+            subtitle:
+                'Closed support conversations will appear here when real support messaging is connected.',
           ),
         ],
       ),
@@ -427,70 +461,15 @@ class SupportMessages extends StatelessWidget {
   }
 }
 
-class SupportChat extends StatefulWidget {
+class SupportChat extends StatelessWidget {
   const SupportChat({super.key, this.ride, this.issue});
 
   final SupportRide? ride;
   final String? issue;
 
   @override
-  State<SupportChat> createState() => _SupportChatState();
-}
-
-class _SupportChatState extends State<SupportChat> {
-  final _controller = TextEditingController();
-  final _messages = <_ChatLine>[];
-
-  @override
-  void initState() {
-    super.initState();
-    final ride = widget.ride;
-    final script = SupportController().chat(ride: ride);
-    _messages.add(_ChatLine(fromBot: true, text: script.welcome));
-    if (widget.issue != null) {
-      _messages.add(_ChatLine(fromBot: false, text: widget.issue!));
-      _messages.add(_ChatLine(fromBot: true, text: script.issueAck));
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _send(String raw) {
-    final text = raw.trim();
-    if (text.isEmpty) return;
-    setState(() {
-      _messages.add(_ChatLine(fromBot: false, text: text));
-      _messages.add(
-        _ChatLine(
-          fromBot: true,
-          text: SupportController().chat(ride: widget.ride).followUp,
-        ),
-      );
-    });
-    _controller.clear();
-  }
-
-  String get _stamp {
-    final now = DateTime.now();
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final hour = now.hour % 12 == 0 ? 12 : now.hour % 12;
-    final minute = now.minute.toString().padLeft(2, '0');
-    final ampm = now.hour >= 12 ? 'PM' : 'AM';
-    return '${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day} at $hour:$minute $ampm';
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final ride = widget.ride;
-    final showChoices = widget.issue == null;
+    final script = SupportController().chat(ride: ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -502,13 +481,19 @@ class _SupportChatState extends State<SupportChat> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded, color: SupportHome.ink),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: SupportHome.ink,
+                    ),
                   ),
-                  Text('Help', style: SupportHome.text(18, weight: FontWeight.w600)),
+                  Text(
+                    'Help',
+                    style: SupportHome.text(18, weight: FontWeight.w600),
+                  ),
                   const Spacer(),
                   _PillButton(
-                    label: 'End chat',
-                    onTap: () => Navigator.popUntil(context, (route) => route.isFirst),
+                    label: 'Close',
+                    onTap: () => Navigator.pop(context),
                   ),
                 ],
               ),
@@ -516,16 +501,9 @@ class _SupportChatState extends State<SupportChat> {
             const Divider(height: 1, color: SupportHome.line),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
                 children: [
-                  Center(
-                    child: Text(
-                      _stamp,
-                      style: SupportHome.text(12, color: SupportHome.muted),
-                    ),
-                  ),
                   if (ride != null) ...[
-                    const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -533,10 +511,10 @@ class _SupportChatState extends State<SupportChat> {
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(color: const Color(0xFFD5E3EC)),
                       ),
-                      child: _RideCard(ride: ride, compact: true),
+                      child: _RideCard(ride: ride!, compact: true),
                     ),
+                    const SizedBox(height: 18),
                   ],
-                  const SizedBox(height: 18),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -544,77 +522,73 @@ class _SupportChatState extends State<SupportChat> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            for (final line in _messages)
-                              if (line.fromBot)
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Text(
-                                      line.text,
-                                      style: SupportHome.text(15, height: 1.45),
-                                    ),
+                            Text(
+                              script.welcome,
+                              style: SupportHome.text(15, height: 1.45),
+                            ),
+                            if (issue != null) ...[
+                              const SizedBox(height: 14),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Container(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    12,
+                                    14,
+                                    12,
                                   ),
-                                )
-                              else
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                                    constraints: const BoxConstraints(maxWidth: 280),
-                                    decoration: BoxDecoration(
-                                      color: SupportHome.ink,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      line.text,
-                                      style: SupportHome.text(14, height: 1.4, color: Colors.white),
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 280),
+                                  decoration: BoxDecoration(
+                                    color: SupportHome.ink,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Text(
+                                    issue!,
+                                    style: SupportHome.text(
+                                      14,
+                                      height: 1.4,
+                                      color: Colors.white,
                                     ),
                                   ),
                                 ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                script.issueAck,
+                                style: SupportHome.text(15, height: 1.45),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                     ],
                   ),
-                  if (showChoices) ...[
-                    const SizedBox(height: 8),
-                    _Choice(
-                      label: 'Share feedback about the driver or vehicle',
-                      onTap: () => _send('Share feedback about the driver or vehicle'),
-                    ),
-                    _Choice(
-                      label: 'That’s all I need',
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    _Choice(
-                      label: 'Help with something else',
-                      onTap: () => _send('Help with something else'),
-                    ),
-                  ],
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: TextField(
-                controller: _controller,
-                onSubmitted: _send,
+                enabled: false,
                 decoration: InputDecoration(
-                  hintText: 'Describe your issue',
+                  hintText: 'Support messaging unavailable',
                   hintStyle: SupportHome.text(14, color: SupportHome.muted),
                   filled: true,
                   fillColor: SupportHome.soft,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
-                  suffixIcon: IconButton(
-                    onPressed: () => _send(_controller.text),
-                    icon: const Icon(Icons.send_rounded, color: SupportHome.accent),
+                  suffixIcon: const Icon(
+                    Icons.send_rounded,
+                    color: SupportHome.muted,
                   ),
                 ),
               ),
@@ -624,12 +598,6 @@ class _SupportChatState extends State<SupportChat> {
       ),
     );
   }
-}
-
-class _ChatLine {
-  const _ChatLine({required this.fromBot, required this.text});
-  final bool fromBot;
-  final String text;
 }
 
 class _SupportScaffold extends StatelessWidget {
@@ -657,7 +625,10 @@ class _SupportScaffold extends StatelessWidget {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_rounded, color: SupportHome.ink),
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: SupportHome.ink,
+                    ),
                   ),
                   const Spacer(),
                   if (trailing != null) trailing!,
@@ -669,7 +640,11 @@ class _SupportScaffold extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
                 child: Text(
                   title,
-                  style: SupportHome.text(28, weight: FontWeight.w700, letterSpacing: -0.6),
+                  style: SupportHome.text(
+                    28,
+                    weight: FontWeight.w700,
+                    letterSpacing: -0.6,
+                  ),
                 ),
               ),
             Expanded(child: child),
@@ -685,7 +660,11 @@ Widget _exit(BuildContext context) {
     onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
     child: Text(
       'Exit',
-      style: SupportHome.text(14, weight: FontWeight.w600, color: SupportHome.accent),
+      style: SupportHome.text(
+        14,
+        weight: FontWeight.w600,
+        color: SupportHome.accent,
+      ),
     ),
   );
 }
@@ -738,8 +717,14 @@ class _RideCard extends StatelessWidget {
                   style: SupportHome.text(14.5, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
-                Text(ride.whenLabel, style: SupportHome.text(12.5, color: SupportHome.muted)),
-                Text(ride.priceLabel, style: SupportHome.text(12.5, color: SupportHome.muted)),
+                Text(
+                  ride.whenLabel,
+                  style: SupportHome.text(12.5, color: SupportHome.muted),
+                ),
+                Text(
+                  ride.priceLabel,
+                  style: SupportHome.text(12.5, color: SupportHome.muted),
+                ),
               ],
             ),
           ),
@@ -749,7 +734,11 @@ class _RideCard extends StatelessWidget {
     if (onTap == null) return card;
     return Material(
       color: Colors.transparent,
-      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(16), child: card),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: card,
+      ),
     );
   }
 }
@@ -789,7 +778,10 @@ class _RideRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: SupportHome.text(14.5, weight: FontWeight.w600),
                   ),
-                  Text(ride.whenLabel, style: SupportHome.text(12.5, color: SupportHome.muted)),
+                  Text(
+                    ride.whenLabel,
+                    style: SupportHome.text(12.5, color: SupportHome.muted),
+                  ),
                 ],
               ),
             ),
@@ -820,16 +812,59 @@ class _CompactTrip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.directions_car_filled_outlined, color: SupportHome.ink),
+          const Icon(
+            Icons.directions_car_filled_outlined,
+            color: SupportHome.ink,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(ride.title, style: SupportHome.text(14, weight: FontWeight.w600)),
-                Text(ride.longWhen, style: SupportHome.text(12.5, color: SupportHome.muted)),
+                Text(
+                  ride.title,
+                  style: SupportHome.text(14, weight: FontWeight.w600),
+                ),
+                Text(
+                  ride.longWhen,
+                  style: SupportHome.text(12.5, color: SupportHome.muted),
+                ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyCard extends StatelessWidget {
+  const _EmptyCard({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SupportHome.soft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SupportHome.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: SupportHome.text(15, weight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: SupportHome.text(13, color: SupportHome.muted, height: 1.4),
           ),
         ],
       ),
@@ -861,7 +896,10 @@ class _ActionCard extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(title, style: SupportHome.text(15, weight: FontWeight.w600)),
+                child: Text(
+                  title,
+                  style: SupportHome.text(15, weight: FontWeight.w600),
+                ),
               ),
               Icon(icon, color: SupportHome.accent, size: 28),
             ],
@@ -906,90 +944,13 @@ class _LineItem extends StatelessWidget {
             color: accent ? SupportHome.accent : SupportHome.muted,
           ),
         ),
-        const Divider(height: 1, indent: 12, endIndent: 12, color: SupportHome.line),
+        const Divider(
+          height: 1,
+          indent: 12,
+          endIndent: 12,
+          color: SupportHome.line,
+        ),
       ],
-    );
-  }
-}
-
-class _Choice extends StatelessWidget {
-  const _Choice({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: SupportHome.line),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(label, style: SupportHome.text(15, weight: FontWeight.w600)),
-                ),
-                const Icon(Icons.chevron_right_rounded, color: SupportHome.muted),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CaseRow extends StatelessWidget {
-  const _CaseRow({
-    required this.title,
-    required this.preview,
-    required this.date,
-    this.onTap,
-  });
-
-  final String title;
-  final String preview;
-  final String date;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.chat_bubble_outline_rounded, color: SupportHome.muted),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: SupportHome.text(15, weight: FontWeight.w600, color: SupportHome.muted)),
-                  Text(
-                    preview,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: SupportHome.text(13, color: SupportHome.muted),
-                  ),
-                  Text(date, style: SupportHome.text(12, color: SupportHome.muted)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1016,9 +977,16 @@ class _TopicChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label, style: SupportHome.text(14.5, weight: FontWeight.w600)),
+              Text(
+                label,
+                style: SupportHome.text(14.5, weight: FontWeight.w600),
+              ),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded, size: 18, color: SupportHome.muted),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: SupportHome.muted,
+              ),
             ],
           ),
         ),
@@ -1051,7 +1019,10 @@ class _PillButton extends StatelessWidget {
                 Icon(icon, size: 16, color: SupportHome.ink),
                 const SizedBox(width: 6),
               ],
-              Text(label, style: SupportHome.text(13.5, weight: FontWeight.w600)),
+              Text(
+                label,
+                style: SupportHome.text(13.5, weight: FontWeight.w600),
+              ),
             ],
           ),
         ),
@@ -1081,7 +1052,11 @@ class _TeamAvatars extends StatelessWidget {
               child: CircleAvatar(
                 radius: 18,
                 backgroundColor: colors[i],
-                child: const Icon(Icons.person_rounded, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
         ],
