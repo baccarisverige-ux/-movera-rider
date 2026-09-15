@@ -81,7 +81,9 @@ void main() {
     expect(c.profile.name, isEmpty);
     expect(c.profile.email, isEmpty);
     expect(c.profile.phone, isEmpty);
+    expect(c.profile.gender, 'Prefer not to say');
     expect(c.profile.photoAsset, isEmpty);
+    expect(c.profile.appleConnected, isFalse);
     expect(c.profile.logins, isEmpty);
     expect(c.displayName(), 'Profile not set');
 
@@ -90,7 +92,9 @@ void main() {
     expect(persisted['name'], '');
     expect(persisted['email'], '');
     expect(persisted['phone'], '');
+    expect(persisted['gender'], 'Prefer not to say');
     expect(persisted['photoAsset'], '');
+    expect(persisted['appleConnected'], false);
     expect(persisted['logins'], isEmpty);
   });
 
