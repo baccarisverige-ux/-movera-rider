@@ -49,11 +49,32 @@ void main() {
   ) async {
     await pumpHistory(tester, controller());
 
+    expect(find.text('No upcoming rides'), findsOneWidget);
+    expect(
+      find.textContaining('a Scheduled Ride can get you there on time'),
+      findsOneWidget,
+    );
+    expect(find.text('Schedule a ride'), findsOneWidget);
+
     await openTab(tester, 'Completed');
+    expect(find.byIcon(Icons.route_outlined), findsOneWidget);
     expect(find.text('No completed rides yet'), findsOneWidget);
+    expect(
+      find.text('Completed trips and their real ride details will appear here.'),
+      findsOneWidget,
+    );
+    expect(find.text('Book a ride'), findsOneWidget);
 
     await openTab(tester, 'Cancelled');
+    expect(find.byIcon(Icons.event_busy_outlined), findsOneWidget);
     expect(find.text('No cancelled rides'), findsOneWidget);
+    expect(
+      find.text(
+        'Trips you cancel will appear here with their recorded reason.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Book a ride'), findsOneWidget);
   });
 
   testWidgets('a completed reservation shows in Completed, not Cancelled', (
