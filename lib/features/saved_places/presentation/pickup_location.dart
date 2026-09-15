@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
+import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -109,20 +110,31 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               2.height,
               Row(
                 children: [
-                  for (var i = 0; i < shortcuts.length; i++) ...[
-                    if (i > 0) 2.width,
-                    Expanded(
-                      child: _buildSavedPlace(
-                        icon: shortcuts[i].kind == 'office'
-                            ? AppAssets.office
-                            : AppAssets.home,
-                        title: shortcuts[i].title,
-                        subtitle: shortcuts[i].subtitle,
-                        isLeftRounded: i == 0,
+                  Expanded(
+                    child: _buildSavedPlace(
+                      icon: AppAssets.home,
+                      title: 'Home',
+                      subtitle: _shortcutSubtitle(
+                        shortcuts,
+                        'home',
+                        fallback: 'Not saved yet',
+                      ),
+                      isLeftRounded: true,
+                    ),
+                  ),
+                  2.width,
+                  Expanded(
+                    child: _buildSavedPlace(
+                      icon: AppAssets.office,
+                      title: 'Work',
+                      subtitle: _shortcutSubtitle(
+                        shortcuts,
+                        'office',
+                        fallback: 'Not saved yet',
                       ),
                     ),
-                  ],
-                  if (shortcuts.isNotEmpty) 2.width,
+                  ),
+                  2.width,
                   InkWell(
                     onTap: () {},
                     child: _buildFavorite(),
@@ -151,6 +163,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                     ),
                     10.height,
                     _buildEmptyState(
+                      icon: Icons.history_rounded,
                       title: 'No recent trips yet',
                       subtitle:
                           'Completed trips will appear here when real ride history is available.',
@@ -167,6 +180,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               ),
               10.height,
               _buildEmptyState(
+                icon: Icons.search_off_rounded,
                 title: 'No search results',
                 subtitle:
                     'Place search isn’t connected in this build yet.',
@@ -259,9 +273,24 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     );
   }
 
+  String _shortcutSubtitle(
+    List<PlaceShortcut> shortcuts,
+    String kind, {
+    required String fallback,
+  }) {
+    for (final shortcut in shortcuts) {
+      if (shortcut.kind == kind) {
+        final subtitle = shortcut.subtitle.trim();
+        if (subtitle.isNotEmpty) return subtitle;
+      }
+    }
+    return fallback;
+  }
+
   Widget _buildEmptyState({
     required String title,
     required String subtitle,
+    IconData icon = Icons.info_outline_rounded,
     Color? backgroundColor,
   }) {
     return Container(
@@ -275,21 +304,30 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColor.border, width: 0.5),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextWidget(
-            text: title,
-            color: AppColor.black,
-            fontSize: 12,
-            fontWeight: fwSemiBold,
-          ),
-          2.height,
-          TextWidget(
-            text: subtitle,
-            color: const Color(0xff5E5E5E),
-            fontSize: 10,
-            fontWeight: fwNormal,
+          Icon(icon, size: ResSize.h * 18, color: AppColor.subtitle),
+          8.width,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextWidget(
+                  text: title,
+                  color: AppColor.black,
+                  fontSize: 12,
+                  fontWeight: fwSemiBold,
+                ),
+                2.height,
+                TextWidget(
+                  text: subtitle,
+                  color: const Color(0xff5E5E5E),
+                  fontSize: 10,
+                  fontWeight: fwNormal,
+                ),
+              ],
+            ),
           ),
         ],
       ),

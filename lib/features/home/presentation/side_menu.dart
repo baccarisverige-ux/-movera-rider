@@ -162,7 +162,7 @@ class RiderSideMenu extends StatelessWidget {
               ),
               6.width,
               TextWidget(
-                text: 'Rating unavailable',
+                text: 'No rating yet',
                 color: _muted,
                 fontSize: 13.5,
                 fontWeight: fwMedium,

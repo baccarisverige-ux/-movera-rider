@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -63,7 +64,12 @@ class NotificationScreen extends StatelessWidget {
             12.height,
             Expanded(
               child: notifications.isEmpty
-                  ? _buildEmptyState()
+                  ? const MoveraEmptyState(
+                      icon: Icons.notifications_none_rounded,
+                      title: "You're all caught up.",
+                      message:
+                          'Ride and account updates will appear here when they arrive.',
+                    )
                   : ListView.builder(
                       padding: EdgeInsets.symmetric(
                         horizontal: screenHorizPadding,
@@ -76,39 +82,6 @@ class NotificationScreen extends StatelessWidget {
                         );
                       },
                     ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.notifications_none_rounded,
-              size: ResSize.h * 40,
-              color: AppColor.subtitle,
-            ),
-            12.height,
-            TextWidget(
-              text: 'No notifications yet',
-              color: AppColor.primary,
-              fontSize: 17,
-              fontWeight: fwSemiBold,
-            ),
-            6.height,
-            TextWidget(
-              text: 'Ride and account updates will appear here when available.',
-              color: AppColor.subtitle,
-              fontSize: 14,
-              fontWeight: fwNormal,
-              textAlign: TextAlign.center,
             ),
           ],
         ),

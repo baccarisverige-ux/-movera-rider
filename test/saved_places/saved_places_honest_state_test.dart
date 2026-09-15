@@ -48,6 +48,9 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Work'), findsOneWidget);
+    expect(find.text('Not saved yet'), findsNWidgets(2));
     expect(find.text('Search Result'), findsOneWidget);
     expect(find.text('No search results'), findsOneWidget);
     expect(

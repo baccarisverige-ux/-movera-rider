@@ -4,13 +4,16 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat_appbar.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class Chat extends StatefulWidget {
-  const Chat({super.key});
+  const Chat({super.key, this.driverName});
+
+  final String? driverName;
 
   @override
   State<Chat> createState() => _ChatState();
@@ -44,7 +47,7 @@ class _ChatState extends State<Chat> {
       backgroundColor: Color(0xffFAFAFA),
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(ResSize.h * 75),
-        child: ChatAppBar(),
+        child: ChatAppBar(driverName: widget.driverName),
       ),
       body: SizedBox(
         child: Column(
@@ -52,22 +55,31 @@ class _ChatState extends State<Chat> {
           children: [
             12.height,
             Expanded(
-              child: StatefulBuilder(
-                builder: (context, i) {
-                  return SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: _chat.messages
-                          .map(
-                            (message) => message.fromRider
-                                ? SenderMessage(text: message.text)
-                                : ReceiverMessage(text: message.text),
-                          )
-                          .toList(),
+              child: _chat.messages.isEmpty
+                  ? const Center(
+                      child: MoveraEmptyState(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        title: 'No messages yet',
+                        message:
+                            'Your conversation with the driver will appear here when the ride is connected.',
+                      ),
+                    )
+                  : StatefulBuilder(
+                      builder: (context, i) {
+                        return SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: _chat.messages
+                                .map(
+                                  (message) => message.fromRider
+                                      ? SenderMessage(text: message.text)
+                                      : ReceiverMessage(text: message.text),
+                                )
+                                .toList(),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
             Container(
               height: ResSize.h * 100,

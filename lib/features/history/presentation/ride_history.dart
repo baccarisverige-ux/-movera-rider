@@ -10,6 +10,7 @@ import 'package:movera_rider/features/reservations/presentation/upcoming_reserva
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/design_system/movera_loader.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class RideHistory extends StatefulWidget {
@@ -32,6 +33,8 @@ class _RideHistoryState extends State<RideHistory> {
       OnDemandHistoryController();
   late final ReservationController _reservations;
   List<Reservation> _onDemand = const [];
+  bool _onDemandLoading = true;
+  bool _onDemandFailed = false;
 
   int _tab = 0;
 
@@ -54,14 +57,28 @@ class _RideHistoryState extends State<RideHistory> {
   }
 
   Future<void> _loadOnDemand() async {
+    if (!mounted) return;
+    if (!_onDemandLoading || _onDemandFailed) {
+      setState(() {
+        _onDemandLoading = true;
+        _onDemandFailed = false;
+      });
+    }
     try {
       final reader = widget.onDemandReader ?? _onDemandController.load;
       final rides = await reader();
       if (!mounted) return;
-      setState(() => _onDemand = rides);
+      setState(() {
+        _onDemand = rides;
+        _onDemandLoading = false;
+        _onDemandFailed = false;
+      });
     } catch (_) {
-      // Scheduled reservation history remains usable if local archive data is
-      // unavailable or corrupt.
+      if (!mounted) return;
+      setState(() {
+        _onDemandLoading = false;
+        _onDemandFailed = true;
+      });
     }
   }
 
@@ -375,6 +392,25 @@ class _RideHistoryState extends State<RideHistory> {
     List<Reservation> reservations, {
     required bool completed,
   }) {
+    if (_onDemandLoading && reservations.isEmpty) {
+      return const Center(
+        child: MoveraLoader(
+          title: 'Loading rides',
+          message: 'Checking your trip history.',
+        ),
+      );
+    }
+    if (_onDemandFailed && reservations.isEmpty) {
+      return Center(
+        child: MoveraEmptyState(
+          icon: Icons.error_outline_rounded,
+          title: 'Couldn’t load rides',
+          message: 'Your trip history couldn’t be read. Try again.',
+          actionLabel: 'Retry',
+          onAction: _loadOnDemand,
+        ),
+      );
+    }
     if (reservations.isEmpty) {
       return Center(
         child: MoveraEmptyState(

@@ -7,7 +7,14 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class ChatAppBar extends StatelessWidget {
-  const ChatAppBar({super.key});
+  const ChatAppBar({super.key, this.driverName});
+
+  final String? driverName;
+
+  String get _title {
+    final name = driverName?.trim() ?? '';
+    return name.isEmpty ? 'Messages' : name;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +41,7 @@ class ChatAppBar extends StatelessWidget {
             ),
           ),
           TextWidget(
-            text: "Driver’s name",
+            text: _title,
             color: AppColor.title,
             fontSize: 16,
             fontWeight: fwBold,
