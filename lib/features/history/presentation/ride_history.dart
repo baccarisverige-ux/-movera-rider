@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/features/history/application/on_demand_ride_history_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
@@ -30,7 +30,6 @@ class _RideHistoryState extends State<RideHistory> {
   static const Color _cta = Color(0xFF11181D);
   late final ReservationController _reservations;
   List<Reservation> _onDemand = const [];
-  bool _loadingOnDemand = true;
 
   int _tab = 0;
 
@@ -54,15 +53,13 @@ class _RideHistoryState extends State<RideHistory> {
 
   Future<void> _loadOnDemand() async {
     try {
-      final rides = await (widget.onDemandReader ?? OnDemandRideHistoryStore.read)();
+      final reader =
+          widget.onDemandReader ?? const OnDemandRideHistoryController().load;
+      final rides = await reader();
       if (!mounted) return;
-      setState(() {
-        _onDemand = rides;
-        _loadingOnDemand = false;
-      });
+      setState(() => _onDemand = rides);
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingOnDemand = false);
+      // Reservation history remains usable if the local archive is corrupt.
     }
   }
 
@@ -347,9 +344,6 @@ class _RideHistoryState extends State<RideHistory> {
     List<Reservation> reservations, {
     required bool completed,
   }) {
-    if (_loadingOnDemand) {
-      return const Center(child: CircularProgressIndicator());
-    }
     final onDemand = _onDemand.where(
       (ride) => completed ? ride.status.isCompleted : ride.status.isCancelled,
     );
