@@ -7,15 +7,15 @@ class DriverArrivingController {
   DriverArrivingController({
     DriverArrivingRepository? store,
     ActiveRideController? ride,
-  })  : _store = store ?? DriverArrivingRepository(),
-        _ride = ride ?? ActiveRideController();
+  }) : _store = store ?? DriverArrivingRepository(),
+       _ride = ride ?? ActiveRideController();
 
   final DriverArrivingRepository _store;
   final ActiveRideController _ride;
 
-  DriverProfile driver() => _store.driver();
+  DriverProfile? driver() => _store.driver();
   String eta() => _store.eta();
-  DriverArrivalView arrival({String? rideType}) =>
+  DriverArrivalView? arrival({String? rideType}) =>
       _store.arrival(rideType: rideType);
   void markArriving() => _ride.markArriving();
 }
