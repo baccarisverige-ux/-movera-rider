@@ -4,6 +4,8 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/data/active_ride_repository.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class ActiveRideController {
@@ -16,10 +18,16 @@ class ActiveRideController {
   }
 
   Future<void> markCancelled({String? reasonId}) async {
+    final snapshot = await _store.restore();
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
     ride.restoreFromBackend(RideStatus.cancelledByRider);
     AppScope.instance.rideRealtime.cancelRide();
+    await _archive(
+      snapshot,
+      RideStatus.cancelledByRider,
+      cancellationReason: reasonId,
+    );
     await _store.clear();
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));
@@ -37,6 +45,40 @@ class ActiveRideController {
       AppLog.warning(
         'ride.cancel.adapter_failed',
         extra: {'rideId': id, 'error': error.toString()},
+      );
+    }
+  }
+
+  Future<void> markCompleted(RideStatus status) async {
+    if (!status.isCompletedSurface) {
+      throw ArgumentError.value(status, 'status', 'Expected a completed status.');
+    }
+    final snapshot = await _store.restore();
+    AppScope.instance.ride.restoreFromBackend(status);
+    await _archive(snapshot, status);
+    await _store.clear();
+  }
+
+  Future<void> _archive(
+    RideSnapshot? snapshot,
+    RideStatus status, {
+    String? cancellationReason,
+  }) async {
+    if (snapshot == null) return;
+    try {
+      await OnDemandRideHistoryStore.archive(
+        snapshot,
+        terminalStatus: status,
+        cancellationReason: cancellationReason,
+      );
+    } catch (error) {
+      AppLog.warning(
+        'ride.history.archive_failed',
+        extra: {
+          'rideId': snapshot.rideId,
+          'status': status.name,
+          'error': error.toString(),
+        },
       );
     }
   }
