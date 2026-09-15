@@ -10,7 +10,7 @@ class RideCompleteController {
     TipCatalog? tips,
   }) : _ride = ride ?? ActiveRideController(),
        _drivers = drivers ?? const DriverRepository(),
-       _trips = trips ?? TripReceiptRepository(),
+       _trips = trips ?? const TripReceiptRepository(),
        _tips = tips ?? TipCatalog();
 
   final ActiveRideController _ride;
@@ -20,6 +20,6 @@ class RideCompleteController {
 
   void close() => _ride.markClosed();
   DriverProfile? driver() => _drivers.current();
-  TripReceipt receipt() => _trips.last();
+  TripReceipt? receipt() => _trips.last();
   List<String> tips() => _tips.amounts();
 }
