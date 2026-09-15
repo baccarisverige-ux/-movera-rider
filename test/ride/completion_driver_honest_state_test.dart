@@ -49,6 +49,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Driver details unavailable'), findsOneWidget);
+    expect(find.byIcon(Icons.person_search_outlined), findsOneWidget);
+    expect(find.textContaining('Verified driver and vehicle'), findsOneWidget);
     expect(find.text('Merle Feeney'), findsNothing);
     expect(find.text('L - 2323 F'), findsNothing);
     expect(find.byType(Image), findsNothing);

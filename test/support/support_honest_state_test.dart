@@ -34,6 +34,7 @@ void main() {
 
     expect(find.text('Help'), findsOneWidget);
     expect(find.text('No rides to review'), findsOneWidget);
+    expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
     expect(find.text('Browse all help topics'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Support messaging'), 180);
     expect(find.text('Support messaging'), findsOneWidget);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -39,20 +40,13 @@ class RideCompletedTripDetail extends StatelessWidget {
                 ),
                 12.height,
                 if (trip == null) ...[
-                  TextWidget(
-                    text: 'Trip details unavailable',
-                    color: AppColor.title,
-                    fontSize: 14,
-                    fontWeight: fwMedium,
+                  const MoveraEmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Trip details unavailable',
+                    message:
+                        'Your route, payment method and receipt total will appear here when the ride record is available.',
+                    compact: true,
                   ),
-                  5.height,
-                  TextWidget(
-                    text: 'Receipt details will appear here when available.',
-                    color: AppColor.subtitle,
-                    fontSize: 13,
-                    fontWeight: fwNormal,
-                  ),
-                  8.height,
                 ] else ...[
                   _detailRow('Pickup location', trip.pickup),
                   8.height,

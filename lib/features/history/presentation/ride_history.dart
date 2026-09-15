@@ -9,6 +9,7 @@ import 'package:movera_rider/features/reservations/presentation/reservation_widg
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class RideHistory extends StatefulWidget {
@@ -350,13 +351,26 @@ class _RideHistoryState extends State<RideHistory> {
       _onDemand,
       completed: completed,
     );
-    return _reservationHistory(rides);
+    return _reservationHistory(rides, completed: completed);
   }
 
-  Widget _reservationHistory(List<Reservation> reservations) {
+  Widget _reservationHistory(
+    List<Reservation> reservations, {
+    required bool completed,
+  }) {
     if (reservations.isEmpty) {
       return Center(
-        child: Text('Nothing here yet', style: _text(15, color: _muted)),
+        child: MoveraEmptyState(
+          icon: completed
+              ? Icons.route_outlined
+              : Icons.event_busy_outlined,
+          title: completed ? 'No completed rides yet' : 'No cancelled rides',
+          message: completed
+              ? 'Completed trips and their real ride details will appear here.'
+              : 'Trips you cancel will appear here with their recorded reason.',
+          actionLabel: 'Book a ride',
+          onAction: () => Navigator.maybePop(context),
+        ),
       );
     }
     return ListView(

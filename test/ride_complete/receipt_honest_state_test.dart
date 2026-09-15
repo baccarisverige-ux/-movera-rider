@@ -43,8 +43,9 @@ void main() {
 
     expect(find.text('Trip Details'), findsOneWidget);
     expect(find.text('Trip details unavailable'), findsOneWidget);
+    expect(find.byIcon(Icons.receipt_long_outlined), findsOneWidget);
     expect(
-      find.text('Receipt details will appear here when available.'),
+      find.textContaining('route, payment method and receipt total'),
       findsOneWidget,
     );
 

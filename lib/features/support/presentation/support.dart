@@ -839,10 +839,15 @@ class _CompactTrip extends StatelessWidget {
 }
 
 class _EmptyCard extends StatelessWidget {
-  const _EmptyCard({required this.title, required this.subtitle});
+  const _EmptyCard({
+    required this.title,
+    required this.subtitle,
+    this.icon = Icons.inbox_outlined,
+  });
 
   final String title;
   final String subtitle;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -854,17 +859,38 @@ class _EmptyCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: SupportHome.line),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: SupportHome.text(15, weight: FontWeight.w600),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: SupportHome.accent, size: 22),
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: SupportHome.text(13, color: SupportHome.muted, height: 1.4),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: SupportHome.text(15, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: SupportHome.text(
+                    13,
+                    color: SupportHome.muted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
