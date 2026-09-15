@@ -156,17 +156,28 @@ class RideSnapshotStore {
   }
 
   static Future<RideSnapshot?> read() async {
+    final snapshot = await _readStored();
+    if (snapshot == null || !snapshot.isFresh || snapshot.status.isTerminal) {
+      return null;
+    }
+    return snapshot;
+  }
+
+  /// Reads the last persisted ride specifically for terminal History archival.
+  ///
+  /// Unlike [read], this intentionally ignores the 20-minute resume freshness
+  /// rule. A legitimate long trip must still be archived before its active
+  /// snapshot is cleared.
+  static Future<RideSnapshot?> readForArchive() => _readStored();
+
+  static Future<RideSnapshot?> _readStored() async {
     final prefs = await PreferencesStore.load();
     final raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
-      final snapshot = RideSnapshot.fromJson(decoded);
-      if (snapshot == null || !snapshot.isFresh || snapshot.status.isTerminal) {
-        return null;
-      }
-      return snapshot;
+      return RideSnapshot.fromJson(decoded);
     } catch (_) {
       return null;
     }
