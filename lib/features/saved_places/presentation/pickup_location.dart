@@ -214,6 +214,11 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     Navigator.push(context, RightToLeftTransition(const AddPlace()));
   }
 
+  double _chipHeight() {
+    final scaled = ResSize.h * 57;
+    return scaled < 56 ? 56 : scaled;
+  }
+
   Widget _buildSavedPlace({
     required String icon,
     required String title,
@@ -229,7 +234,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
             ? const BorderRadius.only(bottomLeft: Radius.circular(10))
             : BorderRadius.zero,
         child: Container(
-          height: ResSize.h * 57,
+          height: _chipHeight(),
           decoration: BoxDecoration(
             borderRadius: isLeftRounded
                 ? const BorderRadius.only(bottomLeft: Radius.circular(10))
@@ -278,7 +283,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
 
   Widget _buildFavorite() {
     return Container(
-      height: ResSize.h * 57,
+      height: _chipHeight(),
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(bottomRight: Radius.circular(10)),
         color: AppColor.liteBlue,

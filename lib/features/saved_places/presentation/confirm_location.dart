@@ -34,14 +34,15 @@ class PickupLocationBottomSheet extends StatelessWidget {
             topRight: Radius.circular(12),
           ),
         ),
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: ResSize.w * 16,
-            right: ResSize.w * 16,
-            top: ResSize.h * 31,
-            bottom: ResSize.h * 31,
-          ),
-          child: Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: ResSize.w * 16,
+              right: ResSize.w * 16,
+              top: ResSize.h * 31,
+              bottom: ResSize.h * 31,
+            ),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -103,6 +104,7 @@ class PickupLocationBottomSheet extends StatelessWidget {
                 compact: true,
               ),
             ],
+          ),
           ),
         ),
       ),

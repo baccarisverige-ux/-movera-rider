@@ -105,6 +105,26 @@ void main() {
     expect(find.textContaining(r'$10.12'), findsNothing);
   }
 
+  Future<void> expectCopy(
+    WidgetTester tester,
+    String text, {
+    required String reason,
+    bool containing = false,
+  }) async {
+    Finder onstage() => containing
+        ? find.textContaining(text)
+        : find.text(text);
+    if (onstage().evaluate().isEmpty) {
+      final hidden = containing
+          ? find.textContaining(text, skipOffstage: false)
+          : find.text(text, skipOffstage: false);
+      expect(hidden, findsWidgets, reason: reason);
+      await tester.ensureVisible(hidden.first);
+      await tester.pump();
+    }
+    expect(onstage(), findsWidgets, reason: reason);
+  }
+
   testWidgets('notifications empty state is designed and has no fake events', (
     tester,
   ) async {
@@ -281,7 +301,7 @@ void main() {
     expect(find.text('Add new address'), findsOneWidget);
     expect(find.text('Add location'), findsOneWidget);
 
-    await tester.pageBack();
+    Navigator.of(tester.element(find.text('Add new address'))).pop();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Work'));
     await tester.pumpAndSettle();
@@ -290,6 +310,7 @@ void main() {
 
   testWidgets('saved Home shortcut selects the stored address', (tester) async {
     String? selected;
+    await setViewport(tester, const Size(390, 844));
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
@@ -590,15 +611,22 @@ void main() {
             reason:
                 '$name overflowed at ${viewport.width.toInt()}x${viewport.height.toInt()}',
           );
-          expect(find.text(title), findsWidgets, reason: '$name title');
-          expect(
-            find.textContaining(message),
-            findsWidgets,
+          await expectCopy(tester, title, reason: '$name title');
+          await expectCopy(
+            tester,
+            message,
             reason: '$name message',
+            containing: true,
           );
           if (action != null) {
-            expect(find.text(action), findsWidgets, reason: '$name action');
+            await expectCopy(tester, action, reason: '$name action');
           }
+          expect(
+            tester.takeException(),
+            isNull,
+            reason:
+                '$name overflowed after revealing empty copy at ${viewport.width.toInt()}x${viewport.height.toInt()}',
+          );
           expectNoFakeProductionData();
         },
       );

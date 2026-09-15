@@ -115,7 +115,7 @@ class SupportHome extends StatelessWidget {
             const SizedBox(height: 12),
             if (recent.isEmpty)
               const _EmptyCard(
-                icon: Icons.directions_car_outlined,
+                icon: Icons.inbox_outlined,
                 title: 'No rides to review',
                 subtitle:
                     'Completed or cancelled rides will appear here when real ride history is available.',
