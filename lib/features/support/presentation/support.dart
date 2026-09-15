@@ -49,12 +49,14 @@ class SupportHome extends StatelessWidget {
                   icon: const Icon(Icons.close_rounded, color: ink),
                 ),
                 const Spacer(),
-                _PillButton(
-                  icon: Icons.mail_outline_rounded,
-                  label: 'Messages',
-                  onTap: () => Navigator.push(
-                    context,
-                    RightToLeftTransition(const SupportMessages()),
+                Flexible(
+                  child: _PillButton(
+                    icon: Icons.mail_outline_rounded,
+                    label: 'Messages',
+                    onTap: () => Navigator.push(
+                      context,
+                      RightToLeftTransition(const SupportMessages()),
+                    ),
                   ),
                 ),
               ],
