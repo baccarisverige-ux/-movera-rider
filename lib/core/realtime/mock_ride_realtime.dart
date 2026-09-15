@@ -36,19 +36,6 @@ class MockRideRealtime implements RideRealtime {
   double? _pickupLng;
   double _progress = 0;
 
-  static const mockDriver = MatchedDriver(
-    id: 'drv_mock_linnea',
-    firstName: 'Linnea',
-    rating: 4.97,
-    tripCount: 1842,
-    vehicleMake: 'Volvo',
-    vehicleModel: 'XC60',
-    vehicleColor: 'Black',
-    plate: 'MVR 418',
-    photoAsset: 'assets/images/profile_img.png',
-    vehicleImageAsset: 'assets/images/comfort_ride.png',
-  );
-
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
     if (_rideId == rideId && !disposed && !cancelled && lastStatus.isMatched) {
@@ -90,7 +77,6 @@ class MockRideRealtime implements RideRealtime {
     }
     _assign?.cancel();
     _assign = null;
-    lastDriver = mockDriver;
     lastStatus = RideStatus.driverAssigned;
     _pickupLat ??= 59.3293;
     _pickupLng ??= 18.0686;

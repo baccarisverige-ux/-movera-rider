@@ -321,7 +321,7 @@ void main() {
     },
   );
 
-  test('assignment uses the centralized mock driver payload', () async {
+  test('mock assignment matches without inventing driver details', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
@@ -334,11 +334,12 @@ void main() {
     rt.assignNow();
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(matches, 1);
-    expect(controller.matchedDriver?.firstName, 'Linnea');
-    expect(controller.matchedDriver?.plate, 'MVR 418');
-    expect(controller.matchedDriver?.rating, 4.97);
-    expect(controller.matchedDriver?.vehicleModel, 'XC60');
-    expect(controller.matchedDriver?.vehicleMake, 'Volvo');
+    expect(controller.matchCount, 1);
+    expect(ride.status, RideStatus.driverAssigned);
+    expect(controller.matchedDriver, isNull);
+    final stored = await RideSnapshotStore.read();
+    expect(stored?.status, RideStatus.driverAssigned);
+    expect(stored?.driver, isNull);
     controller.dispose();
     rt.dispose();
   });
