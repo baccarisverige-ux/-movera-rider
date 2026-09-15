@@ -11,7 +11,6 @@ import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
-import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -149,31 +148,10 @@ class RideRestoreCoordinator {
           driver: snapshot.driver,
         );
       case RestoredSurface.complete:
-        _archiveRestoredCompletion(snapshot);
         return const RideCompleted();
       case RestoredSurface.home:
         return const Home();
     }
-  }
-
-  void _archiveRestoredCompletion(RideSnapshot snapshot) {
-    unawaited(() async {
-      try {
-        await OnDemandRideHistoryStore.archive(
-          snapshot,
-          terminalStatus: snapshot.status,
-        );
-      } catch (error) {
-        AppLog.warning(
-          'ride.history.restore_archive_failed',
-          extra: {
-            'rideId': snapshot.rideId,
-            'status': snapshot.status.name,
-            'error': error.toString(),
-          },
-        );
-      }
-    }());
   }
 
   Future<Widget> root() async {
