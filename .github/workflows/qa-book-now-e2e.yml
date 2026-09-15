@@ -92,7 +92,7 @@ jobs:
               count = await inputs.count();
             }
             if (!count) throw new Error(`${name}: visible destination input missing`);
-            await inputs.last().fill('Stockholm Central Station');
+            await inputs.last().pressSequentially('Stockholm Central Station', { delay: 10 });
             await page.waitForTimeout(700);
 
             const next = page.getByText('Next', { exact: true });
