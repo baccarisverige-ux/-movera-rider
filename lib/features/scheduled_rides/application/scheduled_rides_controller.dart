@@ -69,4 +69,3 @@ class ScheduledRideSession {
     AppScope.instance.ride.restoreFromBackend(RideStatus.bookingRequested);
   }
 }
-
