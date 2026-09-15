@@ -78,16 +78,21 @@ jobs:
             else await page.mouse.click(190, 708);
             await page.waitForTimeout(1200);
 
-            let inputs = page.locator('input,textarea').filter({ visible: true });
+            await page.screenshot({ path: `qa-book-now-${name}-destination.png`, fullPage: true });
+            let inputs = page.locator(
+              'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
+            );
             let count = await inputs.count().catch(() => 0);
             if (!count) {
               await page.mouse.click(185, 274);
               await page.waitForTimeout(400);
-              inputs = page.locator('input,textarea');
+              inputs = page.locator(
+                'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
+              );
               count = await inputs.count();
             }
-            if (!count) throw new Error(`${name}: destination input missing`);
-            await inputs.nth(count - 1).fill('Stockholm Central Station');
+            if (!count) throw new Error(`${name}: visible destination input missing`);
+            await inputs.last().fill('Stockholm Central Station');
             await page.waitForTimeout(700);
 
             const next = page.getByText('Next', { exact: true });
@@ -126,10 +131,9 @@ jobs:
             fs.writeFileSync(`qa-book-now-${name}.json`, JSON.stringify(result, null, 2));
             if (scheduled) throw new Error(`${name}: Book now entered Ride scheduled`);
             if (!finding) {
-              console.log('MANUAL live Book now CTA still required: ' + JSON.stringify(result));
-            } else {
-              console.log('PASS: ' + name + ' reached Confirm pickup then Finding Driver');
+              throw new Error(`${name}: Finding Driver state did not open: ${JSON.stringify(result)}`);
             }
+            console.log('PASS: ' + name + ' reached Confirm pickup then Finding Driver');
             await context.close();
             return result;
           }
