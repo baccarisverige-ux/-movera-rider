@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/features/driver_arriving/data/driver_arriving_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 
@@ -9,6 +10,12 @@ void main() {
 
   test('completion driver repository does not seed an identity', () {
     expect(const DriverRepository().current(), isNull);
+  });
+
+  test('legacy arriving adapter also stays empty without real driver data', () {
+    final repository = DriverArrivingRepository();
+    expect(repository.driver(), isNull);
+    expect(repository.arrival(), isNull);
   });
 
   test('explicit driver profile remains available unchanged', () {
