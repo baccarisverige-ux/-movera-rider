@@ -1,21 +1,29 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  ProfileController controller() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  ProfileController controller({String storageKey = 'test_profile'}) {
     return ProfileController(
-      store: ProfileRepository(storageKey: 'test_profile'),
+      store: ProfileRepository(storageKey: storageKey),
     );
   }
 
@@ -27,22 +35,108 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: home));
   }
 
-  testWidgets('account hub is Movera not Uber', (tester) async {
+  test('fresh profile contains no seeded rider identity', () {
+    final profile = RiderProfileData.defaults();
+    expect(profile.name, isEmpty);
+    expect(profile.email, isEmpty);
+    expect(profile.phone, isEmpty);
+    expect(profile.photoAsset, isEmpty);
+    expect(profile.appleConnected, isFalse);
+    expect(profile.logins, isEmpty);
+    expect(profile.passwordUpdatedAt.millisecondsSinceEpoch, 0);
+  });
+
+  test('legacy demo identity is removed without inventing a replacement', () async {
+    const key = 'legacy_profile';
+    SharedPreferences.setMockInitialValues({
+      key: jsonEncode({
+        'name': 'Ben Gleason',
+        'email': 'ben.gleason@movera.se',
+        'phone': '+46 70 123 45 67',
+        'gender': 'Man',
+        'language': 'English',
+        'photoAsset': 'assets/images/profile_img.png',
+        'passwordUpdatedAt': '2025-11-04T00:00:00.000',
+        'appleConnected': true,
+        'logins': [
+          {
+            'device': 'This browser',
+            'place': 'Stockholm, Sweden',
+            'source': 'Movera Web',
+            'current': true,
+          },
+          {
+            'device': 'iPhone',
+            'place': 'Stockholm, Sweden',
+            'source': 'Movera iOS',
+            'current': false,
+          },
+        ],
+      }),
+    });
+
+    final c = controller(storageKey: key);
+    await c.hydrate();
+
+    expect(c.profile.name, isEmpty);
+    expect(c.profile.email, isEmpty);
+    expect(c.profile.phone, isEmpty);
+    expect(c.profile.gender, 'Prefer not to say');
+    expect(c.profile.photoAsset, isEmpty);
+    expect(c.profile.appleConnected, isFalse);
+    expect(c.profile.logins, isEmpty);
+    expect(c.displayName(), 'Profile not set');
+
+    final prefs = await SharedPreferences.getInstance();
+    final persisted = jsonDecode(prefs.getString(key)!) as Map<String, dynamic>;
+    expect(persisted['name'], '');
+    expect(persisted['email'], '');
+    expect(persisted['phone'], '');
+    expect(persisted['gender'], 'Prefer not to say');
+    expect(persisted['photoAsset'], '');
+    expect(persisted['appleConnected'], false);
+    expect(persisted['logins'], isEmpty);
+  });
+
+  test('real local profile edits survive hydration', () async {
+    const key = 'real_profile';
+    final first = controller(storageKey: key);
+    await first.update(
+      RiderProfileData.defaults().copyWith(
+        name: 'Real Rider',
+        email: 'real.rider@example.com',
+        phone: '+46 70 999 88 77',
+      ),
+    );
+
+    final second = controller(storageKey: key);
+    await second.hydrate();
+
+    expect(second.profile.name, 'Real Rider');
+    expect(second.profile.email, 'real.rider@example.com');
+    expect(second.profile.phone, '+46 70 999 88 77');
+  });
+
+  testWidgets('account hub shows honest empty profile state', (tester) async {
     await pumpPhone(tester, AccountHomePage(controller: controller()));
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);
-    expect(find.text('Ben Gleason'), findsOneWidget);
+    expect(find.text('Profile not set'), findsOneWidget);
+    expect(find.text('Email not added'), findsOneWidget);
+    expect(find.text('Ben Gleason'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });
 
-  testWidgets('personal info edits name', (tester) async {
+  testWidgets('personal info starts honest and edits name', (tester) async {
     final c = controller();
     await pumpPhone(tester, PersonalInfoPage(controller: c));
     expect(find.text('Name'), findsOneWidget);
     expect(find.text('Phone'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Not added'), findsNWidgets(3));
+    expect(find.textContaining('Verified'), findsNothing);
     await tester.tap(find.text('Name'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Houssem Baccari');
@@ -51,15 +145,24 @@ void main() {
     expect(c.profile.name, 'Houssem Baccari');
   });
 
-  testWidgets('security toggles 2-step', (tester) async {
+  testWidgets('security starts without invented password or device activity', (
+    tester,
+  ) async {
     final c = controller();
     await pumpPhone(tester, SecurityPage(controller: c));
     expect(find.text('Passkeys'), findsOneWidget);
     expect(find.text('2-step verification'), findsOneWidget);
+    expect(find.text('Not set'), findsOneWidget);
     expect(c.profile.twoStepEnabled, isFalse);
     await tester.tap(find.byType(Switch).first);
     await tester.pump();
     expect(c.profile.twoStepEnabled, isTrue);
+
+    final emptyActivity = find.text('No login activity available');
+    await tester.scrollUntilVisible(emptyActivity, 300);
+    await tester.pumpAndSettle();
+    expect(emptyActivity, findsOneWidget);
+    expect(find.text('Stockholm, Sweden'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });
 

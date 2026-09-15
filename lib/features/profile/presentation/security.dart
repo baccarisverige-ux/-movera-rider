@@ -36,6 +36,7 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 
   String _passwordLine(DateTime when) {
+    if (when.millisecondsSinceEpoch == 0) return 'Not set';
     const months = [
       'Jan',
       'Feb',
@@ -56,6 +57,7 @@ class _SecurityPageState extends State<SecurityPage> {
   @override
   Widget build(BuildContext context) {
     final ride = _profile.profile;
+    final hasOtherLogin = ride.logins.any((item) => !item.current);
     return AccountScaffold(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
@@ -209,37 +211,48 @@ class _SecurityPageState extends State<SecurityPage> {
             ),
           ),
           AccountGroup(
-            children: [
-              for (var i = 0; i < ride.logins.length; i++)
-                _LoginTile(
-                  session: ride.logins[i],
-                  showDivider: i != ride.logins.length - 1,
-                ),
-            ],
+            children: ride.logins.isEmpty
+                ? const [
+                    AccountTile(
+                      mark: AccountIcon(Icons.devices_outlined),
+                      title: 'No login activity available',
+                      body: 'Sign-in history will appear here when available.',
+                      showDivider: false,
+                    ),
+                  ]
+                : [
+                    for (var i = 0; i < ride.logins.length; i++)
+                      _LoginTile(
+                        session: ride.logins[i],
+                        showDivider: i != ride.logins.length - 1,
+                      ),
+                  ],
           ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: AccountTile(
-              title: 'Sign out other devices',
-              body: 'Keeps this browser signed in.',
-              showDivider: false,
-              onTap: () async {
-                final confirm = await showAccountChoice(
-                  context,
-                  title: 'Sign out other devices?',
-                  options: const ['Sign out others', 'Cancel'],
-                  selected: '',
-                );
-                if (confirm != 'Sign out others') return;
-                await _profile.update(
-                  ride.copyWith(
-                    logins: ride.logins.where((item) => item.current).toList(),
-                  ),
-                );
-              },
+          if (hasOtherLogin) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: AccountTile(
+                title: 'Sign out other devices',
+                body: 'Keeps this browser signed in.',
+                showDivider: false,
+                onTap: () async {
+                  final confirm = await showAccountChoice(
+                    context,
+                    title: 'Sign out other devices?',
+                    options: const ['Sign out others', 'Cancel'],
+                    selected: '',
+                  );
+                  if (confirm != 'Sign out others') return;
+                  await _profile.update(
+                    ride.copyWith(
+                      logins: ride.logins.where((item) => item.current).toList(),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

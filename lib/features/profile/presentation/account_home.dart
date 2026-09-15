@@ -47,6 +47,10 @@ class _AccountHomePageState extends State<AccountHomePage> {
   @override
   Widget build(BuildContext context) {
     final ride = _profile.profile;
+    final name = ride.name.trim().isEmpty ? 'Profile not set' : ride.name;
+    final email = ride.email.trim().isEmpty ? 'Email not added' : ride.email;
+    final hasPhoto = ride.photoAsset.trim().isNotEmpty;
+
     return AccountScaffold(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
@@ -67,7 +71,10 @@ class _AccountHomePageState extends State<AccountHomePage> {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: AppColor.liteBlue,
-                      backgroundImage: AssetImage(ride.photoAsset),
+                      backgroundImage: hasPhoto ? AssetImage(ride.photoAsset) : null,
+                      child: hasPhoto
+                          ? null
+                          : const Icon(Icons.person_outline_rounded),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -75,12 +82,12 @@ class _AccountHomePageState extends State<AccountHomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            ride.name,
+                            name,
                             style: accountText(18, weight: FontWeight.w600),
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            ride.email,
+                            email,
                             style: accountText(13, color: kAccountMuted),
                           ),
                         ],
