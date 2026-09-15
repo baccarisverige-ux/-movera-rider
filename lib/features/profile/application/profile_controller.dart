@@ -12,8 +12,6 @@ class ProfileController extends ChangeNotifier {
 
   String displayName() => _store.displayName();
 
-  String referralCode() => _store.referralCode();
-
   Future<void> hydrate() async {
     await _store.hydrate();
     notifyListeners();
