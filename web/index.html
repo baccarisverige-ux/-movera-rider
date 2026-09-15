@@ -7,7 +7,15 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Movera — premium rides in Sweden.">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <!-- No viewport-fit=cover: it lays the page out edge to edge, underneath the
+       status and gesture bars. In a browser tab that is harmless because the
+       browser's own UI already occupies that space, but installed from the home
+       screen there is no browser UI, so the app drew under the status bar while
+       taps landed in the visible area below it — every control was offset by the
+       status bar's height, and tapping "Where to?" hit the bottom nav instead.
+       Covering that area is only safe for a layout that pays it back with
+       env(safe-area-inset-*) padding, and this one does not. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#eef1e8">
   <meta name="color-scheme" content="light">
   <meta http-equiv="Cache-Control" content="no-store">
@@ -56,7 +64,7 @@
     // Old Flutter builds used a service worker on this same GitHub Pages scope.
     // Remove any surviving worker/cache before booting the current non-PWA app.
     (function() {
-      var resetKey = 'movera-web-cache-reset:v15';
+      var resetKey = 'movera-web-cache-reset:v16';
       var resetNeeded = false;
       var tasks = [];
 
