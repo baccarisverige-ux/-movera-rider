@@ -33,9 +33,16 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     if (mounted) setState(() {});
   }
 
+  String _valueOrNotAdded(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? 'Not added' : trimmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ride = _profile.profile;
+    final hasPhoto = ride.photoAsset.trim().isNotEmpty;
+
     return AccountScaffold(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
@@ -49,7 +56,10 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             child: CircleAvatar(
               radius: 44,
               backgroundColor: AppColor.liteBlue,
-              backgroundImage: AssetImage(ride.photoAsset),
+              backgroundImage: hasPhoto ? AssetImage(ride.photoAsset) : null,
+              child: hasPhoto
+                  ? null
+                  : const Icon(Icons.person_outline_rounded, size: 36),
             ),
           ),
           const SizedBox(height: 22),
@@ -58,7 +68,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               AccountTile(
                 mark: const AccountIcon(Icons.badge_outlined),
                 title: 'Name',
-                body: ride.name,
+                body: _valueOrNotAdded(ride.name),
                 onTap: () async {
                   final next = await showAccountTextEditor(
                     context,
@@ -94,7 +104,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               AccountTile(
                 mark: const AccountIcon(Icons.phone_outlined),
                 title: 'Phone',
-                body: '${ride.phone}  ·  Verified',
+                body: _valueOrNotAdded(ride.phone),
                 onTap: () async {
                   final next = await showAccountTextEditor(
                     context,
@@ -110,7 +120,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               AccountTile(
                 mark: const AccountIcon(Icons.mail_outline_rounded),
                 title: 'Email',
-                body: '${ride.email}  ·  Verified',
+                body: _valueOrNotAdded(ride.email),
                 onTap: () async {
                   final next = await showAccountTextEditor(
                     context,
