@@ -50,7 +50,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                     text: 'Receipt details will appear here when available.',
                     color: AppColor.subtitle,
                     fontSize: 13,
-                    fontWeight: fwRegular,
+                    fontWeight: fwNormal,
                   ),
                   8.height,
                 ] else ...[
