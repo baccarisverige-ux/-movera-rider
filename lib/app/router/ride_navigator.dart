@@ -20,8 +20,11 @@ abstract final class RideNavigator {
     return Navigator.push(context, RightToLeftTransition(page));
   }
 
-  static void home(BuildContext? context) {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.cancelledByRider);
+  static void home(
+    BuildContext? context, {
+    RideStatus status = RideStatus.cancelledByRider,
+  }) {
+    AppScope.instance.ride.restoreFromBackend(status);
     SheetCoordinator.instance.current = RideSheet.none;
     setWebOverlayOpen(false);
 

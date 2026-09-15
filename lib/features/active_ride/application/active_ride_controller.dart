@@ -41,6 +41,14 @@ class ActiveRideController {
     }
   }
 
+  Future<void> markCompleted(RideStatus status) async {
+    if (!status.isCompletedSurface) {
+      throw ArgumentError.value(status, 'status', 'Expected a completed status.');
+    }
+    AppScope.instance.ride.restoreFromBackend(status);
+    await _store.clear();
+  }
+
   void markClosed() {
     AppScope.instance.ride.restoreFromBackend(RideStatus.closed);
     unawaited(_store.clear());
