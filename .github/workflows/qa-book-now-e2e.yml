@@ -51,9 +51,17 @@ jobs:
             await page.waitForTimeout(400);
           }
 
-          async function visibleText(page, label) {
-            const node = page.getByText(label, { exact: false });
-            return (await node.count()) > 0;
+          async function waitForMapOwner(page, expected, name) {
+            try {
+              await page.waitForFunction(
+                owner => window.moveraMapOwner === owner,
+                expected,
+                { timeout: 12000 },
+              );
+            } catch (error) {
+              const actual = await page.evaluate(() => window.moveraMapOwner || '');
+              throw new Error(`${name}: expected map owner ${expected}, got ${actual || 'none'}`, { cause: error });
+            }
           }
 
           async function bookNowPath(browser, { gps, name }) {
@@ -101,17 +109,19 @@ jobs:
             await page.waitForTimeout(3500);
             await page.screenshot({ path: `qa-book-now-${name}-pickup.png`, fullPage: true });
 
-            const onPickup = await visibleText(page, 'Confirm pickup');
-            if (!onPickup) throw new Error(`${name}: Confirm pickup did not open`);
+            await waitForMapOwner(page, 'pickup', name);
+            const onPickup = true;
 
-            const confirm = page.getByText('Confirm pickup', { exact: false });
-            if (await confirm.count()) await confirm.last.click();
-            else await page.mouse.click(195, 797);
+            await page.mouse.click(195, 797);
             await page.waitForTimeout(7000);
             await page.screenshot({ path: `qa-book-now-${name}-categories.png`, fullPage: true });
 
-            if (await visibleText(page, 'Ride scheduled')) {
+            const categoryOwner = await page.evaluate(() => window.moveraMapOwner || '');
+            if (categoryOwner === 'schedule') {
               throw new Error(`${name}: Book now opened Ride scheduled`);
+            }
+            if (categoryOwner !== 'select_ride') {
+              throw new Error(`${name}: expected ride selection, got map owner ${categoryOwner || 'none'}`);
             }
 
             const select = page.getByText('Select Movera', { exact: true });
@@ -124,16 +134,11 @@ jobs:
             await page.waitForTimeout(4000);
             await page.screenshot({ path: `qa-book-now-${name}-finding.png`, fullPage: true });
 
-            const finding = await visibleText(page, 'Connecting you with nearby drivers')
-              || await visibleText(page, 'Finding');
-            const scheduled = await visibleText(page, 'Ride scheduled');
-            const result = { name, gps, onPickup, finding, scheduled, errors };
+            await waitForMapOwner(page, 'finding', name);
+            const owner = await page.evaluate(() => window.moveraMapOwner || '');
+            const result = { name, gps, onPickup, owner, errors };
             fs.writeFileSync(`qa-book-now-${name}.json`, JSON.stringify(result, null, 2));
-            if (scheduled) throw new Error(`${name}: Book now entered Ride scheduled`);
-            if (!finding) {
-              throw new Error(`${name}: Finding Driver state did not open: ${JSON.stringify(result)}`);
-            }
-            console.log('PASS: ' + name + ' reached Confirm pickup then Finding Driver');
+            console.log('PASS: ' + name + ' reached pickup, ride selection, then Finding Driver');
             await context.close();
             return result;
           }
