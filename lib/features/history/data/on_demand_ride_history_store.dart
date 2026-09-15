@@ -78,7 +78,7 @@ abstract final class OnDemandRideHistoryStore {
       paymentMethod: snapshot.paymentMethod,
       status: reservationStatus,
       driver: _driver(snapshot),
-      note: snapshot.notes.hasNote ? snapshot.notes.note : null,
+      note: snapshot.notes.isEmpty ? null : snapshot.notes.selected.join(', '),
       cancellationReason:
           cancellationReason ?? snapshot.cancellationReason,
     );
