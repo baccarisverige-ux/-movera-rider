@@ -2,15 +2,15 @@ import 'package:movera_rider/features/reservations/domain/reservation_policy.dar
 
 class ReservationPolicyCatalog {
   static const current = ReservationPolicy(
-    version: 'placeholder.v1',
+    version: 'unpublished.v1',
     pricingDisclaimer:
         'Reserved prices can differ from on-demand prices for the same route. The amount shown is your current reserved estimate for this category.',
     assignmentDisclaimer:
         'Driver details will appear here when a driver is assigned.',
     waitingSummary:
-        'Be ready at pickup. Included waiting follows Movera scheduled ride terms.',
+        'No included waiting period is currently published.',
     cancellationSummary:
-        'Cancel from this screen. Any fee follows the scheduled ride terms.',
+        'No cancellation window or fee is currently published.',
     pricingSummary:
         'The reserved amount is for this category and route, and updates if the trip changes.',
     sections: [
@@ -27,17 +27,17 @@ class ReservationPolicyCatalog {
       ReservationPolicySection(
         title: 'Included waiting time',
         body:
-            'Included waiting time at pickup will be published with the final Movera scheduled ride terms.',
+            'No included waiting period is currently published. Confirmed terms will be shown before a scheduled ride is booked.',
       ),
       ReservationPolicySection(
-        title: 'Cancellation window',
+        title: 'Cancellation terms',
         body:
-            'You can cancel a reservation from Upcoming ride. Free-cancellation timing will be published with the final terms.',
+            'You can cancel a reservation from Upcoming ride. No free-cancellation window is currently published.',
       ),
       ReservationPolicySection(
-        title: 'Possible cancellation fee',
+        title: 'Cancellation fees',
         body:
-            'A cancellation fee may apply in some cases. Final amounts are not set in this prototype and will appear here when approved.',
+            'No cancellation fee is currently published. A fee must not be assumed unless it is shown in confirmed booking terms.',
       ),
       ReservationPolicySection(
         title: 'Changes to pickup, time, or destination',

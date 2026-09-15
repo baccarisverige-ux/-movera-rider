@@ -333,13 +333,11 @@ class RiderSideMenu extends StatelessWidget {
           Image.asset(AppAssets.logo, height: ResSize.h * 18),
           8.width,
           TextWidget(
-            text: 'Powered by',
+            text: 'Movera Rider',
             color: _muted,
             fontSize: 11,
             fontWeight: fwMedium,
           ),
-          8.width,
-          Image.asset(AppAssets.skypulse, height: ResSize.h * 18),
         ],
       ),
     );
