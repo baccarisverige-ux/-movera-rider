@@ -3,6 +3,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class PrivacyPage extends StatefulWidget {
@@ -147,12 +148,12 @@ class _PrivacyPageState extends State<PrivacyPage> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: Text(
-              'No third-party apps can read this Movera account yet.',
-              style: accountText(13.5, color: kAccountMuted, height: 1.4),
-            ),
+          const MoveraEmptyState(
+            icon: Icons.apps_outlined,
+            title: 'No connected apps',
+            message:
+                'No third-party apps can read this Movera account yet.',
+            compact: true,
           ),
         ],
       ),

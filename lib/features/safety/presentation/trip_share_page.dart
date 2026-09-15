@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
+import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class TripSharePage extends StatefulWidget {
   const TripSharePage({super.key, required this.controller});
@@ -121,16 +124,21 @@ class _TripSharePageState extends State<TripSharePage> {
           Container(
             decoration: SafetyUi.cardDecoration(),
             child: shareable.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      'Add an emergency contact first, then choose who can follow your rides.',
-                      style: SafetyUi.text(
-                        14,
-                        color: SafetyUi.muted,
-                        height: 1.4,
-                      ),
-                    ),
+                ? MoveraEmptyState(
+                    icon: Icons.group_add_outlined,
+                    title: 'No trusted contacts yet',
+                    message:
+                        'Add an emergency contact first, then choose who can follow your rides.',
+                    actionLabel: 'Add emergency contact',
+                    onAction: () {
+                      Navigator.push(
+                        context,
+                        RightToLeftTransition(
+                          EmergencyContactsPage(controller: _ctl),
+                        ),
+                      );
+                    },
+                    compact: true,
                   )
                 : Column(
                     children: [

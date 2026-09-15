@@ -3,9 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
-
-final _wallet = WalletController();
 
 Future<void> showVoucherUnavailableSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);
@@ -78,6 +77,8 @@ class _WalletHomeState extends State<WalletHome> {
   final _wallet = WalletController();
 
   double _balance = 0;
+  bool _loading = true;
+  bool _failed = false;
 
   @override
   void initState() {
@@ -100,11 +101,28 @@ class _WalletHomeState extends State<WalletHome> {
   }
 
   Future<void> _restore() async {
-    final balance = await _wallet.loadBalance();
     if (!mounted) return;
-    setState(() {
-      _balance = balance;
-    });
+    if (!_loading || _failed) {
+      setState(() {
+        _loading = true;
+        _failed = false;
+      });
+    }
+    try {
+      final balance = await _wallet.loadBalance();
+      if (!mounted) return;
+      setState(() {
+        _balance = balance;
+        _loading = false;
+        _failed = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+    }
   }
 
   Future<void> _saveBalance(double value) async {
@@ -368,7 +386,24 @@ class _WalletHomeState extends State<WalletHome> {
                 ),
               ),
               const SizedBox(height: 16),
-              Container(
+              if (_failed)
+                MoveraEmptyState(
+                  icon: Icons.error_outline_rounded,
+                  title: 'Couldn’t load wallet',
+                  message: 'Your balance couldn’t be read. Try again.',
+                  actionLabel: 'Retry',
+                  onAction: _restore,
+                  compact: true,
+                )
+              else if (_loading)
+                const MoveraEmptyState(
+                  icon: Icons.hourglass_empty_rounded,
+                  title: 'Loading wallet',
+                  message: 'Checking your balance.',
+                  compact: true,
+                )
+              else
+                Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
                 decoration: BoxDecoration(

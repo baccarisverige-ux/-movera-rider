@@ -5,13 +5,17 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RiderSearchPickupLocation extends StatefulWidget {
-  const RiderSearchPickupLocation({super.key});
+  const RiderSearchPickupLocation({super.key, this.places});
+
+  final SavedPlacesController? places;
 
   @override
   State<RiderSearchPickupLocation> createState() =>
@@ -19,9 +23,22 @@ class RiderSearchPickupLocation extends StatefulWidget {
 }
 
 class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
+  SavedPlacesController get _places =>
+      widget.places ?? SavedPlacesController();
+
   @override
   Widget build(BuildContext context) {
-    final shortcuts = SavedPlacesController().shortcuts();
+    final shortcuts = _places.shortcuts();
+    final homeSubtitle = _shortcutSubtitle(
+      shortcuts,
+      'home',
+      fallback: 'Not saved yet',
+    );
+    final workSubtitle = _shortcutSubtitle(
+      shortcuts,
+      'office',
+      fallback: 'Not saved yet',
+    );
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -114,12 +131,9 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                     child: _buildSavedPlace(
                       icon: AppAssets.home,
                       title: 'Home',
-                      subtitle: _shortcutSubtitle(
-                        shortcuts,
-                        'home',
-                        fallback: 'Not saved yet',
-                      ),
+                      subtitle: homeSubtitle,
                       isLeftRounded: true,
+                      onTap: () => _onShortcutTap(subtitle: homeSubtitle),
                     ),
                   ),
                   2.width,
@@ -127,11 +141,8 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                     child: _buildSavedPlace(
                       icon: AppAssets.office,
                       title: 'Work',
-                      subtitle: _shortcutSubtitle(
-                        shortcuts,
-                        'office',
-                        fallback: 'Not saved yet',
-                      ),
+                      subtitle: workSubtitle,
+                      onTap: () => _onShortcutTap(subtitle: workSubtitle),
                     ),
                   ),
                   2.width,
@@ -194,53 +205,72 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     );
   }
 
+  void _onShortcutTap({required String subtitle}) {
+    final saved = subtitle.trim().isNotEmpty && subtitle != 'Not saved yet';
+    if (saved) {
+      Navigator.maybePop(context, subtitle);
+      return;
+    }
+    Navigator.push(context, RightToLeftTransition(const AddPlace()));
+  }
+
   Widget _buildSavedPlace({
     required String icon,
     required String title,
     required String subtitle,
+    required VoidCallback onTap,
     bool isLeftRounded = false,
   }) {
-    return Container(
-      height: ResSize.h * 57,
-      decoration: BoxDecoration(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: isLeftRounded
             ? const BorderRadius.only(bottomLeft: Radius.circular(10))
-            : null,
-        color: AppColor.liteBlue,
-        border: Border.all(color: AppColor.border, width: 0.5),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
-        child: Row(
-          children: [
-            Image.asset(icon, height: ResSize.h * 20),
-            10.width,
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextWidget(
-                    text: title,
-                    fontSize: 12,
-                    fontWeight: fwSemiBold,
-                    color: const Color(0xff5E5E5E),
+            : BorderRadius.zero,
+        child: Container(
+          height: ResSize.h * 57,
+          decoration: BoxDecoration(
+            borderRadius: isLeftRounded
+                ? const BorderRadius.only(bottomLeft: Radius.circular(10))
+                : null,
+            color: AppColor.liteBlue,
+            border: Border.all(color: AppColor.border, width: 0.5),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: ResSize.w * 10),
+            child: Row(
+              children: [
+                Image.asset(icon, height: ResSize.h * 20),
+                10.width,
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextWidget(
+                        text: title,
+                        fontSize: 12,
+                        fontWeight: fwSemiBold,
+                        color: const Color(0xff5E5E5E),
+                      ),
+                      2.height,
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: fwNormal,
+                          color: const Color(0xff5E5E5E),
+                        ),
+                      ),
+                    ],
                   ),
-                  2.height,
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: fwNormal,
-                      color: const Color(0xff5E5E5E),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

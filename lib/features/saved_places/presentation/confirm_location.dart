@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -92,34 +93,14 @@ class PickupLocationBottomSheet extends StatelessWidget {
                 ),
               ),
               16.height,
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(
-                  horizontal: ResSize.w * 12,
-                  vertical: ResSize.h * 14,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColor.border, width: 0.5),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: 'No location suggestions',
-                      color: AppColor.title,
-                      fontSize: 14,
-                      fontWeight: fwSemiBold,
-                    ),
-                    4.height,
-                    TextWidget(
-                      text: 'Location suggestions aren’t connected in this build yet.',
-                      color: AppColor.subtitle,
-                      fontSize: 12,
-                      fontWeight: fwNormal,
-                    ),
-                  ],
-                ),
+              MoveraEmptyState(
+                icon: Icons.location_searching_outlined,
+                title: 'No location suggestions',
+                message:
+                    'Location suggestions aren’t connected in this build yet.',
+                actionLabel: 'Close',
+                onAction: () => Navigator.maybePop(context),
+                compact: true,
               ),
             ],
           ),
