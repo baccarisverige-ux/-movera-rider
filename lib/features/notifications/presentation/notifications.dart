@@ -47,7 +47,7 @@ class NotificationScreen extends StatelessWidget {
                   ),
                 ),
                 TextWidget(
-                  text: "Notification",
+                  text: 'Notification',
                   color: AppColor.primary,
                   fontSize: 18,
                   fontWeight: fwSemiBold,
@@ -56,25 +56,59 @@ class NotificationScreen extends StatelessWidget {
                   onPressed: () {},
                   splashColor: Colors.transparent,
                   highlightColor: Colors.transparent,
-                  icon: SizedBox(),
+                  icon: const SizedBox(),
                 ),
               ],
             ),
-
             12.height,
-
-            // Notifications List
             Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                itemCount: notifications.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: ResSize.h * 16),
-                    child: _buildNotificationCard(notifications[index]),
-                  );
-                },
-              ),
+              child: notifications.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenHorizPadding,
+                      ),
+                      itemCount: notifications.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: EdgeInsets.only(bottom: ResSize.h * 16),
+                          child: _buildNotificationCard(notifications[index]),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.notifications_none_rounded,
+              size: ResSize.h * 40,
+              color: AppColor.subtitle,
+            ),
+            12.height,
+            TextWidget(
+              text: 'No notifications yet',
+              color: AppColor.primary,
+              fontSize: 17,
+              fontWeight: fwSemiBold,
+            ),
+            6.height,
+            TextWidget(
+              text: 'Ride and account updates will appear here when available.',
+              color: AppColor.subtitle,
+              fontSize: 14,
+              fontWeight: fwNormal,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -102,7 +136,6 @@ class NotificationScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Icon Container
           Container(
             width: ResSize.w * 52,
             height: ResSize.w * 52,
@@ -118,10 +151,7 @@ class NotificationScreen extends StatelessWidget {
               ),
             ),
           ),
-
           8.width,
-
-          // Content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,10 +172,7 @@ class NotificationScreen extends StatelessWidget {
               ],
             ),
           ),
-
           8.width,
-
-          // Time and Read Indicator
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
