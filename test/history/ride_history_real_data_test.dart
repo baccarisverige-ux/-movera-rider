@@ -50,10 +50,10 @@ void main() {
     await pumpHistory(tester, controller());
 
     await openTab(tester, 'Completed');
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No completed rides yet'), findsOneWidget);
 
     await openTab(tester, 'Cancelled');
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No cancelled rides'), findsOneWidget);
   });
 
   testWidgets('a completed reservation shows in Completed, not Cancelled', (
@@ -68,11 +68,11 @@ void main() {
     await pumpHistory(tester, reservations);
 
     await openTab(tester, 'Completed');
-    expect(find.text('Nothing here yet'), findsNothing);
+    expect(find.text('No completed rides yet'), findsNothing);
     expect(find.textContaining('T-Centralen'), findsWidgets);
 
     await openTab(tester, 'Cancelled');
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No cancelled rides'), findsOneWidget);
   });
 
   testWidgets('a cancelled reservation shows in Cancelled, not Completed', (
@@ -84,11 +84,11 @@ void main() {
     await pumpHistory(tester, reservations);
 
     await openTab(tester, 'Cancelled');
-    expect(find.text('Nothing here yet'), findsNothing);
+    expect(find.text('No cancelled rides'), findsNothing);
     expect(find.textContaining('T-Centralen'), findsWidgets);
 
     await openTab(tester, 'Completed');
-    expect(find.text('Nothing here yet'), findsOneWidget);
+    expect(find.text('No completed rides yet'), findsOneWidget);
   });
 
   test('history screen owns no hardcoded ride list', () {
