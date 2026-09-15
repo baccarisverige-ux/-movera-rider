@@ -36,7 +36,7 @@ void main() {
     expect(find.text('No rides to review'), findsOneWidget);
     expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
     expect(
-      find.text('Your completed rides will appear here when support can review them.'),
+      find.text('Completed or cancelled rides will appear here when real ride history is available.'),
       findsOneWidget,
     );
     expect(find.text('Browse all help topics'), findsOneWidget);
@@ -62,13 +62,13 @@ void main() {
 
     expect(find.text('No active cases'), findsOneWidget);
     expect(
-      find.text('New support conversations will appear here.'),
+      find.text('Support messaging is not connected in this build, so no active conversations are shown.'),
       findsOneWidget,
     );
     await tester.scrollUntilVisible(find.text('No closed cases'), 160);
     expect(find.text('No closed cases'), findsOneWidget);
     expect(
-      find.text('Resolved conversations will appear here.'),
+      find.text('Closed support conversations will appear here when real support messaging is connected.'),
       findsOneWidget,
     );
     expect(find.text('I was charged for cancellation'), findsNothing);
