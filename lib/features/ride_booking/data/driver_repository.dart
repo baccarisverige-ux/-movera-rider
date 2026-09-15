@@ -45,10 +45,9 @@ class TripReceipt {
 }
 
 class TripReceiptRepository {
-  TripReceipt last() => const TripReceipt(
-    pickup: 'I11/Street 15 - h350',
-    destination: 'Skypulse solution',
-    total: '\$10.12',
-    method: 'Cash',
-  );
+  const TripReceiptRepository({TripReceipt? last}) : _last = last;
+
+  final TripReceipt? _last;
+
+  TripReceipt? last() => _last;
 }
