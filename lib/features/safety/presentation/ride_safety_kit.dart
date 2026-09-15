@@ -153,18 +153,21 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     try {
       if (_ctl.audio.isRecording) {
         await _ctl.audio.stop();
+        if (!mounted) return;
         setState(
           () => _audioNote =
               'Recording saved on this device. Upload is not live yet.',
         );
       } else {
         await _ctl.audio.start(rideId: widget.rideId ?? 'ride_local');
+        if (!mounted) return;
         setState(
           () => _audioNote =
               'Recording. Microphone audio stays on this device for now.',
         );
       }
     } catch (err) {
+      if (!mounted) return;
       setState(
         () => _audioNote =
             'Recording is prepared, but the microphone is not available yet.',
