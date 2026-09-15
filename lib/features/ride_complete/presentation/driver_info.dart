@@ -3,6 +3,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -14,16 +15,12 @@ class RideCompletedDriverInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     final driver = RideCompleteController().driver();
     if (driver == null) {
-      return Padding(
-        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-        child: Center(
-          child: TextWidget(
-            text: 'Driver details unavailable',
-            color: AppColor.subtitle,
-            fontSize: 14,
-            fontWeight: fwMedium,
-          ),
-        ),
+      return const MoveraEmptyState(
+        icon: Icons.person_search_outlined,
+        title: 'Driver details unavailable',
+        message:
+            'Verified driver and vehicle information will appear here when it is available for this ride.',
+        compact: true,
       );
     }
 
