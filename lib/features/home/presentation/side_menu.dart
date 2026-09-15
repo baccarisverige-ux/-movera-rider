@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
@@ -97,6 +97,10 @@ class RiderSideMenu extends StatelessWidget {
   }
 
   Widget _profileCard() {
+    final controller = AppScope.instance.profile;
+    final profile = controller.profile;
+    final hasPhoto = profile.photoAsset.trim().isNotEmpty;
+
     return _cardSurface(
       padding: EdgeInsets.fromLTRB(
         ResSize.w * 18,
@@ -110,11 +114,19 @@ class RiderSideMenu extends StatelessWidget {
           Row(
             children: [
               ClipOval(
-                child: Image.asset(
-                  AppAssets.profileImg,
+                child: SizedBox(
                   width: ResSize.w * 56,
                   height: ResSize.h * 56,
-                  fit: BoxFit.cover,
+                  child: hasPhoto
+                      ? Image.asset(profile.photoAsset, fit: BoxFit.cover)
+                      : ColoredBox(
+                          color: const Color(0xFFE7EDF1),
+                          child: Icon(
+                            Icons.person_outline_rounded,
+                            color: _muted,
+                            size: 28 * ResSize.h,
+                          ),
+                        ),
                 ),
               ),
               14.width,
@@ -123,7 +135,7 @@ class RiderSideMenu extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: ProfileController().displayName(),
+                      text: controller.displayName(),
                       color: _ink,
                       fontSize: 18,
                       fontWeight: fwSemiBold,
@@ -144,20 +156,13 @@ class RiderSideMenu extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.star_rounded,
+                Icons.star_border_rounded,
                 color: _accent,
                 size: 18 * ResSize.h,
               ),
               6.width,
               TextWidget(
-                text: '4.9',
-                color: _ink,
-                fontSize: 15,
-                fontWeight: fwSemiBold,
-              ),
-              6.width,
-              TextWidget(
-                text: 'Rating',
+                text: 'Rating unavailable',
                 color: _muted,
                 fontSize: 13.5,
                 fontWeight: fwMedium,
