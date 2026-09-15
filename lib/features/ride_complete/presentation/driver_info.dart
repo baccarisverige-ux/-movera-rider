@@ -13,6 +13,20 @@ class RideCompletedDriverInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final driver = RideCompleteController().driver();
+    if (driver == null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+        child: Center(
+          child: TextWidget(
+            text: 'Driver details unavailable',
+            color: AppColor.subtitle,
+            fontSize: 14,
+            fontWeight: fwMedium,
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -59,7 +73,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextWidget(
-                text: "Trip completed",
+                text: 'Trip completed',
                 color: AppColor.title,
                 fontSize: 14,
                 fontWeight: fwMedium,
@@ -77,7 +91,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextWidget(
-                text: "Date & Time",
+                text: 'Date & Time',
                 color: AppColor.title,
                 fontSize: 14,
                 fontWeight: fwMedium,
