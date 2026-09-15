@@ -1,0 +1,11 @@
+import 'package:movera_rider/core/web/web_search_interrupted_io.dart'
+    if (dart.library.html) 'package:movera_rider/core/web/web_search_interrupted_web.dart';
+
+/// Remember a ride is live, so a reload can explain itself afterwards.
+void markSearchLive() => webMarkSearchLive();
+
+/// The ride ended deliberately; forget it.
+void clearSearchLive() => webClearSearchLive();
+
+/// True once if a ride was still live when the previous document ended.
+bool takeWebSearchInterrupted() => webTakeSearchInterrupted();

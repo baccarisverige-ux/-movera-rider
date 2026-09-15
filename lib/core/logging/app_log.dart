@@ -21,7 +21,13 @@ abstract final class AppLog {
     StackTrace? stackTrace,
     Map<String, Object?> extra = const {},
   }) {
-    _write(LogLevel.error, event, extra: extra, error: error, stackTrace: stackTrace);
+    _write(
+      LogLevel.error,
+      event,
+      extra: extra,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   static void fatal(
@@ -30,7 +36,13 @@ abstract final class AppLog {
     StackTrace? stackTrace,
     Map<String, Object?> extra = const {},
   }) {
-    _write(LogLevel.fatal, event, extra: extra, error: error, stackTrace: stackTrace);
+    _write(
+      LogLevel.fatal,
+      event,
+      extra: extra,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   static void _write(
@@ -52,6 +64,9 @@ abstract final class AppLog {
       ..remove('phoneE164')
       ..remove('localPath')
       ..remove('shareToken');
+    // Keys are scrubbed above, but event names, ids and stack traces are still
+    // internals. They belong in a developer's console, not a rider's.
+    if (!kDebugMode) return;
     debugPrint('[movera:${level.name}] $event $safe');
     if (error != null) debugPrint('  error=$error');
     if (stackTrace != null) debugPrint('$stackTrace');

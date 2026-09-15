@@ -28,6 +28,10 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/core/web/web_search_interrupted.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
+import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
@@ -228,6 +232,30 @@ class _HomeState extends State<Home> {
     _loadMarkers();
     _restoreAddressData();
     _startHeadingTracking();
+    _announceInterruptedSearch();
+  }
+
+  /// A reload during Finding Driver drops the search. Landing on an empty Home
+  /// with no explanation reads as though the ride was never requested, so say
+  /// what happened.
+  void _announceInterruptedSearch() {
+    // Two sources: builds that keep the snapshot leave the coordinator a flag;
+    // the web build's snapshot is gone before Flutter starts, so it leaves a
+    // note in the session instead.
+    final interrupted =
+        RideRestoreCoordinator.instance.takeSearchInterrupted() |
+        takeWebSearchInterrupted();
+    if (!interrupted) return;
+    // Let the first frame settle so the messenger has a Scaffold to put this
+    // in, and leave it up long enough to actually be read.
+    Future<void>.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      MoveraToast.show(
+        context,
+        'Your ride search was interrupted. Book again when you are ready.',
+        duration: const Duration(seconds: 8),
+      );
+    });
   }
 
   @override
@@ -395,12 +423,22 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _handleDestinationTap() async {
-    if (!_destinationSheetOpen) {
-      _openDestinationSheet();
-      await Future<void>.delayed(const Duration(milliseconds: 360));
-      if (!mounted) return;
+    // Capture from the tap itself: the sheet sequencing below takes long enough
+    // that anything typed in the meantime would otherwise be lost.
+    final capture = EarlyInputCapture()..start();
+    try {
+      if (!_destinationSheetOpen) {
+        _openDestinationSheet();
+        await Future<void>.delayed(const Duration(milliseconds: 360));
+        if (!mounted) return;
+      }
+      await _showRouteAddressPicker(
+        initialField: 'destination',
+        capture: capture,
+      );
+    } finally {
+      capture.stop();
     }
-    await _showRouteAddressPicker(initialField: 'destination');
   }
 
   Future<void> _useSavedPlaceAsDestination(
@@ -526,7 +564,10 @@ class _HomeState extends State<Home> {
     });
   }
 
-  Future<void> _showRouteAddressPicker({required String initialField}) async {
+  Future<void> _showRouteAddressPicker({
+    required String initialField,
+    EarlyInputCapture? capture,
+  }) async {
     final pickupController = TextEditingController(
       text: _pickupAddress?.trim().isNotEmpty == true
           ? _pickupAddress!.trim()
@@ -563,6 +604,15 @@ class _HomeState extends State<Home> {
       }
       return destinationController;
     }
+
+    // Either the capture the caller started at tap time, or a fresh one for
+    // entry points that open this sheet directly.
+    final routeCapture = capture ?? (EarlyInputCapture()..start());
+    final ownsCapture = capture == null;
+    routeCapture.attach(
+      initialField == 'pickup' ? pickupController : destinationController,
+      initialField == 'pickup' ? pickupFocus : destinationFocus,
+    );
 
     final draft = await MoveraSheet.show<Map<String, dynamic>>(
       context: context,
@@ -816,6 +866,21 @@ class _HomeState extends State<Home> {
                 ),
               );
 
+              routeCapture.onChanged = (value) {
+                setModalState(() {
+                  if (activeField == 'pickup') {
+                    pickupConfirmedOnMap = false;
+                    confirmedPickupLatLng = null;
+                  } else if (activeField == 'destination') {
+                    destinationConfirmedOnMap = false;
+                    confirmedDestinationLatLng = null;
+                  }
+                });
+                AppScope.instance.destinationSearch.type(value, (text) {
+                  if (!mounted) return;
+                  setModalState(() => query = text);
+                });
+              };
               return Padding(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -885,7 +950,9 @@ class _HomeState extends State<Home> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.045),
+                                    color: Colors.black.withValues(
+                                      alpha: 0.045,
+                                    ),
                                     blurRadius: 18,
                                     offset: const Offset(0, 7),
                                   ),
@@ -899,7 +966,9 @@ class _HomeState extends State<Home> {
                                     bottom: ResSize.h * 25,
                                     child: Container(
                                       width: 1.4,
-                                      color: _premiumInk.withValues(alpha: 0.72),
+                                      color: _premiumInk.withValues(
+                                        alpha: 0.72,
+                                      ),
                                     ),
                                   ),
                                   Column(children: routeRows),
@@ -1228,6 +1297,7 @@ class _HomeState extends State<Home> {
       },
     );
 
+    if (ownsCapture) routeCapture.stop();
     pickupFocus.dispose();
     destinationFocus.dispose();
     for (final focusNode in stopFocusNodes) {
@@ -1329,7 +1399,11 @@ class _HomeState extends State<Home> {
     final controller = TextEditingController(
       text: initialAddress == 'Current location' ? '' : initialAddress ?? '',
     );
+    final focusNode = FocusNode();
     var query = controller.text;
+    // Started before the sheet opens; see EarlyInputCapture.
+    final capture = EarlyInputCapture()..start();
+    capture.attach(controller, focusNode);
     final selected = await MoveraSheet.show<String>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1338,6 +1412,12 @@ class _HomeState extends State<Home> {
         return PointerInterceptor(
           child: StatefulBuilder(
             builder: (context, setModalState) {
+              capture.onChanged = (value) {
+                AppScope.instance.destinationSearch.type(value, (text) {
+                  if (!mounted) return;
+                  setModalState(() => query = text);
+                });
+              };
               final filteredRecent = _recentAddresses
                   .where(
                     (address) =>
@@ -1401,6 +1481,7 @@ class _HomeState extends State<Home> {
                       10.height,
                       TextField(
                         controller: controller,
+                        focusNode: focusNode,
                         autofocus: true,
                         textInputAction: TextInputAction.search,
                         onChanged: (value) {
@@ -1590,7 +1671,9 @@ class _HomeState extends State<Home> {
         );
       },
     );
+    capture.stop();
     controller.dispose();
+    focusNode.dispose();
     if (selected == null || selected.trim().isEmpty || !mounted) return;
     await _saveAddressFor(target, selected, customType: customType);
   }
@@ -2288,7 +2371,9 @@ class _HomeState extends State<Home> {
                             padding: EdgeInsets.only(top: ResSize.h * 24),
                             child: Column(
                               children: [
-                                AdvanceBookingCard(onOpenSchedule: _openSchedule),
+                                AdvanceBookingCard(
+                                  onOpenSchedule: _openSchedule,
+                                ),
                                 14.height,
                                 ComfortRideCarousel(
                                   onDestinationTap: _handleDestinationTap,
@@ -2327,8 +2412,8 @@ class _HomeState extends State<Home> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 
-                          0.14 * (1 - sheetProgress),
+                        color: Colors.black.withValues(
+                          alpha: 0.14 * (1 - sheetProgress),
                         ),
                         blurRadius: 28 * (1 - sheetProgress),
                         offset: Offset(0, 10 * (1 - sheetProgress)),
@@ -2396,6 +2481,4 @@ class _HomeState extends State<Home> {
       ),
     );
   }
-
-
 }

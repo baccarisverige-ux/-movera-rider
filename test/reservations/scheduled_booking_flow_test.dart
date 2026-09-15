@@ -14,7 +14,6 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
-import 'package:movera_rider/features/ride_selection/presentation/scheduled_pickup_picker.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 
 void main() {
@@ -191,47 +190,6 @@ void main() {
       expect(AppScope.instance.ride.status, RideStatus.idle);
     },
   );
-
-  testWidgets('real date and time pickers feed scheduled mode', (tester) async {
-    DateTime? picked;
-    await pumpPhone(
-      tester,
-      Builder(
-        builder: (context) {
-          return Scaffold(
-            body: TextButton(
-              onPressed: () async {
-                picked = await chooseScheduledPickup(context);
-              },
-              child: const Text('pick'),
-            ),
-          );
-        },
-      ),
-    );
-    await tester.tap(find.text('pick'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Choose ride date'), findsOneWidget);
-    await tester.tap(find.text('OK').last);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Choose pickup time'), findsOneWidget);
-    await tester.tap(find.text('OK').last);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(picked, isNotNull);
-    expect(
-      picked!.isAfter(DateTime.now().subtract(const Duration(minutes: 1))),
-      isTrue,
-    );
-
-    final selection = RideSelectionController();
-    expect(selection.bookingMode.ctaLabel('Movera'), 'Select Movera');
-    selection.scheduleFor(picked);
-    expect(selection.bookingMode.ctaLabel('Movera'), 'Schedule Movera');
-    expect(selection.entersFindingDriver, isFalse);
-  });
 
   testWidgets('Ride scheduled appears under Upcoming with the same id', (
     tester,

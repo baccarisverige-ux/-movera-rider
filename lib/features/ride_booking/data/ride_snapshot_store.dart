@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:movera_rider/core/web/web_search_interrupted.dart';
+
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
@@ -141,6 +143,9 @@ class RideSnapshotStore {
 
   static Future<void> save(RideSnapshot snapshot) async {
     if (snapshot.status.isTerminal) return;
+    // A live ride is worth remembering across a reload even though the web
+    // build never resumes one: Home can then say the search ended.
+    markSearchLive();
     final token = epoch;
     final prefs = await PreferencesStore.load();
     if (token != epoch) return;

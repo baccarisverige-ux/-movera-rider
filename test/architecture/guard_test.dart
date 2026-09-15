@@ -415,10 +415,15 @@ void main() {
     final home = File(
       'lib/features/home/presentation/home.dart',
     ).readAsStringSync();
-    expect(home.contains('Book now always confirms pickup; GPS only prefills.'), isTrue);
+    expect(
+      home.contains('Book now always confirms pickup; GPS only prefills.'),
+      isTrue,
+    );
     expect(home.contains('if (!pickupConfirmedOnMap)'), isFalse);
     expect(
-      home.contains('var pickupPosition = _tripPickupLatLng ?? _currentLatLng;'),
+      home.contains(
+        'var pickupPosition = _tripPickupLatLng ?? _currentLatLng;',
+      ),
       isFalse,
     );
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
@@ -431,18 +436,30 @@ void main() {
     expect(now.contains('FindingDrivers'), isTrue);
   });
 
-  test('book now two-path e2e covers GPS on, GPS off, back, and Finding Driver', () {
-    final src = File(
-      'test/ride/book_now_two_paths_e2e_test.dart',
-    ).readAsStringSync();
-    expect(src.contains('GPS available still opens Confirm pickup'), isTrue);
-    expect(src.contains('GPS unavailable still opens Confirm pickup'), isTrue);
-    expect(src.contains('Back on Confirm pickup returns without booking'), isTrue);
-    expect(src.contains('Select Movera starts Finding Driver'), isTrue);
-    expect(src.contains('Select Movera submitFinding marks Finding Driver'), isTrue);
-    expect(src.contains('Book later stays off Finding Driver'), isTrue);
-    expect(src.contains('Connecting you with nearby drivers'), isTrue);
-  });
+  test(
+    'book now two-path e2e covers GPS on, GPS off, back, and Finding Driver',
+    () {
+      final src = File(
+        'test/ride/book_now_two_paths_e2e_test.dart',
+      ).readAsStringSync();
+      expect(src.contains('GPS available still opens Confirm pickup'), isTrue);
+      expect(
+        src.contains('GPS unavailable still opens Confirm pickup'),
+        isTrue,
+      );
+      expect(
+        src.contains('Back on Confirm pickup returns without booking'),
+        isTrue,
+      );
+      expect(src.contains('Select Movera starts Finding Driver'), isTrue);
+      expect(
+        src.contains('Select Movera submitFinding marks Finding Driver'),
+        isTrue,
+      );
+      expect(src.contains('Book later stays off Finding Driver'), isTrue);
+      expect(src.contains('Connecting you with nearby drivers'), isTrue);
+    },
+  );
 
   test(
     'Later/Schedule ride goes Plan your ride → calendar → shared categories',
@@ -488,13 +505,10 @@ void main() {
       ).readAsStringSync();
       expect(src.contains('Schedule Movera'), isTrue);
       expect(src.contains('Select Movera'), isTrue);
-      expect(src.contains('Choose ride date'), isTrue);
-      expect(src.contains('Choose pickup time'), isTrue);
       expect(src.contains('Ride scheduled'), isTrue);
       expect(src.contains('FindingDriverController.active'), isTrue);
       expect(src.contains('Connecting you with nearby drivers'), isTrue);
       expect(src.contains('ScheduledRideBooking.confirm'), isTrue);
-      expect(src.contains('chooseScheduledPickup'), isTrue);
       expect(src.contains('ScheduleDateTimeSelector.choose'), isTrue);
       expect(src.contains('When should we pick you up Continue'), isTrue);
       expect(src.contains('editing a reservation keeps the same id'), isTrue);

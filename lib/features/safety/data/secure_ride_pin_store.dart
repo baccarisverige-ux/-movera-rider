@@ -8,6 +8,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// tests) so those platforms keep behaving exactly as before — the PIN
 /// stays in the caller's existing SharedPreferences-backed cache there,
 /// same as this codebase already accepts for auth tokens.
+///
+/// On web that cache is browser storage, which is readable by any script on
+/// the origin. That is an accepted trade-off rather than an oversight: this
+/// PIN is not a credential. The server issues it and can rotate it
+/// (`/api/v1/safety/pin`, see SafetyRemoteDataSource.getPin/rotatePin), it
+/// verifies a single ride, and it is worthless once that ride ends. Anything
+/// that does grant access — auth tokens — never touches this cache; see
+/// core/auth/secure_token_store.dart, which keeps them in memory on web.
+///
+/// If the PIN ever becomes reusable or long-lived, this needs revisiting.
 class SecureRidePinStore {
   const SecureRidePinStore() : _forceNativeSecure = null, _fakeStorage = null;
 

@@ -100,6 +100,7 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
                 },
               );
 
+              if (!mounted) return;
               if (result != null) {
                 setState(() {
                   customTip = result; // save tip
