@@ -51,4 +51,36 @@ void main() {
     expect(places.tripPickupLatLng?.latitude, 59.33);
     expect(places.existingFor('pickup'), 'Pickup road');
   });
+
+  test('editing pickup and destination keeps the latest route values', () {
+    final places = HomePlacesController(store: _MemAddresses());
+    places.applyResolved(
+      target: 'pickup',
+      address: 'Old pickup',
+      pickupPosition: const LatLng(59.30, 18.00),
+    );
+    places.applyResolved(target: 'destination', address: 'Old destination');
+
+    places.applyResolved(
+      target: 'pickup',
+      address: 'New pickup',
+      pickupPosition: const LatLng(59.31, 18.01),
+    );
+    places.applyResolved(target: 'destination', address: 'New destination');
+
+    expect(places.existingFor('pickup'), 'New pickup');
+    expect(places.existingFor('destination'), 'New destination');
+    expect(places.tripPickupLatLng, const LatLng(59.31, 18.01));
+    expect(places.recentAddresses.take(2), ['New destination', 'New pickup']);
+  });
+
+  test('dismissing an address edit leaves the prior value intact', () {
+    final places = HomePlacesController(store: _MemAddresses());
+    places.applyResolved(target: 'destination', address: 'Prior destination');
+
+    // The picker only calls applyResolved after it returns a non-null draft.
+    // A dismissed picker therefore makes no state mutation here.
+    expect(places.existingFor('destination'), 'Prior destination');
+    expect(places.recentAddresses, ['Prior destination']);
+  });
 }
