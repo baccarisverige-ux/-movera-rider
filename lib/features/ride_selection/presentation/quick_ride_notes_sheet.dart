@@ -92,7 +92,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
             const SizedBox(height: 6),
             Text(
               'Optional. Your driver will see this.',
-              style: _text(13.5, color: const Color(0xFF778189)),
+              style: _text(13.5, color: const Color(0xFF5C656C)),
             ),
             const SizedBox(height: 18),
             Row(
@@ -153,7 +153,7 @@ class _QuickRideNotesSheetState extends State<QuickRideNotesSheet> {
                   style: _text(
                     14,
                     weight: FontWeight.w600,
-                    color: const Color(0xFF778189),
+                    color: const Color(0xFF5C656C),
                   ),
                 ),
               ),

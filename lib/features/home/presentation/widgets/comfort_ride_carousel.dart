@@ -52,10 +52,7 @@ class ComfortRideCarousel extends StatelessWidget {
             title: 'Safety Toolkit',
             subtitle: 'Essential safety tools, ready throughout every ride.',
             onTap: () {
-              Navigator.push(
-                context,
-                RightToLeftTransition(const SafetyHub()),
-              );
+              Navigator.push(context, RightToLeftTransition(const SafetyHub()));
             },
           ),
           SizedBox(width: ResSize.w * 12),
@@ -121,7 +118,7 @@ class _HomePromoCard extends StatelessWidget {
   });
 
   static const Color _premiumInk = Color(0xFF1D252C);
-  static const Color _premiumMuted = Color(0xFF778189);
+  static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumLine = Color(0xFFE7EBEE);
 
   final double cardWidth;
@@ -162,6 +159,7 @@ class _HomePromoCard extends StatelessWidget {
                   width: double.infinity,
                   height: imageHeight,
                   child: Image.asset(
+                    excludeFromSemantics: true,
                     imageAsset,
                     fit: BoxFit.cover,
                     alignment: Alignment.center,

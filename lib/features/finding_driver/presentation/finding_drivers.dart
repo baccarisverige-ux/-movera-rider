@@ -19,6 +19,7 @@ import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.da
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -73,7 +74,7 @@ class _FindingDriversState extends State<FindingDrivers>
     _initialPosition = CameraPosition(target: _pickupPosition, zoom: 14.0);
     _sheetSlide = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: MoveraDurations.sheetOpen,
       value: 0,
     );
     _sheetSlide.addListener(_syncSheetOverlay);
@@ -100,6 +101,12 @@ class _FindingDriversState extends State<FindingDrivers>
         _openWaiting();
       },
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
   void _loadMapBits() {
@@ -345,16 +352,16 @@ class _FindingDriversState extends State<FindingDrivers>
               child: PointerInterceptor(
                 child: Row(
                   children: [
-                    _roundBtn(
-                      Icons.keyboard_arrow_down_rounded,
-                      () {
+                    MoveraIconButton.round(
+                      icon: Icons.keyboard_arrow_down_rounded,
+                      onPressed: () {
                         if (_sheetSlide.value > 0.2) {
                           _sheetSlide.animateTo(0);
                         } else {
                           _confirmCancel();
                         }
                       },
-                      semanticLabel: 'Collapse',
+                      label: 'Collapse',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _match.ride.rideId),
@@ -366,9 +373,9 @@ class _FindingDriversState extends State<FindingDrivers>
               right: 12,
               bottom: mapReserve + 16,
               child: PointerInterceptor(
-                child: _roundBtn(
-                  Icons.my_location_rounded,
-                  () {
+                child: MoveraIconButton.round(
+                  icon: Icons.my_location_rounded,
+                  onPressed: () {
                     AppScope.instance.camera.focusOnPickup(
                       GeoPoint(
                         _pickupPosition.latitude,
@@ -376,7 +383,7 @@ class _FindingDriversState extends State<FindingDrivers>
                       ),
                     );
                   },
-                  semanticLabel: 'Recenter map',
+                  label: 'Recenter map',
                 ),
               ),
             ),
@@ -396,7 +403,9 @@ class _FindingDriversState extends State<FindingDrivers>
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36).withValues(alpha: 0.14),
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.14),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),
@@ -453,6 +462,7 @@ class _FindingDriversState extends State<FindingDrivers>
           if (!_match.showPriceBump) ...[
             Center(
               child: Image.asset(
+                excludeFromSemantics: true,
                 AppAssets.scheduleRideCar,
                 height: 88,
                 fit: BoxFit.contain,
@@ -474,7 +484,7 @@ class _FindingDriversState extends State<FindingDrivers>
             subtitle,
             style: GoogleFonts.poppins(
               fontSize: 14,
-              color: const Color(0xFF778189),
+              color: const Color(0xFF5C656C),
             ),
           ),
           if (_match.offerConfirmation != null) ...[
@@ -531,7 +541,7 @@ class _FindingDriversState extends State<FindingDrivers>
                         widget.rideType,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
-                          color: const Color(0xFF778189),
+                          color: const Color(0xFF5C656C),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -567,27 +577,6 @@ class _FindingDriversState extends State<FindingDrivers>
           const SizedBox(height: 12),
           SafetyKitSheetRow(rideId: _match.ride.rideId),
         ],
-      ),
-    );
-  }
-
-  Widget _roundBtn(IconData icon, VoidCallback onTap, {required String semanticLabel}) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: Material(
-        color: Colors.white,
-        shape: const CircleBorder(),
-        elevation: 2,
-        shadowColor: const Color(0x33000000),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Icon(icon, size: 22, color: const Color(0xFF1D252C)),
-          ),
-        ),
       ),
     );
   }

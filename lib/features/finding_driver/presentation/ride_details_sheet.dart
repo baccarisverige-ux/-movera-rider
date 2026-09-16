@@ -40,7 +40,7 @@ class RideDetailsSheet extends StatelessWidget {
           children: [
             Row(
               children: [
-                const SizedBox(width: 40),
+                const SizedBox(width: 48),
                 Expanded(
                   child: Text(
                     'Ride details',
@@ -55,6 +55,7 @@ class RideDetailsSheet extends StatelessWidget {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded),
+                  tooltip: 'Close',
                 ),
               ],
             ),
@@ -176,7 +177,7 @@ class RideDetailsSheet extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: muted ? const Color(0xFF778189) : const Color(0xFF1D252C),
+            color: muted ? const Color(0xFF5C656C) : const Color(0xFF1D252C),
           ),
         ),
       ],
@@ -220,6 +221,7 @@ class _Stop extends StatelessWidget {
         if (canEdit)
           IconButton(
             onPressed: onEdit,
+            tooltip: pickup ? 'Edit pickup' : 'Add stop',
             icon: Icon(
               pickup ? Icons.edit_outlined : Icons.add,
               size: 18,

@@ -469,6 +469,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
             icon: const Icon(Icons.close_rounded),
             color: _scheduleMuted,
             iconSize: 18,
+            tooltip: 'Remove stop',
           ),
       ],
     );

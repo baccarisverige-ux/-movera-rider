@@ -20,6 +20,7 @@ class ReferAndEarn extends StatelessWidget {
               children: [
                 IconButton(
                   onPressed: () => Navigator.pop(context),
+                  tooltip: 'Back',
                   icon: Icon(
                     Icons.arrow_back_rounded,
                     size: ResSize.h * 20,

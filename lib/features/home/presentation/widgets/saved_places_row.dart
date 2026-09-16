@@ -22,7 +22,11 @@ class SavedPlacesRow extends StatelessWidget {
   final String? homeAddress;
   final String? workAddress;
   final List<SavedPlaceData> savedPlaces;
-  final void Function(String? address, {required String target, String? customType})
+  final void Function(
+    String? address, {
+    required String target,
+    String? customType,
+  })
   onUseSavedPlace;
   final VoidCallback onAddPlace;
 
@@ -129,7 +133,7 @@ class _CustomPlaceCard extends StatelessWidget {
   const _CustomPlaceCard({required this.place, required this.onTap});
 
   static const Color _premiumInk = Color(0xFF1D252C);
-  static const Color _premiumMuted = Color(0xFF778189);
+  static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumAccent = Color(0xFF2D5878);
 
   final SavedPlaceData place;
@@ -200,7 +204,7 @@ class _QuickPlaceCard extends StatelessWidget {
   });
 
   static const Color _premiumInk = Color(0xFF1D252C);
-  static const Color _premiumMuted = Color(0xFF778189);
+  static const Color _premiumMuted = Color(0xFF5C656C);
 
   final String iconAsset;
   final String title;
@@ -242,6 +246,7 @@ class _QuickPlaceCard extends StatelessWidget {
           child: Row(
             children: [
               Image.asset(
+                excludeFromSemantics: true,
                 iconAsset,
                 height: ResSize.h * 12.3,
                 width: ResSize.w * 12.3,

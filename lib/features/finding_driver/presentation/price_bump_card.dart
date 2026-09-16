@@ -93,9 +93,8 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             const Spacer(),
             IconButton(
               onPressed: widget.onKeepWaiting,
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              tooltip: 'Keep waiting',
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: const Icon(
                 Icons.close_rounded,
                 size: 20,
@@ -129,7 +128,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           style: GoogleFonts.poppins(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF778189),
+            color: const Color(0xFF5C656C),
           ),
         ),
         const SizedBox(height: 10),

@@ -10,7 +10,7 @@ class AdvanceBookingCard extends StatelessWidget {
   const AdvanceBookingCard({super.key, required this.onOpenSchedule});
 
   static const Color _premiumInk = Color(0xFF1D252C);
-  static const Color _premiumMuted = Color(0xFF778189);
+  static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumLine = Color(0xFFE7EBEE);
   static const Color _premiumAccent = Color(0xFF2D5878);
 
@@ -49,6 +49,7 @@ class AdvanceBookingCard extends StatelessWidget {
                 width: double.infinity,
                 height: ResSize.h * 142,
                 child: Image.asset(
+                  excludeFromSemantics: true,
                   'assets/images/advance_booking_driver.png',
                   fit: BoxFit.cover,
                   alignment: const Alignment(0, -0.28),

@@ -75,7 +75,7 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                   : 'Optional. This helps us improve matching.',
               style: GoogleFonts.poppins(
                 fontSize: 13,
-                color: const Color(0xFF778189),
+                color: const Color(0xFF5C656C),
               ),
             ),
             const SizedBox(height: 12),

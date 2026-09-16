@@ -8,7 +8,7 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 Future<void> showVoucherUnavailableSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);
-  const muted = Color(0xFF7B8388);
+  const muted = Color(0xFF5C656C);
 
   await MoveraSheet.show<void>(
     context: context,
@@ -72,7 +72,7 @@ class WalletHome extends StatefulWidget {
 
 class _WalletHomeState extends State<WalletHome> {
   static const Color _ink = Color(0xFF11181D);
-  static const Color _muted = Color(0xFF7B8388);
+  static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE6E8E7);
   late final WalletController _wallet = widget.wallet ?? WalletController();
 
@@ -187,7 +187,9 @@ class _WalletHomeState extends State<WalletHome> {
                                 height: 46,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: amount == value ? _ink : const Color(0xFFF4F5F4),
+                                  color: amount == value
+                                      ? _ink
+                                      : const Color(0xFFF4F5F4),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: Text(
@@ -195,7 +197,9 @@ class _WalletHomeState extends State<WalletHome> {
                                   style: _style(
                                     13,
                                     weight: FontWeight.w600,
-                                    color: amount == value ? Colors.white : _ink,
+                                    color: amount == value
+                                        ? Colors.white
+                                        : _ink,
                                   ),
                                 ),
                               ),
@@ -208,8 +212,11 @@ class _WalletHomeState extends State<WalletHome> {
                     const SizedBox(height: 18),
                     Text(
                       'PAY WITH',
-                      style: _style(10, weight: FontWeight.w600, color: _muted)
-                          .copyWith(letterSpacing: 1.2),
+                      style: _style(
+                        10,
+                        weight: FontWeight.w600,
+                        color: _muted,
+                      ).copyWith(letterSpacing: 1.2),
                     ),
                     const SizedBox(height: 6),
                     _fundMethod(
@@ -293,21 +300,39 @@ class _WalletHomeState extends State<WalletHome> {
       child = SvgPicture.asset('assets/images/apple_pay_brand.svg');
       background = Colors.white;
     } else if (brand == 'google') {
-      child = Image.asset('assets/images/google_pay_brand.png');
+      child = Image.asset(
+        excludeFromSemantics: true,
+        'assets/images/google_pay_brand.png',
+      );
       background = Colors.white;
     } else if (brand == 'paypal') {
-      child = Image.asset(AppAssets.paypal);
+      child = Image.asset(excludeFromSemantics: true, AppAssets.paypal);
     } else if (brand == 'klarna') {
       child = SvgPicture.asset('assets/images/klarna_brand.svg');
       background = const Color(0xFFFFB3C7);
     } else if (brand == 'swish') {
-      child = SvgPicture.asset('assets/images/swish_brand.svg', fit: BoxFit.cover);
+      child = SvgPicture.asset(
+        'assets/images/swish_brand.svg',
+        fit: BoxFit.cover,
+      );
     } else {
       child = Row(
         children: [
-          Expanded(child: Image.asset(AppAssets.visa, fit: BoxFit.contain)),
+          Expanded(
+            child: Image.asset(
+              excludeFromSemantics: true,
+              AppAssets.visa,
+              fit: BoxFit.contain,
+            ),
+          ),
           const SizedBox(width: 2),
-          Expanded(child: Image.asset(AppAssets.mastercard, fit: BoxFit.contain)),
+          Expanded(
+            child: Image.asset(
+              excludeFromSemantics: true,
+              AppAssets.mastercard,
+              fit: BoxFit.contain,
+            ),
+          ),
         ],
       );
       background = Colors.white;
@@ -319,7 +344,9 @@ class _WalletHomeState extends State<WalletHome> {
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: background == Colors.white ? _line : background),
+        border: Border.all(
+          color: background == Colors.white ? _line : background,
+        ),
       ),
       child: child,
     );
@@ -365,6 +392,7 @@ class _WalletHomeState extends State<WalletHome> {
                 height: 196,
                 width: double.infinity,
                 child: Image.asset(
+                  excludeFromSemantics: true,
                   'assets/images/wallet_rider_3d.jpg',
                   fit: BoxFit.contain,
                 ),
@@ -404,79 +432,83 @@ class _WalletHomeState extends State<WalletHome> {
                 )
               else
                 Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF11181D), Color(0xFF2D5878)],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF11181D).withValues(alpha: 0.28),
-                      blurRadius: 28,
-                      offset: const Offset(0, 16),
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF11181D), Color(0xFF2D5878)],
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'MOVERA',
-                          style: _style(
-                            11,
-                            weight: FontWeight.w700,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ).copyWith(letterSpacing: 2.2),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          Icons.contactless_rounded,
-                          color: Colors.white.withValues(alpha: 0.86),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'Available balance',
-                      style: _style(
-                        12,
-                        weight: FontWeight.w400,
-                        color: Colors.white.withValues(alpha: 0.72),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF11181D).withValues(alpha: 0.28),
+                        blurRadius: 28,
+                        offset: const Offset(0, 16),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'kr ${_balance.toStringAsFixed(0)}',
-                      style: _style(34, weight: FontWeight.w700, color: Colors.white),
-                    ),
-                    const SizedBox(height: 22),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: FilledButton(
-                        onPressed: _openAddFunds,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: _ink,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'MOVERA',
+                            style: _style(
+                              11,
+                              weight: FontWeight.w700,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ).copyWith(letterSpacing: 2.2),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.contactless_rounded,
+                            color: Colors.white.withValues(alpha: 0.86),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 28),
+                      Text(
+                        'Available balance',
+                        style: _style(
+                          12,
+                          weight: FontWeight.w400,
+                          color: Colors.white.withValues(alpha: 0.72),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'kr ${_balance.toStringAsFixed(0)}',
+                        style: _style(
+                          34,
+                          weight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: FilledButton(
+                          onPressed: _openAddFunds,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: _ink,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text(
+                            'Add funds',
+                            style: _style(14, weight: FontWeight.w700),
                           ),
                         ),
-                        child: Text(
-                          'Add funds',
-                          style: _style(14, weight: FontWeight.w700),
-                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
@@ -518,7 +550,7 @@ class WalletScreen extends StatefulWidget {
 
 class _WalletScreenState extends State<WalletScreen> {
   static const Color _ink = Color(0xFF171C1F);
-  static const Color _muted = Color(0xFF7B8388);
+  static const Color _muted = Color(0xFF5C656C);
   static const Color _surface = Color(0xFFF4F5F4);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
@@ -688,11 +720,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: _muted,
-                size: 21,
-              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted, size: 21),
             ],
           ),
         ),
@@ -733,7 +761,8 @@ class _WalletScreenState extends State<WalletScreen> {
               RegExp(r'[^0-9]'),
               '',
             );
-            final canSave = digits.length >= 12 &&
+            final canSave =
+                digits.length >= 12 &&
                 nameController.text.trim().isNotEmpty &&
                 expiryController.text.trim().isNotEmpty &&
                 cvcController.text.trim().length >= 3;
@@ -824,13 +853,15 @@ class _WalletScreenState extends State<WalletScreen> {
                         child: ElevatedButton(
                           onPressed: canSave
                               ? () => Navigator.pop(
-                                    sheetContext,
-                                    digits.substring(digits.length - 4),
-                                  )
+                                  sheetContext,
+                                  digits.substring(digits.length - 4),
+                                )
                               : null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _ink,
-                            disabledBackgroundColor: _ink.withValues(alpha: 0.16),
+                            disabledBackgroundColor: _ink.withValues(
+                              alpha: 0.16,
+                            ),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -954,11 +985,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   children: [
                     Text(
                       'How would you like\nto pay?',
-                      style: _style(
-                        27,
-                        weight: FontWeight.w700,
-                        height: 1.18,
-                      ),
+                      style: _style(27, weight: FontWeight.w700, height: 1.18),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -1134,20 +1161,13 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: const SizedBox(
                   width: 42,
                   height: 42,
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: _ink,
-                    size: 22,
-                  ),
+                  child: Icon(Icons.arrow_back_rounded, color: _ink, size: 22),
                 ),
               ),
             ),
           ),
           const Spacer(),
-          Text(
-            'Payment',
-            style: _style(13, weight: FontWeight.w600),
-          ),
+          Text('Payment', style: _style(13, weight: FontWeight.w600)),
           const Spacer(),
           const SizedBox(width: 42),
         ],
@@ -1212,11 +1232,7 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  color: selected ? _ink : _muted,
-                  size: 16,
-                ),
+                Icon(icon, color: selected ? _ink : _muted, size: 16),
                 const SizedBox(width: 7),
                 Text(
                   label,
@@ -1318,11 +1334,13 @@ class _WalletScreenState extends State<WalletScreen> {
       );
     } else if (brand == 'google') {
       logo = Image.asset(
+        excludeFromSemantics: true,
         'assets/images/google_pay_brand.png',
         fit: BoxFit.contain,
       );
     } else if (brand == 'paypal') {
       logo = Image.asset(
+        excludeFromSemantics: true,
         AppAssets.paypal,
         fit: BoxFit.contain,
       );
@@ -1337,6 +1355,7 @@ class _WalletScreenState extends State<WalletScreen> {
         children: [
           Expanded(
             child: Image.asset(
+              excludeFromSemantics: true,
               AppAssets.visa,
               fit: BoxFit.contain,
             ),
@@ -1344,6 +1363,7 @@ class _WalletScreenState extends State<WalletScreen> {
           const SizedBox(width: 2),
           Expanded(
             child: Image.asset(
+              excludeFromSemantics: true,
               AppAssets.mastercard,
               fit: BoxFit.contain,
             ),
@@ -1371,6 +1391,7 @@ class _WalletScreenState extends State<WalletScreen> {
       );
     } else {
       logo = Image.asset(
+        excludeFromSemantics: true,
         AppAssets.mastercard,
         fit: BoxFit.contain,
       );
@@ -1390,8 +1411,8 @@ class _WalletScreenState extends State<WalletScreen> {
       child: brand == 'google'
           ? Transform.scale(scale: 1.18, child: logo)
           : brand == 'swish'
-              ? ClipRRect(borderRadius: BorderRadius.circular(4), child: logo)
-              : logo,
+          ? ClipRRect(borderRadius: BorderRadius.circular(4), child: logo)
+          : logo,
     );
   }
 
@@ -1412,16 +1433,9 @@ class _WalletScreenState extends State<WalletScreen> {
               Icon(icon, color: _ink, size: 21),
               const SizedBox(width: 17),
               Expanded(
-                child: Text(
-                  title,
-                  style: _style(12, weight: FontWeight.w600),
-                ),
+                child: Text(title, style: _style(12, weight: FontWeight.w600)),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: _muted,
-                size: 21,
-              ),
+              const Icon(Icons.chevron_right_rounded, color: _muted, size: 21),
             ],
           ),
         ),

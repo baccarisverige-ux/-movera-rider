@@ -33,12 +33,17 @@ class RideCompletedDriverInfo extends StatelessWidget {
             width: ResSize.w * 160,
             child: Stack(
               children: [
-                Image.asset(AppAssets.driverCar, height: ResSize.h * 74),
+                Image.asset(
+                  excludeFromSemantics: true,
+                  AppAssets.driverCar,
+                  height: ResSize.h * 74,
+                ),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Padding(
                     padding: EdgeInsets.only(right: ResSize.w * 7),
                     child: Image.asset(
+                      excludeFromSemantics: true,
                       AppAssets.driverImg,
                       height: ResSize.h * 62,
                     ),

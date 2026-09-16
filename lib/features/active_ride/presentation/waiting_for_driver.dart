@@ -22,8 +22,8 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
-import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -76,7 +76,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
     _sheetSlide = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: MoveraDurations.sheetOpen,
       value: 0,
     );
     _sheetSlide.addListener(_syncSheetOverlay);
@@ -98,6 +98,12 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
+  }
+
   void _loadMarkers() {
     _markers = {
       Marker(
@@ -108,8 +114,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
-        infoWindow:
-            InfoWindow(title: shortPickupPlace(widget.destinationAddress)),
+        infoWindow: InfoWindow(
+          title: shortPickupPlace(widget.destinationAddress),
+        ),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
       if (_tracking.eta?.latitude != null && _tracking.eta?.longitude != null)
@@ -215,8 +222,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
     final range = _maxSheet(media) - _minSheet(media);
     if (range <= 0) return;
-    _sheetSlide.value =
-        (_sheetSlide.value - details.primaryDelta! / range).clamp(0.0, 1.0);
+    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
+        .clamp(0.0, 1.0);
   }
 
   void _onSheetDragEnd(DragEndDetails details) {
@@ -224,10 +231,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final target = velocity < -480
         ? 1.0
         : velocity > 480
-            ? 0.0
-            : _sheetSlide.value >= 0.42
-                ? 1.0
-                : 0.0;
+        ? 0.0
+        : _sheetSlide.value >= 0.42
+        ? 1.0
+        : 0.0;
     _sheetSlide.animateTo(
       target,
       duration: MoveraMotion.of(context, MoveraDurations.large),
@@ -242,9 +249,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
     final subtitle =
         eta?.subtitle(firstName: driver?.firstName, status: _tracking.status) ??
-            (driver == null
-                ? 'Driver details will appear when matching confirms them.'
-                : 'Leave now to meet ${driver.firstName}');
+        (driver == null
+            ? 'Driver details will appear when matching confirms them.'
+            : 'Leave now to meet ${driver.firstName}');
     final media = MediaQuery.of(context);
     const mapReserve = 300.0;
     return PopScope(
@@ -294,10 +301,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               child: PointerInterceptor(
                 child: Row(
                   children: [
-                    _roundBtn(
-                      Icons.keyboard_arrow_down_rounded,
-                      _confirmCancel,
-                      semanticLabel: 'Cancel ride',
+                    MoveraIconButton.round(
+                      icon: Icons.keyboard_arrow_down_rounded,
+                      onPressed: _confirmCancel,
+                      label: 'Cancel ride',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
@@ -309,9 +316,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               right: 12,
               bottom: mapReserve + 16,
               child: PointerInterceptor(
-                child: _roundBtn(
-                  Icons.my_location_rounded,
-                  () {
+                child: MoveraIconButton.round(
+                  icon: Icons.my_location_rounded,
+                  onPressed: () {
                     AppScope.instance.camera.focusOnPickup(
                       GeoPoint(
                         widget.pickupPosition.latitude,
@@ -319,7 +326,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                       ),
                     );
                   },
-                  semanticLabel: 'Recenter map',
+                  label: 'Recenter map',
                 ),
               ),
             ),
@@ -339,7 +346,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
-                      shadowColor: const Color(0xFF162C36).withValues(alpha: 0.14),
+                      shadowColor: const Color(
+                        0xFF162C36,
+                      ).withValues(alpha: 0.14),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(28),
                       ),
@@ -401,7 +410,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: waitingText(14, color: const Color(0xFF778189)),
+                      style: waitingText(14, color: const Color(0xFF5C656C)),
                     ),
                   ],
                 ),
@@ -414,8 +423,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           WaitingDriverCard(
             driver: driver,
             onOpenProfile: _openProfile,
-            onCall: () =>
-                SafetyController.shared.record(SafetyKind.maskedCall),
+            onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
             onMore: _openDetails,
           ),
           const SizedBox(height: 12),
@@ -428,26 +436,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           ),
           WaitingNotesAndPin(notes: widget.notes),
         ],
-      ),
-    );
-  }
-
-  Widget _roundBtn(IconData icon, VoidCallback onTap, {required String semanticLabel}) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: Material(
-        color: Colors.white,
-        shape: const CircleBorder(),
-        elevation: 2,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Icon(icon, size: 22, color: MoveraTokens.ink),
-          ),
-        ),
       ),
     );
   }

@@ -39,6 +39,7 @@ class ReviewChangesPage extends StatelessWidget {
                   Icons.arrow_back_rounded,
                   color: kReservationInk,
                 ),
+                tooltip: 'Back',
               ),
               Expanded(
                 child: Text(

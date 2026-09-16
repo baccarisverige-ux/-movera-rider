@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
+import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 
 /// The menu/account pill in Home's top-right corner.
@@ -18,8 +19,8 @@ class PremiumTopActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: ResSize.h * 50,
-      padding: EdgeInsets.all(ResSize.h * 3),
+      height: MoveraIconButton.minTap + 8,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -86,12 +87,10 @@ class _PremiumTopAction extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(19),
           child: SizedBox(
-            height: ResSize.h * 44,
-            width: ResSize.w * 46,
-            child: Icon(
-              icon,
-              size: ResSize.h * 24,
-              color: const Color(0xFF11181D),
+            height: MoveraIconButton.minTap,
+            width: MoveraIconButton.minTap,
+            child: ExcludeSemantics(
+              child: Icon(icon, size: 24, color: const Color(0xFF11181D)),
             ),
           ),
         ),

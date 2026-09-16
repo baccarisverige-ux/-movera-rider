@@ -15,18 +15,20 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<NotificationItem> notifications =
-        NotificationsController().feed().map((item) {
-      return NotificationItem(
-        icon: item.kind == 'check'
-            ? Icons.check_circle_outline
-            : Icons.directions_car,
-        title: item.title,
-        subtitle: item.subtitle,
-        time: item.time,
-        isRead: item.read,
-      );
-    }).toList();
+    final List<NotificationItem> notifications = NotificationsController()
+        .feed()
+        .map((item) {
+          return NotificationItem(
+            icon: item.kind == 'check'
+                ? Icons.check_circle_outline
+                : Icons.directions_car,
+            title: item.title,
+            subtitle: item.subtitle,
+            time: item.time,
+            isRead: item.read,
+          );
+        })
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColor.secondary,
@@ -41,24 +43,26 @@ class NotificationScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.pop(context);
                   },
+                  tooltip: 'Back',
                   icon: Icon(
                     Icons.arrow_back_rounded,
                     size: ResSize.h * 20,
                     color: AppColor.primary,
                   ),
                 ),
-                TextWidget(
-                  text: 'Notification',
-                  color: AppColor.primary,
-                  fontSize: 18,
-                  fontWeight: fwSemiBold,
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: TextWidget(
+                      text: 'Notification',
+                      color: AppColor.primary,
+                      fontSize: 18,
+                      fontWeight: fwSemiBold,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 ),
-                IconButton(
-                  onPressed: () {},
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  icon: const SizedBox(),
-                ),
+                const SizedBox(width: 48, height: 48),
               ],
             ),
             12.height,

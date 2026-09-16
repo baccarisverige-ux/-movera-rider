@@ -8,7 +8,9 @@ abstract final class MoveraTokens {
   static const Color cta = Color(0xFF11181D);
   static const Color bg = AppColor.bg;
   static const Color line = Color(0xFFE7EBEE);
-  static const Color muted = Color(0xFF7B8388);
+
+  /// Body-text muted grey. 0xFF5C656C is ≥ 4.5:1 on white and on 0xFFF1F5F7.
+  static const Color muted = Color(0xFF5C656C);
   static const double radiusSheet = 28;
   static const double buttonHeight = 56;
   static const Duration motion = Duration(milliseconds: 260);

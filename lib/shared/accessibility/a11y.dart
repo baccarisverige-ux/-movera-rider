@@ -1,4 +1,4 @@
-
 abstract final class A11y {
-  static const minTap = 44.0;
+  /// WCAG 2.5.5 / Android accessibility minimum tap target.
+  static const minTap = 48.0;
 }

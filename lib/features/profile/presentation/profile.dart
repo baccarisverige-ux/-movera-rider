@@ -101,7 +101,11 @@ class RiderProfile extends StatelessWidget {
                   border: Border.all(color: Colors.white, width: 1),
                 ),
                 child: Center(
-                  child: Image.asset(AppAssets.camera, height: ResSize.h * 17),
+                  child: Image.asset(
+                    excludeFromSemantics: true,
+                    AppAssets.camera,
+                    height: ResSize.h * 17,
+                  ),
                 ),
               ),
             ],
@@ -200,9 +204,7 @@ class RiderProfile extends StatelessWidget {
             title: 'Log out',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Demo account stays signed in.'),
-                ),
+                const SnackBar(content: Text('Demo account stays signed in.')),
               );
             },
             isLogout: true,
@@ -228,6 +230,7 @@ class RiderProfile extends StatelessWidget {
             ),
             child: Center(
               child: Image.asset(
+                excludeFromSemantics: true,
                 icon!,
                 height: ResSize.h * 20,
                 color: AppColor.black,

@@ -118,7 +118,11 @@ class RiderSideMenu extends StatelessWidget {
                   width: ResSize.w * 56,
                   height: ResSize.h * 56,
                   child: hasPhoto
-                      ? Image.asset(profile.photoAsset, fit: BoxFit.cover)
+                      ? Image.asset(
+                          excludeFromSemantics: true,
+                          profile.photoAsset,
+                          fit: BoxFit.cover,
+                        )
                       : ColoredBox(
                           color: const Color(0xFFE7EDF1),
                           child: Icon(
@@ -175,57 +179,58 @@ class RiderSideMenu extends StatelessWidget {
   }
 
   Widget _menuCard(BuildContext context) {
-    final items = <({IconData? icon, String? image, String title, VoidCallback onTap})>[
-      (
-        icon: Icons.account_balance_wallet_outlined,
-        image: null,
-        title: 'Wallet',
-        onTap: () => _pushPage(context, const WalletHome()),
-      ),
-      (
-        icon: Icons.history_rounded,
-        image: null,
-        title: 'Ride History',
-        onTap: () => _pushPage(context, RideHistory()),
-      ),
-      (
-        icon: Icons.credit_card_outlined,
-        image: null,
-        title: 'Payments',
-        onTap: () => _pushPage(context, const WalletScreen()),
-      ),
-      (
-        icon: null,
-        image: AppAssets.safetyShield,
-        title: 'Safety',
-        onTap: () => _pushPage(context, const SafetyHub()),
-      ),
-      (
-        icon: Icons.headset_mic_outlined,
-        image: null,
-        title: 'Support',
-        onTap: () => _pushPage(context, const SupportHome()),
-      ),
-      (
-        icon: Icons.mail_outline_rounded,
-        image: null,
-        title: 'Invite Friends',
-        onTap: () => _pushPage(context, const ReferAndEarn()),
-      ),
-      (
-        icon: Icons.info_outline_rounded,
-        image: null,
-        title: 'About',
-        onTap: () => _pushPage(
-          context,
-          const HelpArticle(
-            title: 'About Movera',
-            body:
-                'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+    final items =
+        <({IconData? icon, String? image, String title, VoidCallback onTap})>[
+          (
+            icon: Icons.account_balance_wallet_outlined,
+            image: null,
+            title: 'Wallet',
+            onTap: () => _pushPage(context, const WalletHome()),
           ),
-        ),
-      ),
-    ];
+          (
+            icon: Icons.history_rounded,
+            image: null,
+            title: 'Ride History',
+            onTap: () => _pushPage(context, RideHistory()),
+          ),
+          (
+            icon: Icons.credit_card_outlined,
+            image: null,
+            title: 'Payments',
+            onTap: () => _pushPage(context, const WalletScreen()),
+          ),
+          (
+            icon: null,
+            image: AppAssets.safetyShield,
+            title: 'Safety',
+            onTap: () => _pushPage(context, const SafetyHub()),
+          ),
+          (
+            icon: Icons.headset_mic_outlined,
+            image: null,
+            title: 'Support',
+            onTap: () => _pushPage(context, const SupportHome()),
+          ),
+          (
+            icon: Icons.mail_outline_rounded,
+            image: null,
+            title: 'Invite Friends',
+            onTap: () => _pushPage(context, const ReferAndEarn()),
+          ),
+          (
+            icon: Icons.info_outline_rounded,
+            image: null,
+            title: 'About',
+            onTap: () => _pushPage(
+              context,
+              const HelpArticle(
+                title: 'About Movera',
+                body:
+                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+              ),
+            ),
+          ),
+        ];
 
     return _cardSurface(
       child: Column(
@@ -275,7 +280,11 @@ class RiderSideMenu extends StatelessWidget {
                 width: ResSize.w * 26,
                 height: ResSize.h * 26,
                 child: image != null
-                    ? Image.asset(image, fit: BoxFit.contain)
+                    ? Image.asset(
+                        excludeFromSemantics: true,
+                        image,
+                        fit: BoxFit.contain,
+                      )
                     : Icon(icon, size: 22 * ResSize.h, color: _icon),
               ),
               16.width,
@@ -330,7 +339,11 @@ class RiderSideMenu extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Image.asset(AppAssets.logo, height: ResSize.h * 18),
+          Image.asset(
+            excludeFromSemantics: true,
+            AppAssets.logo,
+            height: ResSize.h * 18,
+          ),
           8.width,
           TextWidget(
             text: 'Movera Rider',
