@@ -42,6 +42,7 @@ class FindingDriverController {
   StreamSubscription<RideRealtimeEvent>? _sub;
   bool _assigned = false;
   bool _cancelled = false;
+  bool _terminated = false;
   bool _disposed = false;
   bool _delayedLogged = false;
   bool _bumpDismissed = false;
@@ -49,6 +50,7 @@ class FindingDriverController {
   int _lastSequence = -1;
   RideSnapshot? _snapshot;
   void Function()? _onMatched;
+  void Function(RideStatus status)? _onTerminal;
   void Function(int elapsed)? _onTick;
   int timeoutLogs = 0;
   int elapsedSeconds = 0;
@@ -62,7 +64,11 @@ class FindingDriverController {
   int get matchCount => _assigned ? 1 : 0;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
   bool get showPriceBump =>
-      isDelayed && !_bumpDismissed && !_assigned && !_cancelled;
+      isDelayed &&
+      !_bumpDismissed &&
+      !_assigned &&
+      !_cancelled &&
+      !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
   SearchCopy get copy => SearchCopy.forElapsed(elapsedSeconds);
 
@@ -79,6 +85,7 @@ class FindingDriverController {
     RideNotes notes = RideNotes.empty,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
+    void Function(RideStatus status)? onTerminal,
   }) {
     start(
       snapshot: RideSnapshot(
@@ -98,6 +105,7 @@ class FindingDriverController {
       ),
       onTick: onTick,
       onMatched: onMatched,
+      onTerminal: onTerminal,
     );
   }
 
@@ -106,13 +114,16 @@ class FindingDriverController {
     required RideSnapshot snapshot,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
+    void Function(RideStatus status)? onTerminal,
   }) {
     active = this;
     _snapshot = snapshot;
     _onMatched = onMatched;
+    _onTerminal = onTerminal;
     _onTick = onTick;
     _assigned = false;
     _cancelled = false;
+    _terminated = false;
     _disposed = false;
     _delayedLogged = false;
     _bumpDismissed = false;
@@ -131,7 +142,7 @@ class FindingDriverController {
     _evaluatePhase();
     _onTick?.call(elapsedSeconds);
     _tick = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_disposed || _assigned || _cancelled) {
+      if (_disposed || _assigned || _cancelled || _terminated) {
         timer.cancel();
         return;
       }
@@ -141,11 +152,15 @@ class FindingDriverController {
     });
     final rideId = snapshot.rideId ?? ride.rideId ?? 'ride';
     _sub = _realtime.subscribe(rideId).listen((event) {
-      if (_disposed || _cancelled) return;
+      if (_disposed || _cancelled || _terminated) return;
       if (event.sequence < _lastSequence) return;
       if (_assigned && event.status == RideStatus.driverAssigned) return;
       _lastSequence = event.sequence;
       if (event.driver != null) matchedDriver = event.driver;
+      if (event.status.isTerminal) {
+        unawaited(_completeTerminal(event.status));
+        return;
+      }
       if (event.status == RideStatus.driverAssigned || event.status.isMatched) {
         _completeAssigned();
       }
@@ -166,7 +181,7 @@ class FindingDriverController {
   }
 
   void debugAdvance(int seconds) {
-    if (_disposed || _assigned || _cancelled) return;
+    if (_disposed || _assigned || _cancelled || _terminated) return;
     elapsedSeconds += seconds;
     _evaluatePhase();
     _onTick?.call(elapsedSeconds);
@@ -174,7 +189,7 @@ class FindingDriverController {
   }
 
   void _evaluatePhase() {
-    if (_assigned || _cancelled || _disposed) return;
+    if (_assigned || _cancelled || _terminated || _disposed) return;
     if (!isDelayed) return;
     if (!_delayedLogged) {
       _delayedLogged = true;
@@ -209,7 +224,7 @@ class FindingDriverController {
           )
           .whereType<NearbyVehicle>()
           .toList();
-      if (_disposed) return;
+      if (_disposed || _terminated) return;
       _onTick?.call(elapsedSeconds);
     } catch (_) {
       nearby = const [];
@@ -217,7 +232,9 @@ class FindingDriverController {
   }
 
   Future<bool> confirmPriceIncrease(int kr) async {
-    if (_assigned || _cancelled || _disposed || kr <= 0) return false;
+    if (_assigned || _cancelled || _terminated || _disposed || kr <= 0) {
+      return false;
+    }
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
@@ -231,6 +248,7 @@ class FindingDriverController {
     } catch (_) {
       return false;
     }
+    if (_terminated || _cancelled || _disposed) return false;
     _priceUpdated = true;
     _bumpDismissed = true;
     offerConfirmation = 'Updated offer: ${next.round()} kr';
@@ -244,17 +262,18 @@ class FindingDriverController {
   }
 
   void dismissPriceBump() {
+    if (_terminated) return;
     _bumpDismissed = true;
     _onTick?.call(elapsedSeconds);
     _reportQa();
   }
 
   void _completeAssigned() {
-    if (_assigned || _cancelled || _disposed) return;
+    if (_assigned || _cancelled || _terminated || _disposed) return;
     _assigned = true;
     final snapshot = _snapshot;
     final matched = _onMatched;
-    if (_cancelled || _disposed) return;
+    if (_cancelled || _terminated || _disposed) return;
     ride.restoreFromBackend(RideStatus.driverAssigned);
     Analytics.driverFound(rideId: ride.rideId);
     if (_cancelled || _disposed) {
@@ -262,6 +281,7 @@ class FindingDriverController {
       unawaited(_store.clear());
       return;
     }
+    if (_terminated) return;
     unawaited(_persistAssigned(snapshot, matched));
   }
 
@@ -279,6 +299,10 @@ class FindingDriverController {
         ),
       );
     }
+    if (_terminated) {
+      await _store.clear();
+      return;
+    }
     if (_cancelled || _disposed) {
       ride.restoreFromBackend(RideStatus.cancelledByRider);
       await _store.clear();
@@ -288,8 +312,34 @@ class FindingDriverController {
     matched?.call();
   }
 
+  Future<void> _completeTerminal(RideStatus status) async {
+    if (_terminated || _cancelled || _disposed || !status.isTerminal) return;
+    _terminated = true;
+    _onMatched = null;
+    _tick?.cancel();
+    _tick = null;
+    await _sub?.cancel();
+    _sub = null;
+    ride.restoreFromBackend(status, id: _snapshot?.rideId ?? ride.rideId);
+
+    final snapshot = _snapshot;
+    if (snapshot != null &&
+        (status == RideStatus.cancelledByDriver ||
+            status == RideStatus.cancelledBySystem)) {
+      try {
+        await OnDemandRideHistoryStore.archive(
+          snapshot,
+          terminalStatus: status,
+        );
+      } catch (_) {}
+    }
+    await _store.clear();
+    _reportQa();
+    if (!_disposed) _onTerminal?.call(status);
+  }
+
   Future<void> cancelSearch({String? reasonId}) async {
-    if (_cancelled || _disposed) return;
+    if (_cancelled || _terminated || _disposed) return;
     _cancelled = true;
     _onMatched = null;
     _tick?.cancel();
@@ -332,7 +382,7 @@ class FindingDriverController {
 
   Future<void> resync() async {
     final id = _snapshot?.rideId;
-    if (id == null || _cancelled || _disposed) return;
+    if (id == null || _cancelled || _terminated || _disposed) return;
     await _realtime.reconnectAndResync(id);
   }
 
@@ -345,6 +395,8 @@ class FindingDriverController {
     'headline': copy.headline,
     'rideId': _snapshot?.rideId ?? ride.rideId,
     'assigned': _assigned,
+    'terminated': _terminated,
+    'status': ride.status.name,
     'offerConfirmation': offerConfirmation,
     'nearby': nearby.length,
   };
