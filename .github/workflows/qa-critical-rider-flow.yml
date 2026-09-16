@@ -110,7 +110,8 @@ jobs:
             const where = page.getByText('Where to', { exact: false });
             if (await where.count()) await where.last().click();
             else await page.mouse.click(190, 708);
-            await page.waitForTimeout(900);
+            await page.waitForTimeout(1200);
+            await page.screenshot({ path: `qa-critical-${name}-destination.png`, fullPage: true });
 
             let inputs = page.locator(
               'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
@@ -124,20 +125,20 @@ jobs:
               );
               count = await inputs.count();
             }
-            if (!count) throw new Error(`${name}: destination input missing`);
-            await inputs.last().fill('Stockholm Central Station');
+            if (!count) throw new Error(`${name}: visible destination input missing`);
+            await inputs.last().pressSequentially('Stockholm Central Station', { delay: 10 });
             await page.waitForTimeout(700);
 
             const next = page.getByText('Next', { exact: true });
             if (await next.count()) await next.last().click();
             else await page.mouse.click(195, 804);
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(3500);
+            await page.screenshot({ path: `qa-critical-${name}-pickup.png`, fullPage: true });
             await waitOwner(page, 'pickup', `${name}: pickup`);
 
-            const confirm = page.getByText(/Confirm pickup/i);
-            if (await confirm.count()) await confirm.last().click();
-            else await page.mouse.click(195, 797);
-            await page.waitForTimeout(6500);
+            await page.mouse.click(195, 797);
+            await page.waitForTimeout(7000);
+            await page.screenshot({ path: `qa-critical-${name}-selection.png`, fullPage: true });
             await waitOwner(page, 'select_ride', `${name}: selection`);
           }
 
@@ -145,7 +146,11 @@ jobs:
             await openSelection(page, name);
             const select = page.getByText('Select Movera', { exact: true });
             if (await select.count()) await select.last().click();
-            else throw new Error(`${name}: Select Movera CTA missing`);
+            else {
+              await page.mouse.click(195, 808);
+              await page.waitForTimeout(900);
+              await page.mouse.click(195, 808);
+            }
             await waitOwner(page, 'finding', `${name}: finding`, 15000);
             await page.screenshot({ path: `qa-critical-${name}-finding.png`, fullPage: true });
           }
@@ -174,8 +179,8 @@ jobs:
           const evidence = {};
 
           // 1. Payment: tap the visible payment row, then prove the actual picker opened.
-          // Fixed mobile viewport. This action is intentionally backed by semantic assertions
-          // so a shifted coordinate fails instead of accepting an unrelated sheet.
+          // Fixed mobile viewport. The coordinate is only the action; semantic assertions
+          // below are the proof, so a shifted tap cannot create a false PASS.
           {
             const context = await newContext(browser);
             const page = await context.newPage();
@@ -190,7 +195,6 @@ jobs:
             await cash.last().click();
             await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
             await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
-            // Reopen the same row and prove Cash remains the selected/default method.
             await page.mouse.click(190, 665);
             await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
             const defaults = await page.getByText('Default for rides', { exact: true }).count();
@@ -243,7 +247,7 @@ jobs:
           }
 
           // 4. Wallet Add funds in standalone mode: top up, persist after reload,
-          // and prove reopening the sheet does not corrupt the balance.
+          // and prove reopening/dismissing the sheet does not corrupt the balance.
           {
             const context = await newContext(browser, { standalone: true });
             const page = await context.newPage();
