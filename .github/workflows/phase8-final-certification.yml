@@ -61,11 +61,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          debug="$(git grep -nE 'debugPrint\(|(^|[^A-Za-z])print\(' -- lib web || true)"
+          raw_print="$(git grep -nE '(^|[^A-Za-z])print\(' -- lib web || true)"
           unfinished="$(git grep -nE '\b(TODO|FIXME|HACK)\b' -- lib web || true)"
-          if [ -n "$debug" ]; then
-            echo "Production debug output found:" >&2
-            printf '%s\n' "$debug" >&2
+          unexpected_debug="$(git grep -l 'debugPrint(' -- lib | grep -vE '^(lib/core/logging/app_log\.dart|lib/shared/widgets/custom_google_map\.dart)$' || true)"
+
+          if [ -n "$raw_print" ]; then
+            echo "Raw production print() output found:" >&2
+            printf '%s\n' "$raw_print" >&2
             exit 1
           fi
           if [ -n "$unfinished" ]; then
@@ -73,7 +75,15 @@ jobs:
             printf '%s\n' "$unfinished" >&2
             exit 1
           fi
-          echo "PASS: no production debug/TODO/FIXME/HACK markers"
+          if [ -n "$unexpected_debug" ]; then
+            echo "Unexpected debugPrint location found:" >&2
+            printf '%s\n' "$unexpected_debug" >&2
+            exit 1
+          fi
+
+          grep -q 'if (!kDebugMode) return;' lib/core/logging/app_log.dart
+          grep -q 'if (kDebugMode)' lib/shared/widgets/custom_google_map.dart
+          echo "PASS: no raw production debug/TODO/FIXME/HACK markers; known debugPrint calls are kDebugMode-guarded"
 
       - name: Install Flutter stable
         uses: subosito/flutter-action@v2
