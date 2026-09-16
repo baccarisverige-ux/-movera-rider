@@ -4,10 +4,11 @@ import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 void main() {
-  test('demo assignment is after the delayed price offer', () {
+  test('demo assignment normally happens before long-search price offer', () {
     final rt = MockRideRealtime();
-    expect(SearchCopy.delayedAfter, const Duration(seconds: 2));
+    expect(SearchCopy.delayedAfter, const Duration(seconds: 60));
     expect(rt.assignAfter, const Duration(seconds: 25));
+    expect(rt.assignAfter, lessThan(SearchCopy.delayedAfter));
     rt.dispose();
   });
 
