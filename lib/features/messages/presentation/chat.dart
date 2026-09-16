@@ -27,11 +27,20 @@ class _ChatState extends State<Chat> {
   @override
   void initState() {
     super.initState();
-    _messageController.addListener(() {
-      setState(() {
-        showSendIcon = _messageController.text.isNotEmpty;
-      });
+    _messageController.addListener(_onMessageChanged);
+  }
+
+  void _onMessageChanged() {
+    setState(() {
+      showSendIcon = _messageController.text.isNotEmpty;
     });
+  }
+
+  @override
+  void dispose() {
+    _messageController.removeListener(_onMessageChanged);
+    _messageController.dispose();
+    super.dispose();
   }
 
   // Function to send message

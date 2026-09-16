@@ -238,6 +238,7 @@ class _NoteTile extends StatelessWidget {
                         height: 64,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
+                        cacheWidth: 192,
                       ),
                     ),
                     const SizedBox(height: 8),

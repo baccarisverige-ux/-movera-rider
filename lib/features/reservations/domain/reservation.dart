@@ -320,7 +320,7 @@ class Reservation {
         categoryName: (map['categoryName'] as String?) ?? 'Movera',
         categoryImage:
             (map['categoryImage'] as String?) ??
-            'assets/images/rides/movera.png',
+            'assets/images/rides/movera.webp',
         passengerCount: (map['passengerCount'] as num?)?.toInt() ?? 4,
         price: (map['price'] as num?)?.toDouble() ?? 0,
         currency: (map['currency'] as String?) ?? 'SEK',

@@ -55,7 +55,7 @@ void main() {
         'phone': '+46 70 123 45 67',
         'gender': 'Man',
         'language': 'English',
-        'photoAsset': 'assets/images/profile_img.png',
+        'photoAsset': 'assets/images/profile_img.webp',
         'passwordUpdatedAt': '2025-11-04T00:00:00.000',
         'appleConnected': true,
         'logins': [

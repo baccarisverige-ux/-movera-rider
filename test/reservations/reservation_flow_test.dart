@@ -47,7 +47,7 @@ void main() {
         ),
         categoryId: 'movera',
         categoryName: 'Movera',
-        categoryImage: 'assets/images/rides/movera.png',
+        categoryImage: 'assets/images/rides/movera.webp',
         price: 522,
         paymentMethod: 'Cash',
         note: 'Bags · Pet',
@@ -247,7 +247,7 @@ void main() {
       destination: const ReservationPlace(label: 'Bromma'),
       categoryId: 'comfort',
       categoryName: 'Comfort',
-      categoryImage: 'assets/images/rides/comfort.png',
+      categoryImage: 'assets/images/rides/comfort.webp',
       price: 562,
       paymentMethod: 'Cash',
     );

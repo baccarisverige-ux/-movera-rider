@@ -32,7 +32,7 @@ class AppAssets {
   static const String driverIcon = 'assets/icons/driver_icon.png';
   static const String calendar2 = 'assets/icons/calendar2.png';
   static const String scheduleCalendar =
-      'assets/icons/schedule_calendar_v3.png';
+      'assets/icons/schedule_calendar_v3.webp';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';
@@ -99,72 +99,43 @@ class AppAssets {
       'assets/icons/pin_verification_tool.png';
 
   // Images
-  static const String logo = 'assets/images/logo.png';
-  static const String onboarding_1 = 'assets/images/onboarding_1.png';
-  static const String onboarding_2 = 'assets/images/onboarding_2.png';
-  static const String starterImg = 'assets/images/starter_img.png';
-  static const String phoneSigninBg = 'assets/images/phone_signin_bg.png';
-  static const String phoneSigninImg = 'assets/images/phone_signin_img.png';
-  static const String map = 'assets/images/map.png';
-  static const String selectedLocation = 'assets/images/selected_location.png';
+  static const String logo = 'assets/images/logo.webp';
   static const String mini = 'assets/images/mini.png';
   static const String ecoFriendly = 'assets/images/eco_friendly.png';
   static const String xl = 'assets/images/xl.png';
   static const String luxury = 'assets/images/luxury.png';
-  static const String profileImg = 'assets/images/profile_img.png';
-  static const String comfortRide = 'assets/images/comfort_ride.png';
-  static const String w8Driver = 'assets/images/w8_driver.png';
+  static const String profileImg = 'assets/images/profile_img.webp';
+  static const String comfortRide = 'assets/images/comfort_ride.webp';
   static const String eyeEmoji = 'assets/images/eye_emoji.png';
-  static const String driverCar = 'assets/images/driver_car.png';
-  static const String driverImg = 'assets/images/driver_img.png';
-  static const String hisImg = 'assets/images/his_img.png';
+  static const String driverCar = 'assets/images/driver_car.webp';
+  static const String driverImg = 'assets/images/driver_img.webp';
   static const String chatProf1 = 'assets/images/chat_prof1.png';
   static const String chatProf2 = 'assets/images/chat_prof2.png';
   static const String calender = 'assets/images/calender.png';
-  static const String car = 'assets/images/car.png';
-  static const String driversImages = 'assets/images/drivers_images.png';
   static const String cash = 'assets/images/cash.png';
   static const String mastercard = 'assets/images/mastercard.png';
   static const String applepay = 'assets/images/applepay.png';
   static const String paypal = 'assets/images/paypal.png';
-  static const String scheduleRideCar = 'assets/images/schedule_ride_car.png';
+  static const String scheduleRideCar = 'assets/images/schedule_ride_car.webp';
   static const String scheduleTimeline =
       'assets/images/schedule_timeline_white_v2.png';
-  static const String rideSummaryImg = 'assets/images/ride_summary_img.png';
-  static const String rideSummaryCar = 'assets/images/ride_summary_car.png';
-  static const String rideConfirmedImg = 'assets/images/ride_confirmed_img.png';
-  static const String getStartedDriver = 'assets/images/get_started_driver.png';
   static const String homeImage1 = 'assets/images/home_image2.png';
-  static const String homeImage2 = 'assets/images/home_image1.png';
   static const String homeImage3 = 'assets/images/home_image3.png';
   static const String sucess = 'assets/images/sucess.png';
-  static const String profileCar = 'assets/images/profile_car.png';
-  static const String vehicle1 = 'assets/images/vehicle1.png';
-  static const String vehicle2 = 'assets/images/vehicle2.png';
-  static const String promoCardBg = 'assets/images/promo_card_bg.png';
   static const String promoCardImg = 'assets/images/promo_card_img.png';
   static const String percentage = 'assets/images/percentage.png';
-  static const String promoCard2Img = 'assets/images/promo_card2_img.png';
-  static const String promoCard2Bg = 'assets/images/promo_card2_bg.png';
-  static const String promoMapimg = 'assets/images/promo_mapimg.png';
-  static const String earningStatsCardImg =
-      'assets/images/earning_stats_card_img.png';
-  static const String pinVerification = 'assets/images/pin_verification.png';
+  static const String pinVerification = 'assets/images/pin_verification.webp';
   static const String verify = 'assets/images/verify.png';
-  static const String noteBags = 'assets/images/notes/bags.png';
-  static const String notePet = 'assets/images/notes/pet.png';
-  static const String noteBaby = 'assets/images/notes/baby.png';
-  static const String noteChild = 'assets/images/notes/child.png';
+  static const String noteBags = 'assets/images/notes/bags.webp';
+  static const String notePet = 'assets/images/notes/pet.webp';
+  static const String noteBaby = 'assets/images/notes/baby.webp';
+  static const String noteChild = 'assets/images/notes/child.webp';
   static const String verifyCrntSession =
       'assets/images/verify_crnt_session.png';
   static const String dontVerify = 'assets/images/dont_verify.png';
   static const String scanCard = 'assets/images/scan_card.png';
-  static const String id = 'assets/images/id.png';
   static const String circleGrow = 'assets/images/circle_grow.json';
   static const String queue = 'assets/images/queue.png';
-  static const String destinationSelected =
-      'assets/images/destination_selected.png';
-  static const String direction = 'assets/images/direction.png';
   static const String dropOff = 'assets/images/drop_off.png';
   static const String cancelRideImg = 'assets/images/cancel_ride_img.png';
   static const String cancelRide = 'assets/images/cancel_ride.png';

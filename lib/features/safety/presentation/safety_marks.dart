@@ -7,7 +7,7 @@ class SafetyMarks {
   static const share = 'assets/icons/safety_mark_share.png';
   static const rideCheck = 'assets/icons/safety_mark_ridecheck.png';
   static const tips = 'assets/icons/safety_mark_tips.png';
-  static const protect = 'assets/icons/safety_mark_protect.png';
+  static const protect = 'assets/icons/safety_mark_protect.webp';
 }
 
 class SafetyMark extends StatelessWidget {

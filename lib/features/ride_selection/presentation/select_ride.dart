@@ -1146,6 +1146,7 @@ class _SelectRideState extends State<SelectRide>
                           ride.image,
                           fit: BoxFit.contain,
                           filterQuality: FilterQuality.high,
+                          cacheWidth: 216,
                           errorBuilder: (_, __, ___) => const Icon(
                             Icons.directions_car_filled_rounded,
                             color: _muted,

@@ -38,7 +38,7 @@ class MockRideRealtime implements RideRealtime {
 
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
-    if (_rideId == rideId && !disposed && !cancelled && lastStatus.isMatched) {
+    if (_rideId == rideId && !disposed && !cancelled) {
       return _controller.stream;
     }
     _assign?.cancel();

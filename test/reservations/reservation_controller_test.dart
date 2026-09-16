@@ -20,7 +20,7 @@ void main() {
     destination: const ReservationPlace(label: 'T-Centralen'),
     categoryId: 'comfort',
     categoryName: 'Comfort',
-    categoryImage: 'assets/images/rides/comfort.png',
+    categoryImage: 'assets/images/rides/comfort.webp',
     price: 339,
     paymentMethod: 'Cash',
   );
@@ -109,7 +109,7 @@ void main() {
       scheduledPickupAt: DateTime(2026, 9, 24, 18, 30),
       categoryId: 'xl',
       categoryName: 'Movera XL',
-      categoryImage: 'assets/images/rides/xl.png',
+      categoryImage: 'assets/images/rides/xl.webp',
       passengerCount: 6,
       price: 399,
       note: 'Bags · Pet',

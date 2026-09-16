@@ -78,7 +78,7 @@ void main() {
         destination: const ReservationPlace(label: 'Arlanda Express'),
         categoryId: 'movera',
         categoryName: 'Movera',
-        categoryImage: 'assets/images/rides/movera.png',
+        categoryImage: 'assets/images/rides/movera.webp',
         price: 522,
         paymentMethod: 'Wallet',
       ),

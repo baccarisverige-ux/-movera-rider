@@ -65,7 +65,7 @@ void main() {
       destination: ReservationPlace(label: destination),
       categoryId: 'movera',
       categoryName: 'Movera',
-      categoryImage: 'assets/images/rides/movera.png',
+      categoryImage: 'assets/images/rides/movera.webp',
       price: 259,
       paymentMethod: 'Apple Pay',
       status: status,

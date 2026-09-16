@@ -293,39 +293,42 @@ Future<String?> showAccountTextEditor(
   return MoveraSheet.show<String>(
     context: context,
     builder: (context) {
-      return Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          8,
-          20,
-          16 + MediaQuery.paddingOf(context).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: accountText(22, weight: FontWeight.w700)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              keyboardType: keyboard,
-              autofocus: true,
-              style: accountText(16),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: kAccountSoft,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+      return MoveraSheetDisposables(
+        disposables: [controller],
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            8,
+            20,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: accountText(22, weight: FontWeight.w700)),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                keyboardType: keyboard,
+                autofocus: true,
+                style: accountText(16),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: kAccountSoft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            AccountFillButton(
-              label: 'Save',
-              onTap: () => Navigator.pop(context, controller.text.trim()),
-            ),
-          ],
+              const SizedBox(height: 16),
+              AccountFillButton(
+                label: 'Save',
+                onTap: () => Navigator.pop(context, controller.text.trim()),
+              ),
+            ],
+          ),
         ),
       );
     },

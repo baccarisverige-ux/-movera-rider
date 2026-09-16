@@ -12,7 +12,8 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
-import 'package:movera_rider/shared/services/device_heading.dart' as heading_service;
+import 'package:movera_rider/shared/services/device_heading.dart'
+    as heading_service;
 
 class DetectedLocation {
   const DetectedLocation({
@@ -29,8 +30,9 @@ class DetectedLocation {
 }
 
 /// Owns GPS, motion, heading blend, reverse geocode, and map overlay sets.
-/// Home only paints.
-class HomeLocationController {
+/// Home only paints. Overlay changes notify so the map layer can rebuild
+/// without the rest of the Home tree.
+class HomeLocationController extends ChangeNotifier {
   HomeLocationController({
     required this.location,
     required this.geocoding,
@@ -38,9 +40,9 @@ class HomeLocationController {
     Future<bool> Function()? startCompass,
     double? Function()? readCompass,
     void Function()? stopCompass,
-  })  : _startCompass = startCompass ?? heading_service.startHeadingTracking,
-        _readCompass = readCompass ?? heading_service.currentHeading,
-        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking;
+  }) : _startCompass = startCompass ?? heading_service.startHeadingTracking,
+       _readCompass = readCompass ?? heading_service.currentHeading,
+       _stopCompass = stopCompass ?? heading_service.stopHeadingTracking;
 
   final LocationRepository location;
   final AppGeocoding geocoding;
@@ -90,7 +92,9 @@ class HomeLocationController {
     if (!_geoGuard.isCurrent(generation) || result == null) return null;
     return (
       point: LatLng(result.latitude, result.longitude),
-      address: result.address.trim().isNotEmpty ? result.address.trim() : address,
+      address: result.address.trim().isNotEmpty
+          ? result.address.trim()
+          : address,
     );
   }
 
@@ -150,30 +154,30 @@ class HomeLocationController {
       accuracy: LocationAccuracy.bestForNavigation,
       distanceFilter: 1,
     );
-    _positionSub = location.getPositionStream(locationSettings: settings).listen(
-      (position) {
-        if (!isMounted()) return;
-        final pose = motion.ingest(
-          LocationPoint(
-            point: GeoPoint(position.latitude, position.longitude),
-            timestamp: position.timestamp,
-            accuracyMeters: position.accuracy,
-            speedMps: position.speed,
-            heading: position.heading,
-          ),
-        );
-        final latLng = pose == null
-            ? LatLng(position.latitude, position.longitude)
-            : LatLng(pose.position.latitude, pose.position.longitude);
-        if (!hasCompassHeading &&
-            position.heading.isFinite &&
-            position.heading >= 0) {
-          heading = position.heading;
-          reportPuckHeading(heading, compass: false);
-        }
-        onFix(latLng, heading);
-      },
-    );
+    _positionSub = location
+        .getPositionStream(locationSettings: settings)
+        .listen((position) {
+          if (!isMounted()) return;
+          final pose = motion.ingest(
+            LocationPoint(
+              point: GeoPoint(position.latitude, position.longitude),
+              timestamp: position.timestamp,
+              accuracyMeters: position.accuracy,
+              speedMps: position.speed,
+              heading: position.heading,
+            ),
+          );
+          final latLng = pose == null
+              ? LatLng(position.latitude, position.longitude)
+              : LatLng(pose.position.latitude, pose.position.longitude);
+          if (!hasCompassHeading &&
+              position.heading.isFinite &&
+              position.heading >= 0) {
+            heading = position.heading;
+            reportPuckHeading(heading, compass: false);
+          }
+          onFix(latLng, heading);
+        });
   }
 
   /// Requests compass permission, then polls heading. Returns whether the
@@ -276,6 +280,7 @@ class HomeLocationController {
     markers = {};
     locationCircles = {};
     locationDirection = {};
+    notifyListeners();
   }
 
   void paintUserPuck({
@@ -296,8 +301,10 @@ class HomeLocationController {
         zIndexInt: 20,
       ),
     };
+    notifyListeners();
   }
 
+  @override
   void dispose() {
     _positionSub?.cancel();
     _headingTimer?.cancel();
@@ -308,5 +315,6 @@ class HomeLocationController {
     _compassStarted = false;
     _headingStartInFlight = null;
     hasCompassHeading = false;
+    super.dispose();
   }
 }

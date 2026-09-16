@@ -88,7 +88,7 @@ void main() {
       ),
       categoryId: 'movera',
       categoryName: 'Movera',
-      categoryImage: 'assets/images/rides/movera.png',
+      categoryImage: 'assets/images/rides/movera.webp',
       price: 522,
       paymentMethod: 'Cash',
       status: ReservationStatus.scheduled,
