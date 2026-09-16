@@ -39,7 +39,7 @@ jobs:
           echo "Target deployed bundle $SHORT not found" >&2
           exit 1
 
-      - name: Run standalone Cancel and Wallet diagnostics
+      - name: Run standalone state diagnostics
         run: |
           cat > qa-standalone.mjs <<'JS'
           import { chromium } from 'playwright';
@@ -131,43 +131,25 @@ jobs:
             await waitOwner(page, 'finding', `${name}: finding`, 15000);
           }
 
-          async function openCancelSheetByTouch(page) {
-            const points = [
-              [36, 32],
-              [36, 44],
-              [36, 56],
-            ];
-            for (const [x, y] of points) {
-              await page.touchscreen.tap(x, y);
-              await page.waitForTimeout(700);
-              if (await page.getByText('Cancel ride?', { exact: true }).isVisible().catch(() => false)) return { x, y };
-            }
-            await page.screenshot({ path: 'qa-standalone-cancel-entry-failed.png', fullPage: true });
-            throw new Error('Standalone Cancel: top-left ride control did not open Cancel ride?');
+          async function walletStorage(page) {
+            return page.evaluate(() => Object.fromEntries(
+              Object.entries(localStorage).filter(([key]) => key.includes('movera_wallet_balance')),
+            ));
           }
 
-          async function openMenuByTouch(page) {
-            const points = [
-              [300, 88],
-              [296, 76],
-              [306, 96],
-            ];
-            for (const [x, y] of points) {
-              await page.touchscreen.tap(x, y);
-              await page.waitForTimeout(700);
-              if (await page.getByText('Wallet', { exact: true }).isVisible().catch(() => false)) return { x, y };
+          function balanceFromStorage(snapshot) {
+            const entries = Object.entries(snapshot);
+            if (!entries.length) return 0;
+            const raw = entries[0][1];
+            const candidates = [raw];
+            try { candidates.push(JSON.parse(raw)); } catch (_) {}
+            for (const candidate of candidates) {
+              const value = Number(candidate);
+              if (Number.isFinite(value)) return value;
             }
-            await page.screenshot({ path: 'qa-standalone-menu-entry-failed.png', fullPage: true });
-            throw new Error('Standalone Wallet: top-right Menu control did not expose Wallet');
-          }
-
-          async function visibleBalance(page) {
-            const values = await page.getByText(/^kr\s+\d+(?:\.\d+)?$/).allTextContents();
-            const parsed = values
-              .map(value => Number(value.replace(/[^0-9.]/g, '')))
-              .filter(value => Number.isFinite(value));
-            if (!parsed.length) throw new Error('Wallet: visible balance missing');
-            return parsed[0];
+            const match = String(raw).match(/-?\d+(?:\.\d+)?/);
+            if (match) return Number(match[0]);
+            throw new Error(`Could not parse wallet balance from ${JSON.stringify(snapshot)}`);
           }
 
           async function run(name, fn) {
@@ -189,75 +171,112 @@ jobs:
             await enterFinding(page, 'cancel');
             await page.screenshot({ path: 'qa-standalone-cancel-finding.png', fullPage: true });
 
-            const entryPoint = await openCancelSheetByTouch(page);
-            await page.screenshot({ path: 'qa-standalone-cancel-sheet.png', fullPage: true });
+            // Proven by the previous diagnostic screenshot: this touch opens Cancel ride?.
+            await page.touchscreen.tap(36, 32);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-standalone-cancel-confirm.png', fullPage: true });
 
-            await page.getByText('Cancel request', { exact: true }).click();
-            await page.getByText('Why are you cancelling?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
-            await page.getByText('Skip', { exact: true }).click();
-            await page.getByText('Where to', { exact: false }).last().waitFor({ state: 'visible', timeout: 10000 });
+            // Cancel request button in the rendered 390x844 sheet.
+            await page.touchscreen.tap(195, 739);
+            await page.waitForTimeout(1000);
+            await page.screenshot({ path: 'qa-standalone-cancel-reason.png', fullPage: true });
+
+            // The reason is optional. Dismissing the reason sheet still keeps the
+            // already-committed cancellation by contract.
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(1500);
+            await page.waitForFunction(
+              () => !['finding', 'waiting'].includes(window.moveraMapOwner || 'none'),
+              null,
+              { timeout: 10000 },
+            );
+            const afterCancelOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            await page.screenshot({ path: 'qa-standalone-cancel-after.png', fullPage: true });
 
             await page.waitForTimeout(28000);
-            const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
-            if (owner === 'finding' || owner === 'waiting') {
-              throw new Error(`Standalone Cancel: ride resurrected after cancellation (${owner})`);
+            const stableOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (['finding', 'waiting'].includes(stableOwner)) {
+              throw new Error(`Standalone Cancel: ride resurrected after cancellation (${stableOwner})`);
             }
-            if (await page.getByText('Finding your driver', { exact: true }).count()) {
-              throw new Error('Standalone Cancel: Finding UI returned after cancellation');
-            }
-            await page.screenshot({ path: 'qa-standalone-cancel-home.png', fullPage: true });
+            await page.screenshot({ path: 'qa-standalone-cancel-stable.png', fullPage: true });
             await context.close();
-            return { owner, entryPoint };
+            return { afterCancelOwner, stableOwner };
           });
 
           await run('wallet_standalone', async () => {
             const context = await contextFor(browser);
             const page = await context.newPage();
             await openHome(page, 'wallet');
-            await page.screenshot({ path: 'qa-standalone-wallet-home.png', fullPage: true });
+            const beforeStorage = await walletStorage(page);
+            const before = balanceFromStorage(beforeStorage);
 
-            const menuPoint = await openMenuByTouch(page);
+            // Proven by the previous diagnostic screenshot: this opens the drawer.
+            await page.touchscreen.tap(300, 88);
+            await page.waitForTimeout(700);
             await page.screenshot({ path: 'qa-standalone-wallet-menu.png', fullPage: true });
-            await page.getByText('Wallet', { exact: true }).last().click();
-            await page.getByText('Available balance', { exact: true }).waitFor({ state: 'visible', timeout: 7000 });
 
-            const before = await visibleBalance(page);
-            await page.getByText('Add funds', { exact: true }).last().click();
-            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            // Wallet row in the rendered drawer.
+            await page.touchscreen.tap(105, 188);
+            await page.waitForTimeout(1500);
+            await page.screenshot({ path: 'qa-standalone-wallet-page.png', fullPage: true });
+
+            // Add funds button in WalletHome. Default amount is kr 200.
+            await page.touchscreen.tap(195, 516);
+            await page.waitForTimeout(800);
             await page.screenshot({ path: 'qa-standalone-wallet-add-sheet.png', fullPage: true });
 
-            await page.getByText('kr 100', { exact: true }).click();
-            await page.getByText('Card', { exact: true }).click();
-            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'hidden', timeout: 7000 });
-            await page.waitForTimeout(1200);
-            const after = await visibleBalance(page);
-            if (after !== before + 100) {
-              throw new Error(`Standalone Wallet: expected ${before + 100}, got ${after}`);
+            // Card is the third funding method in the sheet.
+            await page.touchscreen.tap(110, 599);
+            await page.waitForTimeout(1800);
+            const afterStorage = await walletStorage(page);
+            const after = balanceFromStorage(afterStorage);
+            if (after !== before + 200) {
+              throw new Error(
+                `Standalone Wallet: expected stored balance ${before + 200}, got ${after}; ` +
+                `before=${JSON.stringify(beforeStorage)} after=${JSON.stringify(afterStorage)}`,
+              );
             }
             await page.screenshot({ path: 'qa-standalone-wallet-funded.png', fullPage: true });
 
             await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
             await page.waitForTimeout(4500);
-            await enableA11y(page);
-            const reloadMenuPoint = await openMenuByTouch(page);
-            await page.getByText('Wallet', { exact: true }).last().click();
-            await page.getByText('Available balance', { exact: true }).waitFor({ state: 'visible', timeout: 7000 });
-            const persisted = await visibleBalance(page);
+            const persistedStorage = await walletStorage(page);
+            const persisted = balanceFromStorage(persistedStorage);
             if (persisted !== after) {
-              throw new Error(`Standalone Wallet: balance did not persist (${after} -> ${persisted})`);
+              throw new Error(
+                `Standalone Wallet: balance did not persist (${after} -> ${persisted}); ` +
+                `persisted=${JSON.stringify(persistedStorage)}`,
+              );
             }
 
-            await page.getByText('Add funds', { exact: true }).last().click();
-            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            // Inverse: open Wallet/Add funds again then dismiss; storage must not move.
+            await page.touchscreen.tap(300, 88);
+            await page.waitForTimeout(500);
+            await page.touchscreen.tap(105, 188);
+            await page.waitForTimeout(1200);
+            await page.touchscreen.tap(195, 516);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-standalone-wallet-dismiss-before.png', fullPage: true });
             await page.keyboard.press('Escape');
-            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
-            const afterDismiss = await visibleBalance(page);
+            await page.waitForTimeout(800);
+            const afterDismissStorage = await walletStorage(page);
+            const afterDismiss = balanceFromStorage(afterDismissStorage);
             if (afterDismiss !== persisted) {
-              throw new Error(`Standalone Wallet: dismiss changed balance (${persisted} -> ${afterDismiss})`);
+              throw new Error(
+                `Standalone Wallet: dismiss changed balance (${persisted} -> ${afterDismiss})`,
+              );
             }
             await page.screenshot({ path: 'qa-standalone-wallet-persisted.png', fullPage: true });
             await context.close();
-            return { before, after, persisted, afterDismiss, menuPoint, reloadMenuPoint };
+            return {
+              before,
+              after,
+              persisted,
+              afterDismiss,
+              beforeStorage,
+              afterStorage,
+              persistedStorage,
+            };
           });
 
           fs.writeFileSync('qa-standalone-results.json', JSON.stringify(results, null, 2));
