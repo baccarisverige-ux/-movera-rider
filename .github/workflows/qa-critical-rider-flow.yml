@@ -201,7 +201,7 @@ jobs:
           async function runScenario(name, fn) {
             try {
               const value = await fn();
-              evidence[name] = { status: 'PASS', ...value };
+              evidence[name] = { ...value, status: 'PASS' };
               console.log(`PASS ${name}`);
             } catch (error) {
               evidence[name] = { status: 'FAIL', error: String(error?.stack || error) };
@@ -211,8 +211,6 @@ jobs:
 
           const browser = await chromium.launch({ headless: true });
 
-          // Payment: select Cash through the real picker, then prove the booking
-          // snapshot carries Cash. No fragile Flutter text assertion is used.
           await runScenario('payment', async () => {
             const context = await newContext(browser);
             const page = await context.newPage();
@@ -234,10 +232,9 @@ jobs:
             }
             await page.screenshot({ path: 'qa-critical-payment-finding.png', fullPage: true });
             await context.close();
-            return { paymentMethod: snapshot.paymentMethod, status: snapshot.status };
+            return { paymentMethod: snapshot.paymentMethod, rideStatus: snapshot.status };
           });
 
-          // Finding must genuinely advance to the matched Waiting surface.
           await runScenario('finding_waiting', async () => {
             const context = await newContext(browser);
             const page = await context.newPage();
@@ -251,9 +248,6 @@ jobs:
             return { owner };
           });
 
-          // Standalone/Home-Screen Cancel: use the real touch targets, commit the
-          // cancellation, dismiss the optional reason sheet, and prove the ride
-          // stays Home after the old assignment timer would have fired.
           await runScenario('cancel_standalone', async () => {
             const context = await newContext(browser, { standalone: true });
             const page = await context.newPage();
@@ -290,8 +284,6 @@ jobs:
             return { afterCancelOwner, stableOwner };
           });
 
-          // Standalone Wallet: prove real storage mutation, persistence after a
-          // reload, and the inverse that dismissing Add funds changes nothing.
           await runScenario('wallet_standalone', async () => {
             const context = await newContext(browser, { standalone: true });
             const page = await context.newPage();
@@ -310,7 +302,6 @@ jobs:
             await page.waitForTimeout(800);
             await page.screenshot({ path: 'qa-critical-wallet-add-sheet.png', fullPage: true });
 
-            // Default top-up amount is kr 200; Card is the third funding method.
             await page.touchscreen.tap(110, 599);
             await page.waitForTimeout(1800);
             const afterStorage = await walletStorage(page);
