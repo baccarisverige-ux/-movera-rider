@@ -129,6 +129,14 @@ class RideRestoreCoordinator {
     if (snapshot == null || surface == RestoredSurface.home) {
       return const Home();
     }
+    // Rebuilding the screen is not enough: the ride's identity lives in
+    // AppScope, and a cold restore starts with it empty. Without this the
+    // restored search has no rideId, so Cancel reaches no ride to cancel and
+    // raising the offer refuses because it cannot name the ride it belongs to.
+    AppScope.instance.ride.restoreFromBackend(
+      snapshot.status,
+      id: snapshot.rideId,
+    );
     final pickup = LatLng(snapshot.pickupLat, snapshot.pickupLng);
     final drop = LatLng(snapshot.destinationLat, snapshot.destinationLng);
     switch (surface) {
