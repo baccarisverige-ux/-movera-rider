@@ -1,0 +1,222 @@
+name: QA critical Rider flow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - '.github/workflows/qa-critical-rider-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  critical-rider-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Wait for this exact Pages build
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          for i in $(seq 1 48); do
+            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
+              echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Exact deployed bundle for $SHORT was not found" >&2
+          exit 1
+
+      - name: Payment, Finding to Waiting, and real Cancel
+        run: |
+          cat > qa-critical.mjs <<'JS'
+          import { chromium } from 'playwright';
+          import fs from 'fs';
+
+          const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
+
+          async function enableA11y(page) {
+            try {
+              await page.getByLabel('Enable accessibility').click({ timeout: 2500 });
+            } catch (_) {}
+            await page.waitForTimeout(400);
+          }
+
+          async function waitOwner(page, expected, label, timeout = 15000) {
+            await page.waitForFunction(
+              owner => window.moveraMapOwner === owner,
+              expected,
+              { timeout },
+            ).catch(async error => {
+              const actual = await page.evaluate(() => window.moveraMapOwner || 'none');
+              throw new Error(`${label}: expected map owner ${expected}, got ${actual}`, { cause: error });
+            });
+          }
+
+          async function newContext(browser, { standalone = false } = {}) {
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            if (standalone) {
+              await context.addInitScript(() => {
+                Object.defineProperty(navigator, 'standalone', {
+                  configurable: true,
+                  get: () => true,
+                });
+              });
+            }
+            return context;
+          }
+
+          async function openSelection(page, name) {
+            const errors = [];
+            page.on('pageerror', error => errors.push(String(error)));
+            await page.goto(base + `?critical=${name}&v=${Date.now()}`, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(4500);
+            await enableA11y(page);
+
+            const where = page.getByText('Where to', { exact: false });
+            if (await where.count()) await where.last().click();
+            else await page.mouse.click(190, 708);
+            await page.waitForTimeout(900);
+
+            let inputs = page.locator(
+              'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
+            );
+            let count = await inputs.count().catch(() => 0);
+            if (!count) {
+              await page.mouse.click(185, 274);
+              await page.waitForTimeout(400);
+              inputs = page.locator(
+                'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
+              );
+              count = await inputs.count();
+            }
+            if (!count) throw new Error(`${name}: destination input missing`);
+            await inputs.last().fill('Stockholm Central Station');
+            await page.waitForTimeout(700);
+
+            const next = page.getByText('Next', { exact: true });
+            if (await next.count()) await next.last().click();
+            else await page.mouse.click(195, 804);
+            await page.waitForTimeout(3000);
+            await waitOwner(page, 'pickup', `${name}: pickup`);
+
+            const confirm = page.getByText(/Confirm pickup/i);
+            if (await confirm.count()) await confirm.last().click();
+            else await page.mouse.click(195, 797);
+            await page.waitForTimeout(6500);
+            await waitOwner(page, 'select_ride', `${name}: selection`);
+
+            if (errors.length) throw new Error(`${name}: page errors: ${errors.join(' | ')}`);
+          }
+
+          async function enterFinding(page, name) {
+            await openSelection(page, name);
+            const select = page.getByText('Select Movera', { exact: true });
+            if (await select.count()) await select.last().click();
+            else throw new Error(`${name}: Select Movera CTA missing`);
+            await waitOwner(page, 'finding', `${name}: finding`, 15000);
+            await page.screenshot({ path: `qa-critical-${name}-finding.png`, fullPage: true });
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          const evidence = {};
+
+          // 1. Payment must open the actual payment picker, not an unrelated sheet.
+          {
+            const context = await newContext(browser);
+            const page = await context.newPage();
+            await openSelection(page, 'payment');
+            const apple = page.getByText('Apple Pay', { exact: true });
+            if (!(await apple.count())) throw new Error('Payment: Apple Pay summary missing');
+            await apple.last().click();
+            await page.getByText('Payment', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            const cash = page.getByText('Cash', { exact: true });
+            if (!(await cash.count())) throw new Error('Payment: Cash option missing from real picker');
+            await page.screenshot({ path: 'qa-critical-payment-picker.png', fullPage: true });
+            await cash.last().click();
+            await page.getByText('Payment', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
+            const selectedCash = page.getByText('Cash', { exact: true });
+            if (!(await selectedCash.count())) throw new Error('Payment: Cash was not selected on ride screen');
+            await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
+            evidence.payment = 'pass';
+            await context.close();
+          }
+
+          // 2. Finding must really transition to Waiting after the 25 s mock assignment.
+          {
+            const context = await newContext(browser);
+            const page = await context.newPage();
+            await enterFinding(page, 'waiting');
+            await waitOwner(page, 'waiting', 'Finding to Waiting', 45000);
+            const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (owner !== 'waiting') throw new Error(`Finding to Waiting: got ${owner}`);
+            await page.screenshot({ path: 'qa-critical-waiting.png', fullPage: true });
+            evidence.waiting = owner;
+            await context.close();
+          }
+
+          // 3. Real cancel in standalone/Home-Screen mode must end on Home and stay there.
+          {
+            const context = await newContext(browser, { standalone: true });
+            const page = await context.newPage();
+            await enterFinding(page, 'cancel-standalone');
+            const cancelEntry = page.getByLabel('Collapse');
+            if (!(await cancelEntry.count())) throw new Error('Cancel: Finding control missing');
+            await cancelEntry.last().click();
+            await page.getByText('Cancel ride?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            await page.getByText('Cancel request', { exact: true }).click();
+            await page.getByText('Why are you cancelling?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            await page.getByText('Skip', { exact: true }).click();
+
+            await page.getByText('Where to', { exact: false }).last().waitFor({ state: 'visible', timeout: 10000 });
+            await page.waitForTimeout(28000);
+            const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (owner === 'finding' || owner === 'waiting') {
+              throw new Error(`Cancel: ride resurrected after cancellation (${owner})`);
+            }
+            if (await page.getByText('Finding your driver', { exact: true }).count()) {
+              throw new Error('Cancel: Finding UI returned after cancellation');
+            }
+            await page.screenshot({ path: 'qa-critical-cancel-home.png', fullPage: true });
+            evidence.cancel = { standalone: true, owner };
+            await context.close();
+          }
+
+          fs.writeFileSync('qa-critical-result.json', JSON.stringify(evidence, null, 2));
+          await browser.close();
+          console.log('PASS: real Payment picker, Finding to Waiting, and standalone Cancel to Home');
+          JS
+          node qa-critical.mjs
+
+      - name: Upload critical-flow evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-critical-rider-flow
+          path: |
+            qa-critical-*.png
+            qa-critical-*.json
+          if-no-files-found: warn

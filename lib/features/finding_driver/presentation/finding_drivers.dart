@@ -100,6 +100,16 @@ class _FindingDriversState extends State<FindingDrivers>
         if (!mounted || _leaving || _cancelSheetOpen) return;
         _openWaiting();
       },
+      onTerminal: (status) {
+        if (!mounted || _leaving) return;
+        _leaving = true;
+        setState(() {});
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            RideNavigator.home(context, status: status);
+          }
+        });
+      },
     );
   }
 

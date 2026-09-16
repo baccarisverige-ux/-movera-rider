@@ -273,7 +273,7 @@ void main() {
     final ride = RideSession()..rideId = 'r1';
     final controller = controllerOf(rt, ride);
     controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
-    controller.debugAdvance(2);
+    controller.debugAdvance(60);
     expect(controller.isDelayed, isTrue);
     expect(controller.copy.headline, "It's busier than usual");
     expect(controller.matchCount, 0);
