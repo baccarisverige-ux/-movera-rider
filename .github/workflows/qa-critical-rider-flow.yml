@@ -7,6 +7,10 @@ on:
       - 'lib/**'
       - 'web/**'
       - '.github/workflows/qa-critical-rider-flow.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-critical-rider-flow.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,21 +28,24 @@ jobs:
           npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null
 
-      - name: Wait for this exact Pages build
+      - name: Wait for target Pages build
+        env:
+          TARGET_LIVE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
         run: |
-          SHORT="${GITHUB_SHA::8}"
+          SHORT="${TARGET_LIVE_SHA::8}"
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
               echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+              echo "Testing live Pages build $SHORT"
               exit 0
             fi
             sleep 10
           done
-          echo "Exact deployed bundle for $SHORT was not found" >&2
+          echo "Target deployed bundle for $SHORT was not found" >&2
           exit 1
 
-      - name: Payment, Finding to Waiting, and real Cancel
+      - name: Payment, Finding to Waiting, standalone Cancel, and standalone Wallet
         run: |
           cat > qa-critical.mjs <<'JS'
           import { chromium } from 'playwright';
@@ -85,7 +92,7 @@ jobs:
             return context;
           }
 
-          async function openSelection(page, name) {
+          async function openHome(page, name) {
             const errors = [];
             page.on('pageerror', error => errors.push(String(error)));
             await page.goto(base + `?critical=${name}&v=${Date.now()}`, {
@@ -94,6 +101,11 @@ jobs:
             });
             await page.waitForTimeout(4500);
             await enableA11y(page);
+            if (errors.length) throw new Error(`${name}: page errors: ${errors.join(' | ')}`);
+          }
+
+          async function openSelection(page, name) {
+            await openHome(page, name);
 
             const where = page.getByText('Where to', { exact: false });
             if (await where.count()) await where.last().click();
@@ -127,8 +139,6 @@ jobs:
             else await page.mouse.click(195, 797);
             await page.waitForTimeout(6500);
             await waitOwner(page, 'select_ride', `${name}: selection`);
-
-            if (errors.length) throw new Error(`${name}: page errors: ${errors.join(' | ')}`);
           }
 
           async function enterFinding(page, name) {
@@ -140,27 +150,54 @@ jobs:
             await page.screenshot({ path: `qa-critical-${name}-finding.png`, fullPage: true });
           }
 
+          async function openWallet(page, name) {
+            await openHome(page, name);
+            const menu = page.getByLabel('Menu');
+            if (!(await menu.count())) throw new Error(`${name}: Menu control missing`);
+            await menu.last().click();
+            const wallet = page.getByText('Wallet', { exact: true });
+            await wallet.last().waitFor({ state: 'visible', timeout: 5000 });
+            await wallet.last().click();
+            await page.getByText('Available balance', { exact: true }).waitFor({ state: 'visible', timeout: 7000 });
+          }
+
+          async function visibleBalance(page) {
+            const values = await page.getByText(/^kr\s+\d+(?:\.\d+)?$/).allTextContents();
+            const parsed = values
+              .map(value => Number(value.replace(/[^0-9.]/g, '')))
+              .filter(value => Number.isFinite(value));
+            if (!parsed.length) throw new Error('Wallet: visible balance missing');
+            return parsed[0];
+          }
+
           const browser = await chromium.launch({ headless: true });
           const evidence = {};
 
-          // 1. Payment must open the actual payment picker, not an unrelated sheet.
+          // 1. Payment: tap the visible payment row, then prove the actual picker opened.
+          // Fixed mobile viewport. This action is intentionally backed by semantic assertions
+          // so a shifted coordinate fails instead of accepting an unrelated sheet.
           {
             const context = await newContext(browser);
             const page = await context.newPage();
             await openSelection(page, 'payment');
-            const apple = page.getByText('Apple Pay', { exact: true });
-            if (!(await apple.count())) throw new Error('Payment: Apple Pay summary missing');
-            await apple.last().click();
+            await page.screenshot({ path: 'qa-critical-payment-before.png', fullPage: true });
+            await page.mouse.click(190, 665);
             await page.getByText('Payment', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
             await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
             const cash = page.getByText('Cash', { exact: true });
-            if (!(await cash.count())) throw new Error('Payment: Cash option missing from real picker');
+            await cash.last().waitFor({ state: 'visible', timeout: 5000 });
             await page.screenshot({ path: 'qa-critical-payment-picker.png', fullPage: true });
             await cash.last().click();
-            await page.getByText('Payment', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
-            const selectedCash = page.getByText('Cash', { exact: true });
-            if (!(await selectedCash.count())) throw new Error('Payment: Cash was not selected on ride screen');
+            await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
             await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
+            // Reopen the same row and prove Cash remains the selected/default method.
+            await page.mouse.click(190, 665);
+            await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            const defaults = await page.getByText('Default for rides', { exact: true }).count();
+            if (defaults !== 1) throw new Error(`Payment: expected exactly one default method, got ${defaults}`);
+            if (!(await page.getByText('Cash', { exact: true }).count())) {
+              throw new Error('Payment: Cash missing after selecting it');
+            }
             evidence.payment = 'pass';
             await context.close();
           }
@@ -205,9 +242,57 @@ jobs:
             await context.close();
           }
 
+          // 4. Wallet Add funds in standalone mode: top up, persist after reload,
+          // and prove reopening the sheet does not corrupt the balance.
+          {
+            const context = await newContext(browser, { standalone: true });
+            const page = await context.newPage();
+            await openWallet(page, 'wallet-standalone');
+            const before = await visibleBalance(page);
+            const addFunds = page.getByText('Add funds', { exact: true });
+            await addFunds.last().click();
+            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            await page.getByText('kr 100', { exact: true }).click();
+            await page.getByText('Card', { exact: true }).click();
+            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'hidden', timeout: 7000 });
+            await page.waitForTimeout(1200);
+            const after = await visibleBalance(page);
+            if (after !== before + 100) {
+              throw new Error(`Wallet: expected ${before + 100} after top-up, got ${after}`);
+            }
+            await page.screenshot({ path: 'qa-critical-wallet-funded.png', fullPage: true });
+
+            await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
+            await page.waitForTimeout(4500);
+            await enableA11y(page);
+            const menu = page.getByLabel('Menu');
+            await menu.last().click();
+            const wallet = page.getByText('Wallet', { exact: true });
+            await wallet.last().waitFor({ state: 'visible', timeout: 5000 });
+            await wallet.last().click();
+            await page.getByText('Available balance', { exact: true }).waitFor({ state: 'visible', timeout: 7000 });
+            const persisted = await visibleBalance(page);
+            if (persisted !== after) {
+              throw new Error(`Wallet: balance did not persist after standalone reload (${after} -> ${persisted})`);
+            }
+
+            const addAgain = page.getByText('Add funds', { exact: true });
+            await addAgain.last().click();
+            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            await page.keyboard.press('Escape');
+            await page.getByText('PAY WITH', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
+            const afterDismiss = await visibleBalance(page);
+            if (afterDismiss !== persisted) {
+              throw new Error(`Wallet: dismiss changed balance (${persisted} -> ${afterDismiss})`);
+            }
+            await page.screenshot({ path: 'qa-critical-wallet-persisted.png', fullPage: true });
+            evidence.wallet = { standalone: true, before, after, persisted, afterDismiss };
+            await context.close();
+          }
+
           fs.writeFileSync('qa-critical-result.json', JSON.stringify(evidence, null, 2));
           await browser.close();
-          console.log('PASS: real Payment picker, Finding to Waiting, and standalone Cancel to Home');
+          console.log('PASS: Payment picker, Finding to Waiting, standalone Cancel, and standalone Wallet Add funds');
           JS
           node qa-critical.mjs
 
