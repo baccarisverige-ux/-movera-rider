@@ -12,6 +12,7 @@ class RideDetailsSheet extends StatelessWidget {
     required this.paymentMethod,
     required this.notes,
     required this.canEditPickup,
+    this.canEditDestination = false,
     required this.onEditPickup,
     required this.onEditDestination,
     required this.onCancelTrip,
@@ -24,6 +25,7 @@ class RideDetailsSheet extends StatelessWidget {
   final String paymentMethod;
   final RideNotes notes;
   final bool canEditPickup;
+  final bool canEditDestination;
   final VoidCallback onEditPickup;
   final VoidCallback onEditDestination;
   final VoidCallback onCancelTrip;
@@ -74,7 +76,7 @@ class RideDetailsSheet extends StatelessWidget {
             _Stop(
               pickup: false,
               address: destinationAddress,
-              canEdit: canEditPickup,
+              canEdit: canEditDestination,
               onEdit: onEditDestination,
             ),
             const SizedBox(height: 16),
