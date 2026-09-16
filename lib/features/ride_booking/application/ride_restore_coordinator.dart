@@ -8,6 +8,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
+import 'package:movera_rider/core/web/web_standalone.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -59,7 +60,14 @@ class RideRestoreCoordinator {
 
   /// Public GitHub Pages has no QA hooks. A leftover mock snapshot must not
   /// open Driver found / Finding when someone taps the live link.
-  static bool defaultSkipRestore() => kIsWeb && !moveraQaHooksEnabled;
+  ///
+  /// An installed PWA is the exception: it is the rider's own app, not a link
+  /// a stranger tapped, so its ride must survive a reload. iOS in particular
+  /// evicts standalone web apps aggressively — a system permission dialog
+  /// alone can terminate and reload the app mid-booking — and dropping the
+  /// search there stranded riders on Home.
+  static bool defaultSkipRestore() =>
+      kIsWeb && !moveraQaHooksEnabled && !isInstalledWebApp();
 
   void goHome() {
     // Deliberately back to Home: nothing to explain on the next load.
