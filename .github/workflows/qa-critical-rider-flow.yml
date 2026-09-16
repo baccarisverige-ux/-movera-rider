@@ -7,6 +7,10 @@ on:
       - 'lib/**'
       - 'web/**'
       - '.github/workflows/qa-critical-rider-flow.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/qa-critical-rider-flow.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,32 +28,34 @@ jobs:
           npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
           npx playwright install --with-deps chromium >/dev/null
 
-      - name: Wait for this exact Pages build
+      - name: Wait for target Pages build
+        env:
+          TARGET_LIVE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.sha }}
         run: |
-          SHORT="${GITHUB_SHA::8}"
+          SHORT="${TARGET_LIVE_SHA::8}"
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
               echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+              echo "Testing live Pages build $SHORT"
               exit 0
             fi
             sleep 10
           done
-          echo "Exact deployed bundle for $SHORT was not found" >&2
+          echo "Target deployed bundle for $SHORT was not found" >&2
           exit 1
 
-      - name: Payment, Finding to Waiting, and real Cancel
+      - name: Payment, Finding to Waiting, standalone Cancel, and standalone Wallet
         run: |
           cat > qa-critical.mjs <<'JS'
           import { chromium } from 'playwright';
           import fs from 'fs';
 
           const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
+          const evidence = {};
 
           async function enableA11y(page) {
-            try {
-              await page.getByLabel('Enable accessibility').click({ timeout: 2500 });
-            } catch (_) {}
+            try { await page.getByLabel('Enable accessibility').click({ timeout: 2500 }); } catch (_) {}
             await page.waitForTimeout(400);
           }
 
@@ -85,7 +91,7 @@ jobs:
             return context;
           }
 
-          async function openSelection(page, name) {
+          async function openHome(page, name) {
             const errors = [];
             page.on('pageerror', error => errors.push(String(error)));
             await page.goto(base + `?critical=${name}&v=${Date.now()}`, {
@@ -94,11 +100,15 @@ jobs:
             });
             await page.waitForTimeout(4500);
             await enableA11y(page);
+            if (errors.length) throw new Error(`${name}: page errors: ${errors.join(' | ')}`);
+          }
 
+          async function openSelection(page, name) {
+            await openHome(page, name);
             const where = page.getByText('Where to', { exact: false });
             if (await where.count()) await where.last().click();
             else await page.mouse.click(190, 708);
-            await page.waitForTimeout(900);
+            await page.waitForTimeout(1200);
 
             let inputs = page.locator(
               'input:not([type="submit"]):not([type="hidden"]):visible, textarea:visible',
@@ -112,102 +122,235 @@ jobs:
               );
               count = await inputs.count();
             }
-            if (!count) throw new Error(`${name}: destination input missing`);
-            await inputs.last().fill('Stockholm Central Station');
+            if (!count) throw new Error(`${name}: visible destination input missing`);
+            await inputs.last().pressSequentially('Stockholm Central Station', { delay: 10 });
             await page.waitForTimeout(700);
 
             const next = page.getByText('Next', { exact: true });
             if (await next.count()) await next.last().click();
             else await page.mouse.click(195, 804);
-            await page.waitForTimeout(3000);
+            await page.waitForTimeout(3500);
             await waitOwner(page, 'pickup', `${name}: pickup`);
 
-            const confirm = page.getByText(/Confirm pickup/i);
-            if (await confirm.count()) await confirm.last().click();
-            else await page.mouse.click(195, 797);
-            await page.waitForTimeout(6500);
+            await page.mouse.click(195, 797);
+            await page.waitForTimeout(7000);
             await waitOwner(page, 'select_ride', `${name}: selection`);
+          }
 
-            if (errors.length) throw new Error(`${name}: page errors: ${errors.join(' | ')}`);
+          async function bookFromSelection(page, name) {
+            const select = page.getByText('Select Movera', { exact: true });
+            if (await select.count()) await select.last().click();
+            else {
+              await page.mouse.click(195, 808);
+              await page.waitForTimeout(900);
+              await page.mouse.click(195, 808);
+            }
+            await waitOwner(page, 'finding', `${name}: finding`, 15000);
           }
 
           async function enterFinding(page, name) {
             await openSelection(page, name);
-            const select = page.getByText('Select Movera', { exact: true });
-            if (await select.count()) await select.last().click();
-            else throw new Error(`${name}: Select Movera CTA missing`);
-            await waitOwner(page, 'finding', `${name}: finding`, 15000);
-            await page.screenshot({ path: `qa-critical-${name}-finding.png`, fullPage: true });
+            await bookFromSelection(page, name);
+          }
+
+          function decodeStoredJson(raw) {
+            let value = raw;
+            for (let i = 0; i < 3 && typeof value === 'string'; i++) {
+              try {
+                const decoded = JSON.parse(value);
+                if (decoded === value) break;
+                value = decoded;
+              } catch (_) {
+                break;
+              }
+            }
+            return value;
+          }
+
+          async function activeRideSnapshot(page) {
+            const raw = await page.evaluate(() => localStorage.getItem('flutter.movera_active_ride'));
+            if (raw == null) throw new Error('Active ride snapshot missing from localStorage');
+            const decoded = decodeStoredJson(raw);
+            if (!decoded || typeof decoded !== 'object') {
+              throw new Error(`Active ride snapshot malformed: ${raw}`);
+            }
+            return decoded;
+          }
+
+          async function walletStorage(page) {
+            return page.evaluate(() => Object.fromEntries(
+              Object.entries(localStorage).filter(([key]) => key.includes('movera_wallet_balance')),
+            ));
+          }
+
+          function balanceFromStorage(snapshot) {
+            const entries = Object.entries(snapshot);
+            if (!entries.length) return 0;
+            const raw = entries[0][1];
+            const candidates = [raw];
+            try { candidates.push(JSON.parse(raw)); } catch (_) {}
+            for (const candidate of candidates) {
+              const value = Number(candidate);
+              if (Number.isFinite(value)) return value;
+            }
+            const match = String(raw).match(/-?\d+(?:\.\d+)?/);
+            if (match) return Number(match[0]);
+            throw new Error(`Could not parse wallet balance from ${JSON.stringify(snapshot)}`);
+          }
+
+          async function runScenario(name, fn) {
+            try {
+              const value = await fn();
+              evidence[name] = { ...value, status: 'PASS' };
+              console.log(`PASS ${name}`);
+            } catch (error) {
+              evidence[name] = { status: 'FAIL', error: String(error?.stack || error) };
+              console.error(`FAIL ${name}:`, error);
+            }
           }
 
           const browser = await chromium.launch({ headless: true });
-          const evidence = {};
 
-          // 1. Payment must open the actual payment picker, not an unrelated sheet.
-          {
+          await runScenario('payment', async () => {
             const context = await newContext(browser);
             const page = await context.newPage();
             await openSelection(page, 'payment');
-            const apple = page.getByText('Apple Pay', { exact: true });
-            if (!(await apple.count())) throw new Error('Payment: Apple Pay summary missing');
-            await apple.last().click();
-            await page.getByText('Payment', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
-            await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
-            const cash = page.getByText('Cash', { exact: true });
-            if (!(await cash.count())) throw new Error('Payment: Cash option missing from real picker');
-            await page.screenshot({ path: 'qa-critical-payment-picker.png', fullPage: true });
-            await cash.last().click();
-            await page.getByText('Payment', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
-            const selectedCash = page.getByText('Cash', { exact: true });
-            if (!(await selectedCash.count())) throw new Error('Payment: Cash was not selected on ride screen');
-            await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
-            evidence.payment = 'pass';
-            await context.close();
-          }
+            await page.screenshot({ path: 'qa-critical-payment-before.png', fullPage: true });
 
-          // 2. Finding must really transition to Waiting after the 25 s mock assignment.
-          {
+            await page.touchscreen.tap(350, 666);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-critical-payment-picker.png', fullPage: true });
+
+            await page.touchscreen.tap(180, 792);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
+
+            await bookFromSelection(page, 'payment');
+            const snapshot = await activeRideSnapshot(page);
+            if (snapshot.paymentMethod !== 'Cash') {
+              throw new Error(`Payment: expected ride snapshot Cash, got ${snapshot.paymentMethod}`);
+            }
+            await page.screenshot({ path: 'qa-critical-payment-finding.png', fullPage: true });
+            await context.close();
+            return { paymentMethod: snapshot.paymentMethod, rideStatus: snapshot.status };
+          });
+
+          await runScenario('finding_waiting', async () => {
             const context = await newContext(browser);
             const page = await context.newPage();
             await enterFinding(page, 'waiting');
+            await page.screenshot({ path: 'qa-critical-waiting-finding.png', fullPage: true });
             await waitOwner(page, 'waiting', 'Finding to Waiting', 45000);
             const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
             if (owner !== 'waiting') throw new Error(`Finding to Waiting: got ${owner}`);
             await page.screenshot({ path: 'qa-critical-waiting.png', fullPage: true });
-            evidence.waiting = owner;
             await context.close();
-          }
+            return { owner };
+          });
 
-          // 3. Real cancel in standalone/Home-Screen mode must end on Home and stay there.
-          {
+          await runScenario('cancel_standalone', async () => {
             const context = await newContext(browser, { standalone: true });
             const page = await context.newPage();
             await enterFinding(page, 'cancel-standalone');
-            const cancelEntry = page.getByLabel('Collapse');
-            if (!(await cancelEntry.count())) throw new Error('Cancel: Finding control missing');
-            await cancelEntry.last().click();
-            await page.getByText('Cancel ride?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
-            await page.getByText('Cancel request', { exact: true }).click();
-            await page.getByText('Why are you cancelling?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
-            await page.getByText('Skip', { exact: true }).click();
+            await page.screenshot({ path: 'qa-critical-cancel-finding.png', fullPage: true });
 
-            await page.getByText('Where to', { exact: false }).last().waitFor({ state: 'visible', timeout: 10000 });
-            await page.waitForTimeout(28000);
-            const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
-            if (owner === 'finding' || owner === 'waiting') {
-              throw new Error(`Cancel: ride resurrected after cancellation (${owner})`);
+            await page.touchscreen.tap(36, 32);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-critical-cancel-confirm.png', fullPage: true });
+
+            await page.touchscreen.tap(195, 739);
+            await page.waitForTimeout(1000);
+            await page.screenshot({ path: 'qa-critical-cancel-reason.png', fullPage: true });
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(1500);
+
+            await page.waitForFunction(
+              () => !['finding', 'waiting'].includes(window.moveraMapOwner || 'none'),
+              null,
+              { timeout: 10000 },
+            );
+            const afterCancelOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (afterCancelOwner !== 'home') {
+              throw new Error(`Standalone Cancel: expected Home after cancel, got ${afterCancelOwner}`);
             }
-            if (await page.getByText('Finding your driver', { exact: true }).count()) {
-              throw new Error('Cancel: Finding UI returned after cancellation');
+
+            await page.waitForTimeout(28000);
+            const stableOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (stableOwner !== 'home') {
+              throw new Error(`Standalone Cancel: expected stable Home, got ${stableOwner}`);
             }
             await page.screenshot({ path: 'qa-critical-cancel-home.png', fullPage: true });
-            evidence.cancel = { standalone: true, owner };
             await context.close();
-          }
+            return { afterCancelOwner, stableOwner };
+          });
+
+          await runScenario('wallet_standalone', async () => {
+            const context = await newContext(browser, { standalone: true });
+            const page = await context.newPage();
+            await openHome(page, 'wallet-standalone');
+            const beforeStorage = await walletStorage(page);
+            const before = balanceFromStorage(beforeStorage);
+
+            await page.touchscreen.tap(300, 88);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-critical-wallet-menu.png', fullPage: true });
+            await page.touchscreen.tap(105, 188);
+            await page.waitForTimeout(1500);
+            await page.screenshot({ path: 'qa-critical-wallet-page.png', fullPage: true });
+
+            await page.touchscreen.tap(195, 516);
+            await page.waitForTimeout(800);
+            await page.screenshot({ path: 'qa-critical-wallet-add-sheet.png', fullPage: true });
+
+            await page.touchscreen.tap(110, 599);
+            await page.waitForTimeout(1800);
+            const afterStorage = await walletStorage(page);
+            const after = balanceFromStorage(afterStorage);
+            if (after !== before + 200) {
+              throw new Error(
+                `Standalone Wallet: expected ${before + 200}, got ${after}; ` +
+                `before=${JSON.stringify(beforeStorage)} after=${JSON.stringify(afterStorage)}`,
+              );
+            }
+            await page.screenshot({ path: 'qa-critical-wallet-funded.png', fullPage: true });
+
+            await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
+            await page.waitForTimeout(4500);
+            const persistedStorage = await walletStorage(page);
+            const persisted = balanceFromStorage(persistedStorage);
+            if (persisted !== after) {
+              throw new Error(`Standalone Wallet: persistence failed ${after} -> ${persisted}`);
+            }
+
+            await page.touchscreen.tap(300, 88);
+            await page.waitForTimeout(500);
+            await page.touchscreen.tap(105, 188);
+            await page.waitForTimeout(1200);
+            await page.touchscreen.tap(195, 516);
+            await page.waitForTimeout(700);
+            await page.screenshot({ path: 'qa-critical-wallet-dismiss-before.png', fullPage: true });
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(800);
+
+            const afterDismissStorage = await walletStorage(page);
+            const afterDismiss = balanceFromStorage(afterDismissStorage);
+            if (afterDismiss !== persisted) {
+              throw new Error(`Standalone Wallet: dismiss changed balance ${persisted} -> ${afterDismiss}`);
+            }
+            await page.screenshot({ path: 'qa-critical-wallet-persisted.png', fullPage: true });
+            await context.close();
+            return { before, after, persisted, afterDismiss };
+          });
 
           fs.writeFileSync('qa-critical-result.json', JSON.stringify(evidence, null, 2));
           await browser.close();
-          console.log('PASS: real Payment picker, Finding to Waiting, and standalone Cancel to Home');
+
+          const failed = Object.entries(evidence).filter(([, value]) => value.status !== 'PASS');
+          if (failed.length) {
+            console.error('FAILED SCENARIOS:', failed.map(([name]) => name).join(', '));
+            process.exit(1);
+          }
+          console.log('PASS: all critical Rider live scenarios');
           JS
           node qa-critical.mjs
 
