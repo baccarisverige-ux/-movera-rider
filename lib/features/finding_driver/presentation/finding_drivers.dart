@@ -59,19 +59,18 @@ class _FindingDriversState extends State<FindingDrivers>
   bool _mapParked = false;
   bool _leaving = false;
   bool _cancelSheetOpen = false;
+  bool _pickupEditOpen = false;
   bool _overlayOn = false;
   late final AnimationController _sheetSlide;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
-  late final CameraPosition _initialPosition;
 
   @override
   void initState() {
     super.initState();
     _pickupAddress = widget.pickupAddress;
     _pickupPosition = widget.pickupPosition;
-    _initialPosition = CameraPosition(target: _pickupPosition, zoom: 14.0);
     _sheetSlide = AnimationController(
       vsync: this,
       duration: MoveraDurations.sheetOpen,
@@ -97,7 +96,7 @@ class _FindingDriversState extends State<FindingDrivers>
         _syncSheetOverlay();
       },
       onMatched: () {
-        if (!mounted || _leaving || _cancelSheetOpen) return;
+        if (!mounted || _leaving || _cancelSheetOpen || _pickupEditOpen) return;
         _openWaiting();
       },
       onTerminal: (status) {
@@ -154,6 +153,7 @@ class _FindingDriversState extends State<FindingDrivers>
 
   void _openWaiting() {
     if (!mounted || _leaving) return;
+    _leaving = true;
     Navigator.pushReplacement(
       context,
       BottomToTopTransition(
@@ -207,10 +207,15 @@ class _FindingDriversState extends State<FindingDrivers>
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
         canEditPickup: true,
+        canEditDestination: false,
         onEditPickup: () async {
           Navigator.pop(sheetContext);
           AppScope.instance.maps.detach(owner: MapOwners.finding);
-          setState(() => _mapParked = true);
+          if (!mounted) return;
+          setState(() {
+            _mapParked = true;
+            _pickupEditOpen = true;
+          });
           await Future<void>.delayed(const Duration(milliseconds: 90));
           if (!mounted) return;
           final result = await Navigator.push(
@@ -223,14 +228,30 @@ class _FindingDriversState extends State<FindingDrivers>
             ),
           );
           if (!mounted) return;
+
+          var updated = false;
+          if (result is ConfirmPickupResult && _match.matchCount == 0) {
+            updated = await _match.updatePickup(
+              address: result.address,
+              latitude: result.position.latitude,
+              longitude: result.position.longitude,
+            );
+          }
+          if (!mounted) return;
+
           setState(() {
             _mapParked = false;
-            if (result is ConfirmPickupResult) {
+            _pickupEditOpen = false;
+            if (updated && result is ConfirmPickupResult) {
               _pickupAddress = result.address;
               _pickupPosition = result.position;
               _loadMapBits();
             }
           });
+
+          if (_match.matchCount == 1 && !_leaving) {
+            _openWaiting();
+          }
         },
         onEditDestination: () => Navigator.pop(sheetContext),
         onCancelTrip: () {
@@ -332,7 +353,10 @@ class _FindingDriversState extends State<FindingDrivers>
                     ? const ColoredBox(color: Color(0xFFF6F5F1))
                     : CustomGoogleMap(
                         key: const ValueKey('finding-map'),
-                        initialPosition: _initialPosition,
+                        initialPosition: CameraPosition(
+                          target: _pickupPosition,
+                          zoom: 14.0,
+                        ),
                         markers: _markers,
                         polylines: _polylines,
                         myLocationEnabled: true,
