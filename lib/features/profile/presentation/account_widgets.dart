@@ -288,13 +288,14 @@ Future<String?> showAccountTextEditor(
   required String title,
   required String value,
   TextInputType keyboard = TextInputType.text,
-}) async {
+}) {
   final controller = TextEditingController(text: value);
-  try {
-    return await MoveraSheet.show<String>(
-      context: context,
-      builder: (context) {
-        return Padding(
+  return MoveraSheet.show<String>(
+    context: context,
+    builder: (context) {
+      return MoveraSheetDisposables(
+        disposables: [controller],
+        child: Padding(
           padding: EdgeInsets.fromLTRB(
             20,
             8,
@@ -328,12 +329,10 @@ Future<String?> showAccountTextEditor(
               ),
             ],
           ),
-        );
-      },
-    );
-  } finally {
-    controller.dispose();
-  }
+        ),
+      );
+    },
+  );
 }
 
 Future<String?> showAccountChoice(

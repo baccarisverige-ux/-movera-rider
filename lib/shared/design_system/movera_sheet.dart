@@ -74,3 +74,36 @@ class MoveraSheet extends StatelessWidget {
     );
   }
 }
+
+/// Owns [ChangeNotifier]s for the life of a pushed [MoveraSheet] route.
+///
+/// [MoveraSheet.show] completes as soon as [Navigator.pop] runs, while the
+/// sheet is still animating out. Disposing controllers in a `finally` after
+/// that Future hits attached [TextField]s. Put the notifiers here so they
+/// dispose when the route actually unmounts.
+class MoveraSheetDisposables extends StatefulWidget {
+  const MoveraSheetDisposables({
+    super.key,
+    required this.disposables,
+    required this.child,
+  });
+
+  final List<ChangeNotifier> disposables;
+  final Widget child;
+
+  @override
+  State<MoveraSheetDisposables> createState() => _MoveraSheetDisposablesState();
+}
+
+class _MoveraSheetDisposablesState extends State<MoveraSheetDisposables> {
+  @override
+  void dispose() {
+    for (final item in widget.disposables) {
+      item.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}

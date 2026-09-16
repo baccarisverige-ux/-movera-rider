@@ -752,13 +752,19 @@ class _WalletScreenState extends State<WalletScreen> {
     final cvcController = TextEditingController();
 
     String? lastFour;
-    try {
-      lastFour = await MoveraSheet.show<String>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.28),
-        builder: (sheetContext) {
-          return StatefulBuilder(
+    lastFour = await MoveraSheet.show<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (sheetContext) {
+        return MoveraSheetDisposables(
+          disposables: [
+            numberController,
+            nameController,
+            expiryController,
+            cvcController,
+          ],
+          child: StatefulBuilder(
             builder: (context, setSheetState) {
               final digits = numberController.text.replaceAll(
                 RegExp(r'[^0-9]'),
@@ -907,15 +913,10 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               );
             },
-          );
-        },
-      );
-    } finally {
-      numberController.dispose();
-      nameController.dispose();
-      expiryController.dispose();
-      cvcController.dispose();
-    }
+          ),
+        );
+      },
+    );
 
     if (!mounted || lastFour == null) return;
     final id = 'card_$lastFour';

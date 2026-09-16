@@ -617,6 +617,15 @@ class _HomeState extends State<Home> {
       initialField == 'pickup' ? pickupFocus : destinationFocus,
     );
 
+    final sheetDisposables = <ChangeNotifier>[
+      pickupController,
+      destinationController,
+      pickupFocus,
+      destinationFocus,
+      ...stopControllers,
+      ...stopFocusNodes,
+    ];
+
     Map<String, dynamic>? draft;
     try {
       draft = await MoveraSheet.show<Map<String, dynamic>>(
@@ -624,8 +633,10 @@ class _HomeState extends State<Home> {
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.26),
         builder: (sheetContext) {
-          return PointerInterceptor(
-            child: StatefulBuilder(
+          return MoveraSheetDisposables(
+            disposables: sheetDisposables,
+            child: PointerInterceptor(
+              child: StatefulBuilder(
               builder: (context, setModalState) {
                 final filteredRecent = _recentAddresses
                     .where(
@@ -776,6 +787,8 @@ class _HomeState extends State<Home> {
                             final removedFocus = stopFocusNodes.removeAt(
                               stopIndex,
                             );
+                            sheetDisposables.remove(removedController);
+                            sheetDisposables.remove(removedFocus);
                             removedController.dispose();
                             removedFocus.dispose();
                             setModalState(() {
@@ -1001,6 +1014,8 @@ class _HomeState extends State<Home> {
                                         setModalState(() {
                                           stopControllers.add(controller);
                                           stopFocusNodes.add(focusNode);
+                                          sheetDisposables.add(controller);
+                                          sheetDisposables.add(focusNode);
                                           activeField = 'stop';
                                           activeStopIndex =
                                               stopControllers.length - 1;
@@ -1307,21 +1322,12 @@ class _HomeState extends State<Home> {
                 );
               },
             ),
+            ),
           );
         },
       );
     } finally {
       if (ownsCapture) routeCapture.stop();
-      pickupFocus.dispose();
-      destinationFocus.dispose();
-      for (final focusNode in stopFocusNodes) {
-        focusNode.dispose();
-      }
-      pickupController.dispose();
-      destinationController.dispose();
-      for (final controller in stopControllers) {
-        controller.dispose();
-      }
     }
 
     if (draft == null || !mounted) return;
@@ -1426,8 +1432,10 @@ class _HomeState extends State<Home> {
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.24),
         builder: (sheetContext) {
-          return PointerInterceptor(
-            child: StatefulBuilder(
+          return MoveraSheetDisposables(
+            disposables: [controller, focusNode],
+            child: PointerInterceptor(
+              child: StatefulBuilder(
               builder: (context, setModalState) {
                 capture.onChanged = (value) {
                   AppScope.instance.destinationSearch.type(value, (text) {
@@ -1689,13 +1697,12 @@ class _HomeState extends State<Home> {
                 );
               },
             ),
+            ),
           );
         },
       );
     } finally {
       capture.stop();
-      controller.dispose();
-      focusNode.dispose();
     }
     if (selected == null || selected.trim().isEmpty || !mounted) return;
     await _saveAddressFor(target, selected, customType: customType);

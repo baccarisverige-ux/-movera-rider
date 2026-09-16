@@ -51,7 +51,7 @@ void main() {
     );
   });
 
-  test('wallet card form disposes controllers when the sheet closes', () {
+  test('wallet card form disposes controllers when the sheet unmounts', () {
     final src = File(
       'lib/features/wallet/presentation/wallet.dart',
     ).readAsStringSync();
@@ -59,9 +59,10 @@ void main() {
       src.contains('final numberController = TextEditingController()'),
       isTrue,
     );
-    expect(src.contains('} finally {'), isTrue);
-    expect(src.contains('numberController.dispose()'), isTrue);
-    expect(src.contains('cvcController.dispose()'), isTrue);
+    expect(src.contains('MoveraSheetDisposables'), isTrue);
+    expect(src.contains('numberController'), isTrue);
+    expect(src.contains('cvcController'), isTrue);
+    expect(src.contains('numberController.dispose()'), isFalse);
   });
 
   test('chat disposes its message controller and listener', () {
@@ -79,13 +80,14 @@ void main() {
     expect(src.contains('_messageController.dispose()'), isTrue);
   });
 
-  test('account editor disposes its controller', () {
+  test('account editor disposes its controller with the sheet route', () {
     final src = File(
       'lib/features/profile/presentation/account_widgets.dart',
     ).readAsStringSync();
     expect(src.contains('showAccountTextEditor'), isTrue);
-    expect(src.contains('controller.dispose()'), isTrue);
-    expect(src.contains('} finally {'), isTrue);
+    expect(src.contains('MoveraSheetDisposables'), isTrue);
+    expect(src.contains('disposables: [controller]'), isTrue);
+    expect(src.contains('controller.dispose()'), isFalse);
   });
 
   test(
