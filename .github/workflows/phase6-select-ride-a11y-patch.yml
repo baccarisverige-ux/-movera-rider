@@ -1,0 +1,40 @@
+name: Phase 6 SelectRide a11y patch
+
+on:
+  push:
+    branches:
+      - phase6-a11y-core-screens
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: phase6-a11y-core-screens
+      - name: Apply narrow large-text sheet fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('lib/features/ride_selection/presentation/select_ride.dart')
+          text = path.read_text()
+          old = """  double _maxSheet(MediaQueryData media) {\n    final minH = _minSheet(media);\n    final maxH = media.size.height - media.padding.top - 72;\n    return maxH < minH + 64 ? minH + 64 : maxH;\n  }\n"""
+          new = """  double _maxSheet(MediaQueryData media) {\n    final minH = _minSheet(media);\n    final largeText = media.textScaler.scale(1) >= 1.6;\n    final topClearance = largeText ? 0.0 : 72.0;\n    final maxH = media.size.height - media.padding.top - topClearance;\n    return maxH < minH + 64 ? minH + 64 : maxH;\n  }\n"""
+          if text.count(old) != 1:
+              raise SystemExit('Expected exactly one _maxSheet block')
+          path.write_text(text.replace(old, new))
+          PY
+      - name: Commit fix and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/phase6-select-ride-a11y-patch.yml
+          git add lib/features/ride_selection/presentation/select_ride.dart
+          git commit -m "fix(a11y): let SelectRide expand for large text"
+          git push origin HEAD:phase6-a11y-core-screens
