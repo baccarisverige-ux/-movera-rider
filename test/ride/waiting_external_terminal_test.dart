@@ -1,0 +1,134 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    AppScope.instance.ride
+      ..rideId = null
+      ..suppressRestore = false
+      ..restoreFromBackend(RideStatus.idle);
+  });
+
+  RideSnapshot waitingSnapshot(String rideId) => RideSnapshot(
+    status: RideStatus.driverAssigned,
+    savedAt: DateTime.now(),
+    pickupAddress: 'Stockholm pickup',
+    destinationAddress: 'Stockholm destination',
+    pickupLat: 59.3293,
+    pickupLng: 18.0686,
+    destinationLat: 59.3326,
+    destinationLng: 18.0649,
+    rideType: 'Movera',
+    price: 259,
+    paymentMethod: 'Apple Pay',
+    rideId: rideId,
+  );
+
+  Future<void> expectWaitingLeavesOn(
+    WidgetTester tester,
+    RideStatus terminal,
+  ) async {
+    final rideId = 'waiting-${terminal.name}';
+    final snapshot = waitingSnapshot(rideId);
+    await RideSnapshotStore.save(snapshot);
+    AppScope.instance.ride.restoreFromBackend(
+      RideStatus.driverAssigned,
+      id: rideId,
+    );
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Center(child: Text('audit-root'))),
+      ),
+    );
+
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const WaitingForDriver(
+          pickupAddress: 'Stockholm pickup',
+          destinationAddress: 'Stockholm destination',
+          pickupPosition: LatLng(59.3293, 18.0686),
+          destinationPosition: LatLng(59.3326, 18.0649),
+          rideType: 'Movera',
+          price: 259,
+          paymentMethod: 'Apple Pay',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(WaitingForDriver), findsOneWidget);
+
+    final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+    realtime.emit(terminal);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(WaitingForDriver), findsNothing);
+    expect(find.text('audit-root'), findsOneWidget);
+    expect(AppScope.instance.ride.status, terminal);
+    expect(await RideSnapshotStore.read(), isNull);
+  }
+
+  testWidgets('driver cancellation exits Waiting to Home exactly as terminal', (
+    tester,
+  ) async {
+    await expectWaitingLeavesOn(tester, RideStatus.cancelledByDriver);
+  });
+
+  testWidgets('system cancellation exits Waiting to Home exactly as terminal', (
+    tester,
+  ) async {
+    await expectWaitingLeavesOn(tester, RideStatus.cancelledBySystem);
+  });
+
+  test('external terminal cleanup never rewrites status as rider cancellation', () async {
+    final snapshot = waitingSnapshot('waiting-controller-terminal');
+    await RideSnapshotStore.save(snapshot);
+    AppScope.instance.ride.restoreFromBackend(
+      RideStatus.driverAssigned,
+      id: snapshot.rideId,
+    );
+
+    await ActiveRideController().markExternalTerminal(
+      RideStatus.cancelledByDriver,
+    );
+
+    expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
+    expect(await RideSnapshotStore.read(), isNull);
+  });
+
+  test('external terminal cleanup rejects non-external terminal inputs', () async {
+    for (final status in <RideStatus>[
+      RideStatus.driverAssigned,
+      RideStatus.tripCompleted,
+      RideStatus.cancelledByRider,
+      RideStatus.closed,
+    ]) {
+      await expectLater(
+        ActiveRideController().markExternalTerminal(status),
+        throwsA(isA<ArgumentError>()),
+        reason: status.name,
+      );
+    }
+  });
+}
