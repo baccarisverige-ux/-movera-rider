@@ -1,12 +1,18 @@
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
+import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class BookingCoordinator {
+  BookingCoordinator({ApiClient? api}) : _api = api;
+
+  final ApiClient? _api;
   Future<String>? _inflight;
+
+  ApiClient get _client => _api ?? AppScope.instance.api;
 
   /// Lock only while the Finding UI is actually mounted.
   /// Do not treat a leftover [RideSession] status as an active search — tests
@@ -17,6 +23,17 @@ class BookingCoordinator {
     final id = AppScope.instance.ride.rideId;
     if (id != null) return Future<String>.value(id);
     return Future<String>.error(StateError('Finding already active'));
+  }
+
+  void _releaseWhenDone(Future<String> started) {
+    started.then<void>(
+      (_) {
+        if (identical(_inflight, started)) _inflight = null;
+      },
+      onError: (Object _, StackTrace __) {
+        if (identical(_inflight, started)) _inflight = null;
+      },
+    );
   }
 
   Future<String> requestBooking({
@@ -34,9 +51,7 @@ class BookingCoordinator {
       scheduledAt: scheduledAt,
     );
     _inflight = started;
-    started.whenComplete(() {
-      if (identical(_inflight, started)) _inflight = null;
-    });
+    _releaseWhenDone(started);
     return started;
   }
 
@@ -46,7 +61,7 @@ class BookingCoordinator {
     String? scheduledAt,
   }) async {
     final id = newIdempotencyKey('booking');
-    final json = await AppScope.instance.api.post(
+    final json = await _client.post(
       '/api/v1/rides',
       body: {
         'rideType': rideType,
@@ -97,9 +112,7 @@ class BookingCoordinator {
       paymentMethod: paymentMethod,
     );
     _inflight = started;
-    started.whenComplete(() {
-      if (identical(_inflight, started)) _inflight = null;
-    });
+    _releaseWhenDone(started);
     return started;
   }
 
@@ -115,7 +128,7 @@ class BookingCoordinator {
     required String paymentMethod,
   }) async {
     final key = newIdempotencyKey('booking');
-    final json = await AppScope.instance.api.post(
+    final json = await _client.post(
       '/api/v1/rides',
       body: {
         'pickupAddress': pickupAddress,
@@ -153,7 +166,7 @@ class BookingCoordinator {
   }
 
   Future<void> cancel({required String rideId, required String key}) {
-    return AppScope.instance.api.post(
+    return _client.post(
       '/api/v1/rides/$rideId/cancel',
       idempotencyKey: key,
     );
