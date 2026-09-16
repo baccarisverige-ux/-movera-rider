@@ -396,6 +396,50 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.idle);
   });
 
+  test(
+    'edit hydrates the saved payment instead of defaulting to Apple Pay',
+    () async {
+      final c = reservations();
+      final create = scheduledSelection();
+      create.selectPaymentNamed('Cash');
+      final first = await ScheduledRideBooking.confirm(
+        reservations: c,
+        selection: create,
+        pickup: const ReservationPlace(label: 'Current location'),
+        destination: const ReservationPlace(label: 'Arlanda'),
+      );
+      expect(first.paymentMethod, 'Cash');
+      expect(first.reservationId, 'rsv_1');
+
+      final edit = scheduledSelection(
+        rideId: 'comfort',
+        when: DateTime(2026, 9, 24, 9, 30),
+      );
+      expect(edit.payments()[edit.selectedPayment].name, isNot('Cash'));
+      edit.selectPaymentNamed(first.paymentMethod);
+      final updated = await ScheduledRideBooking.confirm(
+        reservations: c,
+        selection: edit,
+        pickup: const ReservationPlace(label: 'T-Centralen'),
+        destination: const ReservationPlace(label: 'Bromma'),
+        editingReservationId: first.reservationId,
+      );
+      expect(c.all, hasLength(1));
+      expect(updated.reservationId, 'rsv_1');
+      expect(updated.paymentMethod, 'Cash');
+      expect(updated.categoryId, 'comfort');
+    },
+  );
+
+  test('selectPaymentNamed ignores unknown methods', () {
+    final selection = RideSelectionController();
+    final before = selection.selectedPayment;
+    selection.selectPaymentNamed('Not a method');
+    expect(selection.selectedPayment, before);
+    selection.selectPaymentNamed('Apple Pay');
+    expect(selection.payments()[selection.selectedPayment].name, 'Apple Pay');
+  });
+
   test('checkout draft does not create a reservation', () {
     final c = reservations();
     final selection = scheduledSelection();

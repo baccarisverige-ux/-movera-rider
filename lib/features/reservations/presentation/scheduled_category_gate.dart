@@ -14,6 +14,7 @@ Future<void> openScheduledCategorySelector(
   required ScheduledRideSession session,
   String? editingReservationId,
   String? initialRideId,
+  String? initialPaymentMethod,
 }) async {
   final pickupLabel = session.pickup.trim().isEmpty
       ? 'Current location'
@@ -39,6 +40,9 @@ Future<void> openScheduledCategorySelector(
         lockBookingMode: true,
         initialScheduledFor: session.scheduledAt,
         initialRideId: initialRideId ?? session.rideType,
+        initialPaymentMethod:
+            initialPaymentMethod ??
+            (editingReservationId == null ? null : session.paymentMethod),
         note: session.note.trim().isEmpty ? null : session.note.trim(),
         editingReservationId: editingReservationId,
         pickupAlreadyConfirmed: true,

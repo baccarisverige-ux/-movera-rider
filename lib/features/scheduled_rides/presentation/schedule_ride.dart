@@ -51,6 +51,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
     target: LatLng(59.3293, 18.0686), // neutral map fallback
     zoom: 14.0,
   );
+  bool _nextInFlight = false;
 
   @override
   void initState() {
@@ -114,19 +115,28 @@ class _ScheduleRideState extends State<ScheduleRide> {
   }
 
   Future<void> goToNextStep() async {
-    FocusScope.of(context).unfocus();
-    _syncRouteToSession();
-    if (currentStep == 0) {
-      await _confirmPickupThenCalendar();
-      return;
-    }
-    if (currentStep >= 1) {
-      openScheduledCategorySelector(
-        context,
-        session: _session,
-        editingReservationId: widget.editing?.reservationId,
-        initialRideId: widget.editing?.categoryId,
-      );
+    if (_nextInFlight) return;
+    _nextInFlight = true;
+    setState(() {});
+    try {
+      FocusScope.of(context).unfocus();
+      _syncRouteToSession();
+      if (currentStep == 0) {
+        await _confirmPickupThenCalendar();
+        return;
+      }
+      if (currentStep >= 1) {
+        await openScheduledCategorySelector(
+          context,
+          session: _session,
+          editingReservationId: widget.editing?.reservationId,
+          initialRideId: widget.editing?.categoryId,
+          initialPaymentMethod: widget.editing?.paymentMethod,
+        );
+      }
+    } finally {
+      _nextInFlight = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -377,10 +387,14 @@ class _ScheduleRideState extends State<ScheduleRide> {
                     width: double.infinity,
                     height: 54,
                     child: ElevatedButton(
-                      onPressed: canContinue ? goToNextStep : null,
+                      onPressed: canContinue && !_nextInFlight
+                          ? goToNextStep
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _scheduleInk,
-                        disabledBackgroundColor: _scheduleInk.withValues(alpha: 0.18),
+                        disabledBackgroundColor: _scheduleInk.withValues(
+                          alpha: 0.18,
+                        ),
                         foregroundColor: Colors.white,
                         disabledForegroundColor: Colors.white,
                         elevation: 0,

@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/booking/data/booking_repository.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -78,10 +80,7 @@ void main() {
   test('second finding book refused while Finding UI is active', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final session = RideSession()..rideId = 'r-live';
-    final controller = FindingDriverController(
-      realtime: rt,
-      ride: session,
-    );
+    final controller = FindingDriverController(realtime: rt, ride: session);
     FindingDriverController.active = controller;
     AppScope.instance.ride.restoreFromBackend(
       RideStatus.findingDriver,
@@ -139,4 +138,35 @@ void main() {
     controller.dispose();
     rt.dispose();
   });
+
+  test(
+    'BookingController shares AppScope.booking so a second tap is one ride',
+    () async {
+      final first = BookingController().submitFinding(
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.3,
+        pickupLng: 18.0,
+        destinationLat: 59.4,
+        destinationLng: 18.1,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+      );
+      final second = BookingRepository().submitFinding(
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.3,
+        pickupLng: 18.0,
+        destinationLat: 59.4,
+        destinationLng: 18.1,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+      );
+      expect(identical(first, second), isTrue);
+      expect(await first, await second);
+      expect(await first, AppScope.instance.ride.rideId);
+    },
+  );
 }

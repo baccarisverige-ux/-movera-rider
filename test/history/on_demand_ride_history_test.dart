@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
@@ -19,6 +22,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     RideSnapshotStore.epoch = 0;
+    FindingDriverController.active = null;
     AppScope.instance.ride
       ..rideId = null
       ..status = RideStatus.idle;
@@ -267,5 +271,73 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Book Now destination'), findsNothing);
     expect(find.text('No cancelled rides'), findsOneWidget);
+  });
+
+  test('Finding cancelSearch archives History then clears the snapshot',
+      () async {
+    final active = snapshot(
+      rideId: 'ride-search-cancel',
+      status: RideStatus.findingDriver,
+    );
+    await RideSnapshotStore.save(active);
+    AppScope.instance.ride
+      ..rideId = 'ride-search-cancel'
+      ..status = RideStatus.findingDriver;
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final controller = FindingDriverController(
+      realtime: rt,
+      ride: AppScope.instance.ride,
+    );
+    controller.start(
+      snapshot: active,
+      onTick: (_) {},
+      onMatched: () {},
+    );
+    await controller.cancelSearch(reasonId: 'wait_too_long');
+
+    final history = await OnDemandRideHistoryStore.read();
+    expect(history, hasLength(1));
+    expect(history.single.reservationId, 'ondemand-ride-search-cancel');
+    expect(history.single.status, ReservationStatus.cancelled);
+    expect(history.single.cancellationReason, 'wait_too_long');
+    expect(await RideSnapshotStore.readForArchive(), isNull);
+    controller.dispose();
+    rt.dispose();
+  });
+
+  test('commitCancelFirst archives when Finding UI is not mounted', () async {
+    final active = snapshot(rideId: 'ride-waiting-cancel');
+    await RideSnapshotStore.save(active);
+    AppScope.instance.ride
+      ..rideId = 'ride-waiting-cancel'
+      ..status = RideStatus.driverAssigned;
+    FindingDriverController.active = null;
+
+    await commitCancelFirst(reasonId: 'changed-plans');
+
+    final history = await OnDemandRideHistoryStore.read();
+    expect(history, hasLength(1));
+    expect(history.single.reservationId, 'ondemand-ride-waiting-cancel');
+    expect(history.single.status, ReservationStatus.cancelled);
+    expect(history.single.cancellationReason, 'changed-plans');
+    expect(await RideSnapshotStore.readForArchive(), isNull);
+    expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
+  });
+
+  test('Waiting cancel after commitCancelFirst does not duplicate History',
+      () async {
+    final active = snapshot(rideId: 'ride-waiting-archive-once');
+    await RideSnapshotStore.save(active);
+    AppScope.instance.ride
+      ..rideId = 'ride-waiting-archive-once'
+      ..status = RideStatus.driverAssigned;
+    FindingDriverController.active = null;
+
+    await commitCancelFirst();
+    await ActiveRideController().markCancelled(reasonId: 'changed-plans');
+
+    final history = await OnDemandRideHistoryStore.read();
+    expect(history, hasLength(1));
+    expect(history.single.reservationId, 'ondemand-ride-waiting-archive-once');
   });
 }

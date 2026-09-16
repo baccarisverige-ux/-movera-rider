@@ -42,6 +42,28 @@ abstract final class OnDemandRideHistoryStore {
     }
   }
 
+  /// Archives a cancelled Book Now ride then clears the live snapshot.
+  ///
+  /// Cancel-first stays intact: the snapshot is always cleared, even when
+  /// History has nothing to keep (missing rideId, already cleared, etc.).
+  static Future<void> archiveCancelledThenClear({
+    RideSnapshot? snapshot,
+    String? reasonId,
+  }) async {
+    final candidate = snapshot ?? await RideSnapshotStore.readForArchive();
+    final rideId = candidate?.rideId?.trim();
+    if (candidate != null && rideId != null && rideId.isNotEmpty) {
+      try {
+        await archive(
+          candidate,
+          terminalStatus: RideStatus.cancelledByRider,
+          cancellationReason: reasonId,
+        );
+      } catch (_) {}
+    }
+    await RideSnapshotStore.clear();
+  }
+
   static Future<void> archive(
     RideSnapshot snapshot, {
     required RideStatus terminalStatus,
@@ -82,7 +104,9 @@ abstract final class OnDemandRideHistoryStore {
         lng: snapshot.destinationLng,
       ),
       categoryId: _categoryId(snapshot.rideType),
-      categoryName: snapshot.rideType.trim().isEmpty ? 'Movera' : snapshot.rideType,
+      categoryName: snapshot.rideType.trim().isEmpty
+          ? 'Movera'
+          : snapshot.rideType,
       categoryImage: _categoryImage(snapshot.rideType),
       price: snapshot.price,
       paymentMethod: snapshot.paymentMethod,

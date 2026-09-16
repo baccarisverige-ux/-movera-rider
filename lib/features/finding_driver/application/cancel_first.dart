@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
@@ -22,7 +23,9 @@ Future<void> commitCancelFirst({String? reasonId}) async {
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));
     }
-    await RideSnapshotStore.clear();
+    await OnDemandRideHistoryStore.archiveCancelledThenClear(
+      reasonId: reasonId,
+    );
   } catch (_) {
     try {
       await RideSnapshotStore.clear();

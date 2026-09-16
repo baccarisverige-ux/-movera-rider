@@ -1,7 +1,11 @@
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 
 class BookingRepository {
-  final BookingCoordinator _coordinator = BookingCoordinator();
+  BookingRepository({BookingCoordinator? coordinator})
+    : _coordinator = coordinator ?? AppScope.instance.booking;
+
+  final BookingCoordinator _coordinator;
 
   Future<String> submitFinding({
     required String pickupAddress,
