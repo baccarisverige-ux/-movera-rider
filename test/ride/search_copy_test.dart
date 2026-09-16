@@ -6,10 +6,12 @@ void main() {
     expect(SearchCopy.forElapsed(0).headline, 'Finding your driver');
     expect(SearchCopy.isDelayed(1), isFalse);
     expect(SearchCopy.forElapsed(1).headline, 'Finding your driver');
-    expect(SearchCopy.isDelayed(2), isTrue);
-    expect(SearchCopy.forElapsed(2).headline, "It's busier than usual");
-    expect(SearchCopy.forElapsed(14).headline, contains('little longer'));
-    expect(SearchCopy.waiting.first.headline, contains('best match'));
+    expect(SearchCopy.isDelayed(19), isFalse);
+    expect(SearchCopy.forElapsed(20).headline, 'Still looking for the best match');
+    expect(SearchCopy.isDelayed(59), isFalse);
+    expect(SearchCopy.isDelayed(60), isTrue);
+    expect(SearchCopy.forElapsed(60).headline, "It's busier than usual");
+    expect(SearchCopy.forElapsed(72).headline, contains('little longer'));
   });
 
   test('does not promise a guaranteed arrival time', () {
