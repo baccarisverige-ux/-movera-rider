@@ -98,6 +98,16 @@ class RideSelectionController {
     selectedPayment = index;
   }
 
+  void selectPaymentNamed(String? name) {
+    final needle = name?.trim();
+    if (needle == null || needle.isEmpty) return;
+    final list = payments();
+    final i = list.indexWhere(
+      (item) => item.name.toLowerCase() == needle.toLowerCase(),
+    );
+    if (i >= 0) selectedPayment = i;
+  }
+
   void setBookingMode(BookingMode mode) {
     if (lockBookingMode && mode != BookingMode.scheduled) return;
     bookingMode = mode;

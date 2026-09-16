@@ -513,6 +513,10 @@ void main() {
       expect(src.contains('When should we pick you up Continue'), isTrue);
       expect(src.contains('editing a reservation keeps the same id'), isTrue);
       expect(src.contains('checkout draft does not create'), isTrue);
+      expect(
+        src.contains('edit hydrates the saved payment instead of defaulting'),
+        isTrue,
+      );
     },
   );
 
@@ -536,5 +540,43 @@ void main() {
     ).readAsStringSync();
     expect(finding.contains('scheduledSummary'), isFalse);
     expect(finding.contains('confirmLabel'), isFalse);
+  });
+
+  test('book now uses the shared coordinator, CTA lock, and confirmed pickup',
+      () {
+    final repo = File(
+      'lib/features/booking/data/booking_repository.dart',
+    ).readAsStringSync();
+    expect(repo.contains('BookingCoordinator()'), isFalse);
+    expect(repo.contains('AppScope.instance.booking'), isTrue);
+    final src = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    expect(src.contains('bool _bookingInFlight'), isTrue);
+    expect(src.contains('if (_bookingInFlight) return'), isTrue);
+    expect(src.contains('onTap: _bookingInFlight ? null : _book'), isTrue);
+    expect(src.contains('selectPaymentNamed'), isTrue);
+    final nowStart = src.indexOf('void _bookNow()');
+    final buildStart = src.indexOf(
+      'Widget build(BuildContext context)',
+      nowStart,
+    );
+    expect(nowStart, greaterThan(0));
+    expect(buildStart, greaterThan(nowStart));
+    final now = src.substring(nowStart, buildStart);
+    expect(now.contains('pickupAddress: _pickupAddress'), isTrue);
+    expect(now.contains('pickupAddress: widget.pickupAddress'), isFalse);
+    expect(now.contains('FindingDriverController.active'), isTrue);
+    expect(now.contains('FindingDrivers'), isTrue);
+    expect(now.contains('submitFinding'), isTrue);
+    final schedule = File(
+      'lib/features/scheduled_rides/presentation/schedule_ride.dart',
+    ).readAsStringSync();
+    expect(schedule.contains('bool _nextInFlight'), isTrue);
+    expect(schedule.contains('if (_nextInFlight) return'), isTrue);
+    final history = File(
+      'lib/features/history/data/on_demand_ride_history_store.dart',
+    ).readAsStringSync();
+    expect(history.contains('archiveCancelledThenClear'), isTrue);
   });
 }

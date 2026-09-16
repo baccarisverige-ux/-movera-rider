@@ -12,6 +12,7 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
@@ -304,7 +305,10 @@ class FindingDriverController {
     }
     ride.restoreFromBackend(RideStatus.cancelledByRider);
     final id = _snapshot?.rideId ?? ride.rideId;
-    await _store.clear();
+    await OnDemandRideHistoryStore.archiveCancelledThenClear(
+      snapshot: _snapshot,
+      reasonId: reasonId,
+    );
     _realtime.cancelRide();
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));

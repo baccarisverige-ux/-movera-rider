@@ -10,6 +10,7 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -40,6 +41,7 @@ class SelectRide extends StatefulWidget {
     this.lockBookingMode = false,
     this.initialScheduledFor,
     this.initialRideId,
+    this.initialPaymentMethod,
     this.parentReservationId,
     this.editingReservationId,
     this.note,
@@ -81,6 +83,7 @@ class SelectRide extends StatefulWidget {
         const Duration(hours: 3),
       ),
       initialRideId: origin.categoryId,
+      initialPaymentMethod: origin.paymentMethod,
       parentReservationId: origin.reservationId,
       note: origin.note,
       reservations: reservations,
@@ -97,6 +100,7 @@ class SelectRide extends StatefulWidget {
   final bool lockBookingMode;
   final DateTime? initialScheduledFor;
   final String? initialRideId;
+  final String? initialPaymentMethod;
   final String? parentReservationId;
   final String? editingReservationId;
   final String? note;
@@ -199,6 +203,7 @@ class _SelectRideState extends State<SelectRide>
   bool _mapParked = false;
   bool _overlayOn = false;
   bool _pickupConfirmed = false;
+  bool _bookingInFlight = false;
   RideNotes _notes = RideNotes.empty;
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -226,6 +231,12 @@ class _SelectRideState extends State<SelectRide>
       final ride = _selection.rideById(widget.initialRideId!);
       _selection.selectRide(ride.id, ride.price);
     }
+    final paymentName =
+        widget.initialPaymentMethod ??
+        (widget.editingReservationId == null
+            ? null
+            : _reservations.byId(widget.editingReservationId!)?.paymentMethod);
+    _selection.selectPaymentNamed(paymentName);
     if (widget.initialScheduledFor != null) {
       _selection.scheduleFor(widget.initialScheduledFor);
     } else if (widget.bookingMode == BookingMode.scheduled) {
@@ -585,58 +596,62 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _bookScheduled() async {
-    if (_selection.scheduledFor == null) {
-      await _chooseLater();
-    }
-    if (_selection.scheduledFor == null || !mounted) return;
-    await _withParkedMap(() async {
-      if (!mounted) return;
-      if (!_pickupConfirmed) {
-        final when = _selection.scheduledFor;
-        final spot = await ConfirmPickupSpot.open(
+    try {
+      if (_selection.scheduledFor == null) {
+        await _chooseLater();
+      }
+      if (_selection.scheduledFor == null || !mounted) return;
+      await _withParkedMap(() async {
+        if (!mounted) return;
+        if (!_pickupConfirmed) {
+          final when = _selection.scheduledFor;
+          final spot = await ConfirmPickupSpot.open(
+            context,
+            initialPosition: _pickupPosition,
+            initialAddress: _pickupAddress,
+            scheduledSummary: when == null
+                ? null
+                : '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
+            confirmLabel: 'Confirm pickup spot',
+          );
+          if (spot == null || !mounted) return;
+          _pickupAddress = spot.address;
+          _pickupPosition = spot.position;
+          _pickupConfirmed = true;
+        }
+        final created = await ScheduledRideCheckout.run(
           context,
-          initialPosition: _pickupPosition,
-          initialAddress: _pickupAddress,
-          scheduledSummary: when == null
+          reservations: _reservations,
+          selection: _selection,
+          pickup: ReservationPlace(
+            label: _pickupAddress,
+            lat: _pickupPosition.latitude,
+            lng: _pickupPosition.longitude,
+          ),
+          destination: ReservationPlace(
+            label: widget.destinationAddress,
+            lat: widget.destinationPosition.latitude,
+            lng: widget.destinationPosition.longitude,
+          ),
+          pickupPosition: _pickupPosition,
+          note: _driverNote(widget.note),
+          parentReservationId: widget.parentReservationId,
+          editingReservationId: widget.editingReservationId,
+          original: widget.editingReservationId == null
               ? null
-              : '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
-          confirmLabel: 'Confirm pickup spot',
+              : _reservations.byId(widget.editingReservationId!),
         );
-        if (spot == null || !mounted) return;
-        _pickupAddress = spot.address;
-        _pickupPosition = spot.position;
-        _pickupConfirmed = true;
-      }
-      final created = await ScheduledRideCheckout.run(
-        context,
-        reservations: _reservations,
-        selection: _selection,
-        pickup: ReservationPlace(
-          label: _pickupAddress,
-          lat: _pickupPosition.latitude,
-          lng: _pickupPosition.longitude,
-        ),
-        destination: ReservationPlace(
-          label: widget.destinationAddress,
-          lat: widget.destinationPosition.latitude,
-          lng: widget.destinationPosition.longitude,
-        ),
-        pickupPosition: _pickupPosition,
-        note: _driverNote(widget.note),
-        parentReservationId: widget.parentReservationId,
-        editingReservationId: widget.editingReservationId,
-        original: widget.editingReservationId == null
-            ? null
-            : _reservations.byId(widget.editingReservationId!),
-      );
-      if (!mounted || created == null) return;
-      final opener = widget.onScheduled;
-      if (opener != null) {
-        await opener(context, created.reservationId);
-        return;
-      }
-      Navigator.pop(context, created);
-    });
+        if (!mounted || created == null) return;
+        final opener = widget.onScheduled;
+        if (opener != null) {
+          await opener(context, created.reservationId);
+          return;
+        }
+        Navigator.pop(context, created);
+      });
+    } finally {
+      _releaseBookingLock();
+    }
   }
 
   String? _driverNote(String? extra) {
@@ -654,7 +669,15 @@ class _SelectRideState extends State<SelectRide>
     setState(() => _notes = next);
   }
 
+  void _releaseBookingLock() {
+    _bookingInFlight = false;
+    if (mounted) setState(() {});
+  }
+
   void _book() {
+    if (_bookingInFlight) return;
+    _bookingInFlight = true;
+    setState(() {});
     if (_selection.bookingMode == BookingMode.scheduled) {
       _bookScheduled();
       return;
@@ -665,36 +688,42 @@ class _SelectRideState extends State<SelectRide>
   void _bookNow() {
     final selected = _selectedRide;
     _withParkedMap(() async {
-      if (!mounted) return;
-      await BookingController().submitFinding(
-        pickupAddress: widget.pickupAddress,
-        destinationAddress: widget.destinationAddress,
-        pickupLat: widget.pickupPosition.latitude,
-        pickupLng: widget.pickupPosition.longitude,
-        destinationLat: widget.destinationPosition.latitude,
-        destinationLng: widget.destinationPosition.longitude,
-        rideType: selected.name,
-        price: _priceFor(selected),
-        paymentMethod: _payments[_selection.selectedPayment].name,
-      );
-      if (!mounted) return;
-      SheetCoordinator.instance.open(RideSheet.finding);
-      await Navigator.push(
-        context,
-        BottomToTopTransition(
-          FindingDrivers(
-            pickupAddress: widget.pickupAddress,
-            destinationAddress: widget.destinationAddress,
-            pickupPosition: widget.pickupPosition,
-            destinationPosition: widget.destinationPosition,
-            rideType: selected.name,
-            price: _priceFor(selected),
-            paymentMethod: _payments[_selection.selectedPayment].name,
-            notes: _notes,
+      try {
+        if (!mounted) return;
+        if (FindingDriverController.active != null) return;
+        await BookingController().submitFinding(
+          pickupAddress: _pickupAddress,
+          destinationAddress: widget.destinationAddress,
+          pickupLat: _pickupPosition.latitude,
+          pickupLng: _pickupPosition.longitude,
+          destinationLat: widget.destinationPosition.latitude,
+          destinationLng: widget.destinationPosition.longitude,
+          rideType: selected.name,
+          price: _priceFor(selected),
+          paymentMethod: _payments[_selection.selectedPayment].name,
+        );
+        if (!mounted) return;
+        if (FindingDriverController.active != null) return;
+        SheetCoordinator.instance.open(RideSheet.finding);
+        await Navigator.push(
+          context,
+          BottomToTopTransition(
+            FindingDrivers(
+              pickupAddress: _pickupAddress,
+              destinationAddress: widget.destinationAddress,
+              pickupPosition: _pickupPosition,
+              destinationPosition: widget.destinationPosition,
+              rideType: selected.name,
+              price: _priceFor(selected),
+              paymentMethod: _payments[_selection.selectedPayment].name,
+              notes: _notes,
+            ),
           ),
-        ),
-      );
-      SheetCoordinator.instance.close(RideSheet.finding);
+        );
+        SheetCoordinator.instance.close(RideSheet.finding);
+      } finally {
+        _releaseBookingLock();
+      }
     });
   }
 
@@ -817,7 +846,8 @@ class _SelectRideState extends State<SelectRide>
                   child: Material(
                     color: Colors.white,
                     elevation: 18,
-                    shadowColor: const Color(0xFF162C36).withValues(alpha: 0.16),
+                    shadowColor: const Color(0xFF162C36)
+                        .withValues(alpha: 0.16),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -1234,7 +1264,7 @@ class _SelectRideState extends State<SelectRide>
                   color: _cta,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
-                    onTap: _book,
+                    onTap: _bookingInFlight ? null : _book,
                     borderRadius: BorderRadius.circular(18),
                     child: SizedBox(
                       height: 54,
@@ -1604,7 +1634,8 @@ class _RoutePainter extends CustomPainter {
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & size, sky);
 
-    final water = Paint()..color = const Color(0xFFC9D9D4).withValues(alpha: 0.7);
+    final water = Paint()
+      ..color = const Color(0xFFC9D9D4).withValues(alpha: 0.7);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(
