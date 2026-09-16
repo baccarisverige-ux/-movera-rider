@@ -360,7 +360,9 @@ class _SelectRideState extends State<SelectRide>
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
-    final maxH = media.size.height - media.padding.top - 72;
+    final largeText = media.textScaler.scale(1) >= 1.6;
+    final topClearance = largeText ? 0.0 : 72.0;
+    final maxH = media.size.height - media.padding.top - topClearance;
     return maxH < minH + 64 ? minH + 64 : maxH;
   }
 
