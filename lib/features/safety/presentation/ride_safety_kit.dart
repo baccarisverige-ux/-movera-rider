@@ -9,7 +9,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 const Color _ink = Color(0xFF1D252C);
-const Color _muted = Color(0xFF778189);
+const Color _muted = Color(0xFF5C656C);
 const Color _line = Color(0xFFE7EBEE);
 const Color _icon = Color(0xFF3A4550);
 
@@ -29,22 +29,25 @@ class SafetyKitMapButton extends StatelessWidget {
         child: InkWell(
           onTap: () => showRideSafetyKit(context, rideId: rideId),
           borderRadius: BorderRadius.circular(28),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.shield_outlined, size: 18, color: _icon),
-                const SizedBox(width: 8),
-                Text(
-                  'Safety Kit',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _ink,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 14, 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shield_outlined, size: 18, color: _icon),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Safety Kit',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: _ink,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

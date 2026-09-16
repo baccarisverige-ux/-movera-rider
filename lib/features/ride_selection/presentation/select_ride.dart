@@ -156,7 +156,7 @@ class _PaymentOption {
 class _SelectRideState extends State<SelectRide>
     with SingleTickerProviderStateMixin {
   static const Color _ink = Color(0xFF1D252C);
-  static const Color _muted = Color(0xFF778189);
+  static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE7EBEE);
   static const Color _accent = Color(0xFF2D5878);
   static const Color _accentSoft = Color(0xFFEAF2F8);
@@ -222,7 +222,7 @@ class _SelectRideState extends State<SelectRide>
     _pickupConfirmed = widget.pickupAlreadyConfirmed;
     _sheetSlide = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
+      duration: MoveraDurations.sheetOpen,
       value: 1,
     );
     _sheetSlide.addListener(_syncSheetOverlay);
@@ -248,6 +248,12 @@ class _SelectRideState extends State<SelectRide>
       if (mounted) setState(() => _mapReady = true);
     });
     _loadQuotes();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
   Future<void> _loadQuotes() async {
@@ -846,8 +852,9 @@ class _SelectRideState extends State<SelectRide>
                   child: Material(
                     color: Colors.white,
                     elevation: 18,
-                    shadowColor: const Color(0xFF162C36)
-                        .withValues(alpha: 0.16),
+                    shadowColor: const Color(
+                      0xFF162C36,
+                    ).withValues(alpha: 0.16),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -951,6 +958,7 @@ class _SelectRideState extends State<SelectRide>
             IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+              tooltip: 'Back',
             ),
             Expanded(
               child: Text(
@@ -1134,6 +1142,7 @@ class _SelectRideState extends State<SelectRide>
                     children: [
                       Positioned.fill(
                         child: Image.asset(
+                          excludeFromSemantics: true,
                           ride.image,
                           fit: BoxFit.contain,
                           filterQuality: FilterQuality.high,
@@ -1341,6 +1350,7 @@ class _SelectRideState extends State<SelectRide>
                       Positioned(
                         left: i * 16.0,
                         child: Image.asset(
+                          excludeFromSemantics: true,
                           [
                             AppAssets.noteBags,
                             AppAssets.notePet,
@@ -1567,19 +1577,34 @@ class _SelectRideState extends State<SelectRide>
       logo = Transform.scale(
         scale: 1.18,
         child: Image.asset(
+          excludeFromSemantics: true,
           'assets/images/google_pay_brand.png',
           fit: BoxFit.contain,
         ),
       );
     } else if (brand == 'paypal') {
-      logo = Image.asset(AppAssets.paypal, fit: BoxFit.contain);
+      logo = Image.asset(
+        excludeFromSemantics: true,
+        AppAssets.paypal,
+        fit: BoxFit.contain,
+      );
     } else if (brand == 'cards') {
       logo = Row(
         children: [
-          Expanded(child: Image.asset(AppAssets.visa, fit: BoxFit.contain)),
+          Expanded(
+            child: Image.asset(
+              excludeFromSemantics: true,
+              AppAssets.visa,
+              fit: BoxFit.contain,
+            ),
+          ),
           const SizedBox(width: 2),
           Expanded(
-            child: Image.asset(AppAssets.mastercard, fit: BoxFit.contain),
+            child: Image.asset(
+              excludeFromSemantics: true,
+              AppAssets.mastercard,
+              fit: BoxFit.contain,
+            ),
           ),
         ],
       );
@@ -1591,7 +1616,12 @@ class _SelectRideState extends State<SelectRide>
         size: 20,
       );
     } else {
-      logo = Image.asset(AppAssets.wallet, color: _ink, fit: BoxFit.contain);
+      logo = Image.asset(
+        excludeFromSemantics: true,
+        AppAssets.wallet,
+        color: _ink,
+        fit: BoxFit.contain,
+      );
     }
     return Container(
       width: 42,

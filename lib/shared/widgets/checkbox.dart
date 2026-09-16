@@ -13,6 +13,7 @@ class CustomCheckBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: onPressed,
+      tooltip: value ? 'Selected' : 'Not selected',
       icon: Container(
         height: ResSize.h * 20,
         width: ResSize.w * 20,

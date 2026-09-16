@@ -43,10 +43,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
         // Google Maps platform view, tiles and Movera styling initialize while
         // the user is entering the verification code. When Continue is tapped
         // we reveal this exact Home instance instead of creating a fresh map.
-        IgnorePointer(
-          ignoring: !_showHome,
-          child: const Home(),
-        ),
+        IgnorePointer(ignoring: !_showHome, child: const Home()),
         if (!_showHome)
           Scaffold(
             body: Padding(
@@ -61,6 +58,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                       onPressed: () {
                         Navigator.pop(context);
                       },
+                      tooltip: 'Back',
                       icon: Icon(
                         Icons.arrow_back_ios_rounded,
                         color: AppColor.title,

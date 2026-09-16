@@ -34,6 +34,7 @@ class ChatAppBar extends StatelessWidget {
             onPressed: () {
               Navigator.pop(context);
             },
+            tooltip: 'Back',
             icon: Icon(
               Icons.arrow_back_rounded,
               color: AppColor.title,
@@ -51,7 +52,12 @@ class ChatAppBar extends StatelessWidget {
       actions: [
         IconButton(
           onPressed: () {},
-          icon: Image.asset(AppAssets.phoneOutl, height: ResSize.h * 23),
+          tooltip: 'Call',
+          icon: Image.asset(
+            AppAssets.phoneOutl,
+            height: ResSize.h * 23,
+            excludeFromSemantics: true,
+          ),
         ),
         8.width,
       ],

@@ -42,43 +42,51 @@ class _RideCompletedState extends State<RideCompleted> {
                 children: [
                   InkWell(
                     onTap: () {
-                      RideNavigator.home(
-                        context,
-                        status: RideStatus.closed,
-                      );
+                      RideNavigator.home(context, status: RideStatus.closed);
                     },
-                    child: Container(
-                      height: ResSize.h * 30,
-                      width: ResSize.w * 30,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColor.border, width: 0.3),
-                        boxShadow: [
-                          BoxShadow(
-                            // ignore: deprecated_member_use
-                            color: Color(0xff999999).withValues(alpha: 0.1),
-                            blurRadius: 40,
-                            offset: const Offset(0, 4),
-                            spreadRadius: 0,
+                    customBorder: const CircleBorder(),
+                    child: Semantics(
+                      button: true,
+                      label: 'Back',
+                      child: Container(
+                        height: 48,
+                        width: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColor.border,
+                            width: 0.3,
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(
-                          Icons.arrow_back_ios_rounded,
-                          color: AppColor.title,
-                          size: ResSize.h * 16,
+                          boxShadow: [
+                            BoxShadow(
+                              // ignore: deprecated_member_use
+                              color: Color(0xff999999).withValues(alpha: 0.1),
+                              blurRadius: 40,
+                              offset: const Offset(0, 4),
+                              spreadRadius: 0,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.arrow_back_ios_rounded,
+                            color: AppColor.title,
+                            size: ResSize.h * 16,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  TextWidget(
-                    text: "You’re Arrived",
-                    color: AppColor.black,
-                    fontSize: 16,
-                    fontWeight: fwSemiBold,
+                  Flexible(
+                    child: TextWidget(
+                      text: "You’re Arrived",
+                      color: AppColor.black,
+                      fontSize: 16,
+                      fontWeight: fwSemiBold,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  SizedBox(height: ResSize.h * 30, width: ResSize.w * 30),
+                  const SizedBox(height: 48, width: 48),
                 ],
               ),
             ),
@@ -89,9 +97,7 @@ class _RideCompletedState extends State<RideCompleted> {
               child: Padding(
                 padding: EdgeInsetsGeometry.symmetric(vertical: ResSize.h * 11),
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenHorizPadding,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -105,7 +111,11 @@ class _RideCompletedState extends State<RideCompleted> {
                         ),
                       ),
                       7.width,
-                      Image.asset(AppAssets.eyeEmoji, height: ResSize.h * 20),
+                      Image.asset(
+                        excludeFromSemantics: true,
+                        AppAssets.eyeEmoji,
+                        height: ResSize.h * 20,
+                      ),
                     ],
                   ),
                 ),
@@ -124,10 +134,8 @@ class _RideCompletedState extends State<RideCompleted> {
               padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
               child: CustomButton(
                 centerContent: "Done",
-                onPressed: () => RideNavigator.home(
-                  context,
-                  status: RideStatus.closed,
-                ),
+                onPressed: () =>
+                    RideNavigator.home(context, status: RideStatus.closed),
               ),
             ),
             24.height,

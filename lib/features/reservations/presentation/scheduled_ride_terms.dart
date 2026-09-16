@@ -35,6 +35,7 @@ class ScheduledRideTermsPage extends StatelessWidget {
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.close_rounded, color: kReservationInk),
+            tooltip: 'Close',
           ),
           Expanded(
             child: ListView(

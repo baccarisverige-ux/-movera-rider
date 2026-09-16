@@ -25,7 +25,7 @@ class RideHistory extends StatefulWidget {
 
 class _RideHistoryState extends State<RideHistory> {
   static const Color _ink = Color(0xFF1D252C);
-  static const Color _muted = Color(0xFF778189);
+  static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE7EBEE);
   static const Color _accent = Color(0xFF2D5878);
   static const Color _cta = Color(0xFF11181D);
@@ -180,11 +180,13 @@ class _RideHistoryState extends State<RideHistory> {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+                  tooltip: 'Back',
                 ),
                 const Spacer(),
                 IconButton(
                   onPressed: _showHowItWorks,
                   icon: const Icon(Icons.info_outline_rounded, color: _ink),
+                  tooltip: 'How history works',
                 ),
               ],
             ),
@@ -414,9 +416,7 @@ class _RideHistoryState extends State<RideHistory> {
     if (reservations.isEmpty) {
       return Center(
         child: MoveraEmptyState(
-          icon: completed
-              ? Icons.route_outlined
-              : Icons.event_busy_outlined,
+          icon: completed ? Icons.route_outlined : Icons.event_busy_outlined,
           title: completed ? 'No completed rides yet' : 'No cancelled rides',
           message: completed
               ? 'Completed trips and their real ride details will appear here.'

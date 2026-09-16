@@ -20,6 +20,7 @@ class DriverProfilePage extends StatelessWidget {
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded),
+                tooltip: 'Close',
               ),
               Expanded(
                 child: Text(
@@ -81,7 +82,7 @@ class DriverProfilePage extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF778189),
+                color: const Color(0xFF5C656C),
               ),
             ),
             const SizedBox(height: 8),
@@ -109,7 +110,7 @@ class DriverProfilePage extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF778189),
+                color: const Color(0xFF5C656C),
               ),
             ),
             const SizedBox(height: 6),
@@ -138,7 +139,7 @@ class DriverProfilePage extends StatelessWidget {
           label,
           style: GoogleFonts.poppins(
             fontSize: 12,
-            color: const Color(0xFF778189),
+            color: const Color(0xFF5C656C),
           ),
         ),
       ],

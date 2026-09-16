@@ -59,8 +59,8 @@ class CancelRideSheet extends StatelessWidget {
     final body = matched
         ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
         : takingLonger
-            ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
-            : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
+        ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
+        : 'Movera is still searching for a nearby driver. Your trip should be confirmed shortly.';
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + inset),
       child: Column(
@@ -84,6 +84,7 @@ class CancelRideSheet extends StatelessWidget {
               IconButton(
                 onPressed: () => Navigator.pop(context, false),
                 icon: const Icon(Icons.close_rounded),
+                tooltip: 'Close',
               ),
             ],
           ),
@@ -143,8 +144,8 @@ class CancelRideSheet extends StatelessWidget {
                 matched
                     ? 'Keep ride'
                     : takingLonger
-                        ? 'Keep searching'
-                        : 'Wait for driver',
+                    ? 'Keep searching'
+                    : 'Wait for driver',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 16,

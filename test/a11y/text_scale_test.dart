@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
+import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
+import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/profile/presentation/account_home.dart';
+import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:movera_rider/features/wallet/presentation/wallet.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  Future<void> pumpScaled(WidgetTester tester, Widget screen) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) => MaterialApp(
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: child!,
+            );
+          },
+          home: screen,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+
+  final screens = <String, Widget Function()>{
+    'Wallet': () => const WalletHome(),
+    'Profile': () => AccountHomePage(
+      controller: ProfileController(
+        store: ProfileRepository(storageKey: 'a11y_text_scale_profile'),
+      ),
+    ),
+    'Completion': () => const RideCompleted(),
+    'Notifications': () => const NotificationScreen(),
+    'Empty state': () => const Scaffold(
+      body: MoveraEmptyState(
+        icon: Icons.inbox_outlined,
+        title: 'Nothing here yet',
+        message: 'Saved methods will show up after you add one.',
+      ),
+    ),
+    'Home chips': () => Scaffold(
+      body: Column(
+        children: [
+          PremiumTopActions(onMenuTap: () {}, onAccountTap: () {}),
+          WhereToCard(
+            destinationAddress: null,
+            onDestinationTap: () {},
+            onOpenSchedule: () {},
+          ),
+        ],
+      ),
+    ),
+  };
+
+  for (final entry in screens.entries) {
+    testWidgets('${entry.key} at 200% text does not overflow', (tester) async {
+      await pumpScaled(tester, entry.value());
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '${entry.key} overflowed or threw at 200% text scale',
+      );
+    });
+  }
+}

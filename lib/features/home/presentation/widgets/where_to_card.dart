@@ -49,27 +49,37 @@ class WhereToCard extends StatelessWidget {
               child: InkWell(
                 onTap: onDestinationTap,
                 borderRadius: BorderRadius.circular(18),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search_rounded,
-                        size: ResSize.h * 26,
-                        color: _premiumInk,
-                      ),
-                      12.width,
-                      Expanded(
-                        child: TextWidget(
-                          text: destinationAddress == null
-                              ? 'Where to?'
-                              : shortAddress(destinationAddress, maxLength: 28),
-                          color: _premiumInk.withValues(alpha: 0.72),
-                          fontSize: destinationAddress == null ? 16.5 : 12.5,
-                          fontWeight: fwMedium,
+                child: Semantics(
+                  button: true,
+                  excludeSemantics: true,
+                  label: destinationAddress == null
+                      ? 'Where to?'
+                      : 'Destination ${shortAddress(destinationAddress, maxLength: 28)}',
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: ResSize.w * 13),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
+                          size: ResSize.h * 26,
+                          color: _premiumInk,
                         ),
-                      ),
-                    ],
+                        12.width,
+                        Expanded(
+                          child: TextWidget(
+                            text: destinationAddress == null
+                                ? 'Where to?'
+                                : shortAddress(
+                                    destinationAddress,
+                                    maxLength: 28,
+                                  ),
+                            color: _premiumInk.withValues(alpha: 0.72),
+                            fontSize: destinationAddress == null ? 16.5 : 12.5,
+                            fontWeight: fwMedium,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -80,39 +90,53 @@ class WhereToCard extends StatelessWidget {
             child: InkWell(
               onTap: onOpenSchedule,
               borderRadius: BorderRadius.circular(18),
-              child: Container(
-                height: ResSize.h * 28.4,
-                padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
-                decoration: BoxDecoration(
-                  color: AppColor.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _premiumLine, width: 0.8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.045),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+              child: Semantics(
+                button: true,
+                excludeSemantics: true,
+                label: 'Schedule for later',
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  child: Center(
+                    child: Container(
+                      height: ResSize.h * 28.4,
+                      padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
+                      decoration: BoxDecoration(
+                        color: AppColor.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _premiumLine, width: 0.8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.045),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            excludeFromSemantics: true,
+                            AppAssets.navSchedule,
+                            height: ResSize.h * 20.4,
+                            width: ResSize.w * 20.4,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                          ),
+                          4.width,
+                          TextWidget(
+                            text: 'Later',
+                            color: _premiumInk,
+                            fontSize: 9.2,
+                            fontWeight: fwSemiBold,
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset(
-                      AppAssets.navSchedule,
-                      height: ResSize.h * 20.4,
-                      width: ResSize.w * 20.4,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
-                    4.width,
-                    TextWidget(
-                      text: 'Later',
-                      color: _premiumInk,
-                      fontSize: 9.2,
-                      fontWeight: fwSemiBold,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

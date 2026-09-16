@@ -51,6 +51,7 @@ class AccountScaffold extends StatelessWidget {
                       size: 18,
                       color: kAccountInk,
                     ),
+                    tooltip: 'Back',
                   ),
                   if (title != null)
                     Expanded(
@@ -232,6 +233,7 @@ class AccountHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Image.asset(
+        excludeFromSemantics: true,
         asset,
         height: height,
         fit: BoxFit.contain,

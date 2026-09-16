@@ -139,7 +139,7 @@ class _HomeState extends State<Home> {
   );
 
   static const Color _premiumInk = Color(0xFF1D252C);
-  static const Color _premiumMuted = Color(0xFF778189);
+  static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumLine = Color(0xFFE7EBEE);
   static const Color _premiumAccent = Color(0xFF2D5878);
   static const Color _premiumAccentSoft = Color(0xFFEAF2F8);
@@ -784,6 +784,7 @@ class _HomeState extends State<Home> {
                         icon: const Icon(Icons.close_rounded),
                         color: _premiumMuted,
                         iconSize: ResSize.h * 18,
+                        tooltip: 'Remove stop',
                       ),
                   ],
                 );
@@ -918,6 +919,7 @@ class _HomeState extends State<Home> {
                             onPressed: () => Navigator.pop(sheetContext),
                             icon: const Icon(Icons.arrow_back_rounded),
                             color: _premiumInk,
+                            tooltip: 'Back',
                           ),
                           Expanded(
                             child: Center(
@@ -1476,6 +1478,7 @@ class _HomeState extends State<Home> {
                             onPressed: () => Navigator.pop(sheetContext),
                             icon: const Icon(Icons.close_rounded),
                             color: _premiumInk,
+                            tooltip: 'Close',
                           ),
                         ],
                       ),
@@ -1520,6 +1523,7 @@ class _HomeState extends State<Home> {
                                     controller.clear();
                                     setModalState(() => query = '');
                                   },
+                                  tooltip: 'Clear',
                                   icon: const Icon(Icons.close_rounded),
                                 ),
                           filled: true,

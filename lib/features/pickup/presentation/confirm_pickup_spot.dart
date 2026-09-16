@@ -6,6 +6,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -190,9 +191,11 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                     child: Row(
                       children: [
-                        _roundBtn(
+                        MoveraIconButton.round(
                           icon: Icons.arrow_back_ios_new_rounded,
-                          onTap: () => Navigator.pop(context),
+                          onPressed: () => Navigator.pop(context),
+                          label: 'Back',
+                          iconSize: 18,
                         ),
                       ],
                     ),
@@ -224,7 +227,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                   widget.hint,
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: const Color(0xFF778189),
+                    color: const Color(0xFF5C656C),
                   ),
                 ),
                 if (widget.scheduledSummary != null ||
@@ -252,6 +255,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     suffixIcon: IconButton(
                       onPressed: _lookup,
                       icon: const Icon(Icons.search_rounded),
+                      tooltip: 'Search address',
                     ),
                     filled: true,
                     fillColor: const Color(0xFFF6F8FA),
@@ -303,22 +307,6 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _roundBtn({required IconData icon, required VoidCallback onTap}) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, size: 18, color: const Color(0xFF1D252C)),
-        ),
       ),
     );
   }

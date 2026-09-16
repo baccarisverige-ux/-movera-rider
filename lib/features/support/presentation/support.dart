@@ -8,7 +8,7 @@ class SupportHome extends StatelessWidget {
   const SupportHome({super.key});
 
   static const Color ink = Color(0xFF1D252C);
-  static const Color muted = Color(0xFF778189);
+  static const Color muted = Color(0xFF5C656C);
   static const Color line = Color(0xFFE7EBEE);
   static const Color accent = Color(0xFF2D5878);
   static const Color cta = Color(0xFF11181D);
@@ -47,6 +47,7 @@ class SupportHome extends StatelessWidget {
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded, color: ink),
+                  tooltip: 'Close',
                 ),
                 const Spacer(),
                 Flexible(
@@ -345,27 +346,27 @@ class HelpArticles extends StatelessWidget {
   static const topics = [
     (
       'About Movera',
-      'Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.'
+      'Movera lets riders choose an available ride category, set pickup and destination, and manage the ride flow in the app.',
     ),
     (
       'App and features',
-      'Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.'
+      'Use the map to set pickup and destination, choose a category, and schedule a ride when you need a later pickup.',
     ),
     (
       'Account and data',
-      'Your account only shows information that is actually available in this build. You can edit supported profile fields from Account.'
+      'Your account only shows information that is actually available in this build. You can edit supported profile fields from Account.',
     ),
     (
       'Payments and pricing',
-      'Pricing and payment support will use the real booking and payment record when those services are connected.'
+      'Pricing and payment support will use the real booking and payment record when those services are connected.',
     ),
     (
       'Using Movera',
-      'Confirm pickup, choose a ride category, and follow the booking flow shown in the app.'
+      'Confirm pickup, choose a ride category, and follow the booking flow shown in the app.',
     ),
     (
       'Safety',
-      'Use the available Safety tools in the app if you need safety-related help during a ride.'
+      'Use the available Safety tools in the app if you need safety-related help during a ride.',
     ),
   ];
 
@@ -498,6 +499,7 @@ class SupportChat extends StatelessWidget {
                       Icons.close_rounded,
                       color: SupportHome.ink,
                     ),
+                    tooltip: 'Close',
                   ),
                   Text(
                     'Help',
@@ -552,8 +554,9 @@ class SupportChat extends StatelessWidget {
                                     14,
                                     12,
                                   ),
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 280),
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 280,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: SupportHome.ink,
                                     borderRadius: BorderRadius.circular(16),
@@ -642,6 +645,7 @@ class _SupportScaffold extends StatelessWidget {
                       Icons.arrow_back_rounded,
                       color: SupportHome.ink,
                     ),
+                    tooltip: 'Back',
                   ),
                   const Spacer(),
                   if (trailing != null) trailing!,
@@ -968,7 +972,10 @@ class _LineItem extends StatelessWidget {
       children: [
         ListTile(
           onTap: onTap,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 2,
+          ),
           leading: icon == null ? null : Icon(icon, color: SupportHome.ink),
           title: Text(
             title,
@@ -1079,11 +1086,7 @@ class _TeamAvatars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = [
-      Color(0xFF2D5878),
-      Color(0xFF4A7A96),
-      Color(0xFF1D252C),
-    ];
+    const colors = [Color(0xFF2D5878), Color(0xFF4A7A96), Color(0xFF1D252C)];
     return SizedBox(
       width: 86,
       height: 40,

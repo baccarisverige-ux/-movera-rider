@@ -126,7 +126,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
                   style: waitingText(
                     12,
                     weight: FontWeight.w500,
-                    color: const Color(0xFF778189),
+                    color: const Color(0xFF5C656C),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -134,8 +134,10 @@ class WaitingRideDetailsCard extends StatelessWidget {
                   'Meet at ${shortPickupPlace(pickupAddress)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: waitingText(15, weight: FontWeight.w600)
-                      .copyWith(height: 1.3),
+                  style: waitingText(
+                    15,
+                    weight: FontWeight.w600,
+                  ).copyWith(height: 1.3),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -264,7 +266,7 @@ class WaitingDriverCard extends StatelessWidget {
                           d.tripsLabel!,
                           style: waitingText(
                             12,
-                            color: const Color(0xFF778189),
+                            color: const Color(0xFF5C656C),
                           ),
                         ),
                       if (d.vehicleLabel.isNotEmpty)
@@ -287,6 +289,7 @@ class WaitingDriverCard extends StatelessWidget {
                   children: [
                     if (d.vehicleImageAsset != null)
                       Image.asset(
+                        excludeFromSemantics: true,
                         d.vehicleImageAsset!,
                         height: 40,
                         width: 72,
@@ -306,8 +309,10 @@ class WaitingDriverCard extends StatelessWidget {
                         ),
                         child: Text(
                           d.plate!,
-                          style: waitingText(14, weight: FontWeight.w700)
-                              .copyWith(letterSpacing: 0.4),
+                          style: waitingText(
+                            14,
+                            weight: FontWeight.w700,
+                          ).copyWith(letterSpacing: 0.4),
                         ),
                       ),
                     ],
@@ -422,7 +427,7 @@ class WaitingNotesAndPin extends StatelessWidget {
               children: [
                 Text(
                   'Show this PIN to your driver',
-                  style: waitingText(12, color: const Color(0xFF778189)),
+                  style: waitingText(12, color: const Color(0xFF5C656C)),
                 ),
                 Text(
                   SafetyController.shared.pin.pin,

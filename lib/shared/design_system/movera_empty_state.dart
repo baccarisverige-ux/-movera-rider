@@ -20,7 +20,7 @@ class MoveraEmptyState extends StatelessWidget {
   final bool compact;
 
   static const _ink = Color(0xFF1D252C);
-  static const _muted = Color(0xFF778189);
+  static const _muted = Color(0xFF5C656C);
   static const _soft = Color(0xFFF1F5F7);
   static const _accent = Color(0xFF2D5878);
 

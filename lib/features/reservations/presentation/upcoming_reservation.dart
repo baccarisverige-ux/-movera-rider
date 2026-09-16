@@ -116,6 +116,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   Icons.arrow_back_rounded,
                   color: kReservationInk,
                 ),
+                tooltip: 'Back',
               ),
               Expanded(
                 child: Text(

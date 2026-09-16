@@ -57,6 +57,7 @@ class _CreateAccountState extends State<CreateAccount> {
                 onPressed: () {
                   Navigator.pop(context);
                 },
+                tooltip: 'Back',
                 icon: Icon(
                   Icons.arrow_back_ios_rounded,
                   color: AppColor.title,
