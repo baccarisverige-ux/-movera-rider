@@ -54,9 +54,7 @@ jobs:
           const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
 
           async function enableA11y(page) {
-            try {
-              await page.getByLabel('Enable accessibility').click({ timeout: 2500 });
-            } catch (_) {}
+            try { await page.getByLabel('Enable accessibility').click({ timeout: 2500 }); } catch (_) {}
             await page.waitForTimeout(400);
           }
 
@@ -106,7 +104,6 @@ jobs:
 
           async function openSelection(page, name) {
             await openHome(page, name);
-
             const where = page.getByText('Where to', { exact: false });
             if (await where.count()) await where.last().click();
             else await page.mouse.click(190, 708);
@@ -175,18 +172,36 @@ jobs:
             return parsed[0];
           }
 
+          async function paymentPickerVisible(page) {
+            return page.getByText('PAYMENT METHODS', { exact: true }).isVisible().catch(() => false);
+          }
+
+          async function openPaymentPicker(page, label) {
+            const attempts = [
+              async () => page.touchscreen.tap(350, 666),
+              async () => page.mouse.click(350, 666),
+              async () => page.touchscreen.tap(190, 666),
+              async () => page.mouse.click(190, 666),
+            ];
+            for (let i = 0; i < attempts.length; i++) {
+              await attempts[i]();
+              await page.waitForTimeout(800);
+              if (await paymentPickerVisible(page)) return;
+            }
+            await page.screenshot({ path: `qa-critical-${label}-picker-failed.png`, fullPage: true });
+            throw new Error(`${label}: Payment row did not open the real picker`);
+          }
+
           const browser = await chromium.launch({ headless: true });
           const evidence = {};
 
-          // 1. Payment: tap the visible payment row, then prove the actual picker opened.
-          // Fixed mobile viewport. The coordinate is only the action; semantic assertions
-          // below are the proof, so a shifted tap cannot create a false PASS.
+          // 1. Payment must open the actual picker and retain a selected method.
           {
             const context = await newContext(browser);
             const page = await context.newPage();
             await openSelection(page, 'payment');
             await page.screenshot({ path: 'qa-critical-payment-before.png', fullPage: true });
-            await page.mouse.click(190, 665);
+            await openPaymentPicker(page, 'payment');
             await page.getByText('Payment', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
             await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
             const cash = page.getByText('Cash', { exact: true });
@@ -195,8 +210,7 @@ jobs:
             await cash.last().click();
             await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'hidden', timeout: 5000 });
             await page.screenshot({ path: 'qa-critical-payment-cash.png', fullPage: true });
-            await page.mouse.click(190, 665);
-            await page.getByText('PAYMENT METHODS', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+            await openPaymentPicker(page, 'payment-reopen');
             const defaults = await page.getByText('Default for rides', { exact: true }).count();
             if (defaults !== 1) throw new Error(`Payment: expected exactly one default method, got ${defaults}`);
             if (!(await page.getByText('Cash', { exact: true }).count())) {
@@ -231,7 +245,6 @@ jobs:
             await page.getByText('Cancel request', { exact: true }).click();
             await page.getByText('Why are you cancelling?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
             await page.getByText('Skip', { exact: true }).click();
-
             await page.getByText('Where to', { exact: false }).last().waitFor({ state: 'visible', timeout: 10000 });
             await page.waitForTimeout(28000);
             const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
