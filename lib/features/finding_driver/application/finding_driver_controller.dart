@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
@@ -335,7 +336,13 @@ class FindingDriverController {
     }
     await _store.clear();
     _reportQa();
-    if (!_disposed) _onTerminal?.call(status);
+    if (_disposed) return;
+    final callback = _onTerminal;
+    if (callback != null) {
+      callback(status);
+    } else {
+      RideNavigator.home(null, status: status);
+    }
   }
 
   Future<void> cancelSearch({String? reasonId}) async {
