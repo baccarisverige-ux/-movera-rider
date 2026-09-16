@@ -135,6 +135,13 @@ void main() {
         isNull,
         reason: '${entry.key} overflowed or threw at 200% text scale',
       );
+
+      // Dispose the tested surface before draining delayed initialization work.
+      // SelectRide intentionally arms an 80 ms map-init callback; the overflow
+      // assertion above remains strict while this prevents a legitimate timer
+      // from leaking past the end of the widget test.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 100));
     });
   }
 }
