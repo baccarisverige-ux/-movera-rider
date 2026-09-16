@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
@@ -21,12 +22,30 @@ class _SlowGeo extends AppGeocoding {
   }
 }
 
+class _DeniedLocation extends LocationRepository {
+  int permissionRequests = 0;
+
+  @override
+  Future<LocationPermission> checkPermission() async => LocationPermission.denied;
+
+  @override
+  Future<LocationPermission> requestPermission() async {
+    permissionRequests += 1;
+    return LocationPermission.denied;
+  }
+
+  @override
+  Future<Position> getCurrentPosition({LocationSettings? locationSettings}) {
+    throw StateError('GPS must not be requested after permission denial');
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  HomeLocationController controllerOf(_SlowGeo geo) {
+  HomeLocationController controllerOf(_SlowGeo geo, {LocationRepository? location}) {
     return HomeLocationController(
-      location: LocationRepository(),
+      location: location ?? LocationRepository(),
       geocoding: geo,
       motion: MotionEngine(),
     );
@@ -38,6 +57,20 @@ void main() {
     expect(ctl.markers, isEmpty);
     expect(ctl.locationCircles, isEmpty);
     expect(ctl.locationDirection, isEmpty);
+    ctl.dispose();
+  });
+
+  test('permission denied during detection returns a usable no-GPS state', () async {
+    final location = _DeniedLocation();
+    final ctl = controllerOf(_SlowGeo(), location: location);
+
+    final detected = await ctl.detectCurrent();
+
+    expect(location.permissionRequests, 1);
+    expect(detected.denied, isTrue);
+    expect(detected.target, isNull);
+    expect(detected.address, 'Current location');
+    expect(detected.heading, 0);
     ctl.dispose();
   });
 

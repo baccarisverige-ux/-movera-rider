@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
@@ -51,6 +54,38 @@ void main() {
     );
     expect(identical(first, second), isTrue);
     expect(await first, await second);
+  });
+
+  test('failed finding submit releases the lock for a later tap', () async {
+    final mock = InProcessMockClient()..failNext = true;
+    final booking = BookingCoordinator(api: ApiClient(client: mock));
+
+    final failed = booking.submitFinding(
+      pickupAddress: 'A',
+      destinationAddress: 'B',
+      pickupLat: 59.3,
+      pickupLng: 18.0,
+      destinationLat: 59.4,
+      destinationLng: 18.1,
+      rideType: 'Movera',
+      price: 259,
+      paymentMethod: 'Apple Pay',
+    );
+    await expectLater(failed, throwsA(isA<ApiError>()));
+
+    final retried = await booking.submitFinding(
+      pickupAddress: 'A',
+      destinationAddress: 'B',
+      pickupLat: 59.3,
+      pickupLng: 18.0,
+      destinationLat: 59.4,
+      destinationLng: 18.1,
+      rideType: 'Movera',
+      price: 259,
+      paymentMethod: 'Apple Pay',
+    );
+    expect(retried, isNotEmpty);
+    expect(AppScope.instance.ride.rideId, retried);
   });
 
   test('in-flight scheduled booking is reused', () async {

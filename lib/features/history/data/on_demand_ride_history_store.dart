@@ -6,6 +6,12 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
+typedef OnDemandArchiveWriter = Future<void> Function(
+  RideSnapshot snapshot,
+  RideStatus terminalStatus,
+  String? cancellationReason,
+);
+
 /// Local archive for finished Book Now rides.
 ///
 /// The backend remains the future source of truth. Until then, retain at most
@@ -49,16 +55,25 @@ abstract final class OnDemandRideHistoryStore {
   static Future<void> archiveCancelledThenClear({
     RideSnapshot? snapshot,
     String? reasonId,
+    OnDemandArchiveWriter? archiveWriter,
   }) async {
     final candidate = snapshot ?? await RideSnapshotStore.readForArchive();
     final rideId = candidate?.rideId?.trim();
     if (candidate != null && rideId != null && rideId.isNotEmpty) {
       try {
-        await archive(
-          candidate,
-          terminalStatus: RideStatus.cancelledByRider,
-          cancellationReason: reasonId,
-        );
+        if (archiveWriter != null) {
+          await archiveWriter(
+            candidate,
+            RideStatus.cancelledByRider,
+            reasonId,
+          );
+        } else {
+          await archive(
+            candidate,
+            terminalStatus: RideStatus.cancelledByRider,
+            cancellationReason: reasonId,
+          );
+        }
       } catch (_) {}
     }
     await RideSnapshotStore.clear();

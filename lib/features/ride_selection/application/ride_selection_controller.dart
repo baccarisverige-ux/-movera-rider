@@ -87,7 +87,24 @@ class RideSelectionController {
     }
   }
 
-  double priceFor(String id, double catalog) => offeredPrices[id] ?? catalog;
+  bool quoteIsFresh(String id, {DateTime? now}) {
+    final expiresAt = quoteExpiresAt[id];
+    if (expiresAt == null) return quoteIds[id] == null;
+    return expiresAt.isAfter(now ?? DateTime.now());
+  }
+
+  void _discardExpiredQuote(String id, {DateTime? now}) {
+    final expiresAt = quoteExpiresAt[id];
+    if (expiresAt == null || expiresAt.isAfter(now ?? DateTime.now())) return;
+    offeredPrices.remove(id);
+    quoteIds.remove(id);
+    quoteExpiresAt.remove(id);
+  }
+
+  double priceFor(String id, double catalog, {DateTime? now}) {
+    _discardExpiredQuote(id, now: now);
+    return offeredPrices[id] ?? catalog;
+  }
 
   void selectRide(String id, double catalog) {
     selectedRideId = id;
@@ -125,7 +142,10 @@ class RideSelectionController {
     bookingMode = BookingMode.scheduled;
   }
 
-  String? quoteIdFor(String id) => quoteIds[id];
+  String? quoteIdFor(String id, {DateTime? now}) {
+    _discardExpiredQuote(id, now: now);
+    return quoteIds[id];
+  }
 
   DateTime? expiryFor(String id) => quoteExpiresAt[id];
 
