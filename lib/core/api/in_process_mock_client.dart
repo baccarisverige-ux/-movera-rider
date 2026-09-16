@@ -115,12 +115,38 @@ class InProcessMockClient extends http.BaseClient {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
       } else {
-        if (body['price'] != null) ride['price'] = body['price'];
-        if (body['offerIncreaseKr'] != null) {
-          ride['offerIncreaseKr'] = body['offerIncreaseKr'];
+        final currentStatus = ride['status'] as String?;
+        final searching =
+            currentStatus == 'findingDriver' || currentStatus == 'searchDelayed';
+        if (!searching) {
+          status = 409;
+          payload = {
+            'code': 'RIDE_NOT_SEARCHING',
+            'message': 'Ride can only be edited while searching',
+            'ride': ride,
+            'requestId': requestId,
+          };
+        } else {
+          if (body['price'] != null) ride['price'] = body['price'];
+          if (body['offerIncreaseKr'] != null) {
+            ride['offerIncreaseKr'] = body['offerIncreaseKr'];
+          }
+          if (body['pickupAddress'] != null) {
+            ride['pickupAddress'] = body['pickupAddress'];
+          }
+          if (body['pickupLat'] != null) ride['pickupLat'] = body['pickupLat'];
+          if (body['pickupLng'] != null) ride['pickupLng'] = body['pickupLng'];
+          if (body['destinationAddress'] != null) {
+            ride['destinationAddress'] = body['destinationAddress'];
+          }
+          if (body['destinationLat'] != null) {
+            ride['destinationLat'] = body['destinationLat'];
+          }
+          if (body['destinationLng'] != null) {
+            ride['destinationLng'] = body['destinationLng'];
+          }
+          payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
         }
-        ride['status'] = 'findingDriver';
-        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
     } else if (path.startsWith('/api/v1/rides/') &&
         method == 'GET' &&
