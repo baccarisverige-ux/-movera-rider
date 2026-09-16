@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -12,16 +14,29 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 class MockRideRealtime implements RideRealtime {
   MockRideRealtime({
     this.assignAfter = const Duration(seconds: 25),
+    this.boardAfter = const Duration(seconds: 8),
+    this.tripTick = const Duration(seconds: 3),
+    this.tripTicks = 6,
     RealtimeConnection? connection,
     this.api,
   }) : connection = connection ?? RealtimeConnection();
 
   final Duration assignAfter;
+
+  /// Once the driver is waiting at pickup, how long before the rider boards.
+  final Duration boardAfter;
+
+  /// Cadence and length of the trip itself, so a ride can actually finish.
+  final Duration tripTick;
+  final int tripTicks;
   final RealtimeConnection connection;
   final ApiClient? api;
   final _controller = StreamController<RideRealtimeEvent>.broadcast();
   Timer? _assign;
   Timer? _gps;
+  Timer? _board;
+  Timer? _trip;
+  int _tripTicksDone = 0;
   String? _rideId;
   int _sequence = 0;
   bool cancelled = false;
@@ -43,6 +58,9 @@ class MockRideRealtime implements RideRealtime {
     }
     _assign?.cancel();
     _gps?.cancel();
+    _board?.cancel();
+    _trip?.cancel();
+    _tripTicksDone = 0;
     cancelled = false;
     disposed = false;
     held = false;
@@ -158,6 +176,48 @@ class MockRideRealtime implements RideRealtime {
       }
       lastStatus = status;
       _emit(status);
+      if (status == RideStatus.driverWaiting) {
+        _gps?.cancel();
+        _gps = null;
+        _startTrip();
+      }
+    });
+  }
+
+  /// Tests drive arrival directly: the GPS walk depends on real pickup
+  /// coordinates fetched over the mock API, which unit tests do not stand up.
+  @visibleForTesting
+  void markArrivedForTest() {
+    lastStatus = RideStatus.driverWaiting;
+    _emit(RideStatus.driverWaiting);
+    _startTrip();
+  }
+
+  /// The driver is at pickup; carry the ride through to completion so the
+  /// rider reaches the finished-ride screen instead of waiting forever.
+  void _startTrip() {
+    _board?.cancel();
+    _board = Timer(boardAfter, () {
+      if (cancelled || disposed || _rideId == null) return;
+      lastStatus = RideStatus.tripStarted;
+      _emit(RideStatus.tripStarted);
+      _trip?.cancel();
+      _tripTicksDone = 0;
+      _trip = Timer.periodic(tripTick, (timer) {
+        if (cancelled || disposed || _rideId == null) {
+          timer.cancel();
+          return;
+        }
+        _tripTicksDone += 1;
+        if (_tripTicksDone >= tripTicks) {
+          timer.cancel();
+          lastStatus = RideStatus.tripCompleted;
+          _emit(RideStatus.tripCompleted);
+          return;
+        }
+        lastStatus = RideStatus.tripInProgress;
+        _emit(RideStatus.tripInProgress);
+      });
     });
   }
 
@@ -248,16 +308,26 @@ class MockRideRealtime implements RideRealtime {
   void cancelRide() {
     cancelled = true;
     lastStatus = RideStatus.cancelledByRider;
+    _stopMotion();
+    unsubscribe();
+  }
+
+  /// Every timer that advances a ride, stopped together — a cancelled or
+  /// disposed ride must not keep driving itself to completion.
+  void _stopMotion() {
     _gps?.cancel();
     _gps = null;
-    unsubscribe();
+    _board?.cancel();
+    _board = null;
+    _trip?.cancel();
+    _trip = null;
   }
 
   @override
   void dispose() {
     disposed = true;
     cancelled = true;
-    _gps?.cancel();
+    _stopMotion();
     unsubscribe();
     if (!_controller.isClosed) _controller.close();
   }

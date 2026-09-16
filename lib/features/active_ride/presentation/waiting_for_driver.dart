@@ -14,6 +14,7 @@ import 'package:movera_rider/features/driver_arriving/presentation/driver_profil
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
@@ -68,6 +69,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   late final AnimationController _sheetSlide;
   bool _leaving = false;
   bool _completedOpened = false;
+  bool _arrivalAnnounced = false;
   bool _overlayOn = false;
 
   @override
@@ -92,6 +94,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         onChange: () {
           if (!mounted) return;
           setState(_loadMarkers);
+          _maybeAnnounceArrival();
           _maybeOpenCompleted();
         },
       );
@@ -128,6 +131,20 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           ),
         ),
     };
+  }
+
+  /// The driver reaching pickup is easy to miss on a map the rider is not
+  /// watching, so say it once and never again for this ride.
+  void _maybeAnnounceArrival() {
+    if (!mounted || _leaving || _arrivalAnnounced || _completedOpened) return;
+    if (_tracking.status != RideStatus.driverWaiting) return;
+    _arrivalAnnounced = true;
+    unawaited(
+      showDriverArrivedSheet(
+        context,
+        driver: _tracking.driver ?? widget.driver,
+      ),
+    );
   }
 
   void _maybeOpenCompleted() {
