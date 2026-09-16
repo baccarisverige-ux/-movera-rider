@@ -9,7 +9,7 @@ class ProfileRepository {
   static const _legacyName = 'Ben Gleason';
   static const _legacyEmail = 'ben.gleason@movera.se';
   static const _legacyPhone = '+46 70 123 45 67';
-  static const _legacyPhoto = 'assets/images/profile_img.png';
+  static const _legacyPhoto = 'assets/images/profile_img.webp';
 
   final String storageKey;
   RiderProfileData _profile = RiderProfileData.defaults();

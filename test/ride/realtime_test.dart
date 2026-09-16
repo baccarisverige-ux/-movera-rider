@@ -67,4 +67,28 @@ void main() {
     expect(last, RideStatus.findingDriver);
     rt.dispose();
   });
+
+  test('re-subscribe same unmatched ride does not reset matching', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    rt.subscribe('r1');
+    rt.emit(RideStatus.findingDriver, sequence: 4);
+    expect(rt.lastStatus, RideStatus.findingDriver);
+    rt.subscribe('r1');
+    expect(rt.lastStatus, RideStatus.findingDriver);
+    rt.emit(RideStatus.findingDriver, sequence: 5);
+    expect(rt.lastStatus, RideStatus.findingDriver);
+    rt.dispose();
+  });
+
+  test('reconnect does not replace an active unmatched subscription', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final statuses = <RideStatus>[];
+    rt.subscribe('r1').listen((e) => statuses.add(e.status));
+    rt.emit(RideStatus.findingDriver, sequence: 2);
+    await rt.reconnectAndResync('r1');
+    rt.subscribe('r1');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(rt.lastStatus, RideStatus.findingDriver);
+    rt.dispose();
+  });
 }

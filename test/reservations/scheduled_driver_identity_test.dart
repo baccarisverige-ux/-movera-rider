@@ -11,7 +11,7 @@ ReservationDraft _draft(DateTime pickupAt) {
     destination: const ReservationPlace(label: 'Destination'),
     categoryId: 'comfort',
     categoryName: 'Comfort',
-    categoryImage: 'assets/images/rides/comfort.png',
+    categoryImage: 'assets/images/rides/comfort.webp',
     price: 300,
     paymentMethod: 'Apple Pay',
   );

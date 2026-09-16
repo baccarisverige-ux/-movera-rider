@@ -393,8 +393,9 @@ class _WalletHomeState extends State<WalletHome> {
                 width: double.infinity,
                 child: Image.asset(
                   excludeFromSemantics: true,
-                  'assets/images/wallet_rider_3d.jpg',
+                  'assets/images/wallet_rider_3d.webp',
                   fit: BoxFit.contain,
+                  cacheHeight: 400,
                 ),
               ),
               const SizedBox(height: 6),
@@ -750,168 +751,171 @@ class _WalletScreenState extends State<WalletScreen> {
     final expiryController = TextEditingController();
     final cvcController = TextEditingController();
 
-    final lastFour = await MoveraSheet.show<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final digits = numberController.text.replaceAll(
-              RegExp(r'[^0-9]'),
-              '',
-            );
-            final canSave =
-                digits.length >= 12 &&
-                nameController.text.trim().isNotEmpty &&
-                expiryController.text.trim().isNotEmpty &&
-                cvcController.text.trim().length >= 3;
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
-              child: SafeArea(
-                top: false,
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: _line,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Text(
-                            'Add a card',
-                            style: _style(17, weight: FontWeight.w600),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () => Navigator.pop(sheetContext),
-                            icon: const Icon(Icons.close_rounded),
-                            color: _muted,
-                            tooltip: 'Close',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _cardField(
-                        controller: numberController,
-                        label: 'Card number',
-                        hint: '0000 0000 0000 0000',
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => setSheetState(() {}),
-                      ),
-                      const SizedBox(height: 10),
-                      _cardField(
-                        controller: nameController,
-                        label: 'Name on card',
-                        hint: 'Cardholder name',
-                        onChanged: (_) => setSheetState(() {}),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _cardField(
-                              controller: expiryController,
-                              label: 'Expiry',
-                              hint: 'MM/YY',
-                              keyboardType: TextInputType.datetime,
-                              onChanged: (_) => setSheetState(() {}),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _cardField(
-                              controller: cvcController,
-                              label: 'CVC',
-                              hint: '000',
-                              keyboardType: TextInputType.number,
-                              obscureText: true,
-                              onChanged: (_) => setSheetState(() {}),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: canSave
-                              ? () => Navigator.pop(
-                                  sheetContext,
-                                  digits.substring(digits.length - 4),
-                                )
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _ink,
-                            disabledBackgroundColor: _ink.withValues(
-                              alpha: 0.16,
-                            ),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: Text(
-                            'Save card',
-                            style: _style(
-                              13,
-                              weight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
+    String? lastFour;
+    try {
+      lastFour = await MoveraSheet.show<String>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.28),
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              final digits = numberController.text.replaceAll(
+                RegExp(r'[^0-9]'),
+                '',
+              );
+              final canSave =
+                  digits.length >= 12 &&
+                  nameController.text.trim().isNotEmpty &&
+                  expiryController.text.trim().isNotEmpty &&
+                  cvcController.text.trim().length >= 3;
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: _line,
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.lock_outline_rounded,
-                            color: _muted,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Only the last four digits are stored here.',
-                            style: _style(
-                              9,
-                              weight: FontWeight.w400,
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Text(
+                              'Add a card',
+                              style: _style(17, weight: FontWeight.w600),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => Navigator.pop(sheetContext),
+                              icon: const Icon(Icons.close_rounded),
                               color: _muted,
+                              tooltip: 'Close',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _cardField(
+                          controller: numberController,
+                          label: 'Card number',
+                          hint: '0000 0000 0000 0000',
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setSheetState(() {}),
+                        ),
+                        const SizedBox(height: 10),
+                        _cardField(
+                          controller: nameController,
+                          label: 'Name on card',
+                          hint: 'Cardholder name',
+                          onChanged: (_) => setSheetState(() {}),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _cardField(
+                                controller: expiryController,
+                                label: 'Expiry',
+                                hint: 'MM/YY',
+                                keyboardType: TextInputType.datetime,
+                                onChanged: (_) => setSheetState(() {}),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _cardField(
+                                controller: cvcController,
+                                label: 'CVC',
+                                hint: '000',
+                                keyboardType: TextInputType.number,
+                                obscureText: true,
+                                onChanged: (_) => setSheetState(() {}),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: canSave
+                                ? () => Navigator.pop(
+                                    sheetContext,
+                                    digits.substring(digits.length - 4),
+                                  )
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _ink,
+                              disabledBackgroundColor: _ink.withValues(
+                                alpha: 0.16,
+                              ),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text(
+                              'Save card',
+                              style: _style(
+                                13,
+                                weight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.lock_outline_rounded,
+                              color: _muted,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Only the last four digits are stored here.',
+                              style: _style(
+                                9,
+                                weight: FontWeight.w400,
+                                color: _muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    numberController.dispose();
-    nameController.dispose();
-    expiryController.dispose();
-    cvcController.dispose();
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      numberController.dispose();
+      nameController.dispose();
+      expiryController.dispose();
+      cvcController.dispose();
+    }
 
     if (!mounted || lastFour == null) return;
     final id = 'card_$lastFour';

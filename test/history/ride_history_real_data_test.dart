@@ -31,7 +31,7 @@ void main() {
     destination: const ReservationPlace(label: 'T-Centralen'),
     categoryId: 'comfort',
     categoryName: 'Comfort',
-    categoryImage: 'assets/images/rides/comfort.png',
+    categoryImage: 'assets/images/rides/comfort.webp',
     price: 339,
     paymentMethod: 'Cash',
   );

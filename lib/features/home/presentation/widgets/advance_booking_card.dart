@@ -50,10 +50,11 @@ class AdvanceBookingCard extends StatelessWidget {
                 height: ResSize.h * 142,
                 child: Image.asset(
                   excludeFromSemantics: true,
-                  'assets/images/advance_booking_driver.png',
+                  'assets/images/advance_booking_driver.webp',
                   fit: BoxFit.cover,
                   alignment: const Alignment(0, -0.28),
                   filterQuality: FilterQuality.high,
+                  cacheWidth: 800,
                 ),
               ),
             ),

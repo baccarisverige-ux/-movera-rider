@@ -167,12 +167,12 @@ abstract final class OnDemandRideHistoryStore {
 
   static String _categoryImage(String rideType) {
     final value = rideType.toLowerCase();
-    if (value.contains('comfort')) return 'assets/images/rides/comfort.png';
-    if (value.contains('premium')) return 'assets/images/rides/premium.png';
-    if (value.contains('electric')) return 'assets/images/rides/electric.png';
-    if (value.contains('xl')) return 'assets/images/rides/xl.png';
-    if (value.contains('pet')) return 'assets/images/rides/pet.png';
-    if (value.contains('priority')) return 'assets/images/rides/priority.png';
-    return 'assets/images/rides/movera.png';
+    if (value.contains('comfort')) return 'assets/images/rides/comfort.webp';
+    if (value.contains('premium')) return 'assets/images/rides/premium.webp';
+    if (value.contains('electric')) return 'assets/images/rides/electric.webp';
+    if (value.contains('xl')) return 'assets/images/rides/xl.webp';
+    if (value.contains('pet')) return 'assets/images/rides/pet.webp';
+    if (value.contains('priority')) return 'assets/images/rides/priority.webp';
+    return 'assets/images/rides/movera.webp';
   }
 }

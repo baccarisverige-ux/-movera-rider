@@ -38,7 +38,7 @@ class ComfortRideCarousel extends StatelessWidget {
             cardWidth: cardWidth,
             imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_comfort_ride.jpeg',
+            imageAsset: 'assets/images/movera_comfort_ride.webp',
             title: 'Movera Comfort',
             subtitle: 'Extra space. Elevated comfort. A smoother way to ride.',
             onTap: onDestinationTap,
@@ -48,7 +48,7 @@ class ComfortRideCarousel extends StatelessWidget {
             cardWidth: cardWidth,
             imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/pin_verification.png',
+            imageAsset: 'assets/images/pin_verification.webp',
             title: 'Safety Toolkit',
             subtitle: 'Essential safety tools, ready throughout every ride.',
             onTap: () {
@@ -60,7 +60,7 @@ class ComfortRideCarousel extends StatelessWidget {
             cardWidth: cardWidth,
             imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_airport_premium.jpeg',
+            imageAsset: 'assets/images/movera_airport_premium.webp',
             title: 'Fly with ease',
             subtitle:
                 'Reserve your airport ride ahead and travel with less stress.',
@@ -71,7 +71,7 @@ class ComfortRideCarousel extends StatelessWidget {
             cardWidth: cardWidth,
             imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_events_premium.jpeg',
+            imageAsset: 'assets/images/movera_events_premium.webp',
             title: 'Reserve for events',
             subtitle:
                 'Plan your ride early and arrive exactly when you need to.',
@@ -82,7 +82,7 @@ class ComfortRideCarousel extends StatelessWidget {
             cardWidth: cardWidth,
             imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_business_premium.jpeg',
+            imageAsset: 'assets/images/movera_business_premium.webp',
             title: 'Reserve work rides',
             subtitle:
                 'Reliable scheduled rides for meetings and important workdays.',
@@ -93,7 +93,7 @@ class ComfortRideCarousel extends StatelessWidget {
             cardWidth: cardWidth,
             imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_outings_premium.jpeg',
+            imageAsset: 'assets/images/movera_outings_premium.webp',
             title: 'Plan for outings',
             subtitle:
                 'Book ahead for dinners, appointments and plans around town.',
@@ -164,6 +164,7 @@ class _HomePromoCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     alignment: Alignment.center,
                     filterQuality: FilterQuality.high,
+                    cacheWidth: 660,
                   ),
                 ),
                 Container(

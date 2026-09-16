@@ -7,8 +7,8 @@ class DriverProfile {
     required this.rideNumber,
     required this.ratingLabel,
     required this.completedAt,
-    this.vehicleImage = 'assets/images/comfort_ride.png',
-    this.photoAsset = 'assets/images/profile_img.png',
+    this.vehicleImage = 'assets/images/comfort_ride.webp',
+    this.photoAsset = 'assets/images/profile_img.webp',
   });
 
   final String name;
