@@ -88,7 +88,9 @@ class MockRideRealtime implements RideRealtime {
   }
 
   void assignNow() {
-    if (cancelled || disposed || _rideId == null) return;
+    if (cancelled || disposed || _rideId == null || lastStatus.isTerminal) {
+      return;
+    }
     if (lastStatus.isMatched) {
       _emit(lastStatus);
       return;
@@ -115,7 +117,9 @@ class MockRideRealtime implements RideRealtime {
     double? longitude,
     int? etaSeconds,
   }) {
-    if (_rideId == null || disposed || cancelled) return;
+    if (_rideId == null || disposed || cancelled || lastStatus.isTerminal) {
+      return;
+    }
     _sequence = sequence ?? _sequence + 1;
     lastStatus = status;
     if (driver != null) lastDriver = driver;
@@ -135,6 +139,11 @@ class MockRideRealtime implements RideRealtime {
         locationAt: lastLocationAt,
       ),
     );
+    if (status.isTerminal) {
+      cancelled = true;
+      _stopMotion();
+      unsubscribe();
+    }
   }
 
   void _emit(RideStatus status) {
@@ -188,6 +197,9 @@ class MockRideRealtime implements RideRealtime {
   /// coordinates fetched over the mock API, which unit tests do not stand up.
   @visibleForTesting
   void markArrivedForTest() {
+    if (cancelled || disposed || _rideId == null || lastStatus.isTerminal) {
+      return;
+    }
     lastStatus = RideStatus.driverWaiting;
     _emit(RideStatus.driverWaiting);
     _startTrip();

@@ -35,6 +35,28 @@ class ActiveRideController {
     }
   }
 
+  Future<void> markExternalTerminal(RideStatus status) async {
+    if (!status.isTerminal ||
+        status.isCompletedSurface ||
+        status == RideStatus.cancelledByRider ||
+        status == RideStatus.closed) {
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Expected a non-rider external terminal status.',
+      );
+    }
+    final snapshot = await _store.historyCandidate();
+    final ride = AppScope.instance.ride;
+    final id = ride.rideId;
+    ride.restoreFromBackend(status, id: id);
+    if (status == RideStatus.cancelledByDriver ||
+        status == RideStatus.cancelledBySystem) {
+      await _archive(snapshot, status, expectedRideId: id);
+    }
+    await _store.clear();
+  }
+
   Future<void> _cancelViaAdapter(String id, String? reasonId) async {
     try {
       await AppScope.instance.api.post(

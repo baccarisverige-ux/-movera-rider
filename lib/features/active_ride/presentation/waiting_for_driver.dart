@@ -93,6 +93,11 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         initial: widget.driver,
         onChange: () {
           if (!mounted) return;
+          final status = _tracking.status;
+          if (status.isTerminal && !status.isCompletedSurface) {
+            unawaited(_handleExternalTerminal(status));
+            return;
+          }
           setState(_loadMarkers);
           _maybeAnnounceArrival();
           _maybeOpenCompleted();
@@ -152,6 +157,22 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final status = _tracking.status;
     if (!status.isCompletedSurface) return;
     unawaited(_openCompleted(status));
+  }
+
+  Future<void> _handleExternalTerminal(RideStatus status) async {
+    if (!mounted ||
+        _leaving ||
+        _completedOpened ||
+        !status.isTerminal ||
+        status.isCompletedSurface) {
+      return;
+    }
+    _leaving = true;
+    setState(() {});
+    _tracking.dispose();
+    await _ride.markExternalTerminal(status);
+    if (!mounted) return;
+    RideNavigator.home(context, status: status);
   }
 
   Future<void> _openCompleted(RideStatus status) async {
