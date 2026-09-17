@@ -97,7 +97,6 @@ class MockRideRealtime implements RideRealtime {
     final rideId = _rideId;
     if (cancelled ||
         disposed ||
-        held ||
         rideId == null ||
         lastStatus.isTerminal ||
         _assignmentInFlight) {
@@ -116,7 +115,7 @@ class MockRideRealtime implements RideRealtime {
 
     await _persistAssignment(rideId);
 
-    if (cancelled || disposed || held || _rideId != rideId) {
+    if (cancelled || disposed || _rideId != rideId) {
       _assignmentInFlight = false;
       return;
     }
