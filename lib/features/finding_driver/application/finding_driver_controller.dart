@@ -48,9 +48,12 @@ class FindingDriverController {
   bool _delayedLogged = false;
   bool _bumpDismissed = false;
   bool _priceUpdated = false;
+  bool _editInFlight = false;
+  bool _assignmentPending = false;
   int _lastSequence = -1;
   int _nearbyRequestEpoch = 0;
   int _pickupUpdateEpoch = 0;
+  int _editEpoch = 0;
   RideSnapshot? _snapshot;
   void Function()? _onMatched;
   void Function(RideStatus status)? _onTerminal;
@@ -70,6 +73,8 @@ class FindingDriverController {
       isDelayed &&
       !_bumpDismissed &&
       !_assigned &&
+      !_assignmentPending &&
+      !_editInFlight &&
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
@@ -134,9 +139,12 @@ class FindingDriverController {
     _delayedLogged = false;
     _bumpDismissed = false;
     _priceUpdated = false;
+    _editInFlight = false;
+    _assignmentPending = false;
     _lastSequence = -1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
+    _editEpoch += 1;
     elapsedSeconds = 0;
     if (seconds < 0) {
       elapsedSeconds = 0;
@@ -227,6 +235,7 @@ class FindingDriverController {
       final json = await api.get('/api/v1/rides/$rideId/nearby');
       if (_disposed ||
           _assigned ||
+          _assignmentPending ||
           _cancelled ||
           _terminated ||
           requestEpoch != _nearbyRequestEpoch) {
@@ -243,6 +252,7 @@ class FindingDriverController {
           .toList();
       if (_disposed ||
           _assigned ||
+          _assignmentPending ||
           _cancelled ||
           _terminated ||
           requestEpoch != _nearbyRequestEpoch) {
@@ -253,6 +263,7 @@ class FindingDriverController {
     } catch (_) {
       if (_disposed ||
           _assigned ||
+          _assignmentPending ||
           _cancelled ||
           _terminated ||
           requestEpoch != _nearbyRequestEpoch) {
@@ -263,15 +274,43 @@ class FindingDriverController {
     }
   }
 
+  int? _beginEdit() {
+    if (_assigned ||
+        _assignmentPending ||
+        _editInFlight ||
+        _cancelled ||
+        _terminated ||
+        _disposed) {
+      return null;
+    }
+    _editInFlight = true;
+    _editEpoch += 1;
+    return _editEpoch;
+  }
+
+  bool _editInvalid(int token) =>
+      token != _editEpoch || _cancelled || _terminated || _disposed;
+
+  void _finishEdit(int token) {
+    if (token == _editEpoch || _editInFlight) {
+      _editInFlight = false;
+    }
+    if (_assignmentPending && !_cancelled && !_terminated && !_disposed) {
+      _assignmentPending = false;
+      _completeAssigned();
+    }
+  }
+
   Future<bool> updatePickup({
     required String address,
     required double latitude,
     required double longitude,
   }) async {
-    if (_assigned || _cancelled || _terminated || _disposed) return false;
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
+    final editToken = _beginEdit();
+    if (editToken == null) return false;
     final updateEpoch = ++_pickupUpdateEpoch;
     try {
       await api.patch(
@@ -283,46 +322,44 @@ class FindingDriverController {
         },
         idempotencyKey: newIdempotencyKey('ride-pickup'),
       );
+      if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
+        return false;
+      }
+      final updated = snapshot.copyWith(
+        status: ride.status,
+        savedAt: DateTime.now(),
+        pickupAddress: address,
+        pickupLat: latitude,
+        pickupLng: longitude,
+      );
+      _snapshot = updated;
+      await _store.save(updated);
+      if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
+        return false;
+      }
+      if (!_assignmentPending && !_assigned) {
+        await _loadNearby(id);
+      }
+      if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
+        return false;
+      }
+      _onTick?.call(elapsedSeconds);
+      _reportQa();
+      return true;
     } catch (_) {
       return false;
+    } finally {
+      _finishEdit(editToken);
     }
-    if (_assigned ||
-        _cancelled ||
-        _terminated ||
-        _disposed ||
-        updateEpoch != _pickupUpdateEpoch) {
-      return false;
-    }
-    final updated = snapshot.copyWith(
-      status: ride.status,
-      savedAt: DateTime.now(),
-      pickupAddress: address,
-      pickupLat: latitude,
-      pickupLng: longitude,
-    );
-    _snapshot = updated;
-    await _store.save(updated);
-    if (_cancelled ||
-        _terminated ||
-        _disposed ||
-        updateEpoch != _pickupUpdateEpoch) {
-      return false;
-    }
-    if (!_assigned) {
-      await _loadNearby(id);
-    }
-    _onTick?.call(elapsedSeconds);
-    _reportQa();
-    return true;
   }
 
   Future<bool> confirmPriceIncrease(int kr) async {
-    if (_assigned || _cancelled || _terminated || _disposed || kr <= 0) {
-      return false;
-    }
+    if (kr <= 0) return false;
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
+    final editToken = _beginEdit();
+    if (editToken == null) return false;
     final next = snapshot.price + kr;
     try {
       await api.patch(
@@ -330,24 +367,26 @@ class FindingDriverController {
         body: {'price': next, 'offerIncreaseKr': kr},
         idempotencyKey: newIdempotencyKey('ride-price'),
       );
+      if (_editInvalid(editToken)) return false;
+      _priceUpdated = true;
+      _bumpDismissed = true;
+      offerConfirmation = 'Updated offer: ${next.round()} kr';
+      _snapshot = snapshot.copyWith(
+        status: ride.status,
+        price: next,
+        savedAt: DateTime.now(),
+      );
+      await _store.save(_snapshot!);
+      if (_editInvalid(editToken)) return false;
+      AppLog.info('ride.offer.updated', extra: {'rideId': id, 'increaseKr': kr});
+      _onTick?.call(elapsedSeconds);
+      _reportQa();
+      return true;
     } catch (_) {
       return false;
+    } finally {
+      _finishEdit(editToken);
     }
-    if (_assigned || _terminated || _cancelled || _disposed) return false;
-    _priceUpdated = true;
-    _bumpDismissed = true;
-    offerConfirmation = 'Updated offer: ${next.round()} kr';
-    _snapshot = snapshot.copyWith(
-      status: ride.status,
-      price: next,
-      savedAt: DateTime.now(),
-    );
-    await _store.save(_snapshot!);
-    if (_terminated || _cancelled || _disposed) return false;
-    AppLog.info('ride.offer.updated', extra: {'rideId': id, 'increaseKr': kr});
-    _onTick?.call(elapsedSeconds);
-    _reportQa();
-    return true;
   }
 
   void dismissPriceBump() {
@@ -359,6 +398,11 @@ class FindingDriverController {
 
   void _completeAssigned() {
     if (_assigned || _cancelled || _terminated || _disposed) return;
+    if (_editInFlight) {
+      _assignmentPending = true;
+      return;
+    }
+    _assignmentPending = false;
     _assigned = true;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
@@ -406,6 +450,8 @@ class FindingDriverController {
   Future<void> _completeTerminal(RideStatus status) async {
     if (_terminated || _cancelled || _disposed || !status.isTerminal) return;
     _terminated = true;
+    _assignmentPending = false;
+    _editEpoch += 1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     _onMatched = null;
@@ -440,6 +486,8 @@ class FindingDriverController {
   Future<void> cancelSearch({String? reasonId}) async {
     if (_cancelled || _terminated || _disposed) return;
     _cancelled = true;
+    _assignmentPending = false;
+    _editEpoch += 1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     _onMatched = null;
@@ -496,6 +544,8 @@ class FindingDriverController {
     'headline': copy.headline,
     'rideId': _snapshot?.rideId ?? ride.rideId,
     'assigned': _assigned,
+    'assignmentPending': _assignmentPending,
+    'editInFlight': _editInFlight,
     'terminated': _terminated,
     'status': ride.status.name,
     'offerConfirmation': offerConfirmation,
@@ -511,6 +561,8 @@ class FindingDriverController {
 
   void dispose() {
     _disposed = true;
+    _assignmentPending = false;
+    _editEpoch += 1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     if (identical(active, this)) active = null;
