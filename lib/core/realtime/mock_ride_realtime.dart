@@ -42,6 +42,7 @@ class MockRideRealtime implements RideRealtime {
   bool cancelled = false;
   bool disposed = false;
   bool held = false;
+  bool _assignmentInFlight = false;
   RideStatus lastStatus = RideStatus.findingDriver;
   MatchedDriver? lastDriver;
   double? lastLat;
@@ -64,6 +65,7 @@ class MockRideRealtime implements RideRealtime {
     cancelled = false;
     disposed = false;
     held = false;
+    _assignmentInFlight = false;
     _rideId = rideId;
     _sequence = 0;
     lastStatus = RideStatus.findingDriver;
@@ -88,25 +90,42 @@ class MockRideRealtime implements RideRealtime {
   }
 
   void assignNow() {
-    if (cancelled || disposed || _rideId == null || lastStatus.isTerminal) {
+    unawaited(_assignNow());
+  }
+
+  Future<void> _assignNow() async {
+    final rideId = _rideId;
+    if (cancelled ||
+        disposed ||
+        held ||
+        rideId == null ||
+        lastStatus.isTerminal ||
+        _assignmentInFlight) {
       return;
     }
-    if (lastStatus.isMatched) {
-      _emit(lastStatus);
-      return;
-    }
+    if (lastStatus.isMatched) return;
+
+    _assignmentInFlight = true;
     _assign?.cancel();
     _assign = null;
-    lastStatus = RideStatus.driverAssigned;
     _pickupLat ??= 59.3293;
     _pickupLng ??= 18.0686;
     lastLat ??= _pickupLat! + 0.0072;
     lastLng ??= _pickupLng! - 0.0048;
     lastLocationAt = DateTime.now();
+
+    await _persistAssignment(rideId);
+
+    if (cancelled || disposed || held || _rideId != rideId) {
+      _assignmentInFlight = false;
+      return;
+    }
+
+    lastStatus = RideStatus.driverAssigned;
+    _assignmentInFlight = false;
     _emit(RideStatus.driverAssigned);
     _startGps();
-    _hydratePickup();
-    _persistAssigned();
+    unawaited(_hydratePickup());
   }
 
   void emit(
@@ -263,15 +282,14 @@ class MockRideRealtime implements RideRealtime {
     return (59.3293, 18.0686);
   }
 
-  Future<void> _persistAssigned() async {
+  Future<void> _persistAssignment(String rideId) async {
     final client = api;
-    final id = _rideId;
-    if (client == null || id == null) return;
+    if (client == null) return;
     try {
       await client.post(
-        '/api/v1/rides/$id/status',
+        '/api/v1/rides/$rideId/status',
         body: {
-          'status': lastStatus.name,
+          'status': RideStatus.driverAssigned.name,
           'driver': lastDriver?.toJson(),
           'lat': lastLat,
           'lng': lastLng,
