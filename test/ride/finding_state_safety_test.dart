@@ -66,7 +66,7 @@ void main() {
     RideSnapshotStore.epoch = 0;
   });
 
-  test('price response cannot move an assigned ride back to finding', () async {
+  test('price commit before assignment stays applied without rollback', () async {
     final transport = InProcessMockClient(
       latency: const Duration(milliseconds: 60),
     )..rides['r1'] = _rideJson();
@@ -88,10 +88,15 @@ void main() {
     final changed = await controller.confirmPriceIncrease(20);
     await Future<void>.delayed(const Duration(milliseconds: 90));
 
-    expect(changed, isFalse);
-    expect(controller.currentPrice, 259);
+    expect(changed, isTrue);
+    expect(controller.currentPrice, 279);
+    expect(transport.rides['r1']?['price'], 279);
+    expect(transport.rides['r1']?['status'], 'driverAssigned');
     expect(ride.status, RideStatus.driverAssigned);
     expect(matches, 1);
+    final stored = await RideSnapshotStore.read();
+    expect(stored?.price, 279);
+    expect(stored?.status, RideStatus.driverAssigned);
 
     controller.dispose();
     realtime.dispose();
