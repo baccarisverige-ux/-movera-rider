@@ -49,18 +49,22 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
           )
         else ...[
           const SizedBox(height: 14),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final amount in _amounts)
-                _TipChip(
-                  amount: amount,
-                  selected: _selected == amount,
-                  onTap: () => _choose(amount),
-                ),
-            ],
+          // Centre the row so chips size to their content instead of being
+          // stretched full width by the completion screen's column.
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final amount in _amounts)
+                  _TipChip(
+                    amount: amount,
+                    selected: _selected == amount,
+                    onTap: () => _choose(amount),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 10),
           TextWidget(

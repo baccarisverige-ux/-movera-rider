@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -7,6 +6,17 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+
+/// Riders recognise a trip by when it happened, not by a database key. Keep a
+/// short tail so support can still match it to the full id.
+String _reference(String rideId) {
+  final trimmed = rideId.trim();
+  if (trimmed.isEmpty) return '';
+  final tail = trimmed.length <= 6
+      ? trimmed
+      : trimmed.substring(trimmed.length - 6);
+  return '#${tail.toUpperCase()}';
+}
 
 class RideCompletedDriverInfo extends StatelessWidget {
   const RideCompletedDriverInfo({super.key});
@@ -28,28 +38,21 @@ class RideCompletedDriverInfo extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
         children: [
-          SizedBox(
+          Container(
             height: ResSize.h * 74,
-            width: ResSize.w * 160,
-            child: Stack(
-              children: [
-                Image.asset(
-                  excludeFromSemantics: true,
-                  AppAssets.driverCar,
-                  height: ResSize.h * 74,
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: EdgeInsets.only(right: ResSize.w * 7),
-                    child: Image.asset(
-                      excludeFromSemantics: true,
-                      AppAssets.driverImg,
-                      height: ResSize.h * 62,
-                    ),
-                  ),
-                ),
-              ],
+            width: ResSize.h * 74,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F0F6),
+              shape: BoxShape.circle,
+            ),
+            child: TextWidget(
+              text: driver.name.trim().isEmpty
+                  ? '?'
+                  : driver.name.trim().substring(0, 1).toUpperCase(),
+              color: const Color(0xFF2D5878),
+              fontSize: 28,
+              fontWeight: fwSemiBold,
             ),
           ),
           14.height,
@@ -80,11 +83,16 @@ class RideCompletedDriverInfo extends StatelessWidget {
                 fontSize: 14,
                 fontWeight: fwMedium,
               ),
-              TextWidget(
-                text: driver.rideNumber,
-                color: AppColor.subtitle,
-                fontSize: 14,
-                fontWeight: fwMedium,
+              // A raw ride id is for support, not for the rider, and a full
+              // one ran straight through its own label. Show a short reference.
+              Flexible(
+                child: TextWidget(
+                  text: _reference(driver.rideNumber),
+                  color: AppColor.subtitle,
+                  fontSize: 14,
+                  fontWeight: fwMedium,
+                  textAlign: TextAlign.right,
+                ),
               ),
             ],
           ),
