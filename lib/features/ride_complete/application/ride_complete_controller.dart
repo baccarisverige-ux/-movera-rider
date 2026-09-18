@@ -11,7 +11,7 @@ class RideCompleteController {
   }) : _ride = ride ?? ActiveRideController(),
        _drivers = drivers ?? const DriverRepository(),
        _trips = trips ?? const TripReceiptRepository(),
-       _tips = tips ?? TipCatalog();
+       _tips = tips ?? const TipCatalog();
 
   final ActiveRideController _ride;
   final DriverRepository _drivers;

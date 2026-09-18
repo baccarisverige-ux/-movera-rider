@@ -79,7 +79,7 @@ class _RideCompletedState extends State<RideCompleted> {
                   ),
                   Flexible(
                     child: TextWidget(
-                      text: "You’re Arrived",
+                      text: "Trip complete",
                       color: AppColor.black,
                       fontSize: 16,
                       fontWeight: fwSemiBold,

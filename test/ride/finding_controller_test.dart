@@ -321,7 +321,7 @@ void main() {
     },
   );
 
-  test('mock assignment matches without inventing driver details', () async {
+  test('mock assignment matches and carries the driver through', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
@@ -336,10 +336,10 @@ void main() {
     expect(matches, 1);
     expect(controller.matchCount, 1);
     expect(ride.status, RideStatus.driverAssigned);
-    expect(controller.matchedDriver, isNull);
+    expect(controller.matchedDriver, isNotNull);
     final stored = await RideSnapshotStore.read();
     expect(stored?.status, RideStatus.driverAssigned);
-    expect(stored?.driver, isNull);
+    expect(stored?.driver, isNotNull);
     controller.dispose();
     rt.dispose();
   });

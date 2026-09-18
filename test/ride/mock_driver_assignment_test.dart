@@ -1,0 +1,92 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/realtime/mock_driver_pool.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+
+/// A matched ride has to know its driver. Without one the arrival sheet has no
+/// name, the ride screen and receipt both read "Driver details unavailable",
+/// and History archives a driverless trip.
+void main() {
+  test('assignment attaches a driver to the ride', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(milliseconds: 10));
+    addTearDown(rt.dispose);
+
+    rt.subscribe('ride_driver_1');
+    rt.assignNow();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+
+    final driver = rt.lastDriver;
+    expect(driver, isNotNull);
+    expect(driver!.firstName, isNotEmpty);
+    expect(driver.plate, isNotNull);
+    expect(driver.plate, isNotEmpty);
+  });
+
+  test('one ride keeps one driver', () {
+    final first = MockDriverPool.forRide('ride_abc');
+    final again = MockDriverPool.forRide('ride_abc');
+    expect(first.id, again.id);
+  });
+
+  test('different rides can draw different drivers', () {
+    final ids = <String>{
+      for (var i = 0; i < 40; i++) MockDriverPool.forRide('ride_$i').id,
+    };
+    expect(ids.length, greaterThan(1));
+  });
+
+  _guards();
+
+  test('pool carries no removed demo identity', () {
+    for (var i = 0; i < 10; i++) {
+      final d = MockDriverPool.forRide('ride_$i');
+      expect(d.firstName, isNot('Linnea'));
+      expect(d.firstName, isNot('Merle'));
+      expect(d.plate, isNot('MVR 418'));
+    }
+  });
+}
+
+/// The guard that replaces "the mock never invents a driver".
+///
+/// That rule was reversed deliberately: a stand-in backend answering with a
+/// matched driver is a simulated API response, and without it every ride screen
+/// reads "Driver details unavailable". What must still hold is the reason the
+/// old rule existed — no screen, controller or feature repository may conjure a
+/// driver of its own. Mock identities live behind the API boundary, nowhere else.
+void _guards() {
+  test('no feature layer fabricates a driver identity', () {
+    // Converting real data into a MatchedDriver is fine — reservations do it.
+    // What is banned is a literal identity: a name nobody supplied.
+    final literalName = RegExp(r"firstName:\s*'");
+    final offenders = <String>[];
+    for (final file in Directory('lib/features')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))) {
+      final src = file.readAsStringSync();
+      if (src.contains('MatchedDriver(') && literalName.hasMatch(src)) {
+        offenders.add(file.path);
+      }
+    }
+    expect(
+      offenders,
+      isEmpty,
+      reason: 'driver identities must come from data, not literals: $offenders',
+    );
+  });
+
+  test('the driver pool lives in core, behind the API boundary', () {
+    expect(File('lib/core/realtime/mock_driver_pool.dart').existsSync(), isTrue);
+    expect(
+      Directory('lib/features')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))
+          .any((f) => f.readAsStringSync().contains('MockDriverPool')),
+      isFalse,
+      reason: 'feature code must not reach for the mock pool directly',
+    );
+  });
+}

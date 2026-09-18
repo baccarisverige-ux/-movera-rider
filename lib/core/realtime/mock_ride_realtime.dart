@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/realtime/mock_driver_pool.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
@@ -112,6 +113,9 @@ class MockRideRealtime implements RideRealtime {
     lastLat ??= _pickupLat! + 0.0072;
     lastLng ??= _pickupLng! - 0.0048;
     lastLocationAt = DateTime.now();
+    // Matching is what knows the driver. Assign before persisting so the
+    // stored ride, every later resync, and a restored session all agree.
+    lastDriver ??= MockDriverPool.forRide(rideId);
 
     await _persistAssignment(rideId);
 

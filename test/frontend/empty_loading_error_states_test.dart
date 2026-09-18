@@ -15,6 +15,8 @@ import 'package:movera_rider/features/promotions/presentation/promotions.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/features/ride_complete/data/ride_complete_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
@@ -269,11 +271,15 @@ void main() {
   ) async {
     await pumpScreen(
       tester,
-      const Scaffold(
+      Scaffold(
         body: SingleChildScrollView(
           child: Column(
             children: [
-              RideCompletedAddTip(),
+              RideCompletedAddTip(
+                controller: RideCompleteController(
+                  tips: TipCatalog(amounts: []),
+                ),
+              ),
               RideCompletedTripDetail(),
               RideCompletedDriverInfo(),
             ],
@@ -600,7 +606,15 @@ void main() {
           ),
         );
       case 'Tip':
-        return () => const Scaffold(body: RideCompletedAddTip());
+        // Tipping now offers amounts, so the empty state this matrix checks
+        // has to be asked for explicitly rather than being the default.
+        return () => Scaffold(
+          body: RideCompletedAddTip(
+            controller: RideCompleteController(
+              tips: const TipCatalog(amounts: []),
+            ),
+          ),
+        );
       case 'Receipt':
         return () => const Scaffold(body: RideCompletedTripDetail());
       case 'Completion driver':

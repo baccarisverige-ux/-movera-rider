@@ -5,6 +5,7 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/data/active_ride_repository.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
@@ -79,6 +80,9 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
     AppScope.instance.ride.restoreFromBackend(status);
+    // The completion screen describes this ride, and the snapshot is about to
+    // be cleared — keep it before that happens.
+    LastCompletedRide.remember(snapshot);
     await _archive(snapshot, status, expectedRideId: id);
     await _store.clear();
   }

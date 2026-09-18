@@ -17,7 +17,9 @@ class RideCompletedGiveReview extends StatefulWidget {
 
 class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
   final RatingController _ratingCtl = RatingController();
-  double _rating = 2.0;
+  // Nothing is rated until the rider rates it; a pre-filled score is the
+  // app putting words in their mouth.
+  double _rating = 0;
   @override
   Widget build(BuildContext context) {
     return Column(

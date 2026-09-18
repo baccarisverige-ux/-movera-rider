@@ -1,3 +1,5 @@
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
+
 class DriverProfile {
   const DriverProfile({
     required this.name,
@@ -27,7 +29,44 @@ class DriverRepository {
 
   final DriverProfile? _current;
 
-  DriverProfile? current() => _current;
+  /// The driver of the ride just completed. Explicitly-passed profiles win, so
+  /// tests and callers with their own driver keep working unchanged.
+  DriverProfile? current() {
+    final injected = _current;
+    if (injected != null) return injected;
+
+    final ride = LastCompletedRide.value;
+    final driver = ride?.driver;
+    if (ride == null || driver == null) return null;
+
+    final vehicle = [
+      driver.vehicleColor,
+      driver.vehicleMake,
+      driver.vehicleModel,
+    ].where((part) => part != null && part.isNotEmpty).join(' ');
+
+    return DriverProfile(
+      name: driver.firstName,
+      tagline: driver.tripCount == null
+          ? 'Movera driver'
+          : '${driver.tripCount} trips completed',
+      vehicle: vehicle.isEmpty ? 'Vehicle details unavailable' : vehicle,
+      plate: driver.plate ?? '',
+      rideNumber: ride.rideId ?? '',
+      ratingLabel: driver.rating?.toStringAsFixed(1) ?? '',
+      completedAt: _completedAtLabel(ride.savedAt),
+    );
+  }
+
+  static String _completedAtLabel(DateTime when) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final hh = when.hour.toString().padLeft(2, '0');
+    final mm = when.minute.toString().padLeft(2, '0');
+    return '${when.day} ${months[when.month - 1]} ${when.year}, $hh:$mm';
+  }
 }
 
 class TripReceipt {
@@ -49,5 +88,20 @@ class TripReceiptRepository {
 
   final TripReceipt? _receipt;
 
-  TripReceipt? last() => _receipt;
+  /// The receipt for the ride just completed, in SEK. Null when no ride has
+  /// finished, so the screen keeps its honest empty state.
+  TripReceipt? last() {
+    final injected = _receipt;
+    if (injected != null) return injected;
+
+    final ride = LastCompletedRide.value;
+    if (ride == null) return null;
+
+    return TripReceipt(
+      pickup: ride.pickupAddress,
+      destination: ride.destinationAddress,
+      total: '${ride.price.round()} kr',
+      method: ride.paymentMethod,
+    );
+  }
 }
