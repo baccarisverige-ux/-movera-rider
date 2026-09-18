@@ -105,12 +105,14 @@ class _TipChip extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(A11y.minTap / 2),
+          // No `alignment:` here — a Container given one and no width grows to
+          // fill its constraints, which stretched every chip across the screen.
+          // widthFactor/heightFactor keep Center shrink-wrapped to the label.
           child: Container(
             constraints: const BoxConstraints(
               minWidth: 84,
               minHeight: A11y.minTap,
             ),
-            alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 18),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(A11y.minTap / 2),
@@ -119,11 +121,15 @@ class _TipChip extends StatelessWidget {
                 width: selected ? 2 : 1,
               ),
             ),
-            child: TextWidget(
-              text: amount,
-              color: selected ? AppColor.whiteText : AppColor.title,
-              fontSize: 15,
-              fontWeight: fwSemiBold,
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: TextWidget(
+                text: amount,
+                color: selected ? AppColor.whiteText : AppColor.title,
+                fontSize: 15,
+                fontWeight: fwSemiBold,
+              ),
             ),
           ),
         ),

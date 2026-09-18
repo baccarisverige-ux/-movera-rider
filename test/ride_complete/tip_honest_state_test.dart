@@ -27,6 +27,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  _layout();
+
   test('tip amounts are SEK and carry no demo values', () {
     final amounts = const TipCatalog().amounts();
     expect(amounts, isNotEmpty);
@@ -81,5 +83,38 @@ void main() {
     expect(find.text('Add another amount'), findsNothing);
     expect(find.text('SET TIP'), findsNothing);
     expect(find.textContaining('Marle'), findsNothing);
+  });
+}
+
+/// A Container given an alignment and no width grows to fill its constraints,
+/// which stretched every tip across the screen, one per row.
+void _layout() {
+  testWidgets('tip chips sit on one row, not stacked full width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        builder: (_, __) => const MaterialApp(
+          home: Scaffold(body: RideCompletedAddTip()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Three short SEK amounts fit across 390px easily. Stretched chips each
+    // take a row of their own, which is exactly what this catches.
+    final tops = TipCatalog.defaults
+        .map((amount) => tester.getTopLeft(find.text(amount).first).dy)
+        .toSet();
+    expect(
+      tops.length,
+      1,
+      reason: 'chips landed on ${tops.length} rows: $tops',
+    );
   });
 }
