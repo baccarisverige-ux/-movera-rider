@@ -4,6 +4,8 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
+import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
@@ -198,6 +200,20 @@ class RiderSideMenu extends StatelessWidget {
             image: null,
             title: 'Payments',
             onTap: () => _pushPage(context, const WalletScreen()),
+          ),
+          // Notifications and Saved places were both finished screens with no
+          // way in: nothing in the app built either of them.
+          (
+            icon: Icons.notifications_none_rounded,
+            image: null,
+            title: 'Notifications',
+            onTap: () => _pushPage(context, const NotificationScreen()),
+          ),
+          (
+            icon: Icons.bookmark_border_rounded,
+            image: null,
+            title: 'Saved Places',
+            onTap: () => _pushPage(context, SavedPlaces()),
           ),
           (
             icon: null,

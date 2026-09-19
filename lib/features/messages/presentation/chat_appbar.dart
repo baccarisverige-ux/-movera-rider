@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 
 class ChatAppBar extends StatelessWidget {
   const ChatAppBar({super.key, this.driverName});
@@ -51,7 +52,12 @@ class ChatAppBar extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          onPressed: () {},
+          // No driver phone number exists without a backend, so say so rather
+          // than offering a button that silently does nothing.
+          onPressed: () => MoveraToast.show(
+            context,
+            'Calling your driver is not available yet.',
+          ),
           tooltip: 'Call',
           icon: Image.asset(
             AppAssets.phoneOutl,

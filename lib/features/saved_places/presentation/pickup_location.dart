@@ -97,7 +97,11 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(
-                            onPressed: () {},
+                            // Did nothing at all. This screen returns a chosen
+                            // place by popping it, the way the Home and Work
+                            // shortcuts below already do.
+                            onPressed: () =>
+                                Navigator.maybePop(context, 'Current location'),
                             child: SizedBox(
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
@@ -147,7 +151,8 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   ),
                   2.width,
                   InkWell(
-                    onTap: () {},
+                    // Was dead while the Home and Work chips beside it worked.
+                    onTap: () => _onShortcutTap(subtitle: 'Not saved yet'),
                     child: _buildFavorite(),
                   ),
                 ],
