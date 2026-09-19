@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
@@ -33,12 +35,22 @@ class ReservationBookedPopup extends StatefulWidget {
 }
 
 class _ReservationBookedPopupState extends State<ReservationBookedPopup> {
+  // A Future.delayed cannot be called off, so the auto-dismiss kept running
+  // after the popup was gone. A Timer can be cancelled in dispose.
+  Timer? _autoDismiss;
+
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 1600), () {
+    _autoDismiss = Timer(const Duration(milliseconds: 1600), () {
       if (mounted) Navigator.of(context).pop();
     });
+  }
+
+  @override
+  void dispose() {
+    _autoDismiss?.cancel();
+    super.dispose();
   }
 
   @override
