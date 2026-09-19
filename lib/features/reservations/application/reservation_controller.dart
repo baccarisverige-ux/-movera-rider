@@ -60,6 +60,25 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
+  /// The assigned driver drops a scheduled ride before pickup.
+  ///
+  /// Distinct from [cancel], which is the rider ending their own reservation.
+  /// Here the reservation stands — its time, route and price are unchanged —
+  /// and it returns to waiting for a driver rather than being cancelled.
+  Future<Reservation> driverCancelled(String reservationId) async {
+    final current = await _store.getReservation(reservationId);
+    if (current == null) {
+      throw StateError('No reservation $reservationId to reassign.');
+    }
+    if (!current.status.isUpcoming || !current.status.hasDriver) {
+      // Nothing assigned to drop, or the ride is already over.
+      return current;
+    }
+    final updated = await _store.assignDriver(reservationId, driver: null);
+    notifyListeners();
+    return updated;
+  }
+
   Future<Reservation> assignMockDriver(
     String reservationId, {
     ReservationDriver? driver,

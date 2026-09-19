@@ -38,6 +38,7 @@ class MockRideRealtime implements RideRealtime {
   Timer? _board;
   Timer? _trip;
   int _tripTicksDone = 0;
+  int _assignmentAttempt = 0;
   String? _rideId;
   int _sequence = 0;
   bool cancelled = false;
@@ -63,6 +64,7 @@ class MockRideRealtime implements RideRealtime {
     _board?.cancel();
     _trip?.cancel();
     _tripTicksDone = 0;
+    _assignmentAttempt = 0;
     cancelled = false;
     disposed = false;
     held = false;
@@ -115,7 +117,10 @@ class MockRideRealtime implements RideRealtime {
     lastLocationAt = DateTime.now();
     // Matching is what knows the driver. Assign before persisting so the
     // stored ride, every later resync, and a restored session all agree.
-    lastDriver ??= MockDriverPool.forRide(rideId);
+    lastDriver ??= MockDriverPool.forRide(
+      rideId,
+      attempt: _assignmentAttempt,
+    );
 
     await _persistAssignment(rideId);
 
@@ -212,6 +217,57 @@ class MockRideRealtime implements RideRealtime {
         _gps = null;
         _startTrip();
       }
+    });
+  }
+
+  /// The assigned driver drops the ride before pickup.
+  ///
+  /// The rider's ride is not over — dispatch simply looks again — so this
+  /// returns to searching and offers a different driver, rather than ending
+  /// the trip the way a rider's own cancellation does.
+  void cancelByDriver() {
+    final rideId = _rideId;
+    if (rideId == null || cancelled || disposed) return;
+    if (lastStatus.isCompletedSurface || lastStatus.isTerminal) return;
+
+    _stopMotion();
+    _assignmentAttempt += 1;
+    lastDriver = null;
+    lastLat = null;
+    lastLng = null;
+    lastLocationAt = null;
+    _progress = 0;
+    lastStatus = RideStatus.cancelledByDriver;
+    _sequence += 1;
+
+    // Published straight to the stream rather than through emit(): emit treats
+    // any terminal status as the end of the ride and tears the subscription
+    // down, which is right for a rider's own cancellation and wrong here —
+    // this ride carries on with someone else driving it.
+    _controller.add(
+      RideRealtimeEvent(
+        rideId: rideId,
+        status: RideStatus.cancelledByDriver,
+        sequence: _sequence,
+        at: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Search again for the same ride after a driver dropped it.
+  @override
+  void researchAfterDriverCancel() {
+    final rideId = _rideId;
+    if (rideId == null || disposed) return;
+    if (lastStatus != RideStatus.cancelledByDriver) return;
+
+    cancelled = false;
+    lastStatus = RideStatus.findingDriver;
+    _emit(RideStatus.findingDriver);
+    _assign?.cancel();
+    _assign = Timer(assignAfter, () {
+      if (cancelled || disposed || held || _rideId != rideId) return;
+      assignNow();
     });
   }
 

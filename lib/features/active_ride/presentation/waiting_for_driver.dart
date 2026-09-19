@@ -15,6 +15,8 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
@@ -70,6 +72,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   bool _leaving = false;
   bool _completedOpened = false;
   bool _arrivalAnnounced = false;
+  bool _researching = false;
   bool _overlayOn = false;
 
   @override
@@ -167,12 +170,49 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         status.isCompletedSurface) {
       return;
     }
+    // A driver dropping the ride before pickup does not end the rider's trip.
+    // Dispatch looks again, so say what happened and go back to searching
+    // rather than sending them Home to rebook from scratch.
+    if (status == RideStatus.cancelledByDriver && !_tracking.status.isCompletedSurface) {
+      await _researchAfterDriverCancel();
+      return;
+    }
     _leaving = true;
     setState(() {});
     _tracking.dispose();
     await _ride.markExternalTerminal(status);
     if (!mounted) return;
     RideNavigator.home(context, status: status);
+  }
+
+  Future<void> _researchAfterDriverCancel() async {
+    if (_researching) return;
+    _researching = true;
+    final lostDriver = _tracking.driver ?? widget.driver;
+    _tracking.dispose();
+
+    if (mounted) {
+      await showDriverCancelledSheet(context, driverName: lostDriver?.firstName);
+    }
+    if (!mounted) return;
+
+    // Same ride, same price, same addresses — only the driver changes.
+    AppScope.instance.rideRealtime.researchAfterDriverCancel();
+    Navigator.pushReplacement(
+      context,
+      BottomToTopTransition(
+        FindingDrivers(
+          pickupAddress: widget.pickupAddress,
+          destinationAddress: widget.destinationAddress,
+          pickupPosition: widget.pickupPosition,
+          destinationPosition: widget.destinationPosition,
+          rideType: widget.rideType,
+          price: widget.price,
+          paymentMethod: widget.paymentMethod,
+          notes: widget.notes,
+        ),
+      ),
+    );
   }
 
   Future<void> _openCompleted(RideStatus status) async {

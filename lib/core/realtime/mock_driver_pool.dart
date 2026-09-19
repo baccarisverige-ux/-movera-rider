@@ -55,12 +55,16 @@ abstract final class MockDriverPool {
 
   /// Keyed off the ride so one ride keeps one driver across reconnects and
   /// restores — a rider must never see their driver silently change.
-  static MatchedDriver forRide(String rideId) {
-    if (rideId.isEmpty) return _drivers.first;
+  ///
+  /// [attempt] advances when a driver drops the ride and dispatch looks again,
+  /// so the rider is offered someone new rather than the driver who just
+  /// cancelled on them.
+  static MatchedDriver forRide(String rideId, {int attempt = 0}) {
+    if (rideId.isEmpty) return _drivers[attempt % _drivers.length];
     var hash = 0;
     for (final unit in rideId.codeUnits) {
       hash = (hash * 31 + unit) & 0x7fffffff;
     }
-    return _drivers[hash % _drivers.length];
+    return _drivers[(hash + attempt) % _drivers.length];
   }
 }

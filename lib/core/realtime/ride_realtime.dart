@@ -30,5 +30,12 @@ abstract class RideRealtime {
   Future<void> reconnectAndResync(String rideId);
   void unsubscribe();
   void cancelRide();
+
+  /// Search again for the same ride after its driver dropped it before pickup.
+  ///
+  /// The rider keeps their ride, pickup, destination and price; only the driver
+  /// changes. Implementations that cannot re-dispatch may no-op.
+  void researchAfterDriverCancel() {}
+
   void dispose();
 }

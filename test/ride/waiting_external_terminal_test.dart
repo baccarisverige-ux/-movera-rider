@@ -6,6 +6,9 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,10 +92,64 @@ void main() {
     expect(await RideSnapshotStore.read(), isNull);
   }
 
-  testWidgets('driver cancellation exits Waiting to Home exactly as terminal', (
+  // A driver dropping the ride before pickup is not the rider's ride ending:
+  // dispatch looks again, so Waiting goes back to searching rather than Home,
+  // and the ride is not filed away as cancelled.
+  testWidgets('driver cancellation returns Waiting to searching', (
     tester,
   ) async {
-    await expectWaitingLeavesOn(tester, RideStatus.cancelledByDriver);
+    const rideId = 'waiting-driver-cancel-research';
+    final snapshot = waitingSnapshot(rideId);
+    await RideSnapshotStore.save(snapshot);
+    AppScope.instance.ride.restoreFromBackend(
+      RideStatus.driverAssigned,
+      id: rideId,
+    );
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Center(child: Text('audit-root'))),
+      ),
+    );
+
+    navigatorKey.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => const WaitingForDriver(
+          pickupAddress: 'Stockholm pickup',
+          destinationAddress: 'Stockholm destination',
+          pickupPosition: LatLng(59.3293, 18.0686),
+          destinationPosition: LatLng(59.3326, 18.0649),
+          rideType: 'Movera',
+          price: 259,
+          paymentMethod: 'Apple Pay',
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(WaitingForDriver), findsOneWidget);
+
+    (AppScope.instance.rideRealtime as MockRideRealtime)
+        .emit(RideStatus.cancelledByDriver);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The rider is told what happened...
+    expect(find.byType(DriverCancelledSheet), findsOneWidget);
+    expect(find.text('Keep searching'), findsOneWidget);
+
+    await tester.tap(find.text('Keep searching'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+
+    // ...and lands back in the search, not on Home.
+    expect(find.byType(WaitingForDriver), findsNothing);
+    expect(find.text('audit-root'), findsNothing);
+    expect(find.byType(FindingDrivers), findsOneWidget);
+
+    // The ride is still theirs: nothing archived, nothing wiped.
+    expect(await OnDemandRideHistoryStore.read(), isEmpty);
   });
 
   testWidgets('system cancellation exits Waiting to Home exactly as terminal', (
