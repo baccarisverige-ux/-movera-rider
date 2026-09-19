@@ -21,15 +21,30 @@ class SignInPhone extends StatefulWidget {
 }
 
 class _SignInPhoneState extends State<SignInPhone> {
-  String selectedCountryCode = '+92';
-  Country? selectedCountry; // Add this to store the selected country
+  String selectedCountryCode = '+46';
+  Country? selectedCountry;
+  final TextEditingController _phone = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // Set default country (United States)
-    selectedCountry = CountryPickerUtils.getCountryByIsoCode('US');
-    selectedCountryCode = '+1';
+    // Movera operates in Sweden, so that is the number a rider is most likely
+    // to be typing.
+    selectedCountry = CountryPickerUtils.getCountryByIsoCode('SE');
+    selectedCountryCode = '+46';
+  }
+
+  @override
+  void dispose() {
+    _phone.dispose();
+    super.dispose();
+  }
+
+  /// Null until a number is actually entered, so the next screen never names
+  /// a number the rider did not type.
+  String? get _enteredNumber {
+    final digits = _phone.text.trim();
+    return digits.isEmpty ? null : '$selectedCountryCode $digits';
   }
 
   void updateCountryCode(String newCode, Country country) {
@@ -79,6 +94,7 @@ class _SignInPhoneState extends State<SignInPhone> {
             ),
             14.height,
             customTextfield(
+              controller: _phone,
               contentHorizPadding: 0,
               hint: "Phone number",
               keyboardType: TextInputType.phone,
@@ -135,10 +151,13 @@ class _SignInPhoneState extends State<SignInPhone> {
               CustomButton(
                 centerContent: "Continue",
                 onPressed: () {
-                  AuthController().requestOtp();
+                  final number = _enteredNumber;
+                  AuthController().requestOtp(phone: number ?? '');
                   Navigator.push(
                     context,
-                    BottomToTopTransition(const PhoneVerification()),
+                    BottomToTopTransition(
+                      PhoneVerification(phoneNumber: number),
+                    ),
                   );
                 },
               ),

@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -11,7 +12,11 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:pinput/pinput.dart';
 
 class PhoneVerification extends StatefulWidget {
-  const PhoneVerification({super.key});
+  const PhoneVerification({super.key, this.phoneNumber});
+
+  /// The number the rider just entered. Null when it is not known, in which
+  /// case the screen says so rather than naming a number nobody typed.
+  final String? phoneNumber;
 
   @override
   State<PhoneVerification> createState() => _PhoneVerificationState();
@@ -78,24 +83,27 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: "Verification code has been sent to",
+                          text: widget.phoneNumber == null
+                              ? 'We sent a verification code to your phone.'
+                              : 'Verification code has been sent to',
                           style: GoogleFonts.poppins(
                             fontSize: ResSize.setSp(16),
                             fontWeight: fwNormal,
                             color: AppColor.subtitle,
                           ),
                         ),
-                        TextSpan(
-                          text: " +96441938184.",
-                          style: GoogleFonts.poppins(
-                            decoration: TextDecoration.underline,
-                            fontSize: ResSize.setSp(16),
-                            fontWeight: fwMedium,
-                            color: AppColor.title,
+                        if (widget.phoneNumber != null)
+                          TextSpan(
+                            text: ' ${widget.phoneNumber}.',
+                            style: GoogleFonts.poppins(
+                              decoration: TextDecoration.underline,
+                              fontSize: ResSize.setSp(16),
+                              fontWeight: fwMedium,
+                              color: AppColor.title,
+                            ),
                           ),
-                        ),
                         TextSpan(
-                          text: " Enter your 4 digit code",
+                          text: " Enter your 4-digit code",
                           style: GoogleFonts.poppins(
                             fontSize: ResSize.setSp(16),
                             fontWeight: fwNormal,
@@ -130,24 +138,35 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                           ),
                         ),
                         14.height,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        // Wrap, not Row: "Didn't get a code?" plus the action
+                        // overflowed the screen by 46px at 390 wide.
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             TextWidget(
-                              text: "Did you don’t get code?",
+                              text: "Didn’t get a code?",
                               color: AppColor.title,
                               fontSize: 15,
                               fontWeight: fwNormal,
                             ),
                             TextButton(
+                              // Was labelled "Sign in" — an answer to a
+                              // different question — and did nothing at all.
                               onPressed: () {
-                                // Navigator.push(
-                                //   context,
-                                //   RightToLeftTransition(SignInPhone()),
-                                // );
+                                AuthController().requestOtp(
+                                  phone: widget.phoneNumber ?? '',
+                                );
+                                MoveraToast.show(
+                                  context,
+                                  widget.phoneNumber == null
+                                      ? 'We sent another code to your phone.'
+                                      : 'We sent another code to '
+                                            '${widget.phoneNumber}.',
+                                );
                               },
                               child: TextWidget(
-                                text: "Sign in",
+                                text: "Resend code",
                                 color: AppColor.primary,
                                 fontSize: 15,
                                 fontWeight: fwNormal,

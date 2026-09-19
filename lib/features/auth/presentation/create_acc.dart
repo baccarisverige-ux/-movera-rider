@@ -213,6 +213,8 @@ class _CreateAccountState extends State<CreateAccount> {
                   AuthController().requestOtp();
                   Navigator.push(
                     context,
+                    // No number is collected on this screen, so verification
+                    // says a code was sent rather than naming one.
                     BottomToTopTransition(const PhoneVerification()),
                   );
                 },
