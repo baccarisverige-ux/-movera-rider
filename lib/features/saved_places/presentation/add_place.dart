@@ -17,10 +17,14 @@ class AddPlace extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: Row(
-          children: [
-            16.width,
-            InkWell(
+        // AppBar reserves ~56px for leading; a Row with padding plus a 30px
+        // button overflowed it. Pad instead, and widen the slot to fit.
+        leadingWidth: 64,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: InkWell(
               onTap: () {
                 Navigator.pop(context);
               },
@@ -49,7 +53,7 @@ class AddPlace extends StatelessWidget {
                 ),
               ),
             ),
-          ],
+          ),
         ),
         title: TextWidget(
           text: "Add new address",

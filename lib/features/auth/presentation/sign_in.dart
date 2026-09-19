@@ -113,14 +113,22 @@ class SignIn extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: SizedBox(
-        height: ResSize.h * 60,
+      // No fixed height: once the prompt wraps to two lines a 60px bar clips
+      // it. Let the bar size to what it holds.
+      bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+          padding: EdgeInsets.symmetric(
+            horizontal: screenHorizPadding,
+            vertical: 8,
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              // Wrap, not Row: the prompt plus the action overflowed by
+              // 163px, at every width including 390.
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   TextWidget(
                     text: "Already have an account?",

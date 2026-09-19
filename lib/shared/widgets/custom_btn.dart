@@ -66,13 +66,23 @@ class CustomButton extends StatelessWidget {
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     icon,
-                    TextWidget(
-                      fontSize: ResSize.setSp(fontSize),
-                      text: centerContent,
-                      color: textColor,
-                      fontWeight: fwSemiBold,
+                    // The label is sized with setSp, which scales on screen
+                    // width, so in landscape it outgrew its own button and
+                    // every screen using CustomButton overflowed. Let it
+                    // shrink to fit instead of pushing past the edge.
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: TextWidget(
+                          fontSize: ResSize.setSp(fontSize),
+                          text: centerContent,
+                          color: textColor,
+                          fontWeight: fwSemiBold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
