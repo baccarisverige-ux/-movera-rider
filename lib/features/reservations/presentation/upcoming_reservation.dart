@@ -222,7 +222,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 ReservationFact(
                   asset: AppAssets.location,
-                  label: 'Dropoff at',
+                  label: 'Drop-off at',
                   value: ride.destination.label,
                 ),
                 ReservationFact(

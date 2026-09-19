@@ -534,7 +534,7 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       child: Row(
         children: [
           _modeOption(
-            label: 'Pick up at',
+            label: 'Pickup at',
             selected: _pickupMode,
             onTap: () => setState(() => _pickupMode = true),
           ),

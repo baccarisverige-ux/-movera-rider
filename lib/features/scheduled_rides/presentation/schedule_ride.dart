@@ -95,7 +95,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       Marker(
         markerId: MarkerId('driver_location'),
         position: LatLng(59.3293, 18.0686),
-        infoWindow: InfoWindow(title: 'Your Location'),
+        infoWindow: InfoWindow(title: 'Your location'),
         icon: BitmapDescriptor.defaultMarker,
       ),
     );
@@ -676,7 +676,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     GestureDetector(
                                       onTap: _editRoute,
                                       child: horizentalLocation(
-                                        title: "Pick-Up",
+                                        title: "Pickup",
                                         location: _session.pickup,
                                       ),
                                     ),
@@ -689,7 +689,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     9.height,
 
                                     horizentalLocation(
-                                      title: "Stop Point A",
+                                      title: "Stop 1",
                                       isStop: true,
                                       location: _session.stops.isNotEmpty
                                           ? _session.stops[0]
@@ -705,7 +705,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
                                     horizentalLocation(
                                       isStop: true,
-                                      title: "Stop Point B",
+                                      title: "Stop 2",
                                       location: _session.stops.length > 1
                                           ? _session.stops[1]
                                           : 'Not added',
@@ -719,7 +719,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                                     9.height,
 
                                     horizentalLocation(
-                                      title: "Drop Off",
+                                      title: "Drop-off",
                                       location: _session.dropoff,
                                     ),
                                   ],

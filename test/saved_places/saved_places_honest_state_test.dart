@@ -49,7 +49,7 @@ void main() {
       (tester) async {
     await pumpPickup(tester);
 
-    expect(find.text('Your Last Trip'), findsOneWidget);
+    expect(find.text('Your last trip'), findsOneWidget);
     expect(find.text('No recent trips yet'), findsOneWidget);
     expect(
       find.text(
@@ -60,7 +60,7 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Work'), findsOneWidget);
     expect(find.text('Not saved yet'), findsNWidgets(2));
-    expect(find.text('Search Result'), findsOneWidget);
+    expect(find.text('Search results'), findsOneWidget);
     expect(find.text('No search results'), findsOneWidget);
     expect(
       find.text('Place search isn’t connected in this build yet.'),

@@ -336,7 +336,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.textContaining('When should we'), findsOneWidget);
-    expect(find.text('Pick up at'), findsOneWidget);
+    expect(find.text('Pickup at'), findsOneWidget);
     expect(find.text('Arrive by'), findsOneWidget);
     await tester.tap(find.text('Continue'));
     await tester.pump();

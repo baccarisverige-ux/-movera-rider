@@ -85,7 +85,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       borderWidth: 0,
                       borderRadius: 0,
                       contentHorizPadding: 10,
-                      hint: 'Pick-Up Location',
+                      hint: 'Pickup location',
                       contentVertPadding: 0,
                       fontSize: 16,
                       textColor: AppColor.black,
@@ -167,7 +167,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: 'Your Last Trip',
+                      text: 'Your last trip',
                       color: AppColor.black,
                       fontSize: 16,
                       fontWeight: fwSemiBold,
@@ -184,7 +184,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
               ),
               24.height,
               TextWidget(
-                text: 'Search Result',
+                text: 'Search results',
                 color: AppColor.black,
                 fontSize: 16,
                 fontWeight: fwSemiBold,
