@@ -7,6 +7,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
@@ -769,14 +770,11 @@ class _SelectRideState extends State<SelectRide>
                         ),
                       },
                       polylines: {
-                        Polyline(
-                          polylineId: const PolylineId('route'),
-                          points: [
-                            widget.pickupPosition,
-                            widget.destinationPosition,
-                          ],
+                        routePolyline(
+                          id: 'route',
+                          from: widget.pickupPosition,
+                          to: widget.destinationPosition,
                           color: _accent,
-                          width: 4,
                         ),
                       },
                       myLocationEnabled: false,

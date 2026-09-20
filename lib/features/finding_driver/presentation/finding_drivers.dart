@@ -8,6 +8,7 @@ import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -142,11 +143,11 @@ class _FindingDriversState extends State<FindingDrivers>
         ),
     };
     _polylines = {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        points: [_pickupPosition, widget.destinationPosition],
+      routePolyline(
+        id: 'route',
+        from: _pickupPosition,
+        to: widget.destinationPosition,
         color: const Color(0xFF1D252C),
-        width: 4,
       ),
     };
   }

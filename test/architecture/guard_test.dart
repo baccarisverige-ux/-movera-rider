@@ -33,6 +33,19 @@ void main() {
     }
   });
 
+  test('screens do not invent their own route polyline', () {
+    // RoutingService is the single seam a real Directions provider will land
+    // in. A screen that builds Polyline(points: [pickup, destination]) itself
+    // would keep drawing a straight line long after that seam returns real
+    // road geometry, so features go through routePolyline() instead.
+    // Word-boundary matched so routePolyline() itself does not trip it.
+    final handBuilt = RegExp(r'(?<![A-Za-z])Polyline(Id)?\(');
+    for (final file in dartUnder('lib/features')) {
+      final src = file.readAsStringSync();
+      expect(handBuilt.hasMatch(src), isFalse, reason: file.path);
+    }
+  });
+
   test('no SharedPreferences token storage', () {
     final token = File('lib/core/auth/token_store.dart').readAsStringSync();
     expect(token.contains("package:shared_preferences"), isFalse);
@@ -558,41 +571,43 @@ void main() {
     expect(finding.contains('confirmLabel'), isFalse);
   });
 
-  test('book now uses the shared coordinator, CTA lock, and confirmed pickup',
-      () {
-    final repo = File(
-      'lib/features/booking/data/booking_repository.dart',
-    ).readAsStringSync();
-    expect(repo.contains('BookingCoordinator()'), isFalse);
-    expect(repo.contains('AppScope.instance.booking'), isTrue);
-    final src = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
-    expect(src.contains('bool _bookingInFlight'), isTrue);
-    expect(src.contains('if (_bookingInFlight) return'), isTrue);
-    expect(src.contains('onTap: _bookingInFlight ? null : _book'), isTrue);
-    expect(src.contains('selectPaymentNamed'), isTrue);
-    final nowStart = src.indexOf('void _bookNow()');
-    final buildStart = src.indexOf(
-      'Widget build(BuildContext context)',
-      nowStart,
-    );
-    expect(nowStart, greaterThan(0));
-    expect(buildStart, greaterThan(nowStart));
-    final now = src.substring(nowStart, buildStart);
-    expect(now.contains('pickupAddress: _pickupAddress'), isTrue);
-    expect(now.contains('pickupAddress: widget.pickupAddress'), isFalse);
-    expect(now.contains('FindingDriverController.active'), isTrue);
-    expect(now.contains('FindingDrivers'), isTrue);
-    expect(now.contains('submitFinding'), isTrue);
-    final schedule = File(
-      'lib/features/scheduled_rides/presentation/schedule_ride.dart',
-    ).readAsStringSync();
-    expect(schedule.contains('bool _nextInFlight'), isTrue);
-    expect(schedule.contains('if (_nextInFlight) return'), isTrue);
-    final history = File(
-      'lib/features/history/data/on_demand_ride_history_store.dart',
-    ).readAsStringSync();
-    expect(history.contains('archiveCancelledThenClear'), isTrue);
-  });
+  test(
+    'book now uses the shared coordinator, CTA lock, and confirmed pickup',
+    () {
+      final repo = File(
+        'lib/features/booking/data/booking_repository.dart',
+      ).readAsStringSync();
+      expect(repo.contains('BookingCoordinator()'), isFalse);
+      expect(repo.contains('AppScope.instance.booking'), isTrue);
+      final src = File(
+        'lib/features/ride_selection/presentation/select_ride.dart',
+      ).readAsStringSync();
+      expect(src.contains('bool _bookingInFlight'), isTrue);
+      expect(src.contains('if (_bookingInFlight) return'), isTrue);
+      expect(src.contains('onTap: _bookingInFlight ? null : _book'), isTrue);
+      expect(src.contains('selectPaymentNamed'), isTrue);
+      final nowStart = src.indexOf('void _bookNow()');
+      final buildStart = src.indexOf(
+        'Widget build(BuildContext context)',
+        nowStart,
+      );
+      expect(nowStart, greaterThan(0));
+      expect(buildStart, greaterThan(nowStart));
+      final now = src.substring(nowStart, buildStart);
+      expect(now.contains('pickupAddress: _pickupAddress'), isTrue);
+      expect(now.contains('pickupAddress: widget.pickupAddress'), isFalse);
+      expect(now.contains('FindingDriverController.active'), isTrue);
+      expect(now.contains('FindingDrivers'), isTrue);
+      expect(now.contains('submitFinding'), isTrue);
+      final schedule = File(
+        'lib/features/scheduled_rides/presentation/schedule_ride.dart',
+      ).readAsStringSync();
+      expect(schedule.contains('bool _nextInFlight'), isTrue);
+      expect(schedule.contains('if (_nextInFlight) return'), isTrue);
+      final history = File(
+        'lib/features/history/data/on_demand_ride_history_store.dart',
+      ).readAsStringSync();
+      expect(history.contains('archiveCancelledThenClear'), isTrue);
+    },
+  );
 }
