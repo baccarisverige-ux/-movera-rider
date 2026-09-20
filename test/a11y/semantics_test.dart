@@ -5,7 +5,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
-import 'package:movera_rider/features/home/presentation/widgets/ride_promotion_ticket.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
@@ -71,7 +70,6 @@ void main() {
     const files = [
       'lib/features/home/presentation/widgets/premium_bottom_nav_item.dart',
       'lib/features/home/presentation/widgets/where_to_card.dart',
-      'lib/features/home/presentation/widgets/ride_promotion_ticket.dart',
       'lib/features/ride_selection/presentation/select_ride.dart',
       'lib/features/finding_driver/presentation/finding_drivers.dart',
       'lib/features/active_ride/presentation/waiting_sheet_bits.dart',
@@ -283,38 +281,18 @@ void main() {
     );
   });
 
-  testWidgets('promotion dismiss and later chip are 48x48', (tester) async {
+  testWidgets('the later chip is 48x48', (tester) async {
     await pumpApp(
       tester,
       Scaffold(
-        body: Column(
-          children: [
-            RidePromotionTicket(
-              title: 'Ride in comfort',
-              onTap: () {},
-              onDismiss: () {},
-            ),
-            WhereToCard(
-              destinationAddress: null,
-              onDestinationTap: () {},
-              onOpenSchedule: () {},
-            ),
-          ],
+        body: WhereToCard(
+          destinationAddress: null,
+          onDestinationTap: () {},
+          onOpenSchedule: () {},
         ),
       ),
     );
-    expect(find.bySemanticsLabel('Dismiss promotion'), findsOneWidget);
     expect(find.bySemanticsLabel('Schedule for later'), findsOneWidget);
-    expectMinTap(
-      tester,
-      find
-          .descendant(
-            of: find.byType(RidePromotionTicket),
-            matching: find.byType(InkWell),
-          )
-          .last,
-      reason: 'Dismiss promotion',
-    );
     expectMinTap(
       tester,
       find

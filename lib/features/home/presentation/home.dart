@@ -23,7 +23,6 @@ import 'package:movera_rider/features/destination/application/destination_contro
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
-import 'package:movera_rider/features/promotions/application/promotions_controller.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/profile.dart';
@@ -40,7 +39,6 @@ import 'package:movera_rider/features/home/presentation/widgets/comfort_ride_car
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
-import 'package:movera_rider/features/home/presentation/widgets/ride_promotion_ticket.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
@@ -73,10 +71,7 @@ class _HomeState extends State<Home> {
     motion: AppScope.instance.motion,
   );
   late final HomePlacesController _places = HomePlacesController();
-  final PromotionsController _promos = PromotionsController();
-  late final _homeCampaign = _promos.homeCampaign();
   bool _showRecenterButton = true;
-  late bool _promotionVisible = _homeCampaign?.active ?? false;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
   ui.Image? _puckCompactImage;
@@ -84,10 +79,8 @@ class _HomeState extends State<Home> {
   int _webPuckPaintGen = 0;
 
   static const double _sheetMinHeight = 184;
-  static const double _sheetPromoMinHeight = 244;
   static const double _sheetMaxHeight = 294;
 
-  String get _promotionTitle => _homeCampaign?.title ?? '';
   bool _destinationSheetOpen = false;
   bool _findingLocation = true;
 
@@ -273,21 +266,6 @@ class _HomeState extends State<Home> {
       ..removeListener(_syncHomeSheetState)
       ..dispose();
     super.dispose();
-  }
-
-  void _dismissPromotion() {
-    if (!mounted) return;
-    // Dismiss only for this running session. Refreshing or reopening the app
-    // creates a fresh Home state and shows the active campaign again.
-    setState(() => _promotionVisible = false);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _animateHomeSheetTo(
-          SheetOffset.absolute(_sheetMinPixels),
-          duration: const Duration(milliseconds: 280),
-        );
-      }
-    });
   }
 
   Future<void> _restoreAddressData() async {
@@ -1998,7 +1976,7 @@ class _HomeState extends State<Home> {
   }
 
   double get _sheetMinPixels =>
-      ResSize.h * (_promotionVisible ? _sheetPromoMinHeight : _sheetMinHeight);
+      ResSize.h * _sheetMinHeight;
 
   double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
 
@@ -2333,14 +2311,6 @@ class _HomeState extends State<Home> {
                     ),
                   ),
                   12.height,
-                  if (_promotionVisible) ...[
-                    RidePromotionTicket(
-                      title: _promotionTitle,
-                      onTap: _handleDestinationTap,
-                      onDismiss: _dismissPromotion,
-                    ),
-                    9.height,
-                  ],
                   WhereToCard(
                     destinationAddress: _destinationAddress,
                     onDestinationTap: _handleDestinationTap,

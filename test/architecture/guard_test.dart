@@ -234,6 +234,22 @@ void main() {
     expect(html.contains('moveraInstallHeadingOverlay'), isFalse);
   });
 
+  test('the promotions feature is gone, not merely hidden', () {
+    expect(Directory('lib/features/promotions').existsSync(), isFalse);
+    expect(
+      File(
+        'lib/features/home/presentation/widgets/ride_promotion_ticket.dart',
+      ).existsSync(),
+      isFalse,
+    );
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+    expect(home.contains('PromotionsController'), isFalse);
+    expect(home.contains('RidePromotionTicket'), isFalse);
+    expect(home.contains('_promotionVisible'), isFalse);
+  });
+
   test('side menu does not list Promotions or Scheduled Rides', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',

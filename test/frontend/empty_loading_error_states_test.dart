@@ -11,7 +11,6 @@ import 'package:movera_rider/features/notifications/presentation/notifications.d
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
-import 'package:movera_rider/features/promotions/presentation/promotions.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -577,8 +576,6 @@ void main() {
         );
       case 'Support':
         return () => const SupportHome();
-      case 'Promotions':
-        return () => const Promotions();
       case 'Profile':
         return () => PrivacyPage(controller: emptyProfile());
       case 'Wallet':
@@ -644,12 +641,6 @@ void main() {
       'No rides to review',
       'Completed or cancelled rides will appear here when real ride history is available.',
       'Support messaging',
-    ),
-    (
-      'Promotions',
-      'No promotions available',
-      'New verified ride offers will appear here when they are available.',
-      null,
     ),
     (
       'Profile',

@@ -7,7 +7,6 @@ import 'package:movera_rider/features/notifications/presentation/notifications.d
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
-import 'package:movera_rider/features/promotions/presentation/promotions.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
@@ -111,7 +110,6 @@ void main() {
   for (final viewport in const [Size(320, 568), Size(844, 390)]) {
     for (final name in const [
       'Notifications',
-      'Promotions',
       'Support',
       'Profile',
       'History',
@@ -136,7 +134,6 @@ void main() {
           );
           final screen = switch (name) {
             'Notifications' => const NotificationScreen(),
-            'Promotions' => const Promotions(),
             'Support' => const SupportHome(),
             'Profile' => AccountHomePage(controller: profile),
             'History' => RideHistory(reservations: reservations),
