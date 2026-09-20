@@ -1,5 +1,6 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 
 class BookingRepository {
   BookingRepository({BookingCoordinator? coordinator})
@@ -17,6 +18,7 @@ class BookingRepository {
     required String rideType,
     required double price,
     required String paymentMethod,
+    RideNotes notes = RideNotes.empty,
   }) {
     return _coordinator.submitFinding(
       pickupAddress: pickupAddress,
@@ -28,6 +30,7 @@ class BookingRepository {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      notes: notes,
     );
   }
 }

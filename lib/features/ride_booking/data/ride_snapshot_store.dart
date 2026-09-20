@@ -42,8 +42,22 @@ class RideSnapshot {
   final MatchedDriver? driver;
   final String? cancellationReason;
 
-  bool get isFresh =>
-      DateTime.now().difference(savedAt) < const Duration(minutes: 20);
+  /// How long a saved ride may go untouched and still be worth restoring.
+  ///
+  /// The rule exists to stop an abandoned snapshot reviving days later as a
+  /// zombie "Finding driver". Twenty minutes is right for a search — none runs
+  /// longer — but wrong once a driver is matched: a real trip across Stockholm
+  /// can easily outlive it, and the rider would come back to Home mid-journey.
+  /// The same goes for a finished trip still owing payment or a rating. So the
+  /// window follows the ride's state, not just the clock.
+  static const searchWindow = Duration(minutes: 20);
+  static const activeRideWindow = Duration(hours: 6);
+
+  Duration get freshnessWindow => status.isMatched || status.isCompletedSurface
+      ? activeRideWindow
+      : searchWindow;
+
+  bool get isFresh => DateTime.now().difference(savedAt) < freshnessWindow;
 
   RideSnapshot copyWith({
     RideStatus? status,
@@ -165,9 +179,9 @@ class RideSnapshotStore {
 
   /// Reads the last persisted ride specifically for terminal History archival.
   ///
-  /// Unlike [read], this intentionally ignores the 20-minute resume freshness
-  /// rule. A legitimate long trip must still be archived before its active
-  /// snapshot is cleared.
+  /// Unlike [read], this intentionally ignores [RideSnapshot.isFresh]
+  /// entirely. A legitimate long trip must still be archived before its active
+  /// snapshot is cleared, however stale the snapshot has gone.
   static Future<RideSnapshot?> readForArchive() => _readStored();
 
   static Future<RideSnapshot?> _readStored() async {

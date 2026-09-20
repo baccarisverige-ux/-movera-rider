@@ -4,6 +4,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class BookingCoordinator {
@@ -95,6 +96,7 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
+    RideNotes notes = RideNotes.empty,
   }) {
     if (_inflight != null) return _inflight!;
     if (_findingAlreadyActive) {
@@ -110,6 +112,7 @@ class BookingCoordinator {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      notes: notes,
     );
     _inflight = started;
     _releaseWhenDone(started);
@@ -126,6 +129,7 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
+    RideNotes notes = RideNotes.empty,
   }) async {
     final key = newIdempotencyKey('booking');
     final json = await _client.post(
@@ -140,6 +144,10 @@ class BookingCoordinator {
         'rideType': rideType,
         'price': price,
         'paymentMethod': paymentMethod,
+        // Bags, pet, baby and child are accessibility and safety options, not
+        // cosmetics: the driver needs them before accepting, so they travel
+        // with the booking rather than stopping at the selection screen.
+        'notes': notes.toJson(),
       },
       idempotencyKey: key,
     );
@@ -160,15 +168,13 @@ class BookingCoordinator {
         price: price,
         paymentMethod: paymentMethod,
         rideId: id,
+        notes: notes,
       ),
     );
     return id;
   }
 
   Future<void> cancel({required String rideId, required String key}) {
-    return _client.post(
-      '/api/v1/rides/$rideId/cancel',
-      idempotencyKey: key,
-    );
+    return _client.post('/api/v1/rides/$rideId/cancel', idempotencyKey: key);
   }
 }

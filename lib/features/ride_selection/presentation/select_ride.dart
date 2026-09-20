@@ -709,6 +709,7 @@ class _SelectRideState extends State<SelectRide>
           rideType: selected.name,
           price: _priceFor(selected),
           paymentMethod: _payments[_selection.selectedPayment].name,
+          notes: _notes,
         );
         if (!mounted) return;
         if (FindingDriverController.active != null) return;

@@ -240,6 +240,9 @@ class InProcessMockClient extends http.BaseClient {
       'destinationLat': body['destinationLat'],
       'destinationLng': body['destinationLng'],
       'scheduledAt': body['scheduledAt'],
+      // Rider notes are part of the ride the driver is given, so the stand-in
+      // backend stores them the way the real one will.
+      'notes': body['notes'],
     };
   }
 

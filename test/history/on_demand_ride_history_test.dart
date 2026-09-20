@@ -89,8 +89,9 @@ void main() {
       savedAt: DateTime.now().subtract(const Duration(minutes: 45)),
     );
     await RideSnapshotStore.save(active);
-    expect(await RideSnapshotStore.read(), isNull,
-        reason: '45-minute ride is intentionally too old for auto-resume');
+    expect(await RideSnapshotStore.read(), isNotNull,
+        reason: 'a 45-minute trip in progress is a real ride, not a stale '
+            'search, so it still resumes');
     AppScope.instance.ride
       ..rideId = 'ride-completed'
       ..status = RideStatus.tripInProgress;

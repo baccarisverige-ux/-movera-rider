@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/booking/data/booking_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 
 class BookingController {
   BookingController({BookingRepository? store})
@@ -15,6 +16,7 @@ class BookingController {
     required String rideType,
     required double price,
     required String paymentMethod,
+    RideNotes notes = RideNotes.empty,
   }) {
     return _store.submitFinding(
       pickupAddress: pickupAddress,
@@ -26,6 +28,7 @@ class BookingController {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      notes: notes,
     );
   }
 }
