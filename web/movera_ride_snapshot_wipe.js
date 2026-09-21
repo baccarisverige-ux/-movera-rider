@@ -1,4 +1,9 @@
-// Movera public web: wipe active-ride snapshot keys only (not theme/prefs).
+// Movera public web: wipe helper for QA clear only (not theme/prefs).
+//
+// A live ride in THIS browser must survive reload, crash, and Safari tab
+// recovery. localStorage is per-origin per-browser, so a stranger tapping
+// the public link never sees someone else's snapshot. Auto-wiping on load
+// is what sent riders back to Home mid-trip.
 (function() {
   var needle = 'movera_active_ride';
   function wipeLocal() {
@@ -68,15 +73,6 @@
       return Promise.all(names.map(wipeDb));
     }).catch(function() {});
   }
-  // An installed PWA is the rider's own app, not a link a stranger tapped, so
-  // its in-progress ride must survive a reload. iOS evicts standalone web apps
-  // readily -- a system permission dialog is enough -- and wiping here left
-  // riders stranded on Home mid-booking. Browser tabs still get wiped: that is
-  // what stops a leftover ride greeting whoever opens the public link.
-  //
-  // Both signals are needed. display-mode: standalone covers Android WebAPKs
-  // and modern iOS; navigator.standalone is the only signal older iOS Safari
-  // gives, and is undefined elsewhere.
   function isInstalledApp() {
     try {
       if (window.matchMedia &&
@@ -92,5 +88,5 @@
     wipeLocal();
     wipeIdb();
   };
-  if (!isInstalledApp()) window.moveraWipeRideSnapshotStorage();
+  // Do not wipe on document load. Cold start restores a fresh snapshot.
 })();

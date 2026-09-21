@@ -1,14 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
-import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
-import 'package:movera_rider/core/web/web_standalone.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -58,16 +55,10 @@ class RideRestoreCoordinator {
 
   static final instance = RideRestoreCoordinator();
 
-  /// Public GitHub Pages has no QA hooks. A leftover mock snapshot must not
-  /// open Driver found / Finding when someone taps the live link.
-  ///
-  /// An installed PWA is the exception: it is the rider's own app, not a link
-  /// a stranger tapped, so its ride must survive a reload. iOS in particular
-  /// evicts standalone web apps aggressively — a system permission dialog
-  /// alone can terminate and reload the app mid-booking — and dropping the
-  /// search there stranded riders on Home.
-  static bool defaultSkipRestore() =>
-      kIsWeb && !moveraQaHooksEnabled && !isInstalledWebApp();
+  /// A live ride in this browser must survive reload, crash, PWA eviction
+  /// and Safari tab recovery. localStorage is per-browser, so a stranger
+  /// tapping the public link never sees someone else's trip.
+  static bool defaultSkipRestore() => false;
 
   void goHome() {
     // Deliberately back to Home: nothing to explain on the next load.
@@ -82,20 +73,18 @@ class RideRestoreCoordinator {
     onReplaceRoot?.call(const Home());
   }
 
-  /// Chrome Refresh / bfcache leave fires pagehide (not visibilitychange).
-  /// Always drop the snapshot; on public web also force Home if Finding/Waiting
-  /// was still on screen from an incomplete reload.
+  /// Chrome Refresh / bfcache leave fires pagehide. The live snapshot stays
+  /// so a crash or reload can reopen the same trip.
   void onPageHide() {
     unawaited(() async {
       try {
-        await RideSnapshotStore.clear();
+        final snapshot = await RideSnapshotStore.read();
+        if (snapshot == null) return;
+        await RideSnapshotStore.save(
+          snapshot.copyWith(savedAt: DateTime.now()),
+        );
       } catch (_) {}
     }());
-    if (_skipRestore() &&
-        (showing == RestoredSurface.finding ||
-            showing == RestoredSurface.waiting)) {
-      goHome();
-    }
   }
 
   RestoredSurface surfaceFor(RideSnapshot? snapshot) {
@@ -173,9 +162,6 @@ class RideRestoreCoordinator {
   Future<Widget> root() async {
     reportRestoreSurface('hold');
     if (_skipRestore()) {
-      // Read the snapshot before dropping it: on builds that keep it, this is
-      // the evidence a search was in flight. (On web the snapshot is already
-      // gone by now, so Home reads the session note instead.)
       try {
         _noteDropped(surfaceFor(await _reader()));
       } catch (_) {}

@@ -497,6 +497,7 @@ class _HomeState extends State<Home> {
     if (parkedNow) {
       setWebOverlayOpen(false);
       _mapParked.value = true;
+      _locationCtl.pauseLiveUpdates();
       AppScope.instance.mapLifecycle.park();
       AppScope.instance.maps.detach(owner: MapOwners.home);
       _mapController = null;
@@ -509,6 +510,7 @@ class _HomeState extends State<Home> {
       if (parkedNow && mounted) {
         AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
+        _locationCtl.resumeLiveUpdates();
         _mapParked.value = false;
       }
     }

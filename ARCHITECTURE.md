@@ -38,9 +38,9 @@ Cancel of a live Book now ride archives History (`archiveCancelledThenClear`)
 then clears the snapshot. Reservations stay in `ReservationController` until
 the frontend later promotes them.
 
-Public web cold start still skips restore (`defaultSkipRestore`) and the
-document-load wipe of `movera_active_ride`. BFCache `persisted == true` is not
-teardown.
+Public web cold start restores a fresh snapshot (`RideRestoreCoordinator`).
+The document-load wipe helper still exists for QA clear and is not invoked
+on boot. BFCache `persisted == true` is not teardown.
 
 ## 20-phase completion pass
 

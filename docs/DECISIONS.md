@@ -66,3 +66,8 @@ R3/R5 — `lib/core/contracts/trip_status.dart` maps `RideStatus` and `Reservati
 
 R6 — Client mutations use `RideSession.apply` → `transitionRide`. `restoreFromBackend` is a backend projection and may jump; illegal jumps log `ride.restore.jump` and are not rejected.
 
+R-web — A live ride must survive Safari crash, browser reload, PWA eviction
+and tab recovery on public Pages as well as installed apps. The document-load
+wipe of `movera_active_ride` is no longer automatic. `defaultSkipRestore()` is
+false. Completing or cancelling still clears the snapshot.
+

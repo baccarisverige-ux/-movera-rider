@@ -74,6 +74,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   bool _arrivalAnnounced = false;
   bool _researching = false;
   bool _overlayOn = false;
+  DateTime? _lastMarkerPaint;
 
   @override
   void initState() {
@@ -101,9 +102,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
             unawaited(_handleExternalTerminal(status));
             return;
           }
-          setState(_loadMarkers);
           _maybeAnnounceArrival();
           _maybeOpenCompleted();
+          _paintDriverIfDue();
         },
       );
     }
@@ -113,6 +114,17 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
+  }
+
+  void _paintDriverIfDue() {
+    final now = DateTime.now();
+    if (_lastMarkerPaint != null &&
+        now.difference(_lastMarkerPaint!) <
+            const Duration(milliseconds: 400)) {
+      return;
+    }
+    _lastMarkerPaint = now;
+    if (mounted) setState(_loadMarkers);
   }
 
   void _loadMarkers() {

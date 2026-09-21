@@ -62,6 +62,7 @@ class _FindingDriversState extends State<FindingDrivers>
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
   bool _overlayOn = false;
+  int _nearbyPaintKey = 0;
   late final AnimationController _sheetSlide;
 
   late String _pickupAddress;
@@ -93,7 +94,14 @@ class _FindingDriversState extends State<FindingDrivers>
       notes: widget.notes,
       onTick: (_) {
         if (!mounted) return;
-        setState(_loadMapBits);
+        final nearbyKey = Object.hashAll(
+          _match.nearby.map((vehicle) => '${vehicle.id}:${vehicle.latitude}'),
+        );
+        if (nearbyKey != _nearbyPaintKey) {
+          _nearbyPaintKey = nearbyKey;
+          _loadMapBits();
+        }
+        setState(() {});
         _syncSheetOverlay();
       },
       onMatched: () {

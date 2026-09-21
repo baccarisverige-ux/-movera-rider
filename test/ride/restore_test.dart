@@ -146,17 +146,16 @@ void main() {
     expect(await c.resumeIfNeeded(), isNull);
   });
 
-  test('public web cold start ignores assigned snapshot', () async {
+  test('public web cold start restores an assigned snapshot', () async {
     final c = RideRestoreCoordinator(
       reader: () async => snap(RideStatus.driverAssigned),
-      skipRestore: () => true,
     );
     final page = await c.root();
-    expect(page, isA<Home>());
-    expect(c.showing, RestoredSurface.home);
+    expect(page, isA<WaitingForDriver>());
+    expect(c.showing, RestoredSurface.waiting);
   });
 
-  test('public web resume does not restore finding', () async {
+  test('forced skipRestore still ignores finding on resume', () async {
     Widget? replaced;
     final c = RideRestoreCoordinator(
       reader: () async => snap(RideStatus.findingDriver),
@@ -170,7 +169,7 @@ void main() {
     expect(c.showing, RestoredSurface.home);
   });
 
-  test('pagehide clears snapshot and skipRestore forces Home from waiting',
+  test('pagehide keeps the snapshot so a crash can restore the trip',
       () async {
     await RideSnapshotStore.save(snap(RideStatus.driverAssigned));
     expect(await RideSnapshotStore.read(), isNotNull);
@@ -178,7 +177,6 @@ void main() {
     Widget? shown;
     final c = RideRestoreCoordinator(
       reader: RideSnapshotStore.read,
-      skipRestore: () => true,
     );
     c.onReplaceRoot = (page) => shown = page;
     c.showing = RestoredSurface.waiting;
@@ -186,20 +184,18 @@ void main() {
     c.onPageHide();
     await Future<void>.delayed(Duration.zero);
 
-    expect(await RideSnapshotStore.read(), isNull);
-    expect(c.showing, RestoredSurface.home);
-    expect(shown, isA<Home>());
+    expect(await RideSnapshotStore.read(), isNotNull);
+    expect(c.showing, RestoredSurface.waiting);
+    expect(shown, isNull);
   });
 
-  test('pagehide clears snapshot but does not force Home when restore allowed',
-      () async {
+  test('pagehide during finding also keeps the search', () async {
     await RideSnapshotStore.save(snap(RideStatus.findingDriver));
     expect(await RideSnapshotStore.read(), isNotNull);
 
     Widget? shown;
     final c = RideRestoreCoordinator(
       reader: RideSnapshotStore.read,
-      skipRestore: () => false,
     );
     c.onReplaceRoot = (page) => shown = page;
     c.showing = RestoredSurface.finding;
@@ -207,7 +203,7 @@ void main() {
     c.onPageHide();
     await Future<void>.delayed(Duration.zero);
 
-    expect(await RideSnapshotStore.read(), isNull);
+    expect(await RideSnapshotStore.read(), isNotNull);
     expect(c.showing, RestoredSurface.finding);
     expect(shown, isNull);
   });

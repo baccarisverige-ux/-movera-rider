@@ -157,8 +157,8 @@ class RideSnapshotStore {
 
   static Future<void> save(RideSnapshot snapshot) async {
     if (snapshot.status.isTerminal) return;
-    // A live ride is worth remembering across a reload even though the web
-    // build never resumes one: Home can then say the search ended.
+    // A live ride is worth remembering across a reload so the same trip
+    // reopens instead of dumping the rider on Home.
     markSearchLive();
     final token = epoch;
     final prefs = await PreferencesStore.load();

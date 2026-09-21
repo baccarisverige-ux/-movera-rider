@@ -64,6 +64,7 @@ class HomeLocationController extends ChangeNotifier {
   double lastMapZoom = 13.0;
   LatLng lastMapTarget = const LatLng(59.3293, 18.0686);
   bool pulseExpanded = false;
+  bool _livePaused = false;
   Set<Marker> markers = {};
   Set<Circle> locationCircles = {};
   Set<Polygon> locationDirection = {};
@@ -150,14 +151,16 @@ class HomeLocationController extends ChangeNotifier {
     required void Function(LatLng latLng, double heading) onFix,
   }) {
     _positionSub?.cancel();
-    const settings = LocationSettings(
-      accuracy: LocationAccuracy.bestForNavigation,
-      distanceFilter: 1,
+    final settings = LocationSettings(
+      accuracy: kIsWeb
+          ? LocationAccuracy.high
+          : LocationAccuracy.bestForNavigation,
+      distanceFilter: kIsWeb ? 20 : 8,
     );
     _positionSub = location
         .getPositionStream(locationSettings: settings)
         .listen((position) {
-          if (!isMounted()) return;
+          if (!isMounted() || _livePaused) return;
           final pose = motion.ingest(
             LocationPoint(
               point: GeoPoint(position.latitude, position.longitude),
@@ -213,9 +216,13 @@ class HomeLocationController extends ChangeNotifier {
 
   void _ensureHeadingPoller() {
     if (_headingTimer != null) return;
-    _headingTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      pollHeading();
-    });
+    _headingTimer = Timer.periodic(
+      Duration(milliseconds: kIsWeb ? 250 : 100),
+      (_) {
+        if (_livePaused) return;
+        pollHeading();
+      },
+    );
   }
 
   /// Applies one compass sample. Public for tests so heading can be verified
@@ -259,7 +266,7 @@ class HomeLocationController extends ChangeNotifier {
     pulseExpanded = false;
     onTick();
     _pulseTimer = Timer.periodic(const Duration(milliseconds: 850), (_) {
-      if (!isMounted()) return;
+      if (!isMounted() || _livePaused) return;
       pulseExpanded = !pulseExpanded;
       onTick();
     });
@@ -288,6 +295,7 @@ class HomeLocationController extends ChangeNotifier {
     required BitmapDescriptor icon,
     required double heading,
   }) {
+    if (_livePaused) return;
     locationCircles = {};
     locationDirection = {};
     markers = {
@@ -316,5 +324,13 @@ class HomeLocationController extends ChangeNotifier {
     _headingStartInFlight = null;
     hasCompassHeading = false;
     super.dispose();
+  }
+
+  void pauseLiveUpdates() {
+    _livePaused = true;
+  }
+
+  void resumeLiveUpdates() {
+    _livePaused = false;
   }
 }
