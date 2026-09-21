@@ -21,6 +21,8 @@ class DriverTrackingController {
   MatchedDriver? driver;
   DriverEta? eta;
   RideStatus status = RideStatus.driverAssigned;
+  RideRealtimeSignal? lastSignal;
+  String? signalMessage;
   RideStatus? _lastPersistedStatus;
   void Function()? onChange;
 
@@ -35,6 +37,8 @@ class DriverTrackingController {
     _sub = _realtime.subscribe(rideId).listen((event) {
       final statusChanged = event.status != status;
       status = event.status;
+      lastSignal = event.signal;
+      signalMessage = event.message;
       if (event.driver != null) driver = event.driver;
       if (event.latitude != null && event.longitude != null) {
         eta = DriverEta.fromFix(
