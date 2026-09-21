@@ -24,6 +24,16 @@ class RideSession {
   }
 
   void restoreFromBackend(RideStatus backendStatus, {String? id}) {
+    if (status != backendStatus && !canTransition(status, backendStatus)) {
+      AppLog.info(
+        'ride.restore.jump',
+        extra: {
+          'from': status.name,
+          'to': backendStatus.name,
+          'rideId': id ?? rideId,
+        },
+      );
+    }
     rideId = id ?? rideId;
     status = backendStatus;
     suppressRestore = backendStatus.isTerminal;

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 
@@ -50,5 +51,19 @@ void main() {
         throwsA(isA<InvalidRideTransition>()),
       );
     }
+  });
+
+  test('restoreFromBackend may jump; apply stays on the graph', () {
+    final session = RideSession();
+    expect(canTransition(RideStatus.idle, RideStatus.driverArriving), isFalse);
+
+    session.restoreFromBackend(RideStatus.driverArriving, id: 'trip-restore-1');
+    expect(session.status, RideStatus.driverArriving);
+    expect(session.rideId, 'trip-restore-1');
+
+    expect(
+      () => session.apply(RideStatus.idle),
+      throwsA(isA<InvalidRideTransition>()),
+    );
   });
 }

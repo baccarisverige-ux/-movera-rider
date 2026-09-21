@@ -88,10 +88,15 @@ class InvalidRideTransition implements Exception {
 }
 
 RideStatus transitionRide(RideStatus from, RideStatus to) {
-  if (from.isTerminal) throw InvalidRideTransition(from, to);
-  final next = _allowed[from];
-  if (next == null || !next.contains(to)) {
+  if (!canTransition(from, to)) {
     throw InvalidRideTransition(from, to);
   }
   return to;
+}
+
+/// Client mutations must follow this graph. Backend projections may jump.
+bool canTransition(RideStatus from, RideStatus to) {
+  if (from.isTerminal) return false;
+  final next = _allowed[from];
+  return next != null && next.contains(to);
 }

@@ -64,3 +64,5 @@ P3 (`movera-contracts` OpenAPI) consumes this document. R3–R5 and D5 (full Act
 
 R3/R5 — `lib/core/contracts/trip_status.dart` maps `RideStatus` and `ReservationStatus` onto canonical `TripStatus`. `ReservationStatus.driverEnRoute` is `RideStatus.driverArriving`. Runtime session still uses `RideStatus`.
 
+R6 — Client mutations use `RideSession.apply` → `transitionRide`. `restoreFromBackend` is a backend projection and may jump; illegal jumps log `ride.restore.jump` and are not rejected.
+
