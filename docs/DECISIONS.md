@@ -61,3 +61,6 @@ A driver does **not** return online after a crash or cold start. Going online is
 ## Out of this record
 
 P3 (`movera-contracts` OpenAPI) consumes this document. R3–R5 and D5 (full ActiveRideStage replacement) wait on this record and do not redesign screens.
+
+R3/R5 — `lib/core/contracts/trip_status.dart` maps `RideStatus` and `ReservationStatus` onto canonical `TripStatus`. `ReservationStatus.driverEnRoute` is `RideStatus.driverArriving`. Runtime session still uses `RideStatus`.
+
