@@ -20,6 +20,7 @@ import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
@@ -142,12 +143,38 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   /// watching, so say it once and never again for this ride.
   void _maybeAnnounceArrival() {
     if (!mounted || _leaving || _arrivalAnnounced || _completedOpened) return;
-    if (_tracking.status != RideStatus.driverWaiting) return;
+    final explicitArrival =
+        _tracking.lastSignal == RideRealtimeSignal.driverArrived;
+    if (!explicitArrival && _tracking.status != RideStatus.driverWaiting) {
+      return;
+    }
     _arrivalAnnounced = true;
     unawaited(
       showDriverArrivedSheet(
         context,
         driver: _tracking.driver ?? widget.driver,
+        onWay: _sendOnTheWay,
+      ),
+    );
+  }
+
+  Future<void> _sendOnTheWay() async {
+    final rideId = AppScope.instance.ride.rideId;
+    if (rideId == null) return;
+    await AppScope.instance.rideRealtime.sendSignal(
+      rideId: rideId,
+      signal: RideRealtimeSignal.riderOnTheWay,
+      message: "I'm on the way",
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("Sent to driver · I'm on the way"),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
       ),
     );
   }
