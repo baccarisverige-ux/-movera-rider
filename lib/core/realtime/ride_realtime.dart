@@ -1,6 +1,11 @@
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
+enum RideRealtimeSignal {
+  driverArrived,
+  riderOnTheWay,
+}
+
 class RideRealtimeEvent {
   const RideRealtimeEvent({
     required this.rideId,
@@ -12,6 +17,8 @@ class RideRealtimeEvent {
     this.longitude,
     this.etaSeconds,
     this.locationAt,
+    this.signal,
+    this.message,
   });
 
   final String rideId;
@@ -23,11 +30,18 @@ class RideRealtimeEvent {
   final double? longitude;
   final int? etaSeconds;
   final DateTime? locationAt;
+  final RideRealtimeSignal? signal;
+  final String? message;
 }
 
 abstract class RideRealtime {
   Stream<RideRealtimeEvent> subscribe(String rideId);
   Future<void> reconnectAndResync(String rideId);
+  Future<void> sendSignal({
+    required String rideId,
+    required RideRealtimeSignal signal,
+    String? message,
+  });
   void unsubscribe();
   void cancelRide();
 
