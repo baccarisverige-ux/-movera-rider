@@ -11,7 +11,6 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
-import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -202,7 +201,7 @@ class _SelectRideState extends State<SelectRide>
   late final RideSelectionController _selection = RideSelectionController(
     bookingMode: widget.bookingMode,
     lockBookingMode: widget.lockBookingMode,
-    paymentStore: const PrefsDefaultPaymentStore(),
+    paymentStore: AppScope.instance.defaultPayment,
   );
   bool _mapReady = false;
   bool _mapParked = false;

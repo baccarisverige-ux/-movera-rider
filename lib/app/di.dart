@@ -24,6 +24,7 @@ import 'package:movera_rider/core/sockets/socket_client.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
+import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
@@ -44,6 +45,7 @@ class AppScope {
       tokens = SecureTokenStore(),
       realtime = RealtimeConnection(),
       payments = LocalPaymentRepository(),
+      defaultPayment = const PrefsDefaultPaymentStore(),
       paymentGateway = MockPaymentGateway(),
       wallet = WalletLedger(),
       lifecycle = AppLifecycleObserver(),
@@ -89,6 +91,7 @@ class AppScope {
   late final SocketClient sockets;
   late final QuoteRepository quotes;
   final LocalPaymentRepository payments;
+  final DefaultPaymentStore defaultPayment;
   final MockPaymentGateway paymentGateway;
   final WalletLedger wallet;
   final AppLifecycleObserver lifecycle;
