@@ -16,17 +16,26 @@ const Color _accent = Color(0xFF2D5878);
 Future<void> showDriverArrivedSheet(
   BuildContext context, {
   MatchedDriver? driver,
+  Future<void> Function()? onWay,
 }) {
   return MoveraSheet.show<void>(
     context: context,
-    builder: (_) => DriverArrivedSheet(driver: driver),
+    builder: (_) => DriverArrivedSheet(
+      driver: driver,
+      onWay: onWay,
+    ),
   );
 }
 
 class DriverArrivedSheet extends StatelessWidget {
-  const DriverArrivedSheet({super.key, this.driver});
+  const DriverArrivedSheet({
+    super.key,
+    this.driver,
+    this.onWay,
+  });
 
   final MatchedDriver? driver;
+  final Future<void> Function()? onWay;
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +126,10 @@ class DriverArrivedSheet extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () async {
+                  await onWay?.call();
+                  if (context.mounted) Navigator.of(context).pop();
+                },
                 style: FilledButton.styleFrom(
                   backgroundColor: _accent,
                   minimumSize: const Size.fromHeight(52),
@@ -126,7 +138,7 @@ class DriverArrivedSheet extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  'On my way',
+                  "I'm on the way",
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
