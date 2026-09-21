@@ -12,6 +12,7 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bit
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
@@ -61,7 +62,6 @@ class WaitingForDriver extends StatefulWidget {
 
 class _WaitingForDriverState extends State<WaitingForDriver>
     with SingleTickerProviderStateMixin {
-  Set<Marker> _markers = {};
   final ActiveRideController _ride = ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
     pickupLat: widget.pickupPosition.latitude,
@@ -69,12 +69,14 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   );
   late final CameraPosition _initialPosition;
   late final AnimationController _sheetSlide;
+  final GlobalKey<_WaitingRideMapState> _mapKey =
+      GlobalKey<_WaitingRideMapState>(debugLabel: 'waiting-ride-map');
   bool _leaving = false;
   bool _completedOpened = false;
   bool _arrivalAnnounced = false;
   bool _researching = false;
   bool _overlayOn = false;
-  DateTime? _lastMarkerPaint;
+  String _sheetSignature = '';
 
   @override
   void initState() {
@@ -88,24 +90,13 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     _sheetSlide.addListener(_syncSheetOverlay);
     _syncSheetOverlay();
     _tracking.driver = widget.driver;
-    _loadMarkers();
     SafetyController.shared.load();
     final rideId = AppScope.instance.ride.rideId;
     if (rideId != null) {
       _tracking.start(
         rideId: rideId,
         initial: widget.driver,
-        onChange: () {
-          if (!mounted) return;
-          final status = _tracking.status;
-          if (status.isTerminal && !status.isCompletedSurface) {
-            unawaited(_handleExternalTerminal(status));
-            return;
-          }
-          _maybeAnnounceArrival();
-          _maybeOpenCompleted();
-          _paintDriverIfDue();
-        },
+        onChange: _onLiveTick,
       );
     }
   }
@@ -116,41 +107,35 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
-  void _paintDriverIfDue() {
-    final now = DateTime.now();
-    if (_lastMarkerPaint != null &&
-        now.difference(_lastMarkerPaint!) <
-            const Duration(milliseconds: 400)) {
+  void _onLiveTick() {
+    if (!mounted) return;
+    final status = _tracking.status;
+    if (status.isTerminal && !status.isCompletedSurface) {
+      unawaited(_handleExternalTerminal(status));
       return;
     }
-    _lastMarkerPaint = now;
-    if (mounted) setState(_loadMarkers);
+    _maybeAnnounceArrival();
+    _maybeOpenCompleted();
+    _mapKey.currentState?.paintIfDue();
+    final signature = _sheetSignatureFor(
+      status: status,
+      driver: _tracking.driver ?? widget.driver,
+      eta: _tracking.eta,
+    );
+    if (signature == _sheetSignature) return;
+    _sheetSignature = signature;
+    setState(() {});
   }
 
-  void _loadMarkers() {
-    _markers = {
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: widget.pickupPosition,
-        infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
-      ),
-      Marker(
-        markerId: const MarkerId('destination'),
-        position: widget.destinationPosition,
-        infoWindow: InfoWindow(
-          title: shortPickupPlace(widget.destinationAddress),
-        ),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      ),
-      if (_tracking.eta?.latitude != null && _tracking.eta?.longitude != null)
-        Marker(
-          markerId: const MarkerId('driver'),
-          position: LatLng(_tracking.eta!.latitude!, _tracking.eta!.longitude!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
-          ),
-        ),
-    };
+  String _sheetSignatureFor({
+    required RideStatus status,
+    required MatchedDriver? driver,
+    required DriverEta? eta,
+  }) {
+    final headline = eta?.headline(status: status) ?? 'Driver found';
+    final subtitle =
+        eta?.subtitle(firstName: driver?.firstName, status: status) ?? '';
+    return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}';
   }
 
   /// The driver reaching pickup is easy to miss on a map the rider is not
@@ -359,29 +344,14 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               left: 0,
               right: 0,
               bottom: mapReserve,
-              child: RepaintBoundary(
-                child: CustomGoogleMap(
-                  key: const ValueKey('waiting-map'),
-                  initialPosition: _initialPosition,
-                  markers: _markers,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
-                  compassEnabled: false,
-                  trafficEnabled: false,
-                  buildingsEnabled: false,
-                  indoorViewEnabled: false,
-                  tiltGesturesEnabled: false,
-                  rotateGesturesEnabled: false,
-                  mapType: MapType.normal,
-                  onMapCreated: (controller) {
-                    AppScope.instance.maps.attach(
-                      controller,
-                      owner: MapOwners.waiting,
-                    );
-                  },
-                ),
+              child: _WaitingRideMap(
+                key: _mapKey,
+                initialPosition: _initialPosition,
+                pickupPosition: widget.pickupPosition,
+                destinationPosition: widget.destinationPosition,
+                pickupAddress: widget.pickupAddress,
+                destinationAddress: widget.destinationAddress,
+                tracking: _tracking,
               ),
             ),
             Positioned(
@@ -434,6 +404,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                   height: height,
                   child: PointerInterceptor(
                     child: Material(
+                      key: const ValueKey<String>('waiting-panel'),
                       color: Colors.white,
                       elevation: 18,
                       shadowColor: const Color(
@@ -465,6 +436,12 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                                 ),
                               ),
                             ),
+                          ),
+                          KeyedSubtree(
+                            key: ValueKey<String>(
+                              'waiting-stage-${_tracking.status.name}',
+                            ),
+                            child: const SizedBox.shrink(),
                           ),
                           Expanded(child: _panel(driver, headline, subtitle)),
                         ],
@@ -526,6 +503,138 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           ),
           WaitingNotesAndPin(notes: widget.notes),
         ],
+      ),
+    );
+  }
+}
+
+class _WaitingRideMap extends StatefulWidget {
+  const _WaitingRideMap({
+    super.key,
+    required this.initialPosition,
+    required this.pickupPosition,
+    required this.destinationPosition,
+    required this.pickupAddress,
+    required this.destinationAddress,
+    required this.tracking,
+  });
+
+  final CameraPosition initialPosition;
+  final LatLng pickupPosition;
+  final LatLng destinationPosition;
+  final String pickupAddress;
+  final String destinationAddress;
+  final DriverTrackingController tracking;
+
+  @override
+  State<_WaitingRideMap> createState() => _WaitingRideMapState();
+}
+
+class _WaitingRideMapState extends State<_WaitingRideMap> {
+  Set<Marker> _markers = const <Marker>{};
+  DateTime? _lastPaint;
+  Widget? _leaf;
+
+  @override
+  void initState() {
+    super.initState();
+    _markers = _buildMarkers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WaitingRideMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pickupPosition == widget.pickupPosition &&
+        oldWidget.destinationPosition == widget.destinationPosition &&
+        oldWidget.pickupAddress == widget.pickupAddress &&
+        oldWidget.destinationAddress == widget.destinationAddress &&
+        identical(oldWidget.tracking, widget.tracking)) {
+      return;
+    }
+    _markers = _buildMarkers();
+    _leaf = null;
+  }
+
+  void paintIfDue() {
+    final now = DateTime.now();
+    if (_lastPaint != null &&
+        now.difference(_lastPaint!) < const Duration(milliseconds: 400)) {
+      return;
+    }
+    _lastPaint = now;
+    final next = _buildMarkers();
+    if (_sameMarkers(_markers, next)) return;
+    if (!mounted) return;
+    setState(() {
+      _markers = next;
+      _leaf = null;
+    });
+  }
+
+  bool _sameMarkers(Set<Marker> current, Set<Marker> next) {
+    if (identical(current, next)) return true;
+    if (current.length != next.length) return false;
+    final byId = <String, LatLng>{
+      for (final marker in current) marker.markerId.value: marker.position,
+    };
+    for (final marker in next) {
+      final position = byId[marker.markerId.value];
+      if (position == null || position != marker.position) return false;
+    }
+    return true;
+  }
+
+  Set<Marker> _buildMarkers() {
+    final eta = widget.tracking.eta;
+    return {
+      Marker(
+        markerId: const MarkerId('pickup'),
+        position: widget.pickupPosition,
+        infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
+      ),
+      Marker(
+        markerId: const MarkerId('destination'),
+        position: widget.destinationPosition,
+        infoWindow: InfoWindow(
+          title: shortPickupPlace(widget.destinationAddress),
+        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      ),
+      if (eta?.latitude != null && eta?.longitude != null)
+        Marker(
+          markerId: const MarkerId('driver'),
+          position: LatLng(eta!.latitude!, eta.longitude!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueViolet,
+          ),
+        ),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _leaf ??= RepaintBoundary(
+      child: CustomGoogleMap(
+        key: const ValueKey('waiting-map'),
+        initialPosition: widget.initialPosition,
+        markers: _markers,
+        myLocationEnabled: true,
+        myLocationButtonEnabled: false,
+        zoomControlsEnabled: false,
+        mapToolbarEnabled: false,
+        compassEnabled: false,
+        trafficEnabled: false,
+        buildingsEnabled: false,
+        indoorViewEnabled: false,
+        tiltGesturesEnabled: false,
+        rotateGesturesEnabled: false,
+        mapType: MapType.normal,
+        onMapCreated: (controller) {
+          AppScope.instance.maps.attach(
+            controller,
+            owner: MapOwners.waiting,
+          );
+        },
       ),
     );
   }

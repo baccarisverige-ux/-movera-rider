@@ -47,6 +47,16 @@ void main() {
     expect(eta.headline(status: RideStatus.driverWaiting), 'Driver has arrived');
   });
 
+  test('on-trip copy stays on the waiting surface', () {
+    const eta = DriverEta(seconds: 20, stale: false);
+    expect(eta.headline(status: RideStatus.tripStarted), 'Ride in progress');
+    expect(eta.headline(status: RideStatus.tripInProgress), 'Ride in progress');
+    expect(
+      eta.subtitle(firstName: 'Alex', status: RideStatus.tripInProgress),
+      'Alex is taking you to drop-off.',
+    );
+  });
+
   test('close GPS does not declare arrived without driverWaiting', () {
     const eta = DriverEta(seconds: 30, distanceMeters: 40, stale: false);
     expect(eta.headline(status: RideStatus.driverAssigned), 'Driver is almost there');

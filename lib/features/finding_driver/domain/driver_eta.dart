@@ -68,6 +68,10 @@ class DriverEta {
   }
 
   String headline({RideStatus status = RideStatus.driverAssigned}) {
+    if (status == RideStatus.tripStarted ||
+        status == RideStatus.tripInProgress) {
+      return 'Ride in progress';
+    }
     if (status == RideStatus.driverWaiting) return 'Driver has arrived';
     if (stale) return 'Updating driver location…';
     final distance = distanceMeters;
@@ -83,6 +87,12 @@ class DriverEta {
     String? firstName,
     RideStatus status = RideStatus.driverAssigned,
   }) {
+    if (status == RideStatus.tripStarted ||
+        status == RideStatus.tripInProgress) {
+      return firstName == null
+          ? 'On the way to your drop-off.'
+          : '$firstName is taking you to drop-off.';
+    }
     if (stale) return 'Waiting for a fresh location update.';
     if (headline(status: status).contains('arrived')) {
       return firstName == null

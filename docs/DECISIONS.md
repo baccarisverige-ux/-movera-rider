@@ -71,3 +71,11 @@ and tab recovery on public Pages as well as installed apps. The document-load
 wipe of `movera_active_ride` is no longer automatic. `defaultSkipRestore()` is
 false. Completing or cancelling still clears the snapshot.
 
+## Rider active ride stage transitions
+
+`WaitingForDriver` stays mounted from assigned / arriving through waiting and
+on-trip. Status changes update sheet copy in place. The map host caches its
+`HtmlElementView`, GPS is not restarted, and the camera is not fitted again.
+Completing still opens `RideCompleted`. Finding → Waiting is still a separate
+matched-surface navigation.
+

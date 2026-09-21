@@ -3,6 +3,8 @@
 Approved UI is frozen. Status is **runtime wiring**, not folder names.
 
 WaitingForDriver is the approved surface for assigned / arriving / in-progress.
+Stage changes keep that same screen, map, and panel mounted; only ride copy
+and the driver marker update.
 
 Web snapshot key: `flutter.movera_active_ride` (`RideSnapshotStore.key`).
 

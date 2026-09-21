@@ -11,6 +11,7 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -188,4 +189,130 @@ void main() {
       );
     }
   });
+
+  testWidgets(
+    'waiting stages keep the same map, panel and ride State mounted',
+    (tester) async {
+      const rideId = 'waiting-stage-continuity';
+      await RideSnapshotStore.save(waitingSnapshot(rideId));
+      AppScope.instance.ride.restoreFromBackend(
+        RideStatus.driverAssigned,
+        id: rideId,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WaitingForDriver(
+            pickupAddress: 'Stockholm pickup',
+            destinationAddress: 'Stockholm destination',
+            pickupPosition: LatLng(59.3293, 18.0686),
+            destinationPosition: LatLng(59.3326, 18.0649),
+            rideType: 'Movera',
+            price: 259,
+            paymentMethod: 'Apple Pay',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+      realtime.holdAssignment();
+      final rideState = tester.state(find.byType(WaitingForDriver));
+      final mapElement = tester.element(
+        find.byKey(const ValueKey('waiting-map')),
+      );
+      final panelElement = tester.element(
+        find.byKey(const ValueKey<String>('waiting-panel')),
+      );
+
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(find.byType(CustomGoogleMap), findsOneWidget);
+
+      realtime.emit(
+        RideStatus.driverArriving,
+        latitude: 59.3310,
+        longitude: 18.0600,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(
+        identical(rideState, tester.state(find.byType(WaitingForDriver))),
+        isTrue,
+      );
+      expect(
+        identical(
+          mapElement,
+          tester.element(find.byKey(const ValueKey('waiting-map'))),
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          panelElement,
+          tester.element(find.byKey(const ValueKey<String>('waiting-panel'))),
+        ),
+        isTrue,
+      );
+
+      realtime.emit(
+        RideStatus.driverWaiting,
+        latitude: 59.3293,
+        longitude: 18.0686,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Driver has arrived'), findsWidgets);
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(
+        identical(rideState, tester.state(find.byType(WaitingForDriver))),
+        isTrue,
+      );
+      expect(
+        identical(
+          mapElement,
+          tester.element(find.byKey(const ValueKey('waiting-map'))),
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          panelElement,
+          tester.element(find.byKey(const ValueKey<String>('waiting-panel'))),
+        ),
+        isTrue,
+      );
+
+      realtime.emit(RideStatus.tripStarted);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      realtime.emit(RideStatus.tripInProgress);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('Ride in progress'), findsOneWidget);
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(
+        identical(rideState, tester.state(find.byType(WaitingForDriver))),
+        isTrue,
+      );
+      expect(
+        identical(
+          mapElement,
+          tester.element(find.byKey(const ValueKey('waiting-map'))),
+        ),
+        isTrue,
+      );
+      expect(
+        identical(
+          panelElement,
+          tester.element(find.byKey(const ValueKey<String>('waiting-panel'))),
+        ),
+        isTrue,
+      );
+    },
+  );
 }
