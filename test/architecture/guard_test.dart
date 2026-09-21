@@ -261,7 +261,28 @@ void main() {
     expect(home.contains('PromotionsController'), isFalse);
     expect(home.contains('RidePromotionTicket'), isFalse);
     expect(home.contains('_promotionVisible'), isFalse);
+    expect(
+      File('lib/core/feature_flags/feature_flags.dart').readAsStringSync(),
+      isNot(contains('enablePromotions')),
+    );
   });
+
+  test('dead XEntity scaffolds and driver-part zips are gone', () {
+    const stubs = [
+      'lib/features/auth/domain/auth.dart',
+      'lib/features/fare/domain/fare.dart',
+      'lib/features/payments/domain/payments.dart',
+      'lib/features/pickup/domain/pickup.dart',
+      'lib/features/onboarding/domain/onboarding.dart',
+      'lib/features/ride_booking/domain/entities/driver.dart',
+    ];
+    for (final path in stubs) {
+      expect(File(path).existsSync(), isFalse, reason: path);
+    }
+    final tracked = Process.runSync('git', ['ls-files']).stdout as String;
+    expect(tracked.contains('driver-part-'), isFalse);
+  });
+
 
   test('side menu does not list Promotions or Scheduled Rides', () {
     final menu = File(

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
+import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -12,17 +15,20 @@ class RideSelectionController {
     QuoteRepository? quotes,
     FareController? fare,
     FeatureFlags? flags,
+    DefaultPaymentStore? paymentStore,
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
   }) : _store = store ?? RideSelectionRepository(),
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
-       _flags = flags ?? AppScope.instance.flags;
+       _flags = flags ?? AppScope.instance.flags,
+       _paymentStore = paymentStore;
 
   final RideSelectionRepository _store;
   final QuoteRepository _quotes;
   final FareController _fare;
   final FeatureFlags _flags;
+  final DefaultPaymentStore? _paymentStore;
 
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
@@ -113,6 +119,7 @@ class RideSelectionController {
 
   void selectPayment(int index) {
     selectedPayment = index;
+    _persistSelectedBrand();
   }
 
   void selectPaymentNamed(String? name) {
@@ -123,6 +130,28 @@ class RideSelectionController {
       (item) => item.name.toLowerCase() == needle.toLowerCase(),
     );
     if (i >= 0) selectedPayment = i;
+  }
+
+  void selectPaymentByBrand(String? brand) {
+    final needle = brand?.trim();
+    if (needle == null || needle.isEmpty) return;
+    final list = payments();
+    final i = list.indexWhere((item) => item.brand == needle);
+    if (i >= 0) selectedPayment = i;
+  }
+
+  Future<void> restoreDefaultPayment() async {
+    final store = _paymentStore;
+    if (store == null) return;
+    selectPaymentByBrand(await store.read());
+  }
+
+  void _persistSelectedBrand() {
+    final store = _paymentStore;
+    if (store == null) return;
+    final list = payments();
+    if (selectedPayment < 0 || selectedPayment >= list.length) return;
+    unawaited(store.save(list[selectedPayment].brand));
   }
 
   void setBookingMode(BookingMode mode) {

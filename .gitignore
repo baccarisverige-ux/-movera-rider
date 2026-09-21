@@ -1,4 +1,6 @@
-# Dart / Flutter generated
+# Driver app archives belong only in Movera-drider-
+driver-part-*.zip
+
 .dart_tool/
 .packages
 .pub/

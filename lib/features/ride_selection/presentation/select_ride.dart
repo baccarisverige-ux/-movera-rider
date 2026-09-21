@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +11,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -199,6 +202,7 @@ class _SelectRideState extends State<SelectRide>
   late final RideSelectionController _selection = RideSelectionController(
     bookingMode: widget.bookingMode,
     lockBookingMode: widget.lockBookingMode,
+    paymentStore: const PrefsDefaultPaymentStore(),
   );
   bool _mapReady = false;
   bool _mapParked = false;
@@ -238,6 +242,9 @@ class _SelectRideState extends State<SelectRide>
             ? null
             : _reservations.byId(widget.editingReservationId!)?.paymentMethod);
     _selection.selectPaymentNamed(paymentName);
+    if (paymentName == null) {
+      unawaited(_restoreSavedPayment());
+    }
     if (widget.initialScheduledFor != null) {
       _selection.scheduleFor(widget.initialScheduledFor);
     } else if (widget.bookingMode == BookingMode.scheduled) {
@@ -249,6 +256,11 @@ class _SelectRideState extends State<SelectRide>
       if (mounted) setState(() => _mapReady = true);
     });
     _loadQuotes();
+  }
+
+  Future<void> _restoreSavedPayment() async {
+    await _selection.restoreDefaultPayment();
+    if (mounted) setState(() {});
   }
 
   @override

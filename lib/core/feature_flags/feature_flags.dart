@@ -6,7 +6,6 @@ class FeatureFlags {
     this.enableSwish = true,
     this.enableScheduledRide = true,
     this.enableLuxury = true,
-    this.enablePromotions = true,
     this.enableWallet = true,
     this.enableRidePin = false,
     this.enableSafetyShareTrip = true,
@@ -19,7 +18,6 @@ class FeatureFlags {
   final bool enableSwish;
   final bool enableScheduledRide;
   final bool enableLuxury;
-  final bool enablePromotions;
   final bool enableWallet;
   final bool enableRidePin;
   final bool enableSafetyShareTrip;
@@ -27,7 +25,6 @@ class FeatureFlags {
 
   bool get wallet => enableWallet;
   bool get scheduledRides => enableScheduledRide;
-  bool get promotions => enablePromotions;
   bool get safetyShareTrip => enableSafetyShareTrip;
   bool get bookingLater => enableBookingLater;
 
