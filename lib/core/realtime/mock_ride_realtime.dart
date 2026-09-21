@@ -143,6 +143,8 @@ class MockRideRealtime implements RideRealtime {
     double? latitude,
     double? longitude,
     int? etaSeconds,
+    RideRealtimeSignal? signal,
+    String? message,
   }) {
     if (_rideId == null || disposed || cancelled || lastStatus.isTerminal) {
       return;
@@ -164,6 +166,8 @@ class MockRideRealtime implements RideRealtime {
         longitude: lastLng,
         etaSeconds: etaSeconds,
         locationAt: lastLocationAt,
+        signal: signal,
+        message: message,
       ),
     );
     if (status.isTerminal) {
@@ -215,6 +219,11 @@ class MockRideRealtime implements RideRealtime {
       if (status == RideStatus.driverWaiting) {
         _gps?.cancel();
         _gps = null;
+        emit(
+          RideStatus.driverWaiting,
+          signal: RideRealtimeSignal.driverArrived,
+          message: 'Your driver has arrived at the pickup point.',
+        );
         _startTrip();
       }
     });
@@ -279,7 +288,11 @@ class MockRideRealtime implements RideRealtime {
       return;
     }
     lastStatus = RideStatus.driverWaiting;
-    _emit(RideStatus.driverWaiting);
+    emit(
+      RideStatus.driverWaiting,
+      signal: RideRealtimeSignal.driverArrived,
+      message: 'Your driver has arrived at the pickup point.',
+    );
     _startTrip();
   }
 
@@ -355,6 +368,20 @@ class MockRideRealtime implements RideRealtime {
         },
       );
     } catch (_) {}
+  }
+
+  @override
+  Future<void> sendSignal({
+    required String rideId,
+    required RideRealtimeSignal signal,
+    String? message,
+  }) async {
+    if (_rideId != rideId || disposed || cancelled) return;
+    emit(
+      lastStatus,
+      signal: signal,
+      message: message,
+    );
   }
 
   @override
