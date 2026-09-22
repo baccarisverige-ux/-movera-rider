@@ -31,6 +31,47 @@ class HomeHistoryObserver extends NavigatorObserver {
     _sync(unlockFirst: unlockFirst);
   }
 
+
+  void _routeChangedAfterEnter(
+    Route<dynamic> route, {
+    bool unlockFirst = false,
+  }) {
+    if (unlockFirst) setWebHomeLock(false);
+    if (route is TransitionRoute<dynamic>) {
+      final animation = route.animation;
+      if (animation != null && animation.status != AnimationStatus.completed) {
+        moveraNavigationTransitions.value += 1;
+        var finished = false;
+        late AnimationStatusListener listener;
+
+        void finish() {
+          if (finished) return;
+          finished = true;
+          animation.removeStatusListener(listener);
+          final next = moveraNavigationTransitions.value - 1;
+          moveraNavigationTransitions.value = next < 0 ? 0 : next;
+          _routeChanged(unlockFirst: unlockFirst);
+        }
+
+        listener = (status) {
+          if (status == AnimationStatus.completed ||
+              status == AnimationStatus.dismissed) {
+            finish();
+          }
+        };
+        animation.addStatusListener(listener);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (animation.status == AnimationStatus.completed ||
+              animation.status == AnimationStatus.dismissed) {
+            finish();
+          }
+        });
+        return;
+      }
+    }
+    _routeChanged(unlockFirst: unlockFirst);
+  }
+
   void _routeChangedAfterExit(
     Route<dynamic> route, {
     bool unlockFirst = false,
@@ -52,7 +93,7 @@ class HomeHistoryObserver extends NavigatorObserver {
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    _routeChanged(unlockFirst: true);
+    _routeChangedAfterEnter(route, unlockFirst: true);
   }
 
   @override
@@ -67,8 +108,11 @@ class HomeHistoryObserver extends NavigatorObserver {
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     if (oldRoute != null) {
       _routeChangedAfterExit(oldRoute);
+    }
+    if (newRoute != null) {
+      _routeChangedAfterEnter(newRoute, unlockFirst: true);
       return;
     }
-    _routeChanged();
+    if (oldRoute == null) _routeChanged();
   }
 }
