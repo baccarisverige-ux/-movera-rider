@@ -153,7 +153,10 @@ class RideRestoreCoordinator {
           driver: snapshot.driver,
         );
       case RestoredSurface.complete:
-        return const RideCompleted();
+        return RideCompleted(
+          status: snapshot.status,
+          rideId: snapshot.rideId,
+        );
       case RestoredSurface.home:
         return const Home();
     }
