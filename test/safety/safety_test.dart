@@ -100,7 +100,12 @@ void main() {
     ]) {
       final ctl = buildController();
       await ctl.load();
-      await tester.pumpWidget(MaterialApp(home: SafetyHub(controller: ctl)));
+      await tester.pumpWidget(
+        MaterialApp(
+          key: UniqueKey(),
+          home: SafetyHub(controller: ctl),
+        ),
+      );
       await tester.pumpAndSettle();
 
       final row = find.bySemanticsLabel(route.$1);
@@ -111,6 +116,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(route.$2), findsOneWidget, reason: route.$1);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
     }
   });
 
