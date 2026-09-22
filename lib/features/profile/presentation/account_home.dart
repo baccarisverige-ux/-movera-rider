@@ -59,7 +59,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
             padding: EdgeInsets.fromLTRB(4, 0, 4, 18),
             child: AccountHeadline(
               'Account',
-              body: 'Your Movera profile and sign-in.',
+              body: 'Your Movera profile and account settings.',
             ),
           ),
           AccountGroup(
