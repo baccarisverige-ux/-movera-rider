@@ -146,15 +146,7 @@ class _RideCompletedState extends State<RideCompleted> {
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                   child: Column(
                     children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 160),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeOutCubic,
-                        child: KeyedSubtree(
-                          key: ValueKey(_status),
-                          child: _CompletionHero(spec: spec),
-                        ),
-                      ),
+                      _CompletionHero(spec: spec),
                       if (showFeedbackSurface) ...[
                         const SizedBox(height: 14),
                         IgnorePointer(
