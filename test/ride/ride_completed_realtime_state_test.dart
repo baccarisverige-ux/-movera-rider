@@ -75,6 +75,12 @@ void main() {
       expect(find.text('How was your ride?'), findsOneWidget);
       expect(find.text('Ready for feedback'), findsOneWidget);
       expect(find.text('How was your trip'), findsOneWidget);
+      expect(
+        find.text(
+          'Rating and tip are optional. Tap Done when you are finished.',
+        ),
+        findsOneWidget,
+      );
       expect(AppScope.instance.ride.status, RideStatus.ratingPending);
       expect(tester.takeException(), isNull);
     },
