@@ -246,11 +246,14 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   Future<void> _openCompleted(RideStatus status) async {
     if (!mounted || _leaving || _completedOpened) return;
     _completedOpened = true;
+    final rideId = AppScope.instance.ride.rideId;
     await _ride.markCompleted(status);
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      BottomToTopTransition(RideCompleted(status: status)),
+      BottomToTopTransition(
+        RideCompleted(status: status, rideId: rideId),
+      ),
     );
   }
 
