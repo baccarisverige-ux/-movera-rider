@@ -34,9 +34,11 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 
 class WaitingForDriver extends StatefulWidget {
   const WaitingForDriver({
@@ -85,8 +87,7 @@ class WaitingForDriver extends StatefulWidget {
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
-class _WaitingForDriverState extends State<WaitingForDriver>
-    with SingleTickerProviderStateMixin {
+class _WaitingForDriverState extends State<WaitingForDriver> {
   final ActiveRideController _ride = ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
     realtime: widget.realtime,
@@ -95,7 +96,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     persistRideSnapshot: widget.persistRideSnapshot,
   );
   late final CameraPosition _initialPosition;
-  late final AnimationController _sheetSlide;
+  final SheetController _sheetController = SheetController();
   final GlobalKey<_WaitingRideMapState> _mapKey =
       GlobalKey<_WaitingRideMapState>(debugLabel: 'waiting-ride-map');
   bool _leaving = false;
@@ -116,12 +117,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void initState() {
     super.initState();
     _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
-    _sheetSlide = AnimationController(
-      vsync: this,
-      duration: MoveraDurations.sheetOpen,
-      value: 0,
-    );
-    _sheetSlide.addListener(_syncSheetOverlay);
+    _sheetController.addListener(_syncSheetOverlay);
     moveraNavigationEpoch.addListener(_onNavigationChanged);
     _syncSheetOverlay();
     _tracking.driver = widget.driver;
@@ -134,12 +130,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         onChange: _onLiveTick,
       );
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
   void _onLiveTick() {
@@ -478,8 +468,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   @override
   void dispose() {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
-    _sheetSlide.removeListener(_syncSheetOverlay);
-    _sheetSlide.dispose();
+    _sheetController.removeListener(_syncSheetOverlay);
+    _sheetController.dispose();
     _tracking.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
@@ -487,7 +477,12 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   }
 
   void _syncSheetOverlay() {
-    final cover = _sheetSlide.value > 0.05;
+    final media = MediaQuery.maybeOf(context);
+    final offset = _sheetController.hasClient
+        ? _sheetController.metrics?.offset
+        : null;
+    final minSheet = media == null ? 0.0 : _minSheet(media);
+    final cover = offset != null && offset > minSheet + 12;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
@@ -499,13 +494,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
     return maxH < minH + 48 ? minH + 48 : maxH;
-  }
-
-  void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
-    if (range <= 0) return;
-    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
-        .clamp(0.0, 1.0);
   }
 
   Future<void> _parkMapForStageChange() async {
@@ -531,22 +519,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
             widget.pickupPosition.longitude,
           );
     AppScope.instance.camera.focusOnPickup(target);
-  }
-
-  void _onSheetDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final target = velocity < -480
-        ? 1.0
-        : velocity > 480
-        ? 0.0
-        : _sheetSlide.value >= 0.42
-        ? 1.0
-        : 0.0;
-    _sheetSlide.animateTo(
-      target,
-      duration: MoveraMotion.of(context, MoveraDurations.large),
-      curve: MoveraCurves.snap,
-    );
   }
 
   @override
@@ -634,19 +606,23 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                 ),
               ),
             ),
-            AnimatedBuilder(
-              animation: _sheetSlide,
-              builder: (context, _) {
-                final minSheet = _minSheet(media);
-                final maxSheet = _maxSheet(media);
-                final height =
-                    minSheet + (maxSheet - minSheet) * _sheetSlide.value;
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: height,
-                  child: PointerInterceptor(
+            SheetViewport(
+              child: Sheet(
+                controller: _sheetController,
+                initialOffset: SheetOffset.absolute(_minSheet(media)),
+                physics: MoveraSheetMotion.physics,
+                snapGrid: SheetSnapGrid(
+                  snaps: [
+                    SheetOffset.absolute(_minSheet(media)),
+                    SheetOffset.absolute(_maxSheet(media)),
+                  ],
+                  minFlingSpeed: 520,
+                ),
+                scrollConfiguration: SheetScrollConfiguration.disabled,
+                child: PointerInterceptor(
+                  child: SizedBox(
+                    height: _maxSheet(media),
+                    width: double.infinity,
                     child: Material(
                       key: const ValueKey<String>('waiting-panel'),
                       color: Colors.white,
@@ -660,24 +636,18 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onVerticalDragUpdate: (d) =>
-                                _onSheetDragUpdate(d, media),
-                            onVerticalDragEnd: _onSheetDragEnd,
-                            child: const SizedBox(
-                              width: double.infinity,
-                              height: 22,
-                              child: Center(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFE7EBEE),
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(99),
-                                    ),
+                          const SizedBox(
+                            width: double.infinity,
+                            height: 22,
+                            child: Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFE7EBEE),
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(99),
                                   ),
-                                  child: SizedBox(width: 36, height: 4),
                                 ),
+                                child: SizedBox(width: 36, height: 4),
                               ),
                             ),
                           ),
@@ -687,13 +657,15 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                             ),
                             child: const SizedBox.shrink(),
                           ),
-                          Expanded(child: _panel(driver, headline, subtitle)),
+                          if (!_isInTrip)
+                            _fixedPickupHeader(driver, headline, subtitle),
+                          Expanded(child: _panel(driver)),
                         ],
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ],
         ),
@@ -701,7 +673,40 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
-  Widget _panel(MatchedDriver? driver, String headline, String subtitle) {
+  Widget _fixedPickupHeader(
+    MatchedDriver? driver,
+    String headline,
+    String subtitle,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  headline,
+                  style: waitingText(22, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: waitingText(14, color: const Color(0xFF5C656C)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          WaitingShareButton(rideId: _rideId),
+        ],
+      ),
+    );
+  }
+
+  Widget _panel(MatchedDriver? driver) {
     if (_isInTrip) {
       return RiderInTripPanel(
         destinationAddress: widget.destinationAddress,
@@ -722,30 +727,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      headline,
-                      style: waitingText(22, weight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: waitingText(14, color: const Color(0xFF5C656C)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              WaitingShareButton(rideId: _rideId),
-            ],
-          ),
-          const SizedBox(height: 16),
           WaitingDriverCard(
             driver: driver,
             rideId: _rideId,
