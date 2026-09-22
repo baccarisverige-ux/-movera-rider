@@ -378,11 +378,26 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      RideStageTransition(
-        RideCompleted(status: status, rideId: rideId),
-      ),
+    final completed = RideCompleted(status: status, rideId: rideId);
+    final navigator = Navigator.of(context);
+
+    // A cold restore renders Waiting inside RideRestoreGate on the Navigator
+    // root. Replacing that route would dispose the gate, so Done could no
+    // longer reveal Home. Swap only the gate child in that topology.
+    if (!navigator.canPop()) {
+      final coordinator = RideRestoreCoordinator.instance;
+      if (coordinator.replaceRootSurface(
+        completed,
+        RestoredSurface.complete,
+      )) {
+        return;
+      }
+    }
+
+    // Normal Book Now has Home/Finding underneath Waiting, so replacement is
+    // correct here and avoids keeping the active-ride route in the stack.
+    navigator.pushReplacement(
+      RideStageTransition(completed),
     );
   }
 
