@@ -300,7 +300,9 @@ Future<String?> showAccountTextEditor(
             20,
             8,
             20,
-            16 + MediaQuery.paddingOf(context).bottom,
+            16 +
+                MediaQuery.paddingOf(context).bottom +
+                MediaQuery.viewInsetsOf(context).bottom,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
