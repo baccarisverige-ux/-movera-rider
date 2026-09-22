@@ -17,6 +17,7 @@ import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sh
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -205,6 +206,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     setState(() {});
     _tracking.dispose();
     await _ride.markExternalTerminal(status);
+    if (!mounted) return;
+    await showRideTerminalStateSheet(context, status: status);
     if (!mounted) return;
     RideNavigator.home(context, status: status);
   }
