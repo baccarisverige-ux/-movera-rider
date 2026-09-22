@@ -233,6 +233,20 @@ class _WaitingForDriverState extends State<WaitingForDriver>
 
     // Same ride, same price, same addresses — only the driver changes.
     AppScope.instance.rideRealtime.researchAfterDriverCancel();
+    _leaving = true;
+    if (mounted) setState(() {});
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      // Normal forward path already has the parked Finding route directly
+      // underneath this screen. Return to it instead of stacking another
+      // Finding route every time a driver drops the ride.
+      navigator.pop(true);
+      return;
+    }
+
+    // Cold restore can put Waiting directly at root, so there is no parked
+    // Finding parent to resume. Replace that root-stage child with Finding.
     Navigator.pushReplacement(
       context,
       RideStageTransition(
