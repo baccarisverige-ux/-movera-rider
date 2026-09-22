@@ -172,12 +172,14 @@ class WaitingDriverCard extends StatelessWidget {
   const WaitingDriverCard({
     super.key,
     required this.driver,
+    this.rideId,
     required this.onOpenProfile,
     required this.onCall,
     required this.onMore,
   });
 
   final MatchedDriver? driver;
+  final String? rideId;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
   final VoidCallback onMore;
