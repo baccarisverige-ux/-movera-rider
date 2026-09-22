@@ -15,6 +15,7 @@ enum RideStatus {
   driverWaiting,
   tripStarted,
   tripInProgress,
+  approachingDropoff,
   tripCompleted,
   paymentProcessing,
   paymentFinalized,
@@ -48,7 +49,8 @@ extension RideStatusX on RideStatus {
       this == RideStatus.driverArriving ||
       this == RideStatus.driverWaiting ||
       this == RideStatus.tripStarted ||
-      this == RideStatus.tripInProgress;
+      this == RideStatus.tripInProgress ||
+      this == RideStatus.approachingDropoff;
 
   bool get isCompletedSurface =>
       this == RideStatus.tripCompleted ||

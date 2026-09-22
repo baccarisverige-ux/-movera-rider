@@ -67,6 +67,11 @@ void main() {
     },
     RideStatus.tripStarted: {RideStatus.tripInProgress},
     RideStatus.tripInProgress: {
+      RideStatus.approachingDropoff,
+      RideStatus.tripCompleted,
+      RideStatus.cancelledBySystem,
+    },
+    RideStatus.approachingDropoff: {
       RideStatus.tripCompleted,
       RideStatus.cancelledBySystem,
     },
@@ -137,6 +142,7 @@ void main() {
       RideStatus.driverWaiting,
       RideStatus.tripStarted,
       RideStatus.tripInProgress,
+      RideStatus.approachingDropoff,
     });
     expect(RideStatus.values.where((status) => status.isCompletedSurface).toSet(), {
       RideStatus.tripCompleted,

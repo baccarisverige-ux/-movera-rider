@@ -23,6 +23,14 @@ void main() {
     );
   });
 
+  test('approaching dropoff maps to the canonical wire state', () {
+    expect(
+      RideStatus.approachingDropoff.tripStatus,
+      TripStatus.approachingDropoff,
+    );
+    expect(TripStatus.approachingDropoff.wireName, 'approaching_dropoff');
+  });
+
   test('payment and rating stay off the trip machine', () {
     expect(RideStatus.paymentProcessing.tripStatus, TripStatus.completed);
     expect(RideStatus.ratingPending.tripStatus, TripStatus.completed);

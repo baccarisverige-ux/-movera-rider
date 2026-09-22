@@ -68,6 +68,7 @@ extension RideStatusAsTripStatus on RideStatus {
         RideStatus.driverWaiting => TripStatus.arrived,
         RideStatus.tripStarted => TripStatus.riderOnboard,
         RideStatus.tripInProgress => TripStatus.inTrip,
+        RideStatus.approachingDropoff => TripStatus.approachingDropoff,
         RideStatus.tripCompleted ||
         RideStatus.paymentProcessing ||
         RideStatus.paymentFinalized ||

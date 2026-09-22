@@ -39,6 +39,7 @@ class _ChatState extends State<Chat> {
   void initState() {
     super.initState();
     _chat = widget.controller ?? MessagesController.forRide(widget.rideId);
+    _chat.markAllRead();
     _messageController.addListener(_onMessageChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd(jump: true));
   }
@@ -106,6 +107,9 @@ class _ChatState extends State<Chat> {
                     itemCount: _chat.messages.length,
                     itemBuilder: (context, index) {
                       final message = _chat.messages[index];
+                      if (message.isSystem) {
+                        return SystemMessageBubble(message: message);
+                      }
                       return message.fromRider
                           ? RiderMessageBubble(message: message)
                           : DriverMessageBubble(message: message);
@@ -277,6 +281,58 @@ class DriverMessageBubble extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+
+class SystemMessageBubble extends StatelessWidget {
+  const SystemMessageBubble({super.key, required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = _messageTime(context, message.sentAt);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        screenHorizPadding,
+        ResSize.h * 12,
+        screenHorizPadding,
+        0,
+      ),
+      child: Semantics(
+        label: 'System message: ${message.text}',
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResSize.w * 14,
+                vertical: ResSize.h * 9,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xffECEFF1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: TextWidget(
+                text: message.text,
+                fontSize: 12.5,
+                color: AppColor.title,
+                fontWeight: fwMedium,
+              ),
+            ),
+            if (time != null) ...[
+              4.height,
+              TextWidget(
+                text: time,
+                color: const Color(0xff858F94),
+                fontSize: 11,
+                fontWeight: fwNormal,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -296,7 +296,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
 
   bool get _isInTrip =>
       _tracking.status == RideStatus.tripStarted ||
-      _tracking.status == RideStatus.tripInProgress;
+      _tracking.status == RideStatus.tripInProgress ||
+      _tracking.status == RideStatus.approachingDropoff;
 
   Future<void> _openDetails() {
     return MoveraSheet.show<void>(
@@ -553,6 +554,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         price: widget.price,
         driver: driver,
         rideId: AppScope.instance.ride.rideId,
+        status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
         onMore: _openDetails,
@@ -694,7 +696,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
     final eta = widget.tracking.eta;
     final inTrip =
         widget.tracking.status == RideStatus.tripStarted ||
-        widget.tracking.status == RideStatus.tripInProgress;
+        widget.tracking.status == RideStatus.tripInProgress ||
+        widget.tracking.status == RideStatus.approachingDropoff;
     return {
       if (!inTrip)
         Marker(
