@@ -214,6 +214,35 @@ void main() {
   });
 
 
+
+  test('cold-restored Waiting completion replaces only the restore-gate child', () {
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+
+    final completionStart = waiting.indexOf(
+      'final completed = RideCompleted(status: status, rideId: rideId);',
+    );
+    final rootGuard = waiting.indexOf('if (!navigator.canPop())', completionStart);
+    final gateSwap = waiting.indexOf('RestoredSurface.complete', rootGuard);
+    final routeReplace = waiting.indexOf(
+      'navigator.pushReplacement(',
+      gateSwap,
+    );
+
+    expect(completionStart, greaterThanOrEqualTo(0));
+    expect(rootGuard, greaterThan(completionStart));
+    expect(gateSwap, greaterThan(rootGuard));
+    expect(routeReplace, greaterThan(gateSwap));
+    expect(
+      waiting.substring(rootGuard, routeReplace),
+      contains('coordinator.replaceRootSurface('),
+      reason:
+          'cold completion must keep RideRestoreGate mounted so Done can reveal Home',
+    );
+  });
+
+
   test('Scheduled live uses reservation transport and reversible parent topology', () {
     final live = File(
       'lib/features/reservations/presentation/reservation_live_ride.dart',
