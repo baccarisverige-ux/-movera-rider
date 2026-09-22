@@ -93,9 +93,12 @@ void main() {
     expect(AppScope.instance.ride.status, terminal);
     expect(await RideSnapshotStore.read(), isNull);
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('ride-terminal-acknowledge')),
+    final acknowledge = find.byKey(
+      const ValueKey<String>('ride-terminal-acknowledge'),
     );
+    await tester.ensureVisible(acknowledge);
+    await tester.pump();
+    await tester.tap(acknowledge);
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
     expect(find.byType(RideTerminalStateSheet), findsNothing);
