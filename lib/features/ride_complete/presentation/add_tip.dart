@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -21,9 +22,34 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final List<String> _amounts = _ctl.tips();
   late final String? _driverName = _ctl.driver()?.name;
   String? _selected;
+  bool _customSelected = false;
+  final TextEditingController _customController = TextEditingController();
 
   void _choose(String amount) {
-    setState(() => _selected = _selected == amount ? null : amount);
+    _customController.clear();
+    setState(() {
+      _customSelected = false;
+      _selected = _selected == amount ? null : amount;
+    });
+  }
+
+  void _setCustomAmount(String raw) {
+    final value = int.tryParse(raw);
+    setState(() {
+      if (value == null || value <= 0) {
+        _customSelected = false;
+        _selected = null;
+        return;
+      }
+      _customSelected = true;
+      _selected = '$value kr';
+    });
+  }
+
+  @override
+  void dispose() {
+    _customController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,16 +86,44 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
                 for (final amount in _amounts)
                   _TipChip(
                     amount: amount,
-                    selected: _selected == amount,
+                    selected: !_customSelected && _selected == amount,
                     onTap: () => _choose(amount),
                   ),
               ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 190,
+            child: TextField(
+              key: const ValueKey<String>('custom-tip-field'),
+              controller: _customController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              onChanged: _setCustomAmount,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                labelText: 'Custom amount',
+                hintText: 'Enter amount',
+                suffixText: 'kr',
+                counterText: '',
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 10),
           TextWidget(
             text: _selected == null
                 ? 'Tip is optional.'
+                : _customSelected
+                ? 'Custom tip: $_selected selected.'
                 : '$_selected selected.',
             color: AppColor.subtitle,
             fontSize: 12,
