@@ -145,36 +145,61 @@ class SafetyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        InkWell(
+        Semantics(
+          button: onTap != null,
+          label: title,
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-            child: Row(
-              children: [
-                SafetyMarkWell(mark),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: SafetyUi.text(15.5, weight: FontWeight.w500)),
-                      const SizedBox(height: 4),
+          child: ExcludeSemantics(
+            child: InkWell(
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+                child: Row(
+                  children: [
+                    SafetyMarkWell(mark),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: SafetyUi.text(
+                              15.5,
+                              weight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            style: SafetyUi.text(
+                              13,
+                              color: SafetyUi.muted,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (status != null) ...[
+                      const SizedBox(width: 8),
                       Text(
-                        subtitle,
-                        style: SafetyUi.text(13, color: SafetyUi.muted, height: 1.35),
+                        status!,
+                        style: SafetyUi.text(
+                          12.5,
+                          color: SafetyUi.accent,
+                          weight: FontWeight.w500,
+                        ),
                       ),
                     ],
-                  ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: SafetyUi.muted,
+                      size: 22,
+                    ),
+                  ],
                 ),
-                if (status != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    status!,
-                    style: SafetyUi.text(12.5, color: SafetyUi.accent, weight: FontWeight.w500),
-                  ),
-                ],
-                const Icon(Icons.chevron_right_rounded, color: SafetyUi.muted, size: 22),
-              ],
+              ),
             ),
           ),
         ),

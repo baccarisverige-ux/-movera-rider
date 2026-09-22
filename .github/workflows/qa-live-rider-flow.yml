@@ -104,25 +104,27 @@ jobs:
           fs.writeFileSync('qa-heading.json', JSON.stringify({headingOnce,headingTwice,headingListeners,headingListenersAgain,injected350,puck350,puck10,denied,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
           if(fatalErrors().length)throw new Error('Fatal runtime error during heading QA: '+fatalErrors().join(' | '));
           console.log('PASS: heading permission granted/denied, inject while GPS fixed, 350\u219210 shortest turn, no duplicate listeners');
-          // Flutter Web text is not exposed to Playwright until semantics are
-          // enabled. Enable it before navigating the drawer by labels.
+          // Flutter Web is canvas-first. Force its accessibility semantics
+          // bridge on, then navigate through stable semantic button labels.
           try {
-            const enableSemantics=page.getByLabel('Enable accessibility');
-            if(await enableSemantics.count()){
-              await enableSemantics.first().click({timeout:3000});
-              await page.waitForTimeout(600);
+            const placeholder=page.locator('flt-semantics-placeholder');
+            if(await placeholder.count()){
+              await placeholder.first().click({force:true,timeout:3000});
+              await page.waitForTimeout(700);
+            } else {
+              const enableSemantics=page.getByLabel('Enable accessibility');
+              if(await enableSemantics.count()){
+                await enableSemantics.first().click({force:true,timeout:3000});
+                await page.waitForTimeout(700);
+              }
             }
           } catch (_) {}
           await page.mouse.click(310,89);await page.waitForTimeout(1100);await shot('safety-menu');
-          let safetySnap={}; let safetyVia='menu:text';
-          let safetyItem=page.getByText('Safety',{exact:true});
+          let safetySnap={}; let safetyVia='menu:semantic-button';
+          let safetyItem=page.getByRole('button',{name:'Safety',exact:true});
           let safetyCount=await safetyItem.count().catch(()=>0);
-          if(!safetyCount){
-            await page.mouse.wheel(0,650);await page.waitForTimeout(500);
-            safetyItem=page.getByText('Safety',{exact:true});
-            safetyCount=await safetyItem.count().catch(()=>0);
-          }
           if(safetyCount){
+            await safetyItem.last().scrollIntoViewIfNeeded().catch(()=>{});
             await safetyItem.last().click({timeout:8000});
             await page.waitForTimeout(1800);
             safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
@@ -140,7 +142,7 @@ jobs:
           }
           const safetyLabels={};
           for(const label of ['PIN verification','Emergency contacts','Share trip status','RideCheck']){
-            safetyLabels[label]=(await page.getByText(label,{exact:true}).count())>0;
+            safetyLabels[label]=(await page.getByRole('button',{name:label,exact:true}).count())>0;
           }
           await shot('safety-hub');
           fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,safetyLabels,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
@@ -158,10 +160,14 @@ jobs:
             ['Share trip status','safety-share'],
             ['RideCheck','safety-ridecheck'],
           ]){
-            const row=page.getByText(label,{exact:true});
+            const row=page.getByRole('button',{name:label,exact:true});
             if(!(await row.count())) throw new Error('Safety row not reachable: '+label);
+            await row.last().scrollIntoViewIfNeeded().catch(()=>{});
             await row.last().click({timeout:8000});await page.waitForTimeout(1100);await shot(shotName);
-            await page.mouse.click(28,48);await page.waitForTimeout(800);
+            const back=page.getByRole('button',{name:'Back',exact:true});
+            if(await back.count()) await back.last().click({timeout:5000});
+            else await page.mouse.click(28,48);
+            await page.waitForTimeout(800);
           }
           if(fatalErrors().length)throw new Error('Fatal runtime error in Safety pages: '+fatalErrors().join(' | '));
           console.log('PASS: Safety hub PIN contacts share RideCheck from side menu via '+safetyVia);

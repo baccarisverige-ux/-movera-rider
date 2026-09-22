@@ -280,46 +280,53 @@ class RiderSideMenu extends StatelessWidget {
     required bool isFirst,
     required bool isLast,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.vertical(
-          top: isFirst ? const Radius.circular(22) : Radius.zero,
-          bottom: isLast ? const Radius.circular(22) : Radius.zero,
-        ),
-        splashColor: _accent.withValues(alpha: 0.05),
-        highlightColor: _accent.withValues(alpha: 0.03),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            ResSize.w * 18,
-            ResSize.h * 16,
-            ResSize.w * 18,
-            ResSize.h * 16,
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: ResSize.w * 26,
-                height: ResSize.h * 26,
-                child: image != null
-                    ? Image.asset(
-                        excludeFromSemantics: true,
-                        image,
-                        fit: BoxFit.contain,
-                      )
-                    : Icon(icon, size: 22 * ResSize.h, color: _icon),
+    return Semantics(
+      button: true,
+      label: title,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.vertical(
+              top: isFirst ? const Radius.circular(22) : Radius.zero,
+              bottom: isLast ? const Radius.circular(22) : Radius.zero,
+            ),
+            splashColor: _accent.withValues(alpha: 0.05),
+            highlightColor: _accent.withValues(alpha: 0.03),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                ResSize.w * 18,
+                ResSize.h * 16,
+                ResSize.w * 18,
+                ResSize.h * 16,
               ),
-              16.width,
-              Expanded(
-                child: TextWidget(
-                  text: title,
-                  color: _ink,
-                  fontSize: 16,
-                  fontWeight: fwMedium,
-                ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: ResSize.w * 26,
+                    height: ResSize.h * 26,
+                    child: image != null
+                        ? Image.asset(
+                            excludeFromSemantics: true,
+                            image,
+                            fit: BoxFit.contain,
+                          )
+                        : Icon(icon, size: 22 * ResSize.h, color: _icon),
+                  ),
+                  16.width,
+                  Expanded(
+                    child: TextWidget(
+                      text: title,
+                      color: _ink,
+                      fontSize: 16,
+                      fontWeight: fwMedium,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, SemanticsFlag;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -60,6 +62,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Safety preferences'), findsOneWidget);
     expect(find.text('PIN verification'), findsOneWidget);
+    for (final label in const [
+      'PIN verification',
+      'Emergency contacts',
+      'Share trip status',
+      'RideCheck',
+    ]) {
+      final data =
+          tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
+      expect(data.label, label, reason: label);
+      expect(
+        data.hasFlag(SemanticsFlag.isButton),
+        isTrue,
+        reason: '$label should be a button',
+      );
+      expect(
+        data.hasAction(SemanticsAction.tap),
+        isTrue,
+        reason: '$label should be actionable',
+      );
+    }
     expect(find.text('Call 112'), findsNothing);
     expect(find.text('Record audio'), findsNothing);
     await tester.pumpWidget(MaterialApp(home: SafetyHub(controller: ctl)));

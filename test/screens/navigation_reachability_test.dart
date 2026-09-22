@@ -38,6 +38,16 @@ void main() {
     expect(menu.contains("title: 'Saved Places'"), isTrue);
   });
 
+  test('side-menu entries expose stable semantic button labels', () {
+    final menu = File(
+      'lib/features/home/presentation/side_menu.dart',
+    ).readAsStringSync();
+
+    expect(menu.contains('Semantics('), isTrue);
+    expect(menu.contains('button: true'), isTrue);
+    expect(menu.contains('label: title'), isTrue);
+  });
+
   test('every screen the side menu opens exists', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
