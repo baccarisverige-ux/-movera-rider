@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
@@ -23,6 +25,22 @@ class HomeHistoryObserver extends NavigatorObserver {
     _sync(unlockFirst: unlockFirst);
   }
 
+  void _routeChangedAfterExit(
+    Route<dynamic> route, {
+    bool unlockFirst = false,
+  }) {
+    if (unlockFirst) setWebHomeLock(false);
+    if (route is TransitionRoute<dynamic>) {
+      unawaited(
+        route.completed.whenComplete(
+          () => _routeChanged(unlockFirst: unlockFirst),
+        ),
+      );
+      return;
+    }
+    _routeChanged(unlockFirst: unlockFirst);
+  }
+
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     _routeChanged(unlockFirst: true);
@@ -30,13 +48,18 @@ class HomeHistoryObserver extends NavigatorObserver {
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _routeChanged();
+      _routeChangedAfterExit(route);
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
       _routeChanged();
 
   @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
-      _routeChanged();
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    if (oldRoute != null) {
+      _routeChangedAfterExit(oldRoute);
+      return;
+    }
+    _routeChanged();
+  }
 }
