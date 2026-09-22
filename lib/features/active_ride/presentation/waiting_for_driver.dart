@@ -969,7 +969,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         initialPosition: widget.initialPosition,
         markers: _markers,
         polylines: _polylines,
-        myLocationEnabled: true,
+        myLocationEnabled: false,
         myLocationButtonEnabled: false,
         zoomControlsEnabled: false,
         mapToolbarEnabled: false,
