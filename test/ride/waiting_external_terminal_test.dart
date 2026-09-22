@@ -36,6 +36,13 @@ void main() {
       ..restoreFromBackend(RideStatus.idle);
   });
 
+  void usePhoneViewport(WidgetTester tester) {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+  }
+
   RideSnapshot waitingSnapshot(String rideId) => RideSnapshot(
     status: RideStatus.driverAssigned,
     savedAt: DateTime.now(),
@@ -55,6 +62,7 @@ void main() {
     WidgetTester tester,
     RideStatus terminal,
   ) async {
+    usePhoneViewport(tester);
     final rideId = 'waiting-${terminal.name}';
     final snapshot = waitingSnapshot(rideId);
     await RideSnapshotStore.save(snapshot);
@@ -123,6 +131,7 @@ void main() {
   testWidgets('driver cancellation reverses Waiting to its existing parent route', (
     tester,
   ) async {
+    usePhoneViewport(tester);
     const rideId = 'waiting-driver-cancel-research';
     final snapshot = waitingSnapshot(rideId);
     await RideSnapshotStore.save(snapshot);
