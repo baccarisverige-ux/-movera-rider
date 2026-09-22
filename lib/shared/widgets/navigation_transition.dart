@@ -165,3 +165,23 @@ Widget _sideCover(
     ),
   );
 }
+
+
+/// Closes the current modal/page route and waits until its exit transition has
+/// fully finished before another route is pushed.
+///
+/// [Navigator.pop] completes the route's `popped` future immediately, while
+/// animated routes can remain in the overlay for several frames. Waiting for
+/// [TransitionRoute.completed] prevents close->open handoffs from overlapping
+/// or hitting Navigator's transition lock.
+Future<void> popCurrentRouteAndWaitForExit(BuildContext context) async {
+  final navigator = Navigator.of(context);
+  final route = ModalRoute.of(context);
+  if (!navigator.canPop()) return;
+  navigator.pop();
+  if (route != null) {
+    await route.completed;
+  } else {
+    await WidgetsBinding.instance.endOfFrame;
+  }
+}
