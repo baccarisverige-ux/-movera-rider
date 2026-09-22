@@ -56,7 +56,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     _handoffIfLive();
   }
 
-  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+  bool get _routeIsCurrent =>
+      (ModalRoute.of(context)?.isCurrent ?? true) && moveraNavigationSettled;
 
   void _onNavigationChanged() {
     if (!mounted) return;
