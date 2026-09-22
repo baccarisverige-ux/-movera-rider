@@ -579,6 +579,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           const SizedBox(height: 16),
           WaitingDriverCard(
             driver: driver,
+            rideId: AppScope.instance.ride.rideId,
             onOpenProfile: _openProfile,
             onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
             onMore: _openDetails,
