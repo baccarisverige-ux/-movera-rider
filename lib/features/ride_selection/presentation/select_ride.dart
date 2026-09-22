@@ -430,8 +430,12 @@ class _SelectRideState extends State<SelectRide>
   Future<void> _withParkedMap(Future<void> Function() action) async {
     if (!_mapParked) {
       setState(() => _mapParked = true);
+      AppScope.instance.maps.detach(owner: MapOwners.selectRide);
       _mapController = null;
-      await Future<void>.delayed(const Duration(milliseconds: 90));
+      // Dispose the current platform map for one frame before mounting the
+      // next ride stage. This prevents overlapping maps without a visible
+      // arbitrary 90 ms pause.
+      await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
     }
     try {
