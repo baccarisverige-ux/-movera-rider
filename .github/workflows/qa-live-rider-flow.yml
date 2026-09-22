@@ -129,12 +129,15 @@ jobs:
               safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
             }
           }
-          const safetyUi=await page.evaluate(()=>document.body.innerText||'');
-          await shot('safety-hub');
-          fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,safetyUi,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
-          if(fatalErrors().length)throw new Error('Fatal runtime error opening Safety: '+fatalErrors().join(' | '));
+          const safetyLabels={};
           for(const label of ['PIN verification','Emergency contacts','Share trip status','RideCheck']){
-            if(!safetyUi.includes(label)) throw new Error('Safety hub missing '+label+': '+JSON.stringify({safetyVia,safetySnap}));
+            safetyLabels[label]=(await page.getByText(label,{exact:true}).count())>0;
+          }
+          await shot('safety-hub');
+          fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,safetyLabels,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          if(fatalErrors().length)throw new Error('Fatal runtime error opening Safety: '+fatalErrors().join(' | '));
+          for(const [label,visible] of Object.entries(safetyLabels)){
+            if(!visible) throw new Error('Safety hub missing '+label+': '+JSON.stringify({safetyVia,safetySnap,safetyLabels}));
           }
           if(typeof safetySnap.pinRequired!=='boolean'){
             throw new Error('Safety hub opened but state snapshot was not published: '+JSON.stringify({safetyVia,safetySnap}));
