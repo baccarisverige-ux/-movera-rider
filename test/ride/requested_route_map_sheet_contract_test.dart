@@ -32,6 +32,14 @@ void main() {
     expect(waiting, isNot(contains('BitmapDescriptor.hueRed')));
     expect(finding, contains('icon: _riderPuck!'));
     expect(waiting, contains('icon: _riderPuck!'));
+
+    final markerSource = File(
+      'lib/shared/widgets/movera_map_markers.dart',
+    ).readAsStringSync();
+    final riderPuckSource = markerSource.split(
+      'class MoveraVehicleMarker',
+    ).first;
+    expect(riderPuckSource, isNot(contains('BitmapDescriptor.defaultMarker')));
   });
 
   test('Waiting sheet has collapsed, middle and expanded snaps', () {
