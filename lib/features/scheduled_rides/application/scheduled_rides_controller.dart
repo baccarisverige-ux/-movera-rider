@@ -48,7 +48,7 @@ class ScheduledRideSession {
 
   void captureRideType(String type, {String? quoteId}) {
     rideType = type;
-    this.quoteId = quoteId ?? this.quoteId ?? 'q_sched_$type';
+    this.quoteId = quoteId ?? this.quoteId;
   }
 
   Future<String> confirm({Future<String> Function()? book}) async {

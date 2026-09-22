@@ -27,7 +27,11 @@ void main() {
     expect(session.note, 'Ring the bell');
     expect(session.paymentMethod, 'Cash');
     expect(session.rideType, 'movera');
-    expect(session.quoteId, 'q_sched_movera');
+    expect(
+      session.quoteId,
+      isNull,
+      reason: 'a scheduled quote id must come from a real quote source',
+    );
     expect(session.bookingId, isNull);
   });
 

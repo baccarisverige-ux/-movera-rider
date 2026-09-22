@@ -129,7 +129,7 @@ class _RideHistoryState extends State<RideHistory> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pick a time in advance, lock in your fare, and a driver will meet you when you need to leave.',
+                'Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.',
                 style: _text(14, color: _muted, height: 1.45),
               ),
               const SizedBox(height: 22),
