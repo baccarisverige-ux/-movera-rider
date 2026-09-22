@@ -60,6 +60,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Safety preferences'), findsOneWidget);
     expect(find.text('PIN verification'), findsOneWidget);
+    for (final label in const [
+      'PIN verification',
+      'Emergency contacts',
+      'Share trip status',
+      'RideCheck',
+    ]) {
+      final semantics = tester.getSemantics(find.bySemanticsLabel(label));
+      expect(semantics.hasAction(SemanticsAction.tap), isTrue, reason: label);
+    }
     expect(find.text('Call 112'), findsNothing);
     expect(find.text('Record audio'), findsNothing);
     await tester.pumpWidget(MaterialApp(home: SafetyHub(controller: ctl)));
