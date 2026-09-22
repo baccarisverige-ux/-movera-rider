@@ -1,0 +1,450 @@
+name: QA device PWA responsive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'test/responsive/**'
+      - 'test/web/**'
+      - '.github/workflows/qa-device-pwa-responsive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  device-pwa-responsive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Chromium and WebKit
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium webkit >/dev/null
+
+      - name: Wait for this exact Pages build
+        run: |
+          SHORT="${GITHUB_SHA::8}"
+          for i in $(seq 1 48); do
+            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
+              echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+              echo "Testing exact Pages build $SHORT"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Exact deployed bundle for $SHORT was not found" >&2
+          exit 1
+
+      - name: Certify responsive, keyboard, touch, standalone, resume and WebKit
+        run: |
+          cat > qa-device-pwa-responsive.mjs <<'JS'
+          import { chromium, webkit } from 'playwright';
+          import fs from 'fs';
+
+          const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
+          const evidence = {};
+          const fatalPattern = /RenderFlex overflowed|A RenderFlex|Null check operator|RangeError|Another exception|Uncaught|TypeError|Assertion failed/i;
+
+          function collector(page) {
+            const pageErrors = [];
+            const consoleErrors = [];
+            page.on('pageerror', error => pageErrors.push(String(error)));
+            page.on('console', message => {
+              if (message.type() === 'error') consoleErrors.push(message.text());
+            });
+            return {
+              pageErrors,
+              consoleErrors,
+              fatal() {
+                return [...pageErrors, ...consoleErrors].filter(value => fatalPattern.test(value));
+              },
+            };
+          }
+
+          async function enableA11y(page) {
+            try {
+              await page.getByLabel('Enable accessibility').click({ timeout: 2500 });
+            } catch (_) {}
+            await page.waitForTimeout(350);
+          }
+
+          async function waitHome(page, label) {
+            await page.waitForFunction(
+              () => typeof window.moveraMapOwner === 'string',
+              null,
+              { timeout: 60000 },
+            );
+            const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (owner !== 'home') {
+              throw new Error(`${label}: expected Home map owner, got ${owner}`);
+            }
+          }
+
+          async function assertViewport(page, width, height, label, errors) {
+            const metrics = await page.evaluate(() => ({
+              innerWidth: window.innerWidth,
+              innerHeight: window.innerHeight,
+              docWidth: document.documentElement.scrollWidth,
+              docHeight: document.documentElement.scrollHeight,
+              hasFlutter:
+                !!document.querySelector('flutter-view') ||
+                !!document.querySelector('flt-glass-pane'),
+            }));
+            if (!metrics.hasFlutter) throw new Error(`${label}: Flutter surface missing`);
+            if (metrics.docWidth > metrics.innerWidth + 2) {
+              throw new Error(
+                `${label}: horizontal document overflow ${metrics.docWidth} > ${metrics.innerWidth}`,
+              );
+            }
+            if (Math.abs(metrics.innerWidth - width) > 2) {
+              throw new Error(`${label}: width mismatch ${metrics.innerWidth} != ${width}`);
+            }
+            if (Math.abs(metrics.innerHeight - height) > 2) {
+              throw new Error(`${label}: height mismatch ${metrics.innerHeight} != ${height}`);
+            }
+            const fatal = errors.fatal();
+            if (fatal.length) throw new Error(`${label}: fatal runtime errors: ${fatal.join(' | ')}`);
+            return metrics;
+          }
+
+          async function portraitMatrix(browser) {
+            const matrix = [
+              [320, 568],
+              [375, 667],
+              [390, 844],
+              [430, 932],
+            ];
+            const results = [];
+            for (const [width, height] of matrix) {
+              const context = await browser.newContext({
+                viewport: { width, height },
+                deviceScaleFactor: 1,
+                isMobile: true,
+                hasTouch: true,
+                locale: 'en-US',
+                geolocation: { latitude: 59.33258, longitude: 18.0649 },
+                permissions: ['geolocation'],
+              });
+              const page = await context.newPage();
+              const errors = collector(page);
+              const label = `portrait-${width}x${height}`;
+              await page.goto(base + `?phase14=${label}&v=${Date.now()}`, {
+                waitUntil: 'networkidle',
+                timeout: 120000,
+              });
+              await page.waitForTimeout(4200);
+              await enableA11y(page);
+              await waitHome(page, label);
+              const metrics = await assertViewport(page, width, height, label, errors);
+              await page.screenshot({ path: `qa-${label}.png`, fullPage: true });
+              results.push({ label, metrics, fatal: errors.fatal() });
+              await context.close();
+            }
+            return results;
+          }
+
+          async function landscapeAndTouch(browser) {
+            const context = await browser.newContext({
+              viewport: { width: 844, height: 390 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            const page = await context.newPage();
+            const errors = collector(page);
+            await page.goto(base + `?phase14=landscape&v=${Date.now()}`, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(4200);
+            await waitHome(page, 'landscape');
+            const beforeOwner = await page.evaluate(() => window.moveraMapOwner);
+            const cdp = await context.newCDPSession(page);
+            await cdp.send('Input.dispatchTouchEvent', {
+              type: 'touchStart',
+              touchPoints: [{ x: 420, y: 150, radiusX: 8, radiusY: 8, force: 1 }],
+            });
+            for (let i = 1; i <= 18; i++) {
+              await cdp.send('Input.dispatchTouchEvent', {
+                type: 'touchMove',
+                touchPoints: [{
+                  x: 420 + i * 4,
+                  y: 150 + i,
+                  radiusX: 8,
+                  radiusY: 8,
+                  force: 1,
+                }],
+              });
+            }
+            await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+            await page.waitForTimeout(900);
+            const afterOwner = await page.evaluate(() => window.moveraMapOwner);
+            if (beforeOwner !== 'home' || afterOwner !== 'home') {
+              throw new Error(`landscape touch changed map ownership: ${beforeOwner} -> ${afterOwner}`);
+            }
+            const metrics = await assertViewport(page, 844, 390, 'landscape', errors);
+            await page.screenshot({ path: 'qa-landscape-touch.png', fullPage: true });
+            await context.close();
+            return { beforeOwner, afterOwner, metrics, fatal: errors.fatal() };
+          }
+
+          async function keyboardResize(browser) {
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            const page = await context.newPage();
+            const errors = collector(page);
+            await page.goto(base + `?phase14=keyboard&v=${Date.now()}`, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(4200);
+            await enableA11y(page);
+
+            const where = page.getByText('Where to', { exact: false });
+            if (await where.count()) await where.last().click();
+            else await page.touchscreen.tap(190, 708);
+            await page.waitForTimeout(1000);
+
+            let inputs = page.locator(
+              'input:not([type="hidden"]):not([type="submit"]):visible, textarea:visible',
+            );
+            let count = await inputs.count();
+            if (!count) {
+              await page.touchscreen.tap(185, 274);
+              await page.waitForTimeout(350);
+              inputs = page.locator(
+                'input:not([type="hidden"]):not([type="submit"]):visible, textarea:visible',
+              );
+              count = await inputs.count();
+            }
+            if (!count) throw new Error('keyboard: destination input did not become visible');
+
+            const input = inputs.last();
+            await input.click();
+            await input.pressSequentially('Central Station', { delay: 8 });
+            const before = await input.inputValue();
+            if (before !== 'Central Station') {
+              throw new Error(`keyboard: lost input before resize: "${before}"`);
+            }
+
+            await page.setViewportSize({ width: 390, height: 520 });
+            await page.waitForTimeout(700);
+            const box = await input.boundingBox();
+            if (!box) throw new Error('keyboard: focused input disappeared after viewport shrink');
+            if (box.y + box.height > 520) {
+              throw new Error(
+                `keyboard: focused field hidden below simulated keyboard viewport: bottom=${box.y + box.height}`,
+              );
+            }
+            const after = await input.inputValue();
+            if (after !== 'Central Station') {
+              throw new Error(`keyboard: input changed after resize: "${after}"`);
+            }
+            const fatal = errors.fatal();
+            if (fatal.length) throw new Error('keyboard: fatal runtime errors: ' + fatal.join(' | '));
+            await page.screenshot({ path: 'qa-keyboard-resize.png', fullPage: true });
+            await context.close();
+            return { value: after, box, fatal };
+          }
+
+          async function openSelection(page, label) {
+            await enableA11y(page);
+            const where = page.getByText('Where to', { exact: false });
+            if (await where.count()) await where.last().click();
+            else await page.touchscreen.tap(190, 708);
+            await page.waitForTimeout(1000);
+
+            let inputs = page.locator(
+              'input:not([type="hidden"]):not([type="submit"]):visible, textarea:visible',
+            );
+            let count = await inputs.count();
+            if (!count) {
+              await page.touchscreen.tap(185, 274);
+              await page.waitForTimeout(350);
+              inputs = page.locator(
+                'input:not([type="hidden"]):not([type="submit"]):visible, textarea:visible',
+              );
+              count = await inputs.count();
+            }
+            if (!count) throw new Error(`${label}: destination input missing`);
+            await inputs.last().fill('Stockholm Central Station');
+            await page.waitForTimeout(650);
+            const next = page.getByText('Next', { exact: true });
+            if (await next.count()) await next.last().click();
+            else await page.touchscreen.tap(195, 804);
+            await page.waitForTimeout(3200);
+            await page.touchscreen.tap(195, 797);
+            await page.waitForTimeout(6500);
+            const select = page.getByText('Select Movera', { exact: true });
+            if (await select.count()) await select.last().click();
+            else {
+              await page.touchscreen.tap(195, 808);
+              await page.waitForTimeout(800);
+              await page.touchscreen.tap(195, 808);
+            }
+            await page.waitForFunction(
+              () => window.moveraMapOwner === 'finding',
+              null,
+              { timeout: 15000 },
+            );
+          }
+
+          async function installedStandaloneLifecycle(browser) {
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            await context.addInitScript(() => {
+              Object.defineProperty(navigator, 'standalone', {
+                configurable: true,
+                get: () => true,
+              });
+            });
+            const page = await context.newPage();
+            const errors = collector(page);
+            await page.goto(base + `?phase14=standalone&v=${Date.now()}`, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(4200);
+
+            const browserInfo = await page.evaluate(() => window.moveraBrowserInfo());
+            if (browserInfo.standalone !== true) {
+              throw new Error('standalone: navigator.standalone was not detected');
+            }
+
+            await openSelection(page, 'standalone');
+            const before = await page.evaluate(() => ({
+              owner: window.moveraMapOwner,
+              snapshot: localStorage.getItem('flutter.movera_active_ride'),
+            }));
+            if (!before.snapshot) throw new Error('standalone: active ride snapshot missing');
+
+            await page.evaluate(() => {
+              window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+              document.dispatchEvent(new Event('visibilitychange'));
+              window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+            });
+            await page.waitForTimeout(900);
+            const resumed = await page.evaluate(() => ({
+              owner: window.moveraMapOwner,
+              snapshot: localStorage.getItem('flutter.movera_active_ride'),
+            }));
+            if (!['finding', 'waiting'].includes(resumed.owner)) {
+              throw new Error(`standalone resume: active stage lost to ${resumed.owner}`);
+            }
+            if (!resumed.snapshot) throw new Error('standalone resume: active snapshot was cleared');
+
+            await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
+            await page.waitForTimeout(4500);
+            await page.waitForFunction(
+              () => ['finding', 'waiting'].includes(window.moveraMapOwner || ''),
+              null,
+              { timeout: 30000 },
+            );
+            const restored = await page.evaluate(() => ({
+              owner: window.moveraMapOwner,
+              snapshot: localStorage.getItem('flutter.movera_active_ride'),
+              standalone: window.moveraBrowserInfo().standalone,
+            }));
+            if (!restored.snapshot) throw new Error('standalone reload: ride snapshot missing');
+            if (restored.standalone !== true) throw new Error('standalone reload: mode lost');
+            const fatal = errors.fatal();
+            if (fatal.length) {
+              throw new Error('standalone: fatal runtime errors: ' + fatal.join(' | '));
+            }
+            await page.screenshot({ path: 'qa-standalone-restored.png', fullPage: true });
+            await context.close();
+            return { browserInfo, before, resumed, restored, fatal };
+          }
+
+          async function webkitSafariSmoke() {
+            const browser = await webkit.launch({ headless: true });
+            const context = await browser.newContext({
+              viewport: { width: 390, height: 844 },
+              deviceScaleFactor: 1,
+              isMobile: true,
+              hasTouch: true,
+              locale: 'en-US',
+              userAgent:
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) ' +
+                'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 ' +
+                'Mobile/15E148 Safari/604.1',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            await context.addInitScript(() => {
+              Object.defineProperty(navigator, 'standalone', {
+                configurable: true,
+                get: () => true,
+              });
+            });
+            const page = await context.newPage();
+            const errors = collector(page);
+            await page.goto(base + `?phase14=webkit&v=${Date.now()}`, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(5000);
+            const info = await page.evaluate(() => window.moveraBrowserInfo());
+            if (info.ios !== true || info.safari !== true || info.standalone !== true) {
+              throw new Error('WebKit Safari classification mismatch: ' + JSON.stringify(info));
+            }
+            const hasFlutter = await page.evaluate(
+              () => !!document.querySelector('flutter-view') || !!document.querySelector('flt-glass-pane'),
+            );
+            if (!hasFlutter) throw new Error('WebKit: Flutter surface missing');
+            const fatal = errors.fatal();
+            if (fatal.length) throw new Error('WebKit: fatal runtime errors: ' + fatal.join(' | '));
+            await page.screenshot({ path: 'qa-webkit-standalone.png', fullPage: true });
+            await context.close();
+            await browser.close();
+            return { info, fatal };
+          }
+
+          const browser = await chromium.launch({ headless: true });
+          evidence.portrait = await portraitMatrix(browser);
+          evidence.landscape = await landscapeAndTouch(browser);
+          evidence.keyboard = await keyboardResize(browser);
+          evidence.standalone = await installedStandaloneLifecycle(browser);
+          await browser.close();
+          evidence.webkit = await webkitSafariSmoke();
+
+          fs.writeFileSync(
+            'qa-device-pwa-responsive.json',
+            JSON.stringify(evidence, null, 2),
+          );
+          console.log('PASS: Phase 14 device/PWA/responsive certification');
+          JS
+          node qa-device-pwa-responsive.mjs
+
+      - name: Upload Phase 14 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-device-pwa-responsive
+          path: |
+            qa-*.png
+            qa-device-pwa-responsive.json
+          if-no-files-found: warn

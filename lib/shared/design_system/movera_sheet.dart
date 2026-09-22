@@ -34,11 +34,15 @@ class MoveraSheet extends StatelessWidget {
         closeDuration: motion.reverse,
         openCurve: motion.forwardCurve,
         builder: (ctx) {
+          final keyboardInset = MediaQuery.viewInsetsOf(ctx).bottom;
           return Sheet(
             physics: MoveraSheetMotion.physics,
             scrollConfiguration: const SheetScrollConfiguration(),
             decoration: MoveraSheetMotion.decoration(color: backgroundColor),
-            child: PointerInterceptor(child: builder(ctx)),
+            child: Padding(
+              padding: EdgeInsets.only(bottom: keyboardInset),
+              child: PointerInterceptor(child: builder(ctx)),
+            ),
           );
         },
       ),

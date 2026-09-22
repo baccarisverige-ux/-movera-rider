@@ -7,6 +7,7 @@ import 'package:movera_rider/features/notifications/presentation/notifications.d
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
+import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
@@ -107,7 +108,15 @@ void main() {
     });
   }
 
-  for (final viewport in const [Size(320, 568), Size(844, 390)]) {
+  const generalViewports = [
+    Size(320, 568),
+    Size(375, 667),
+    Size(390, 844),
+    Size(430, 932),
+    Size(844, 390),
+  ];
+
+  for (final viewport in generalViewports) {
     for (final name in const [
       'Notifications',
       'Support',
@@ -151,4 +160,47 @@ void main() {
       );
     }
   }
+
+  testWidgets('account editor remains usable with a mobile keyboard inset', (
+    tester,
+  ) async {
+    await setViewport(tester, const Size(390, 844));
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    final profile = ProfileController(
+      store: ProfileRepository(storageKey: 'keyboard_profile'),
+    );
+    await profile.hydrate();
+
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) => MaterialApp(
+          home: PersonalInfoPage(controller: profile),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Name').first);
+    await tester.pumpAndSettle();
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    final saveBottom = tester.getBottomRight(find.text('Save')).dy;
+    expect(
+      saveBottom,
+      lessThanOrEqualTo(844 - 320),
+      reason: 'Save must remain above the simulated software keyboard.',
+    );
+  });
 }
