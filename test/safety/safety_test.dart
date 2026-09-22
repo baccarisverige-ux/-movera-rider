@@ -66,8 +66,15 @@ void main() {
       'Share trip status',
       'RideCheck',
     ]) {
-      final semantics = tester.getSemantics(find.bySemanticsLabel(label));
-      expect(semantics.hasAction(SemanticsAction.tap), isTrue, reason: label);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel(label)),
+        matchesSemantics(
+          label: label,
+          isButton: true,
+          hasTapAction: true,
+        ),
+        reason: label,
+      );
     }
     expect(find.text('Call 112'), findsNothing);
     expect(find.text('Record audio'), findsNothing);
