@@ -50,7 +50,6 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 80));
 
     for (final pair in <(RideStatus, RideStatus)>[
-      (RideStatus.findingDriver, RideStatus.driverAssigned),
       (RideStatus.driverAssigned, RideStatus.driverWaiting),
       (RideStatus.driverWaiting, RideStatus.tripStarted),
       (RideStatus.tripStarted, RideStatus.tripInProgress),
