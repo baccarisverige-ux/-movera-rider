@@ -46,5 +46,8 @@ jobs:
       - name: Global integration flow — ride booking
         run: xvfb-run -a flutter test -d linux integration_test/ride_flow_test.dart
 
+      - name: Phase 13 full Rider lifecycle UAT
+        run: xvfb-run -a flutter test -d linux integration_test/rider_full_uat_test.dart
+
       - name: Global integration flow — booking, wallet, reservations, profile
         run: xvfb-run -a flutter test -d linux integration_test/global_uat_flow_test.dart
