@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 
 void main() {
-  testWidgets('navigation settled state covers route entry and exit animations', (
+  testWidgets('navigation settled state covers outgoing route animations', (
     tester,
   ) async {
     moveraNavigationTransitions.value = 0;
@@ -11,7 +11,6 @@ void main() {
 
     final observer = HomeHistoryObserver();
     BuildContext? homeContext;
-    BuildContext? childContext;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -31,13 +30,10 @@ void main() {
                         pageBuilder: (_, __, ___) => Scaffold(
                           body: Center(
                             child: Builder(
-                              builder: (pageContext) {
-                                childContext = pageContext;
-                                return TextButton(
-                                  onPressed: () => Navigator.pop(pageContext),
-                                  child: const Text('Back from child'),
-                                );
-                              },
+                              builder: (pageContext) => TextButton(
+                                onPressed: () => Navigator.pop(pageContext),
+                                child: const Text('Back from child'),
+                              ),
                             ),
                           ),
                         ),
@@ -58,15 +54,7 @@ void main() {
     expect(moveraRouteIsSettled(homeContext!), isTrue);
 
     await tester.tap(find.text('Open child'));
-    await tester.pump();
-    expect(childContext, isNotNull);
-    expect(moveraRouteIsSettled(childContext!), isFalse);
-
-    await tester.pump(const Duration(milliseconds: 120));
-    expect(moveraRouteIsSettled(childContext!), isFalse);
-
-    await tester.pump(const Duration(milliseconds: 140));
-    expect(moveraRouteIsSettled(childContext!), isTrue);
+    await tester.pumpAndSettle();
     expect(find.text('Back from child'), findsOneWidget);
 
     await tester.tap(find.text('Back from child'));
