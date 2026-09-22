@@ -51,7 +51,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     _openLiveIfNeeded();
   }
 
-  bool get _routeIsCurrent => moveraRouteIsSettled(context);
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
 
   void _onNavigationChanged() {
     if (!mounted) return;
