@@ -250,7 +250,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      BottomToTopTransition(const RideCompleted()),
+      BottomToTopTransition(RideCompleted(status: status)),
     );
   }
 
