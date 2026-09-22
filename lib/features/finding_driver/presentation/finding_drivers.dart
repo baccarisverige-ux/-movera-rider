@@ -492,7 +492,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                         ),
                         markers: _markers,
                         polylines: _polylines,
-                        myLocationEnabled: true,
+                        myLocationEnabled: false,
                         myLocationButtonEnabled: false,
                         zoomControlsEnabled: false,
                         mapToolbarEnabled: false,
