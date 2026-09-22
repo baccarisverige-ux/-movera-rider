@@ -13,6 +13,7 @@ import 'package:movera_rider/features/ride_complete/presentation/driver_info.dar
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 
 class RideCompleted extends StatefulWidget {
   const RideCompleted({
@@ -117,6 +118,12 @@ class _RideCompletedState extends State<RideCompleted> {
                     ),
                     const SizedBox(width: 48),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: RealtimeConnectionBanner(
+                  connection: AppScope.instance.realtime,
                 ),
               ),
               Expanded(
