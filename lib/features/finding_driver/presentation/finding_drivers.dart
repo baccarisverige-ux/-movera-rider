@@ -309,14 +309,15 @@ class _FindingDriversState extends State<FindingDrivers>
         canEditPickup: true,
         canEditDestination: false,
         onEditPickup: () async {
-          Navigator.pop(sheetContext);
           AppScope.instance.maps.detach(owner: MapOwners.finding);
           if (!mounted) return;
           setState(() {
             _mapParked = true;
             _pickupEditOpen = true;
           });
-          await Future<void>.delayed(const Duration(milliseconds: 90));
+          await popCurrentRouteAndWaitForExit(sheetContext);
+          if (!mounted) return;
+          await WidgetsBinding.instance.endOfFrame;
           if (!mounted) return;
           final result = await Navigator.push(
             context,
@@ -353,9 +354,14 @@ class _FindingDriversState extends State<FindingDrivers>
           _drainDeferredNavigation();
         },
         onEditDestination: () => Navigator.pop(sheetContext),
-        onCancelTrip: () {
-          Navigator.pop(sheetContext);
-          _confirmCancel();
+        onCancelTrip: () async {
+          _cancelSheetOpen = true;
+          await popCurrentRouteAndWaitForExit(sheetContext);
+          if (!mounted) {
+            _cancelSheetOpen = false;
+            return;
+          }
+          await _confirmCancel();
         },
       ),
       );
