@@ -55,6 +55,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // The completion surface must not close the ride before the rider leaves it.
+    expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
+
     await tester.scrollUntilVisible(find.text('Done'), 180);
     await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
