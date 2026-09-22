@@ -110,7 +110,7 @@ void main() {
   // A driver dropping the ride before pickup is not the rider's ride ending:
   // dispatch looks again, so Waiting goes back to searching rather than Home,
   // and the ride is not filed away as cancelled.
-  testWidgets('driver cancellation returns Waiting to searching', (
+  testWidgets('driver cancellation reverses Waiting to its existing parent route', (
     tester,
   ) async {
     const rideId = 'waiting-driver-cancel-research';
@@ -158,13 +158,20 @@ void main() {
     await tester.tap(find.text('Keep searching'));
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
-    // ...and lands back in the search, not on Home.
+    // Normal navigation reverses one level instead of stacking a second
+    // Finding route. This isolated host uses audit-root as the parent; in the
+    // production stack that parent is the already parked Finding route.
     expect(find.byType(WaitingForDriver), findsNothing);
-    expect(find.text('audit-root'), findsNothing);
-    expect(find.byType(FindingDrivers), findsOneWidget);
+    expect(find.text('audit-root'), findsOneWidget);
+    expect(find.byType(FindingDrivers), findsNothing);
+    expect(navigatorKey.currentState!.canPop(), isFalse);
 
     // The ride is still theirs: nothing archived, nothing wiped.
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
+    expect(
+      AppScope.instance.rideRealtime.lastStatus,
+      RideStatus.findingDriver,
+    );
   });
 
   testWidgets('system cancellation exits Waiting to Home exactly as terminal', (
