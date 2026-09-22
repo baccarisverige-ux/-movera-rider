@@ -34,7 +34,7 @@ void main() {
     );
 
     expect(find.text('ON TRIP'), findsOneWidget);
-    expect(find.text('On the way'), findsOneWidget);
+    expect(find.text('Ride in progress'), findsOneWidget);
     expect(find.text('Hornsgatan 2, Stockholm'), findsWidgets);
     expect(find.text('Destination'), findsOneWidget);
     expect(find.text('Safety Kit'), findsOneWidget);
