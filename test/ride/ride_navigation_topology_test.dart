@@ -117,4 +117,60 @@ void main() {
     expect(restore, contains('if (replaceRoot) onReplaceRoot?.call(const Home());'));
   });
 
+
+  test('live ride stages defer navigation while a child route is on top', () {
+    final observer = File(
+      'lib/app/router/home_history_observer.dart',
+    ).readAsStringSync();
+    final finding = File(
+      'lib/features/finding_driver/presentation/finding_drivers.dart',
+    ).readAsStringSync();
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+
+    expect(observer, contains('moveraNavigationEpoch'));
+    expect(observer, contains('moveraNavigationEpoch.value += 1'));
+
+    expect(finding, contains('bool get _routeIsCurrent'));
+    expect(finding, contains('_matchedPending'));
+    expect(finding, contains('_terminalPending'));
+    expect(finding, contains('moveraNavigationEpoch.addListener'));
+    expect(finding, contains('_drainDeferredNavigation()'));
+    expect(
+      finding,
+      contains('!_routeIsCurrent'),
+      reason: 'Finding must not transition stages under a child route',
+    );
+
+    expect(waiting, contains('bool get _routeIsCurrent'));
+    expect(waiting, contains('_pendingStageStatus'));
+    expect(waiting, contains('moveraNavigationEpoch.addListener'));
+    expect(waiting, contains('_queueStageNavigation'));
+    expect(
+      waiting,
+      contains('!_routeIsCurrent'),
+      reason: 'Waiting must not transition stages under Chat/Safety/Profile/etc.',
+    );
+  });
+
+  test('cold-restored Waiting re-search replaces only the restore-gate child', () {
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+    final restore = File(
+      'lib/features/ride_booking/application/ride_restore_coordinator.dart',
+    ).readAsStringSync();
+
+    expect(
+      waiting,
+      contains(
+        'coordinator.replaceRootSurface(finding, RestoredSurface.finding)',
+      ),
+    );
+    expect(restore, contains('bool replaceRootSurface('));
+    expect(restore, contains('onReplaceRoot'));
+    expect(restore, contains('showing = surface'));
+  });
+
 }
