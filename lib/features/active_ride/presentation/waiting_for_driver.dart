@@ -211,6 +211,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     if (!mounted) return;
     await showRideTerminalStateSheet(context, status: status);
     if (!mounted) return;
+    await _parkMapForStageChange();
+    if (!mounted) return;
     RideNavigator.home(context, status: status);
   }
 
