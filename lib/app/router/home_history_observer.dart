@@ -43,54 +43,68 @@ class HomeHistoryObserver extends NavigatorObserver {
     bool unlockFirst = false,
   }) {
     if (unlockFirst) setWebHomeLock(false);
-    if (route is TransitionRoute<dynamic>) {
+    if (route is! TransitionRoute<dynamic>) {
+      _routeChanged(unlockFirst: unlockFirst);
+      return;
+    }
+
+    // didPush can fire before TransitionRoute exposes a live animation. Count
+    // the route as unsettled immediately, then attach to its animation on the
+    // next frame. This closes the first-frame window where realtime/timer work
+    // could otherwise push another route while the incoming page is still
+    // entering.
+    moveraNavigationTransitions.value += 1;
+    var finished = false;
+    Animation<double>? watchedAnimation;
+    AnimationStatusListener? listener;
+    var hasStarted = false;
+
+    void finish() {
+      if (finished) return;
+      finished = true;
+      if (watchedAnimation != null && listener != null) {
+        watchedAnimation!.removeStatusListener(listener!);
+      }
+      final next = moveraNavigationTransitions.value - 1;
+      moveraNavigationTransitions.value = next < 0 ? 0 : next;
+      _routeChanged(unlockFirst: unlockFirst);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (finished) return;
       final animation = route.animation;
-      if (animation != null && animation.status != AnimationStatus.completed) {
-        moveraNavigationTransitions.value += 1;
-        var finished = false;
-        // Newly pushed TransitionRoutes commonly report "dismissed" before
-        // their first forward tick. Do not mistake that initial state for a
-        // finished transition. A later dismissed state is terminal only after
-        // the animation has actually started (for example, an interrupted push
-        // that reverses before reaching completed).
-        var hasStarted = animation.status != AnimationStatus.dismissed;
-        late AnimationStatusListener listener;
-
-        void finish() {
-          if (finished) return;
-          finished = true;
-          animation.removeStatusListener(listener);
-          final next = moveraNavigationTransitions.value - 1;
-          moveraNavigationTransitions.value = next < 0 ? 0 : next;
-          _routeChanged(unlockFirst: unlockFirst);
-        }
-
-        listener = (status) {
-          if (status == AnimationStatus.forward ||
-              status == AnimationStatus.reverse) {
-            hasStarted = true;
-          }
-          if (status == AnimationStatus.completed ||
-              (status == AnimationStatus.dismissed && hasStarted)) {
-            finish();
-          }
-        };
-        animation.addStatusListener(listener);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final status = animation.status;
-          if (status == AnimationStatus.forward ||
-              status == AnimationStatus.reverse) {
-            hasStarted = true;
-          }
-          if (status == AnimationStatus.completed ||
-              (status == AnimationStatus.dismissed && hasStarted)) {
-            finish();
-          }
-        });
+      if (animation == null) {
+        finish();
         return;
       }
-    }
-    _routeChanged(unlockFirst: unlockFirst);
+      watchedAnimation = animation;
+      hasStarted = animation.status != AnimationStatus.dismissed;
+
+      listener = (status) {
+        if (status == AnimationStatus.forward ||
+            status == AnimationStatus.reverse) {
+          hasStarted = true;
+        }
+        if (status == AnimationStatus.completed ||
+            (status == AnimationStatus.dismissed &&
+                (hasStarted || !route.isActive))) {
+          finish();
+        }
+      };
+      animation.addStatusListener(listener!);
+
+      final status = animation.status;
+      if (status == AnimationStatus.forward ||
+          status == AnimationStatus.reverse) {
+        hasStarted = true;
+      }
+      if (status == AnimationStatus.completed ||
+          (status == AnimationStatus.dismissed &&
+              (hasStarted || !route.isActive))) {
+        finish();
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _routeChangedAfterExit(
