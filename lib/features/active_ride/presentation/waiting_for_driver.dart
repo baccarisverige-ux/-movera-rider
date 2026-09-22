@@ -9,6 +9,7 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/features/active_ride/presentation/rider_in_trip_panel.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/driver_arriving/presentation/driver_profile_page.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
@@ -278,6 +279,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
+  bool get _isInTrip =>
+      _tracking.status == RideStatus.tripStarted ||
+      _tracking.status == RideStatus.tripInProgress;
+
   Future<void> _openDetails() {
     return MoveraSheet.show<void>(
       context: context,
@@ -289,6 +294,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
         canEditPickup: false,
+        allowCancel: !_isInTrip,
         onEditPickup: () {},
         onEditDestination: () {},
         onCancelTrip: () {
@@ -331,6 +337,22 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         .clamp(0.0, 1.0);
   }
 
+  void _recenterMap() {
+    final eta = _tracking.eta;
+    final target = _isInTrip
+        ? (eta?.latitude != null && eta?.longitude != null
+              ? GeoPoint(eta!.latitude!, eta.longitude!)
+              : GeoPoint(
+                  widget.destinationPosition.latitude,
+                  widget.destinationPosition.longitude,
+                ))
+        : GeoPoint(
+            widget.pickupPosition.latitude,
+            widget.pickupPosition.longitude,
+          );
+    AppScope.instance.camera.focusOnPickup(target);
+  }
+
   void _onSheetDragEnd(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
     final target = velocity < -480
@@ -363,7 +385,11 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        await _confirmCancel();
+        if (_isInTrip) {
+          await _openDetails();
+        } else {
+          await _confirmCancel();
+        }
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F5F1),
@@ -392,9 +418,11 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                 child: Row(
                   children: [
                     MoveraIconButton.round(
-                      icon: Icons.keyboard_arrow_down_rounded,
-                      onPressed: _confirmCancel,
-                      label: 'Cancel ride',
+                      icon: _isInTrip
+                          ? Icons.receipt_long_outlined
+                          : Icons.keyboard_arrow_down_rounded,
+                      onPressed: _isInTrip ? _openDetails : _confirmCancel,
+                      label: _isInTrip ? 'Trip details' : 'Cancel ride',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
@@ -408,14 +436,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               child: PointerInterceptor(
                 child: MoveraIconButton.round(
                   icon: Icons.my_location_rounded,
-                  onPressed: () {
-                    AppScope.instance.camera.focusOnPickup(
-                      GeoPoint(
-                        widget.pickupPosition.latitude,
-                        widget.pickupPosition.longitude,
-                      ),
-                    );
-                  },
+                  onPressed: _recenterMap,
                   label: 'Recenter map',
                 ),
               ),
@@ -488,6 +509,20 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   }
 
   Widget _panel(MatchedDriver? driver, String headline, String subtitle) {
+    if (_isInTrip) {
+      return RiderInTripPanel(
+        destinationAddress: widget.destinationAddress,
+        rideType: widget.rideType,
+        paymentMethod: widget.paymentMethod,
+        price: widget.price,
+        driver: driver,
+        rideId: AppScope.instance.ride.rideId,
+        onOpenProfile: _openProfile,
+        onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
+        onMore: _openDetails,
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
@@ -620,12 +655,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
 
   Set<Marker> _buildMarkers() {
     final eta = widget.tracking.eta;
+    final inTrip =
+        widget.tracking.status == RideStatus.tripStarted ||
+        widget.tracking.status == RideStatus.tripInProgress;
     return {
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: widget.pickupPosition,
-        infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
-      ),
+      if (!inTrip)
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: widget.pickupPosition,
+          infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
+        ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
