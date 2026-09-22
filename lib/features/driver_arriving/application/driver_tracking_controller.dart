@@ -12,9 +12,11 @@ class DriverTrackingController {
     RideRealtime? realtime,
     required this.pickupLat,
     required this.pickupLng,
+    this.persistRideSnapshot = true,
   }) : _realtime = realtime ?? AppScope.instance.rideRealtime;
 
   final RideRealtime _realtime;
+  final bool persistRideSnapshot;
   final double pickupLat;
   final double pickupLng;
   StreamSubscription<RideRealtimeEvent>? _sub;
@@ -68,7 +70,7 @@ class DriverTrackingController {
   }
 
   Future<void> _persistLiveStatus() async {
-    if (status.isTerminal) return;
+    if (!persistRideSnapshot || status.isTerminal) return;
     if (_lastPersistedStatus == status) return;
     final stored = await RideSnapshotStore.read();
     if (stored == null) return;
