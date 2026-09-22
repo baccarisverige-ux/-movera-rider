@@ -56,6 +56,9 @@ class _RideCompletedState extends State<RideCompleted> {
         return;
       }
       AppScope.instance.ride.restoreFromBackend(status, id: rideId);
+      unawaited(
+        _controller.persistCompletedStatus(status, rideId: rideId),
+      );
       setState(() => _status = status);
     });
   }
