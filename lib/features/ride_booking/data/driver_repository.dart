@@ -75,12 +75,14 @@ class TripReceipt {
     required this.destination,
     required this.total,
     required this.method,
+    this.isFinal = true,
   });
 
   final String pickup;
   final String destination;
   final String total;
   final String method;
+  final bool isFinal;
 }
 
 class TripReceiptRepository {
@@ -102,6 +104,9 @@ class TripReceiptRepository {
       destination: ride.destinationAddress,
       total: '${ride.price.round()} kr',
       method: ride.paymentMethod,
+      // The local completion snapshot only knows the booked/quoted amount.
+      // The backend will later provide the authoritative final fare.
+      isFinal: false,
     );
   }
 }
