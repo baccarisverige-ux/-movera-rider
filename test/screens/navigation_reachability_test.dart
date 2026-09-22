@@ -48,6 +48,23 @@ void main() {
     expect(menu.contains('label: title'), isTrue);
   });
 
+  test('public Safety bridge is navigation-only and QA mutations stay gated', () {
+    final bootstrap = File('lib/app/bootstrap.dart').readAsStringSync();
+    final hooks =
+        File('lib/core/debug/web_qa_hooks_web.dart').readAsStringSync();
+
+    expect(bootstrap.contains('installSafetyNavigationBridge(()'), isTrue);
+    expect(
+      bootstrap.indexOf('installSafetyNavigationBridge(()'),
+      lessThan(bootstrap.indexOf('if (moveraQaHooksEnabled)')),
+    );
+    expect(bootstrap.contains('registerWebQaHooks();'), isTrue);
+    expect(hooks.contains('void installSafetyNavigationBridge'), isTrue);
+    expect(hooks.contains("'moveraOpenSafety'.toJS"), isTrue);
+    expect(hooks.contains('void installMatchingQaHooks'), isTrue);
+    expect(hooks.contains('if (!moveraQaHooksEnabled) return;'), isTrue);
+  });
+
   test('every screen the side menu opens exists', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
