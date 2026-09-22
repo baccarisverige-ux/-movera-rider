@@ -77,6 +77,15 @@ class RideRestoreCoordinator {
     if (replaceRoot) onReplaceRoot?.call(const Home());
   }
 
+  bool replaceRootSurface(Widget page, RestoredSurface surface) {
+    final replace = onReplaceRoot;
+    if (replace == null) return false;
+    showing = surface;
+    reportRestoreSurface(surface.name);
+    replace(page);
+    return true;
+  }
+
   /// Chrome Refresh / bfcache leave fires pagehide. The live snapshot stays
   /// so a crash or reload can reopen the same trip.
   void onPageHide() {
