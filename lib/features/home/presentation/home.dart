@@ -43,6 +43,7 @@ import 'package:movera_rider/features/home/presentation/widgets/saved_places_row
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -1816,41 +1817,15 @@ class _HomeState extends State<Home> {
   }
 
   Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
-    const width = 65.9;
-    const height = 75.3;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..scale(0.588, 0.588);
-    const center = Offset(56, 84);
-    // Narrow at the user, with a curved arc at the direction edge.
-    final beam = Path()
-      ..moveTo(56, 80)
-      ..lineTo(23, 18)
-      ..quadraticBezierTo(56, 1, 89, 18)
-      ..close();
-    final beamPaint = Paint()
-      ..shader = ui.Gradient.linear(const Offset(56, 4), center, [
-        const Color(0x08747B80),
-        const Color(0x35747B80),
-      ]);
-    canvas.drawPath(beam, beamPaint);
-    canvas.drawCircle(
-      center,
-      expanded ? 31 : 25,
-      Paint()..color = const Color(0x18747B80),
-    );
-    canvas.drawCircle(center, 20, Paint()..color = Colors.white);
-    canvas.drawCircle(center, 15, Paint()..color = const Color(0xFF747B80));
-    final image = await recorder.endRecording().toImage(
-      width.toInt(),
-      height.toInt(),
-    );
+    final visual = await MoveraRiderPuckMarker.createVisual(expanded: expanded);
     if (expanded) {
-      _puckExpandedImage = image;
+      _puckExpandedImage?.dispose();
+      _puckExpandedImage = visual.image;
     } else {
-      _puckCompactImage = image;
+      _puckCompactImage?.dispose();
+      _puckCompactImage = visual.image;
     }
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
+    return visual.icon;
   }
 
   Future<void> _prepareLocationPuckIcons() async {
