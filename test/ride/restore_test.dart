@@ -106,6 +106,18 @@ void main() {
     expect(shown, isA<Home>());
   });
 
+  test('goHome can reveal existing Home without rebuilding the root child', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    Widget? shown;
+    c.onReplaceRoot = (page) => shown = page;
+    c.showing = RestoredSurface.home;
+
+    c.goHome(replaceRoot: false);
+
+    expect(c.showing, RestoredSurface.home);
+    expect(shown, isNull);
+  });
+
   test('resume is idempotent when already showing', () async {
     final snapshot = snap(RideStatus.findingDriver);
     final c = RideRestoreCoordinator(reader: () async => snapshot);
