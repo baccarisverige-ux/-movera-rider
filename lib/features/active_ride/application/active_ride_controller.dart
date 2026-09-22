@@ -79,12 +79,36 @@ class ActiveRideController {
     }
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
-    AppScope.instance.ride.restoreFromBackend(status);
-    // The completion screen describes this ride, and the snapshot is about to
-    // be cleared — keep it before that happens.
-    LastCompletedRide.remember(snapshot);
-    await _archive(snapshot, status, expectedRideId: id);
-    await _store.clear();
+    AppScope.instance.ride.restoreFromBackend(status, id: id);
+    if (snapshot == null) return;
+
+    // Keep a restorable completion snapshot until the rider explicitly leaves
+    // the completion surface. This protects payment/rating state across reload,
+    // crash, PWA eviction and app resume.
+    final completed = snapshot.copyWith(
+      status: status,
+      savedAt: DateTime.now(),
+    );
+    LastCompletedRide.remember(completed);
+    await _archive(completed, status, expectedRideId: id);
+    await _store.save(completed);
+  }
+
+  Future<void> persistCompletedStatus(
+    RideStatus status, {
+    required String rideId,
+  }) async {
+    if (!status.isCompletedSurface) {
+      throw ArgumentError.value(status, 'status', 'Expected a completed status.');
+    }
+    final snapshot = await _store.historyCandidate();
+    if (snapshot == null || snapshot.rideId?.trim() != rideId.trim()) return;
+    final updated = snapshot.copyWith(
+      status: status,
+      savedAt: DateTime.now(),
+    );
+    LastCompletedRide.remember(updated);
+    await _store.save(updated);
   }
 
   Future<void> _archive(

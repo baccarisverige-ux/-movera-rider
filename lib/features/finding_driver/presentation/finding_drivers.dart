@@ -108,7 +108,7 @@ class _FindingDriversState extends State<FindingDrivers>
       },
       onMatched: () {
         if (!mounted || _leaving || _cancelSheetOpen || _pickupEditOpen) return;
-        _openWaiting();
+        unawaited(_openWaiting());
       },
       onTerminal: (status) {
         if (!mounted || _leaving) return;
@@ -165,12 +165,23 @@ class _FindingDriversState extends State<FindingDrivers>
     };
   }
 
-  void _openWaiting() {
+  Future<void> _openWaiting() async {
     if (!mounted || _leaving) return;
     _leaving = true;
-    Navigator.pushReplacement(
+
+    // Freeze and detach this map before the next map-heavy ride stage. Keeping
+    // Finding alive but parked prevents SelectRide/Home from resuming their maps
+    // underneath the active ride.
+    _match.dispose();
+    setWebOverlayOpen(false);
+    AppScope.instance.maps.detach(owner: MapOwners.finding);
+    if (mounted) setState(() => _mapParked = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
+    Navigator.push(
       context,
-      BottomToTopTransition(
+      RideStageTransition(
         WaitingForDriver(
           pickupAddress: _pickupAddress,
           destinationAddress: widget.destinationAddress,
@@ -200,7 +211,7 @@ class _FindingDriversState extends State<FindingDrivers>
     }
     _cancelSheetOpen = false;
     if (!outcome.cancelled) {
-      if (_match.matchCount == 1) _openWaiting();
+      if (_match.matchCount == 1) unawaited(_openWaiting());
       return;
     }
     _leaving = true;

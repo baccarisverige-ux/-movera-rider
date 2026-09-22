@@ -79,6 +79,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   bool _arrivalAnnounced = false;
   bool _researching = false;
   bool _overlayOn = false;
+  bool _mapParked = false;
   String _sheetSignature = '';
 
   @override
@@ -210,6 +211,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     if (!mounted) return;
     await showRideTerminalStateSheet(context, status: status);
     if (!mounted) return;
+    await _parkMapForStageChange();
+    if (!mounted) return;
     RideNavigator.home(context, status: status);
   }
 
@@ -224,11 +227,14 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     }
     if (!mounted) return;
 
+    await _parkMapForStageChange();
+    if (!mounted) return;
+
     // Same ride, same price, same addresses — only the driver changes.
     AppScope.instance.rideRealtime.researchAfterDriverCancel();
     Navigator.pushReplacement(
       context,
-      BottomToTopTransition(
+      RideStageTransition(
         FindingDrivers(
           pickupAddress: widget.pickupAddress,
           destinationAddress: widget.destinationAddress,
@@ -249,9 +255,12 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final rideId = AppScope.instance.ride.rideId;
     await _ride.markCompleted(status);
     if (!mounted) return;
+    _tracking.dispose();
+    await _parkMapForStageChange();
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
-      BottomToTopTransition(
+      RideStageTransition(
         RideCompleted(status: status, rideId: rideId),
       ),
     );
@@ -269,6 +278,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     setState(() {});
     _tracking.dispose();
     await _ride.markCancelled(reasonId: outcome.reasonId);
+    if (!mounted) return;
+    await _parkMapForStageChange();
     if (!mounted) return;
     RideNavigator.home(context);
   }
@@ -340,6 +351,15 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         .clamp(0.0, 1.0);
   }
 
+  Future<void> _parkMapForStageChange() async {
+    if (_mapParked) return;
+    _mapParked = true;
+    setWebOverlayOpen(false);
+    AppScope.instance.maps.detach(owner: MapOwners.waiting);
+    if (mounted) setState(() {});
+    await WidgetsBinding.instance.endOfFrame;
+  }
+
   void _recenterMap() {
     final eta = _tracking.eta;
     final target = _isInTrip
@@ -403,15 +423,17 @@ class _WaitingForDriverState extends State<WaitingForDriver>
               left: 0,
               right: 0,
               bottom: mapReserve,
-              child: _WaitingRideMap(
-                key: _mapKey,
-                initialPosition: _initialPosition,
-                pickupPosition: widget.pickupPosition,
-                destinationPosition: widget.destinationPosition,
-                pickupAddress: widget.pickupAddress,
-                destinationAddress: widget.destinationAddress,
-                tracking: _tracking,
-              ),
+              child: _mapParked
+                  ? const ColoredBox(color: Color(0xFFF6F5F1))
+                  : _WaitingRideMap(
+                      key: _mapKey,
+                      initialPosition: _initialPosition,
+                      pickupPosition: widget.pickupPosition,
+                      destinationPosition: widget.destinationPosition,
+                      pickupAddress: widget.pickupAddress,
+                      destinationAddress: widget.destinationAddress,
+                      tracking: _tracking,
+                    ),
             ),
             Positioned(
               top: media.padding.top + 8,

@@ -66,9 +66,14 @@ void main() {
     expect(c.pageFor(snap(RideStatus.tripInProgress)), isA<WaitingForDriver>());
   });
 
-  test('completed', () {
+  test('completed restores the exact post-trip status and ride id', () {
     final c = RideRestoreCoordinator(reader: () async => null);
-    expect(c.pageFor(snap(RideStatus.tripCompleted)), isA<RideCompleted>());
+    final completed = c.pageFor(snap(RideStatus.ratingPending));
+    expect(completed, isA<RideCompleted>());
+    final page = completed as RideCompleted;
+    expect(page.status, RideStatus.ratingPending);
+    expect(page.rideId, 'r1');
+    expect(c.showing, RestoredSurface.complete);
   });
 
   test('cancelled and stale go home', () {

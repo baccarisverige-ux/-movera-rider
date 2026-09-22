@@ -473,8 +473,8 @@ class _HomeState extends State<Home> {
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
       return Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SelectRide(
+        RideStageTransition(
+          SelectRide(
             pickupAddress: _pickupAddress ?? 'Current location',
             destinationAddress: resolvedDestination,
             pickupPosition: confirmedPickupPosition,
@@ -501,7 +501,10 @@ class _HomeState extends State<Home> {
       AppScope.instance.mapLifecycle.park();
       AppScope.instance.maps.detach(owner: MapOwners.home);
       _mapController = null;
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      // Let Flutter remove the platform map for one rendered frame before the
+      // next map-heavy ride screen mounts. A fixed blank delay made navigation
+      // feel like a crash on fast devices.
+      await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return null;
     }
     try {
@@ -1370,8 +1373,8 @@ class _HomeState extends State<Home> {
       // crashes the browser tab on Flutter web.
       await _withParkedHomeMap(() {
         return Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SelectRide(
+          RideStageTransition(
+            SelectRide(
               pickupAddress: pickup.isNotEmpty
                   ? pickup
                   : (_pickupAddress ?? 'Current location'),

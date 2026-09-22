@@ -51,30 +51,36 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('You have arrived'), findsOneWidget);
+      expect(find.text('Trip complete'), findsOneWidget);
       expect(find.text('Trip completed'), findsOneWidget);
       expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
 
       realtime.emit(RideStatus.paymentProcessing);
       await tester.pump();
 
-      expect(find.text('Ride finished'), findsOneWidget);
+      expect(find.text('Trip complete'), findsOneWidget);
       expect(find.text('Payment processing'), findsOneWidget);
       expect(AppScope.instance.ride.status, RideStatus.paymentProcessing);
 
       realtime.emit(RideStatus.paymentFinalized);
       await tester.pump();
 
-      expect(find.text('All set'), findsOneWidget);
+      expect(find.text('Trip complete'), findsOneWidget);
       expect(find.text('Payment confirmed'), findsOneWidget);
       expect(AppScope.instance.ride.status, RideStatus.paymentFinalized);
 
       realtime.emit(RideStatus.ratingPending);
       await tester.pump();
 
-      expect(find.text('How was your ride?'), findsOneWidget);
+      expect(find.text('Trip complete'), findsOneWidget);
       expect(find.text('Ready for feedback'), findsOneWidget);
       expect(find.text('How was your trip'), findsOneWidget);
+      expect(
+        find.text(
+          'Rating and tip are optional. Tap Done when you are finished.',
+        ),
+        findsOneWidget,
+      );
       expect(AppScope.instance.ride.status, RideStatus.ratingPending);
       expect(tester.takeException(), isNull);
     },
@@ -108,7 +114,7 @@ void main() {
     realtime.emit(RideStatus.driverWaiting);
     await tester.pump();
 
-    expect(find.text('You have arrived'), findsOneWidget);
+    expect(find.text('Trip complete'), findsOneWidget);
     expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
     expect(tester.takeException(), isNull);
   });

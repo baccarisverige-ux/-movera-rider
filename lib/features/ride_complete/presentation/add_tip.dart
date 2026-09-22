@@ -69,8 +69,8 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
           const SizedBox(height: 10),
           TextWidget(
             text: _selected == null
-                ? 'Tips go to your driver in full.'
-                : '$_selected added for your driver.',
+                ? 'Tip is optional.'
+                : '$_selected selected.',
             color: AppColor.subtitle,
             fontSize: 12,
             fontWeight: fwMedium,

@@ -45,7 +45,7 @@ void main() {
     expect(find.text('Trip details unavailable'), findsOneWidget);
     expect(find.byIcon(Icons.receipt_long_outlined), findsOneWidget);
     expect(
-      find.textContaining('route, payment method and receipt total'),
+      find.textContaining('route, payment method and price'),
       findsOneWidget,
     );
 
@@ -75,6 +75,7 @@ void main() {
     expect(find.text('Stockholm Central'), findsOneWidget);
     expect(find.text('Arlanda Terminal 5'), findsOneWidget);
     expect(find.text('522 kr'), findsOneWidget);
+    expect(find.text('Total payment'), findsOneWidget);
     expect(find.text('Swish'), findsOneWidget);
     expect(find.text('Trip details unavailable'), findsNothing);
   });

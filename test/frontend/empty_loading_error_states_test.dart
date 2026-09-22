@@ -699,7 +699,7 @@ void main() {
     (
       'Receipt',
       'Trip details unavailable',
-      'Your route, payment method and receipt total will appear here when the ride record is available.',
+      'Your route, payment method and price will appear here when the ride record is available.',
       null,
     ),
     (

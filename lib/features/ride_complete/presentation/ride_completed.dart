@@ -56,6 +56,9 @@ class _RideCompletedState extends State<RideCompleted> {
         return;
       }
       AppScope.instance.ride.restoreFromBackend(status, id: rideId);
+      unawaited(
+        _controller.persistCompletedStatus(status, rideId: rideId),
+      );
       setState(() => _status = status);
     });
   }
@@ -103,7 +106,7 @@ class _RideCompletedState extends State<RideCompleted> {
                     ),
                     Expanded(
                       child: Text(
-                        'Trip complete',
+                        'Ride summary',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 17,
@@ -131,6 +134,17 @@ class _RideCompletedState extends State<RideCompleted> {
                         const _SurfaceCard(
                           child: RideCompletedAddTip(),
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Rating and tip are optional. Tap Done when you are finished.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: MoveraTokens.muted,
+                            height: 1.4,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 12),
                       const _BelongingsReminder(),
@@ -143,28 +157,31 @@ class _RideCompletedState extends State<RideCompleted> {
                         child: const RideCompletedTripDetail(),
                       ),
                       const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        height: MoveraTokens.buttonHeight,
-                        child: FilledButton(
-                          onPressed: _leaving ? null : _closeAndHome,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: MoveraTokens.cta,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          child: Text(
-                            'Done',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: MoveraTokens.buttonHeight,
+                  child: FilledButton(
+                    onPressed: _leaving ? null : _closeAndHome,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: MoveraTokens.cta,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: Text(
+                      'Done',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -389,27 +406,27 @@ class _CompletionSpec {
     switch (status) {
       case RideStatus.paymentProcessing:
         return const _CompletionSpec(
-          title: 'Ride finished',
+          title: 'Trip complete',
           message:
-              'Your trip is complete. Payment confirmation is still processing.',
+              'Your ride has ended. Payment confirmation is still processing.',
           statusLabel: 'Payment processing',
           icon: Icons.route_rounded,
           statusIcon: Icons.hourglass_top_rounded,
         );
       case RideStatus.paymentFinalized:
         return const _CompletionSpec(
-          title: 'All set',
+          title: 'Trip complete',
           message:
-              'Your trip is complete and the payment has been confirmed.',
+              'Your ride has ended and the payment has been confirmed.',
           statusLabel: 'Payment confirmed',
           icon: Icons.check_rounded,
           statusIcon: Icons.verified_rounded,
         );
       case RideStatus.ratingPending:
         return const _CompletionSpec(
-          title: 'How was your ride?',
+          title: 'Trip complete',
           message:
-              'Your trip and payment are complete. You can now rate your driver.',
+              'Your ride and payment are complete. You can now rate your driver.',
           statusLabel: 'Ready for feedback',
           icon: Icons.star_outline_rounded,
           statusIcon: Icons.rate_review_outlined,
@@ -417,7 +434,7 @@ class _CompletionSpec {
       case RideStatus.tripCompleted:
       default:
         return const _CompletionSpec(
-          title: 'You have arrived',
+          title: 'Trip complete',
           message:
               'Your ride has ended. Payment status will update when it is confirmed.',
           statusLabel: 'Trip completed',

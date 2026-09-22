@@ -44,7 +44,7 @@ class RideCompletedTripDetail extends StatelessWidget {
                     icon: Icons.receipt_long_outlined,
                     title: 'Trip details unavailable',
                     message:
-                        'Your route, payment method and receipt total will appear here when the ride record is available.',
+                        'Your route, payment method and price will appear here when the ride record is available.',
                     compact: true,
                   ),
                 ] else ...[
@@ -52,7 +52,10 @@ class RideCompletedTripDetail extends StatelessWidget {
                   8.height,
                   _detailRow('Destination', trip.destination),
                   8.height,
-                  _detailRow('Total Payment', trip.total),
+                  _detailRow(
+                    trip.isFinal ? 'Total payment' : 'Booked price',
+                    trip.total,
+                  ),
                   8.height,
                   _detailRow('Payment method', trip.method),
                   8.height,
