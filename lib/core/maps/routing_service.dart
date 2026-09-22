@@ -5,28 +5,38 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 
 /// The one place a drawn route comes from. Screens must not invent routes.
 ///
-/// [line] remains a synchronous fallback for first paint. [roadLine] resolves
-/// real road geometry and falls back to [line] if the routing provider is
-/// unavailable, so map rendering never blocks the ride flow.
+/// [line] stays deliberately synchronous for first paint and for lightweight
+/// fakes used throughout the certified Rider test suite.
 class RoutingService {
-  RoutingService({http.Client? client}) : _client = client ?? http.Client();
-
-  final http.Client _client;
-  final Map<String, List<GeoPoint>> _roadCache = <String, List<GeoPoint>>{};
-
   List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
     from,
     to,
   ];
+}
 
+final Expando<http.Client> _roadClients = Expando<http.Client>(
+  'movera-road-client',
+);
+final Expando<Map<String, List<GeoPoint>>> _roadCaches =
+    Expando<Map<String, List<GeoPoint>>>('movera-road-cache');
+
+/// Adds real road geometry without widening [RoutingService]'s interface.
+///
+/// Keeping this as an extension means existing test doubles that implement only
+/// [RoutingService.line] remain valid. Runtime screens can call [roadLine] and
+/// receive a road-following route, with the direct line retained as a safe
+/// fallback when the provider is unavailable.
+extension RoadRoutingService on RoutingService {
   Future<List<GeoPoint>> roadLine({
     required GeoPoint from,
     required GeoPoint to,
   }) async {
-    final key = _cacheKey(from, to);
-    final cached = _roadCache[key];
+    final cache = _roadCaches[this] ??= <String, List<GeoPoint>>{};
+    final key = _roadCacheKey(from, to);
+    final cached = cache[key];
     if (cached != null && cached.length >= 2) return cached;
 
+    final client = _roadClients[this] ??= http.Client();
     try {
       final uri = Uri.parse(
         'https://router.project-osrm.org/route/v1/driving/'
@@ -34,7 +44,7 @@ class RoutingService {
         '${to.longitude},${to.latitude}'
         '?overview=full&geometries=geojson',
       );
-      final response = await _client
+      final response = await client
           .get(uri, headers: const {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 5));
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -66,18 +76,16 @@ class RoutingService {
         }
       }
       if (points.length < 2) return line(from: from, to: to);
-      _roadCache[key] = points;
+      cache[key] = points;
       return points;
     } catch (_) {
       return line(from: from, to: to);
     }
   }
+}
 
-  String _cacheKey(GeoPoint from, GeoPoint to) {
-    String p(GeoPoint point) =>
-        '${point.latitude.toStringAsFixed(5)},${point.longitude.toStringAsFixed(5)}';
-    return '${p(from)}>${p(to)}';
-  }
-
-  void dispose() => _client.close();
+String _roadCacheKey(GeoPoint from, GeoPoint to) {
+  String pointKey(GeoPoint point) =>
+      '${point.latitude.toStringAsFixed(5)},${point.longitude.toStringAsFixed(5)}';
+  return '${pointKey(from)}>${pointKey(to)}';
 }
