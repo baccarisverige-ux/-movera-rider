@@ -195,6 +195,9 @@ class _FindingDriversState extends State<FindingDrivers>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Arm the route-entry watcher before matching/realtime can trigger a
+    // lifecycle handoff between animation frames.
+    moveraRouteIsSettled(context);
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
