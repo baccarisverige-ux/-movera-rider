@@ -39,7 +39,11 @@ void main() {
     expect(home, contains('RideStageTransition(\n          SelectRide('));
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));
-    expect(waiting, contains('RideStageTransition(\n        RideCompleted('));
+    expect(
+      waiting,
+      contains('final completed = RideCompleted(status: status, rideId: rideId);'),
+    );
+    expect(waiting, contains('RideStageTransition(completed)'));
   });
 
   test('matching map is parked before active ride map is mounted', () {
@@ -214,6 +218,35 @@ void main() {
   });
 
 
+
+  test('cold-restored Waiting completion replaces only the restore-gate child', () {
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+
+    final completionStart = waiting.indexOf(
+      'final completed = RideCompleted(status: status, rideId: rideId);',
+    );
+    final rootGuard = waiting.indexOf('if (!navigator.canPop())', completionStart);
+    final gateSwap = waiting.indexOf('RestoredSurface.complete', rootGuard);
+    final routeReplace = waiting.indexOf(
+      'navigator.pushReplacement(',
+      gateSwap,
+    );
+
+    expect(completionStart, greaterThanOrEqualTo(0));
+    expect(rootGuard, greaterThan(completionStart));
+    expect(gateSwap, greaterThan(rootGuard));
+    expect(routeReplace, greaterThan(gateSwap));
+    expect(
+      waiting.substring(rootGuard, routeReplace),
+      contains('coordinator.replaceRootSurface('),
+      reason:
+          'cold completion must keep RideRestoreGate mounted so Done can reveal Home',
+    );
+  });
+
+
   test('Scheduled live uses reservation transport and reversible parent topology', () {
     final live = File(
       'lib/features/reservations/presentation/reservation_live_ride.dart',
@@ -249,7 +282,7 @@ void main() {
     expect(chrono, contains('_openedLiveId = null;'));
     expect(
       chrono,
-      contains('if (!mounted || _openedLiveId == ride.reservationId) return;'),
+      contains('if (!mounted || !_routeIsCurrent || _openedLiveId == ride.reservationId) return;'),
       reason: 'manual and automatic chrono opens must share one duplicate guard',
     );
 
@@ -260,6 +293,41 @@ void main() {
     expect(waiting, contains('final customCompleted = widget.onCompleted;'));
     expect(waiting, contains('final customCancel = widget.onCancel;'));
   });
+
+
+  test('scheduled live handoff never hijacks an open child route', () {
+    final chrono = File(
+      'lib/features/reservations/presentation/home_reservation_chrono.dart',
+    ).readAsStringSync();
+    final upcoming = File(
+      'lib/features/reservations/presentation/upcoming_reservation.dart',
+    ).readAsStringSync();
+
+    for (final source in <String>[chrono, upcoming]) {
+      expect(source, contains('moveraNavigationEpoch.addListener'));
+      expect(source, contains('moveraNavigationEpoch.removeListener'));
+      expect(source, contains('bool get _routeIsCurrent'));
+      expect(source, contains('!_routeIsCurrent'));
+      expect(
+        source,
+        contains('WidgetsBinding.instance.addPostFrameCallback'),
+        reason:
+            'auto-handoff must retry only after Navigator finishes child-route changes',
+      );
+    }
+
+    expect(
+      chrono,
+      contains('if (!mounted || !_routeIsCurrent) return;'),
+      reason: 'Home chrono must not push a scheduled live ride over Profile/Wallet',
+    );
+    expect(
+      upcoming,
+      contains('_handedOff = false;'),
+      reason: 'deferred Upcoming handoff must release its duplicate guard',
+    );
+  });
+
 
   test('Saved Places location chooser keeps Add Place as its reverse parent', () {
     final add = File(

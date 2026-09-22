@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -39,11 +40,13 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     super.initState();
     _reservations = widget.controller ?? AppScope.instance.reservations;
     _reservations.addListener(_refresh);
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handoffIfLive());
   }
 
   @override
   void dispose() {
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _reservations.removeListener(_refresh);
     super.dispose();
   }
@@ -53,14 +56,34 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     _handoffIfLive();
   }
 
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_routeIsCurrent) return;
+      _handoffIfLive();
+    });
+  }
+
   void _handoffIfLive() {
     final ride = _reservations.byId(widget.reservationId);
-    if (ride == null || !ride.revealsDriver || _handedOff || !mounted) return;
+    if (ride == null ||
+        !ride.revealsDriver ||
+        _handedOff ||
+        !mounted ||
+        !_routeIsCurrent) {
+      return;
+    }
     _handedOff = true;
     unawaited(_openLiveRide(ride));
   }
 
   Future<void> _openLiveRide(Reservation ride) async {
+    if (!mounted || !_routeIsCurrent) {
+      _handedOff = false;
+      return;
+    }
     await ReservationLiveRide.open(
       context,
       ride,
