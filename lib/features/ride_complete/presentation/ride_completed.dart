@@ -206,6 +206,7 @@ class _RideCompletedState extends State<RideCompleted> {
                   width: double.infinity,
                   height: MoveraTokens.buttonHeight,
                   child: FilledButton(
+                    key: const ValueKey<String>('ride-completed-done'),
                     onPressed: _leaving ? null : _closeAndHome,
                     style: FilledButton.styleFrom(
                       backgroundColor: MoveraTokens.cta,
