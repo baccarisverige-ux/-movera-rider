@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
@@ -13,6 +14,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.price,
     required this.driver,
     required this.rideId,
+    required this.status,
     required this.onOpenProfile,
     required this.onCall,
     required this.onMore,
@@ -24,12 +26,14 @@ class RiderInTripPanel extends StatelessWidget {
   final double price;
   final MatchedDriver? driver;
   final String? rideId;
+  final RideStatus status;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
   final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
+    final approaching = status == RideStatus.approachingDropoff;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
       child: Column(
@@ -61,7 +65,7 @@ class RiderInTripPanel extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'ON TRIP',
+                            approaching ? 'NEAR DESTINATION' : 'ON TRIP',
                             style: waitingText(
                               11,
                               weight: FontWeight.w700,
@@ -73,7 +77,7 @@ class RiderInTripPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Ride in progress',
+                      approaching ? 'Approaching destination' : 'Ride in progress',
                       style: waitingText(23, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
