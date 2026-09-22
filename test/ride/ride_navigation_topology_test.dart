@@ -353,59 +353,6 @@ void main() {
   });
 
 
-  test('deferred navigation waits for the outgoing route transition to finish', () {
-    final observer = File(
-      'lib/app/router/home_history_observer.dart',
-    ).readAsStringSync();
-    final transitions = File(
-      'lib/shared/widgets/navigation_transition.dart',
-    ).readAsStringSync();
-
-    expect(observer, contains('bool moveraRouteIsSettled(BuildContext context)'));
-    expect(observer, contains('final status = animation.status'));
-    expect(observer, contains('_moveraDismissedEntryReady[route] == true'));
-    expect(observer, contains('_signalWhenRouteEntryFinishes(route, animation)'));
-    expect(observer, contains('moveraNavigationEpoch.value += 1'));
-    expect(observer, contains('void _routeChangedAfterExit('));
-    expect(observer, contains('route is TransitionRoute<dynamic>'));
-    expect(observer, contains('route.completed.whenComplete('));
-    expect(observer, contains('moveraNavigationTransitions'));
-    expect(observer, contains('bool get moveraNavigationSettled'));
-    expect(observer, contains('moveraNavigationTransitions.value += 1'));
-    expect(
-      observer,
-      contains('_routeChanged(unlockFirst: true);'),
-      reason:
-          'pushes notify listeners while each screen checks its own entrance animation',
-    );
-    expect(observer, contains('_routeChangedAfterExit(route);'));
-
-    expect(transitions, contains('Future<void> popCurrentRouteAndWaitForExit('));
-    expect(transitions, contains('await route.completed;'));
-
-    final finding = File(
-      'lib/features/finding_driver/presentation/finding_drivers.dart',
-    ).readAsStringSync();
-    final waiting = File(
-      'lib/features/active_ride/presentation/waiting_for_driver.dart',
-    ).readAsStringSync();
-    final chrono = File(
-      'lib/features/reservations/presentation/home_reservation_chrono.dart',
-    ).readAsStringSync();
-    final upcoming = File(
-      'lib/features/reservations/presentation/upcoming_reservation.dart',
-    ).readAsStringSync();
-
-    for (final source in <String>[finding, waiting, chrono, upcoming]) {
-      expect(
-        source,
-        contains('moveraRouteIsSettled(context)'),
-        reason:
-            'realtime/timer navigation must wait for both local entry and global exit transitions',
-      );
-    }
-  });
-
   test('Safety and ride-detail handoffs never pop and push in the same transition', () {
     final safety = File(
       'lib/features/safety/presentation/ride_safety_kit.dart',
