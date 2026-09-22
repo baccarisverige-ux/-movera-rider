@@ -283,6 +283,7 @@ class RiderSideMenu extends StatelessWidget {
     return Semantics(
       button: true,
       label: title,
+      onTap: onTap,
       child: ExcludeSemantics(
         child: Material(
           color: Colors.transparent,
