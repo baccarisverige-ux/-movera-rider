@@ -7,7 +7,7 @@ import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
-import 'package:movera_rider/core/maps/routing_service.dart';
+import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
@@ -120,7 +120,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
     _sheetController.addListener(_syncSheetOverlay);
     moveraNavigationEpoch.addListener(_onNavigationChanged);
-    _syncSheetOverlay();
+    setWebOverlayOpen(false);
     _tracking.driver = widget.driver;
     SafetyController.shared.load();
     final rideId = _rideId;
@@ -478,12 +478,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   void _syncSheetOverlay() {
+    if (!_sheetController.hasClient) return;
     final media = MediaQuery.maybeOf(context);
-    final offset = _sheetController.hasClient
-        ? _sheetController.metrics?.offset
-        : null;
-    final minSheet = media == null ? 0.0 : _minSheet(media);
-    final cover = offset != null && offset > minSheet + 12;
+    if (media == null) return;
+    final offset = _sheetController.metrics?.offset;
+    final cover = offset != null && offset > _minSheet(media) + 12;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
@@ -949,24 +948,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
 
     _routeKey = requestKey;
     _lastRouteRefresh = DateTime.now();
-    final points = await AppScope.instance.routing.roadLine(
-      from: endpoints.from,
-      to: endpoints.to,
+    final route = await roadRoutePolyline(
+      id: 'active-road-route',
+      from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
+      to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
+      color: const Color(0xFF1D252C),
     );
-    if (!mounted || _routeKey != requestKey || points.length < 2) return;
+    if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
 
     setState(() {
-      _polylines = {
-        Polyline(
-          polylineId: const PolylineId('active-road-route'),
-          points: [
-            for (final point in points)
-              LatLng(point.latitude, point.longitude),
-          ],
-          color: const Color(0xFF1D252C),
-          width: 4,
-        ),
-      };
+      _polylines = {route};
       _leaf = null;
     });
   }
