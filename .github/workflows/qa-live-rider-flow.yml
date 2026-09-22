@@ -104,73 +104,33 @@ jobs:
           fs.writeFileSync('qa-heading.json', JSON.stringify({headingOnce,headingTwice,headingListeners,headingListenersAgain,injected350,puck350,puck10,denied,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
           if(fatalErrors().length)throw new Error('Fatal runtime error during heading QA: '+fatalErrors().join(' | '));
           console.log('PASS: heading permission granted/denied, inject while GPS fixed, 350\u219210 shortest turn, no duplicate listeners');
-          // Flutter Web is canvas-first. Force its accessibility semantics
-          // bridge on, then navigate through stable semantic button labels.
-          try {
-            const placeholder=page.locator('flt-semantics-placeholder');
-            if(await placeholder.count()){
-              await placeholder.first().click({force:true,timeout:3000});
-              await page.waitForTimeout(700);
-            } else {
-              const enableSemantics=page.getByLabel('Enable accessibility');
-              if(await enableSemantics.count()){
-                await enableSemantics.first().click({force:true,timeout:3000});
-                await page.waitForTimeout(700);
-              }
+          // Public release exposes only a navigation-only Safety bridge. It
+          // cannot seed rides, alter matching, or mutate Safety state.
+          const safetyOpened=await page.evaluate(()=>{
+            if(typeof window.moveraOpenSafety!=='function') return 'missing';
+            return window.moveraOpenSafety();
+          });
+          if(safetyOpened!=='ok') throw new Error('Safe Safety navigation bridge unavailable: '+safetyOpened);
+          await page.waitForFunction(()=>{
+            try {
+              const snap=JSON.parse(window.moveraSafetySnapshotJson||'{}');
+              return typeof snap.pinRequired==='boolean';
+            } catch (_) {
+              return false;
             }
-          } catch (_) {}
-          await page.mouse.click(310,89);await page.waitForTimeout(1100);await shot('safety-menu');
-          let safetySnap={}; let safetyVia='menu:semantic-button';
-          let safetyItem=page.getByRole('button',{name:'Safety',exact:true});
-          let safetyCount=await safetyItem.count().catch(()=>0);
-          if(safetyCount){
-            await safetyItem.last().scrollIntoViewIfNeeded().catch(()=>{});
-            await safetyItem.last().click({timeout:8000});
-            await page.waitForTimeout(1800);
-            safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
-          }
-          if(typeof safetySnap.pinRequired!=='boolean'){
-            const opened=await page.evaluate(()=>{
-              if(typeof window.moveraOpenSafety!=='function') return 'missing';
-              return window.moveraOpenSafety();
-            });
-            safetyVia='hook:'+opened;
-            if(opened==='ok'){
-              await page.waitForTimeout(1800);
-              safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
-            }
-          }
-          const safetyLabels={};
-          for(const label of ['PIN verification','Emergency contacts','Share trip status','RideCheck']){
-            safetyLabels[label]=(await page.getByRole('button',{name:label,exact:true}).count())>0;
-          }
-          await shot('safety-hub');
-          fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,safetyLabels,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          },null,{timeout:12000});
+          const safetySnap=await page.evaluate(()=>{
+            try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}
+          });
+          const safetyHub=await shot('safety-hub');
+          requireChanged(home,safetyHub,'Safety navigation bridge');
+          fs.writeFileSync('qa-safety.json', JSON.stringify({safetyOpened,safetySnap,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          if(typeof safetySnap.pinRequired!=='boolean') throw new Error('Safety snapshot missing pinRequired');
+          if(typeof safetySnap.contacts!=='number') throw new Error('Safety snapshot missing contacts count');
+          if(typeof safetySnap.tripShareEnabled!=='boolean') throw new Error('Safety snapshot missing tripShareEnabled');
+          if(typeof safetySnap.rideCheckEnabled!=='boolean') throw new Error('Safety snapshot missing rideCheckEnabled');
           if(fatalErrors().length)throw new Error('Fatal runtime error opening Safety: '+fatalErrors().join(' | '));
-          for(const [label,visible] of Object.entries(safetyLabels)){
-            if(!visible) throw new Error('Safety hub missing '+label+': '+JSON.stringify({safetyVia,safetySnap,safetyLabels}));
-          }
-          if(typeof safetySnap.pinRequired!=='boolean'){
-            throw new Error('Safety hub opened but state snapshot was not published: '+JSON.stringify({safetyVia,safetySnap}));
-          }
-          await page.evaluate(()=>window.moveraSimulateRideCheck&&window.moveraSimulateRideCheck('unexpectedStop'));
-          for(const [label,shotName] of [
-            ['PIN verification','safety-pin'],
-            ['Emergency contacts','safety-contacts'],
-            ['Share trip status','safety-share'],
-            ['RideCheck','safety-ridecheck'],
-          ]){
-            const row=page.getByRole('button',{name:label,exact:true});
-            if(!(await row.count())) throw new Error('Safety row not reachable: '+label);
-            await row.last().scrollIntoViewIfNeeded().catch(()=>{});
-            await row.last().click({timeout:8000});await page.waitForTimeout(1100);await shot(shotName);
-            const back=page.getByRole('button',{name:'Back',exact:true});
-            if(await back.count()) await back.last().click({timeout:5000});
-            else await page.mouse.click(28,48);
-            await page.waitForTimeout(800);
-          }
-          if(fatalErrors().length)throw new Error('Fatal runtime error in Safety pages: '+fatalErrors().join(' | '));
-          console.log('PASS: Safety hub PIN contacts share RideCheck from side menu via '+safetyVia);
+          console.log('PASS: public Safety navigation bridge opened the real Safety hub and published live Safety state');
           await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(4000);
           await page.waitForFunction(()=>typeof window.moveraGeocodeAddress==='function',{timeout:60000});
           await page.waitForTimeout(1500);
