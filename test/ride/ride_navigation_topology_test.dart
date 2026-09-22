@@ -362,7 +362,8 @@ void main() {
     ).readAsStringSync();
 
     expect(observer, contains('bool moveraRouteIsSettled(BuildContext context)'));
-    expect(observer, contains('animation.status != AnimationStatus.completed'));
+    expect(observer, contains('final status = animation.status'));
+    expect(observer, contains('_moveraDismissedEntryReady[route] == true'));
     expect(observer, contains('_signalWhenRouteEntryFinishes(route, animation)'));
     expect(observer, contains('moveraNavigationEpoch.value += 1'));
     expect(observer, contains('void _routeChangedAfterExit('));
