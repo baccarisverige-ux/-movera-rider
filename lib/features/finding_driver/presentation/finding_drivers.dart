@@ -197,15 +197,14 @@ class _FindingDriversState extends State<FindingDrivers> {
   void _loadMapBits() {
     final routePoints = _roadRoutePoints;
     _markers = {
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: _pickupPosition,
-        infoWindow: InfoWindow(title: _pickupAddress),
-        icon:
-            _riderPuck ??
-            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        anchor: const Offset(0.5, 0.72),
-      ),
+      if (_riderPuck != null)
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: _pickupPosition,
+          infoWindow: InfoWindow(title: _pickupAddress),
+          icon: _riderPuck!,
+          anchor: const Offset(0.5, 0.72),
+        ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
