@@ -149,7 +149,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Your ride is scheduled'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.tap(find.byIcon(Icons.close_rounded).first);
       await tester.pumpAndSettle();
       expect(find.text('middle-screen'), findsOneWidget);
       expect(find.text('root-home'), findsNothing);
