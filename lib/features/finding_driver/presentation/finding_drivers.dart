@@ -26,9 +26,11 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 
 class FindingDrivers extends StatefulWidget {
   const FindingDrivers({
@@ -56,8 +58,7 @@ class FindingDrivers extends StatefulWidget {
   State<FindingDrivers> createState() => _FindingDriversState();
 }
 
-class _FindingDriversState extends State<FindingDrivers>
-    with SingleTickerProviderStateMixin {
+class _FindingDriversState extends State<FindingDrivers> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   final FindingDriverController _match = FindingDriverController();
@@ -70,7 +71,10 @@ class _FindingDriversState extends State<FindingDrivers>
   RideStatus? _terminalPending;
   bool _overlayOn = false;
   int _nearbyPaintKey = 0;
-  late final AnimationController _sheetSlide;
+  final SheetController _sheetController = SheetController();
+  BitmapDescriptor? _riderPuck;
+  BitmapDescriptor? _driverCar;
+  List<LatLng>? _roadRoutePoints;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -80,15 +84,12 @@ class _FindingDriversState extends State<FindingDrivers>
     super.initState();
     _pickupAddress = widget.pickupAddress;
     _pickupPosition = widget.pickupPosition;
-    _sheetSlide = AnimationController(
-      vsync: this,
-      duration: MoveraDurations.sheetOpen,
-      value: 0,
-    );
-    _sheetSlide.addListener(_syncSheetOverlay);
+    _sheetController.addListener(_syncSheetOverlay);
     moveraNavigationEpoch.addListener(_onNavigationChanged);
     _syncSheetOverlay();
     _loadMapBits();
+    unawaited(_prepareMapVisuals());
+    unawaited(_refreshRoadRoute());
     _startMatching(price: widget.price);
   }
 
@@ -192,18 +193,17 @@ class _FindingDriversState extends State<FindingDrivers>
     RideNavigator.home(context, status: status);
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
-  }
-
   void _loadMapBits() {
+    final routePoints = _roadRoutePoints;
     _markers = {
       Marker(
         markerId: const MarkerId('pickup'),
         position: _pickupPosition,
         infoWindow: InfoWindow(title: _pickupAddress),
+        icon:
+            _riderPuck ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        anchor: const Offset(0.5, 0.72),
       ),
       Marker(
         markerId: const MarkerId('destination'),
@@ -216,19 +216,57 @@ class _FindingDriversState extends State<FindingDrivers>
           markerId: MarkerId('nearby-${vehicle.id}'),
           position: LatLng(vehicle.latitude, vehicle.longitude),
           rotation: vehicle.bearing,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
-          ),
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
+          icon:
+              _driverCar ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
         ),
     };
     _polylines = {
-      routePolyline(
-        id: 'route',
-        from: _pickupPosition,
-        to: widget.destinationPosition,
-        color: const Color(0xFF1D252C),
-      ),
+      if (routePoints != null && routePoints.length >= 2)
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: routePoints,
+          color: const Color(0xFF1D252C),
+          width: 4,
+        )
+      else
+        routePolyline(
+          id: 'route',
+          from: _pickupPosition,
+          to: widget.destinationPosition,
+          color: const Color(0xFF1D252C),
+        ),
     };
+  }
+
+  Future<void> _prepareMapVisuals() async {
+    final icons = await Future.wait<BitmapDescriptor>([
+      MoveraRiderPuckMarker.createIcon(),
+      MoveraVehicleMarker.createIcon(),
+    ]);
+    if (!mounted) return;
+    _riderPuck = icons[0];
+    _driverCar = icons[1];
+    _loadMapBits();
+    setState(() {});
+  }
+
+  Future<void> _refreshRoadRoute() async {
+    final points = await AppScope.instance.routing.roadLine(
+      from: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+      to: GeoPoint(
+        widget.destinationPosition.latitude,
+        widget.destinationPosition.longitude,
+      ),
+    );
+    if (!mounted || points.length < 2) return;
+    _roadRoutePoints = [
+      for (final point in points) LatLng(point.latitude, point.longitude),
+    ];
+    _loadMapBits();
+    setState(() {});
   }
 
   Future<void> _openWaiting() async {
@@ -346,9 +384,13 @@ class _FindingDriversState extends State<FindingDrivers>
             if (updated && result is ConfirmPickupResult) {
               _pickupAddress = result.address;
               _pickupPosition = result.position;
+              _roadRoutePoints = null;
               _loadMapBits();
             }
           });
+          if (updated && result is ConfirmPickupResult) {
+            unawaited(_refreshRoadRoute());
+          }
 
           if (_match.matchCount == 1) _matchedPending = true;
           _drainDeferredNavigation();
@@ -374,8 +416,8 @@ class _FindingDriversState extends State<FindingDrivers>
   @override
   void dispose() {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
-    _sheetSlide.removeListener(_syncSheetOverlay);
-    _sheetSlide.dispose();
+    _sheetController.removeListener(_syncSheetOverlay);
+    _sheetController.dispose();
     if (!_leaving && _match.matchCount == 0) {
       unawaited(_match.cancelSearch());
     }
@@ -386,7 +428,13 @@ class _FindingDriversState extends State<FindingDrivers>
   }
 
   void _syncSheetOverlay() {
-    final cover = _sheetSlide.value > 0.05 || _match.showPriceBump;
+    final media = MediaQuery.maybeOf(context);
+    final offset = _sheetController.hasClient
+        ? _sheetController.metrics?.offset
+        : null;
+    final minSheet = media == null ? 0.0 : _minSheet(media);
+    final cover =
+        (offset != null && offset > minSheet + 12) || _match.showPriceBump;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
@@ -413,29 +461,6 @@ class _FindingDriversState extends State<FindingDrivers>
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
     return maxH < minH + 48 ? minH + 48 : maxH;
-  }
-
-  void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
-    if (range <= 0) return;
-    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
-        .clamp(0.0, 1.0);
-  }
-
-  void _onSheetDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final target = velocity < -480
-        ? 1.0
-        : velocity > 480
-        ? 0.0
-        : _sheetSlide.value >= 0.42
-        ? 1.0
-        : 0.0;
-    _sheetSlide.animateTo(
-      target,
-      duration: MoveraMotion.of(context, MoveraDurations.large),
-      curve: MoveraCurves.snap,
-    );
   }
 
   @override
@@ -499,8 +524,16 @@ class _FindingDriversState extends State<FindingDrivers>
                     MoveraIconButton.round(
                       icon: Icons.keyboard_arrow_down_rounded,
                       onPressed: () {
-                        if (_sheetSlide.value > 0.2) {
-                          _sheetSlide.animateTo(0);
+                        final minSheet = _minSheet(media);
+                        final offset = _sheetController.hasClient
+                            ? _sheetController.metrics?.offset
+                            : null;
+                        if (offset != null && offset > minSheet + 12) {
+                          _sheetController.animateTo(
+                            SheetOffset.absolute(minSheet),
+                            duration: MoveraDurations.large,
+                            curve: MoveraCurves.close,
+                          );
                         } else {
                           _confirmCancel();
                         }
@@ -541,19 +574,23 @@ class _FindingDriversState extends State<FindingDrivers>
                 ),
               ),
             ),
-            AnimatedBuilder(
-              animation: _sheetSlide,
-              builder: (context, _) {
-                final minSheet = _minSheet(media);
-                final maxSheet = _maxSheet(media);
-                final height =
-                    minSheet + (maxSheet - minSheet) * _sheetSlide.value;
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: height,
-                  child: PointerInterceptor(
+            SheetViewport(
+              child: Sheet(
+                controller: _sheetController,
+                initialOffset: SheetOffset.absolute(_minSheet(media)),
+                physics: MoveraSheetMotion.physics,
+                snapGrid: SheetSnapGrid(
+                  snaps: [
+                    SheetOffset.absolute(_minSheet(media)),
+                    SheetOffset.absolute(_maxSheet(media)),
+                  ],
+                  minFlingSpeed: 520,
+                ),
+                scrollConfiguration: SheetScrollConfiguration.disabled,
+                child: PointerInterceptor(
+                  child: SizedBox(
+                    height: _maxSheet(media),
+                    width: double.infinity,
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
@@ -566,27 +603,35 @@ class _FindingDriversState extends State<FindingDrivers>
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onVerticalDragUpdate: (d) =>
-                                _onSheetDragUpdate(d, media),
-                            onVerticalDragEnd: _onSheetDragEnd,
-                            child: const SizedBox(
-                              width: double.infinity,
-                              height: 22,
-                              child: Center(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFE7EBEE),
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(99),
-                                    ),
+                          const SizedBox(
+                            width: double.infinity,
+                            height: 22,
+                            child: Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFE7EBEE),
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(99),
                                   ),
-                                  child: SizedBox(width: 36, height: 4),
                                 ),
+                                child: SizedBox(width: 36, height: 4),
                               ),
                             ),
                           ),
+                          if (!_match.showPriceBump)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 2,
+                                bottom: 6,
+                              ),
+                              child: Image.asset(
+                                excludeFromSemantics: true,
+                                AppAssets.scheduleRideCar,
+                                height: 88,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.high,
+                              ),
+                            ),
                           Expanded(
                             child: _panelBody(
                               progress,
@@ -598,8 +643,8 @@ class _FindingDriversState extends State<FindingDrivers>
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ],
         ),
@@ -613,18 +658,6 @@ class _FindingDriversState extends State<FindingDrivers>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!_match.showPriceBump) ...[
-            Center(
-              child: Image.asset(
-                excludeFromSemantics: true,
-                AppAssets.scheduleRideCar,
-                height: 88,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
           Text(
             headline,
             style: GoogleFonts.poppins(
