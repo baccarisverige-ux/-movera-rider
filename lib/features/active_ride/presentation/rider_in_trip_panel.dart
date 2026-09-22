@@ -104,6 +104,7 @@ class RiderInTripPanel extends StatelessWidget {
           const SizedBox(height: 14),
           WaitingDriverCard(
             driver: driver,
+            rideId: rideId,
             onOpenProfile: onOpenProfile,
             onCall: onCall,
             onMore: onMore,
