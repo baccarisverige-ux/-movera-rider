@@ -1370,8 +1370,8 @@ class _HomeState extends State<Home> {
       // crashes the browser tab on Flutter web.
       await _withParkedHomeMap(() {
         return Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SelectRide(
+          RideStageTransition(
+            SelectRide(
               pickupAddress: pickup.isNotEmpty
                   ? pickup
                   : (_pickupAddress ?? 'Current location'),
