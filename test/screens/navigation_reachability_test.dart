@@ -48,6 +48,31 @@ void main() {
     expect(menu.contains('label: title'), isTrue);
   });
 
+
+  test('production navigation exposes no stale account or driver placeholders', () {
+    final menu = File(
+      'lib/features/home/presentation/side_menu.dart',
+    ).readAsStringSync();
+    final profile = File(
+      'lib/features/profile/presentation/profile.dart',
+    ).readAsStringSync();
+    final account = File(
+      'lib/features/profile/presentation/account_home.dart',
+    ).readAsStringSync();
+
+    expect(menu.contains('Become a driver'), isFalse);
+    expect(menu.contains('_becomeDriverCard'), isFalse);
+    expect(menu.contains('openDrawer()'), isFalse);
+
+    expect(profile.contains('Demo account stays signed in.'), isFalse);
+    expect(profile.contains('AppAssets.camera'), isFalse);
+    expect(profile.contains("title: 'Log out'"), isFalse);
+
+    expect(account.contains("child: Text(\n                'Log out'"), isFalse);
+    expect(account.contains('Navigator.popUntil(context, (route) => route.isFirst)'), isFalse);
+    expect(account.contains('Your Movera profile and account settings.'), isTrue);
+  });
+
   test('public Safety bridge is navigation-only and QA mutations stay gated', () {
     final bootstrap = File('lib/app/bootstrap.dart').readAsStringSync();
     final hooks =
