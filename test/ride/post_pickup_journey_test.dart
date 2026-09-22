@@ -29,6 +29,7 @@ void main() {
             onOpenProfile: _noop,
             onCall: _noop,
             onMore: _noop,
+            onCancel: _noop,
           ),
         ),
       ),
@@ -40,7 +41,7 @@ void main() {
     expect(find.text('Destination'), findsOneWidget);
     expect(find.text('Safety Kit'), findsOneWidget);
     expect(find.text('Show this PIN to your driver'), findsNothing);
-    expect(find.text('Cancel trip'), findsNothing);
+    expect(find.text('Cancel ride'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -61,6 +62,7 @@ void main() {
             onOpenProfile: _noop,
             onCall: _noop,
             onMore: _noop,
+            onCancel: _noop,
           ),
         ),
       ),
@@ -73,7 +75,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('trip details hide cancellation once pickup is complete', (
+  testWidgets('trip details keep cancellation available after pickup', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -87,7 +89,7 @@ void main() {
             paymentMethod: 'Apple Pay',
             notes: RideNotes.empty,
             canEditPickup: false,
-            allowCancel: false,
+            allowCancel: true,
             onEditPickup: _noop,
             onEditDestination: _noop,
             onCancelTrip: _noop,
@@ -97,7 +99,7 @@ void main() {
     );
 
     expect(find.text('Ride details'), findsOneWidget);
-    expect(find.text('Cancel trip'), findsNothing);
+    expect(find.text('Cancel trip'), findsOneWidget);
     expect(find.text('Close'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
