@@ -1,5 +1,5 @@
 class RatingRepository {
-  double last = 2;
+  double last = 0;
 
   void set(double value) {
     last = value;
