@@ -7,6 +7,7 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -87,10 +88,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
+    expect(find.byType(RideTerminalStateSheet), findsOneWidget);
+    expect(AppScope.instance.ride.status, terminal);
+    expect(await RideSnapshotStore.read(), isNull);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('ride-terminal-acknowledge')),
+    );
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+
+    expect(find.byType(RideTerminalStateSheet), findsNothing);
     expect(find.byType(WaitingForDriver), findsNothing);
     expect(find.text('audit-root'), findsOneWidget);
     expect(AppScope.instance.ride.status, terminal);
-    expect(await RideSnapshotStore.read(), isNull);
   }
 
   // A driver dropping the ride before pickup is not the rider's ride ending:
