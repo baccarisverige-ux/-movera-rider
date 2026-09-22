@@ -9,8 +9,8 @@ import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
-import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -88,7 +88,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     _pickupPosition = widget.pickupPosition;
     _sheetController.addListener(_syncSheetOverlay);
     moveraNavigationEpoch.addListener(_onNavigationChanged);
-    _syncSheetOverlay();
+    setWebOverlayOpen(false);
     _loadMapBits();
     unawaited(_prepareMapVisuals());
     _startMatching(price: widget.price);
@@ -226,11 +226,12 @@ class _FindingDriversState extends State<FindingDrivers> {
     };
     _polylines = {
       if (routePoints != null && routePoints.length >= 2)
-        Polyline(
-          polylineId: const PolylineId('route'),
-          points: routePoints,
+        routePolyline(
+          id: 'route',
+          from: routePoints.first,
+          to: routePoints.last,
           color: const Color(0xFF1D252C),
-          width: 4,
+          routing: _ResolvedRoute(routePoints),
         )
       else
         routePolyline(
@@ -255,17 +256,14 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _refreshRoadRoute() async {
-    final points = await AppScope.instance.routing.roadLine(
-      from: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
-      to: GeoPoint(
-        widget.destinationPosition.latitude,
-        widget.destinationPosition.longitude,
-      ),
+    final route = await roadRoutePolyline(
+      id: 'route',
+      from: _pickupPosition,
+      to: widget.destinationPosition,
+      color: const Color(0xFF1D252C),
     );
-    if (!mounted || points.length < 2) return;
-    _roadRoutePoints = [
-      for (final point in points) LatLng(point.latitude, point.longitude),
-    ];
+    if (!mounted || route.points.length < 2) return;
+    _roadRoutePoints = route.points;
     _loadMapBits();
     setState(() {});
   }
@@ -429,13 +427,13 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   void _syncSheetOverlay() {
+    if (!_sheetController.hasClient) return;
     final media = MediaQuery.maybeOf(context);
-    final offset = _sheetController.hasClient
-        ? _sheetController.metrics?.offset
-        : null;
-    final minSheet = media == null ? 0.0 : _minSheet(media);
+    if (media == null) return;
+    final offset = _sheetController.metrics?.offset;
     final cover =
-        (offset != null && offset > minSheet + 12) || _match.showPriceBump;
+        (offset != null && offset > _minSheet(media) + 12) ||
+        _match.showPriceBump;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
@@ -770,4 +768,16 @@ class _FindingDriversState extends State<FindingDrivers> {
       ),
     );
   }
+}
+
+
+class _ResolvedRoute implements RoutingService {
+  const _ResolvedRoute(this.points);
+
+  final List<LatLng> points;
+
+  @override
+  List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
+    for (final point in points) GeoPoint(point.latitude, point.longitude),
+  ];
 }
