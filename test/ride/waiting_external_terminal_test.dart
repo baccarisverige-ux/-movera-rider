@@ -168,10 +168,12 @@ void main() {
 
     // The ride is still theirs: nothing archived, nothing wiped.
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
-    expect(
-      (AppScope.instance.rideRealtime as MockRideRealtime).lastStatus,
-      RideStatus.findingDriver,
-    );
+    final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+    expect(realtime.lastStatus, RideStatus.findingDriver);
+    // researchAfterDriverCancel intentionally starts the next assignment timer.
+    // This test only certifies the reverse route topology, so stop that future
+    // mock assignment before Flutter verifies there are no leaked timers.
+    realtime.holdAssignment();
   });
 
   testWidgets('system cancellation exits Waiting to Home exactly as terminal', (
