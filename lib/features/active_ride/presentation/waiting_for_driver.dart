@@ -150,7 +150,13 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   /// The driver reaching pickup is easy to miss on a map the rider is not
   /// watching, so say it once and never again for this ride.
   void _maybeAnnounceArrival() {
-    if (!mounted || _leaving || _arrivalAnnounced || _completedOpened) return;
+    if (!mounted ||
+        _leaving ||
+        _arrivalAnnounced ||
+        _completedOpened ||
+        !_routeIsCurrent) {
+      return;
+    }
     final explicitArrival =
         _tracking.lastSignal == RideRealtimeSignal.driverArrived;
     if (!explicitArrival && _tracking.status != RideStatus.driverWaiting) {
@@ -192,6 +198,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void _onNavigationChanged() {
     if (!mounted) return;
     _drainStageNavigation();
+    if (!_leaving && !_completedOpened) _maybeAnnounceArrival();
   }
 
   void _queueStageNavigation(RideStatus status) {
