@@ -4,6 +4,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/scheduled_rides.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/messages/presentation/messages.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
@@ -195,6 +196,12 @@ class RiderSideMenu extends StatelessWidget {
             image: null,
             title: 'Ride History',
             onTap: () => _pushPage(context, RideHistory()),
+          ),
+          (
+            icon: Icons.event_available_outlined,
+            image: null,
+            title: 'Scheduled Rides',
+            onTap: () => _pushPage(context, const ScheduledRides()),
           ),
           (
             icon: Icons.credit_card_outlined,
