@@ -30,6 +30,18 @@ Future<CancelOutcome> showCancelRideSheet(
   SheetCoordinator.instance.close(RideSheet.cancel);
   if (confirmed != true) return const CancelOutcome.keep();
 
+  // Once a trip has started, opening/confirming the first cancel sheet must
+  // never mutate ride state. The rider can still close the reason sheet or
+  // choose Keep ride and continue the same active trip.
+  if (phase == CancelPhase.inTrip) {
+    if (!context.mounted) return const CancelOutcome.keep();
+    return showCancelReasonSheet(
+      context,
+      phase: phase,
+      dismissKeepsRide: true,
+    );
+  }
+
   if (onCancelConfirmed != null) {
     await onCancelConfirmed();
   } else {
