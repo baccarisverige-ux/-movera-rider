@@ -45,7 +45,7 @@ class RideTerminalStateSheet extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return SafeArea(
       top: false,
-      child: Padding(
+      child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + bottomInset),
         child: Column(
           key: ValueKey<String>('ride-terminal-state-${status.name}'),
