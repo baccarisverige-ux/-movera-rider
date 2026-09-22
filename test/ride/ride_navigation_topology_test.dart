@@ -368,7 +368,7 @@ void main() {
     expect(observer, contains('moveraNavigationTransitions'));
     expect(observer, contains('bool get moveraNavigationSettled'));
     expect(observer, contains('moveraNavigationTransitions.value += 1'));
-    expect(observer, contains('animation.addStatusListener(listener);'));
+    expect(observer, contains('animation.addStatusListener(listener'));
     expect(
       observer,
       contains('_routeChangedAfterEnter(route, unlockFirst: true);'),
