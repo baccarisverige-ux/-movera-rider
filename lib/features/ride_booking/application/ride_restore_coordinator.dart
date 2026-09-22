@@ -101,6 +101,7 @@ class RideRestoreCoordinator {
       case RideStatus.driverWaiting:
       case RideStatus.tripStarted:
       case RideStatus.tripInProgress:
+      case RideStatus.approachingDropoff:
         return RestoredSurface.waiting;
       default:
         if (snapshot.status.isCompletedSurface) {
