@@ -9,8 +9,10 @@ void main() {
     ).readAsStringSync();
 
     expect(source, contains('onTerminal: (status)'));
+    expect(source, contains('unawaited(_handleTerminal(status))'));
+    expect(source, contains('Future<void> _handleTerminal(RideStatus status)'));
     expect(source, contains('_leaving = true;'));
-    expect(source, contains('WidgetsBinding.instance.addPostFrameCallback'));
+    expect(source, contains('showRideTerminalStateSheet(context, status: status)'));
     expect(source, contains('RideNavigator.home(context, status: status)'));
   });
 }
