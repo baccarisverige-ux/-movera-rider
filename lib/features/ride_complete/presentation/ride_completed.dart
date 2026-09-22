@@ -56,7 +56,7 @@ class _RideCompletedState extends State<RideCompleted> {
                 child: Row(
                   children: [
                     _CircleAction(
-                      icon: Icons.arrow_back_ios_new_rounded,
+                      icon: Icons.arrow_back_ios_rounded,
                       label: 'Back',
                       onTap: _closeAndHome,
                     ),
