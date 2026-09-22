@@ -25,14 +25,16 @@ void main() {
     );
   });
 
-  test('Notifications, Messages and Saved Places are reachable', () {
+  test('Scheduled Rides, Notifications, Messages and Saved Places are reachable', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
 
+    expect(menu.contains('ScheduledRides('), isTrue);
     expect(menu.contains('NotificationScreen('), isTrue);
     expect(menu.contains('MessagesInbox('), isTrue);
     expect(menu.contains('SavedPlaces('), isTrue);
+    expect(menu.contains("title: 'Scheduled Rides'"), isTrue);
     expect(menu.contains("title: 'Notifications'"), isTrue);
     expect(menu.contains("title: 'Messages'"), isTrue);
     expect(menu.contains("title: 'Saved Places'"), isTrue);
@@ -72,6 +74,7 @@ void main() {
     for (final screen in const [
       'WalletHome',
       'RideHistory',
+      'ScheduledRides',
       'WalletScreen',
       'SafetyHub',
       'SupportHome',
