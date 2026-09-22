@@ -361,23 +361,21 @@ void main() {
       'lib/shared/widgets/navigation_transition.dart',
     ).readAsStringSync();
 
-    expect(observer, contains('void _routeChangedAfterEnter('));
+    expect(observer, contains('bool moveraRouteIsSettled(BuildContext context)'));
+    expect(observer, contains('animation.status != AnimationStatus.completed'));
     expect(observer, contains('void _routeChangedAfterExit('));
     expect(observer, contains('route is TransitionRoute<dynamic>'));
     expect(observer, contains('route.completed.whenComplete('));
     expect(observer, contains('moveraNavigationTransitions'));
     expect(observer, contains('bool get moveraNavigationSettled'));
     expect(observer, contains('moveraNavigationTransitions.value += 1'));
-    expect(observer, contains('animation.addStatusListener(listener'));
     expect(
       observer,
-      contains('_routeChangedAfterEnter(route, unlockFirst: true);'),
-      reason: 'incoming animated routes must also count as unsettled',
+      contains('_routeChanged(unlockFirst: true);'),
+      reason:
+          'pushes notify listeners while each screen checks its own entrance animation',
     );
-    expect(
-      observer,
-      contains('void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>\n      _routeChangedAfterExit(route);'),
-    );
+    expect(observer, contains('_routeChangedAfterExit(route);'));
 
     expect(transitions, contains('Future<void> popCurrentRouteAndWaitForExit('));
     expect(transitions, contains('await route.completed;'));
@@ -398,9 +396,9 @@ void main() {
     for (final source in <String>[finding, waiting, chrono, upcoming]) {
       expect(
         source,
-        contains('&& moveraNavigationSettled'),
+        contains('moveraRouteIsSettled(context)'),
         reason:
-            'realtime/timer driven navigation must stay blocked until outgoing routes are gone',
+            'realtime/timer navigation must wait for both local entry and global exit transitions',
       );
     }
   });
