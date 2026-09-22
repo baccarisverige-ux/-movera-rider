@@ -61,7 +61,7 @@ void main() {
     final done = find.byKey(
       const ValueKey<String>('ride-completed-done'),
     );
-    await tester.scrollUntilVisible(done, 180);
+    expect(done, findsOneWidget);
     await tester.tap(done);
     await tester.pumpAndSettle();
 
