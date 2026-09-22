@@ -573,10 +573,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   children: [
                     MoveraIconButton.round(
                       icon: _isInTrip
-                          ? Icons.receipt_long_outlined
+                          ? Icons.close_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      onPressed: _isInTrip ? _openDetails : _confirmCancel,
-                      label: _isInTrip ? 'Trip details' : 'Cancel ride',
+                      onPressed: _confirmCancel,
+                      label: 'Cancel ride',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
