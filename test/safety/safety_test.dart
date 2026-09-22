@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsAction, SemanticsFlag;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -66,14 +68,18 @@ void main() {
       'Share trip status',
       'RideCheck',
     ]) {
+      final data =
+          tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
+      expect(data.label, label, reason: label);
       expect(
-        tester.getSemantics(find.bySemanticsLabel(label)),
-        matchesSemantics(
-          label: label,
-          isButton: true,
-          hasTapAction: true,
-        ),
-        reason: label,
+        data.hasFlag(SemanticsFlag.isButton),
+        isTrue,
+        reason: '$label should be a button',
+      );
+      expect(
+        data.hasAction(SemanticsAction.tap),
+        isTrue,
+        reason: '$label should be actionable',
       );
     }
     expect(find.text('Call 112'), findsNothing);
