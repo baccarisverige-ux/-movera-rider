@@ -527,6 +527,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
           WaitingRideDetailsCard(
             rideType: widget.rideType,
             pickupAddress: widget.pickupAddress,
+            destinationAddress: widget.destinationAddress,
+            inTrip:
+                _tracking.status == RideStatus.tripStarted ||
+                _tracking.status == RideStatus.tripInProgress,
             paymentMethod: widget.paymentMethod,
             price: widget.price,
             onMore: _openDetails,

@@ -96,6 +96,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
     super.key,
     required this.rideType,
     required this.pickupAddress,
+    this.destinationAddress,
+    this.inTrip = false,
     required this.paymentMethod,
     required this.price,
     required this.onMore,
@@ -103,6 +105,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
 
   final String rideType;
   final String pickupAddress;
+  final String? destinationAddress;
+  final bool inTrip;
   final String paymentMethod;
   final double price;
   final VoidCallback onMore;
@@ -131,7 +135,9 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Meet at ${shortPickupPlace(pickupAddress)}',
+                  inTrip && destinationAddress?.trim().isNotEmpty == true
+                      ? 'To ${shortPickupPlace(destinationAddress!)}'
+                      : 'Meet at ${shortPickupPlace(pickupAddress)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: waitingText(
