@@ -7,6 +7,7 @@ import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
@@ -34,9 +35,11 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 
 class WaitingForDriver extends StatefulWidget {
   const WaitingForDriver({
@@ -85,8 +88,7 @@ class WaitingForDriver extends StatefulWidget {
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
 
-class _WaitingForDriverState extends State<WaitingForDriver>
-    with SingleTickerProviderStateMixin {
+class _WaitingForDriverState extends State<WaitingForDriver> {
   final ActiveRideController _ride = ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
     realtime: widget.realtime,
@@ -95,7 +97,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     persistRideSnapshot: widget.persistRideSnapshot,
   );
   late final CameraPosition _initialPosition;
-  late final AnimationController _sheetSlide;
+  final SheetController _sheetController = SheetController();
   final GlobalKey<_WaitingRideMapState> _mapKey =
       GlobalKey<_WaitingRideMapState>(debugLabel: 'waiting-ride-map');
   bool _leaving = false;
@@ -116,14 +118,9 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   void initState() {
     super.initState();
     _initialPosition = CameraPosition(target: widget.pickupPosition, zoom: 14);
-    _sheetSlide = AnimationController(
-      vsync: this,
-      duration: MoveraDurations.sheetOpen,
-      value: 0,
-    );
-    _sheetSlide.addListener(_syncSheetOverlay);
+    _sheetController.addListener(_syncSheetOverlay);
     moveraNavigationEpoch.addListener(_onNavigationChanged);
-    _syncSheetOverlay();
+    setWebOverlayOpen(false);
     _tracking.driver = widget.driver;
     SafetyController.shared.load();
     final rideId = _rideId;
@@ -134,12 +131,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         onChange: _onLiveTick,
       );
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
   void _onLiveTick() {
@@ -478,8 +469,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   @override
   void dispose() {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
-    _sheetSlide.removeListener(_syncSheetOverlay);
-    _sheetSlide.dispose();
+    _sheetController.removeListener(_syncSheetOverlay);
+    _sheetController.dispose();
     _tracking.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
@@ -487,7 +478,11 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   }
 
   void _syncSheetOverlay() {
-    final cover = _sheetSlide.value > 0.05;
+    if (!_sheetController.hasClient) return;
+    final media = MediaQuery.maybeOf(context);
+    if (media == null) return;
+    final offset = _sheetController.metrics?.offset;
+    final cover = offset != null && offset > _minSheet(media) + 12;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
@@ -499,13 +494,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
     return maxH < minH + 48 ? minH + 48 : maxH;
-  }
-
-  void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
-    if (range <= 0) return;
-    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
-        .clamp(0.0, 1.0);
   }
 
   Future<void> _parkMapForStageChange() async {
@@ -531,22 +519,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
             widget.pickupPosition.longitude,
           );
     AppScope.instance.camera.focusOnPickup(target);
-  }
-
-  void _onSheetDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final target = velocity < -480
-        ? 1.0
-        : velocity > 480
-        ? 0.0
-        : _sheetSlide.value >= 0.42
-        ? 1.0
-        : 0.0;
-    _sheetSlide.animateTo(
-      target,
-      duration: MoveraMotion.of(context, MoveraDurations.large),
-      curve: MoveraCurves.snap,
-    );
   }
 
   @override
@@ -634,19 +606,23 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                 ),
               ),
             ),
-            AnimatedBuilder(
-              animation: _sheetSlide,
-              builder: (context, _) {
-                final minSheet = _minSheet(media);
-                final maxSheet = _maxSheet(media);
-                final height =
-                    minSheet + (maxSheet - minSheet) * _sheetSlide.value;
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: height,
-                  child: PointerInterceptor(
+            SheetViewport(
+              child: Sheet(
+                controller: _sheetController,
+                initialOffset: SheetOffset.absolute(_minSheet(media)),
+                physics: MoveraSheetMotion.physics,
+                snapGrid: SheetSnapGrid(
+                  snaps: [
+                    SheetOffset.absolute(_minSheet(media)),
+                    SheetOffset.absolute(_maxSheet(media)),
+                  ],
+                  minFlingSpeed: 520,
+                ),
+                scrollConfiguration: SheetScrollConfiguration.disabled,
+                child: PointerInterceptor(
+                  child: SizedBox(
+                    height: _maxSheet(media),
+                    width: double.infinity,
                     child: Material(
                       key: const ValueKey<String>('waiting-panel'),
                       color: Colors.white,
@@ -660,24 +636,18 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onVerticalDragUpdate: (d) =>
-                                _onSheetDragUpdate(d, media),
-                            onVerticalDragEnd: _onSheetDragEnd,
-                            child: const SizedBox(
-                              width: double.infinity,
-                              height: 22,
-                              child: Center(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFE7EBEE),
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(99),
-                                    ),
+                          const SizedBox(
+                            width: double.infinity,
+                            height: 22,
+                            child: Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFE7EBEE),
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(99),
                                   ),
-                                  child: SizedBox(width: 36, height: 4),
                                 ),
+                                child: SizedBox(width: 36, height: 4),
                               ),
                             ),
                           ),
@@ -687,13 +657,15 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                             ),
                             child: const SizedBox.shrink(),
                           ),
-                          Expanded(child: _panel(driver, headline, subtitle)),
+                          if (!_isInTrip)
+                            _fixedPickupHeader(driver, headline, subtitle),
+                          Expanded(child: _panel(driver)),
                         ],
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ],
         ),
@@ -701,7 +673,40 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
-  Widget _panel(MatchedDriver? driver, String headline, String subtitle) {
+  Widget _fixedPickupHeader(
+    MatchedDriver? driver,
+    String headline,
+    String subtitle,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  headline,
+                  style: waitingText(22, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: waitingText(14, color: const Color(0xFF5C656C)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          WaitingShareButton(rideId: _rideId),
+        ],
+      ),
+    );
+  }
+
+  Widget _panel(MatchedDriver? driver) {
     if (_isInTrip) {
       return RiderInTripPanel(
         destinationAddress: widget.destinationAddress,
@@ -722,30 +727,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      headline,
-                      style: waitingText(22, weight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: waitingText(14, color: const Color(0xFF5C656C)),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              WaitingShareButton(rideId: _rideId),
-            ],
-          ),
-          const SizedBox(height: 16),
           WaitingDriverCard(
             driver: driver,
             rideId: _rideId,
@@ -796,13 +777,25 @@ class _WaitingRideMap extends StatefulWidget {
 
 class _WaitingRideMapState extends State<_WaitingRideMap> {
   Set<Marker> _markers = const <Marker>{};
+  Set<Polyline> _polylines = const <Polyline>{};
+  BitmapDescriptor? _riderPuck;
+  BitmapDescriptor? _driverCar;
   DateTime? _lastPaint;
+  DateTime? _lastRouteRefresh;
+  bool _mapReady = false;
+  String? _routeKey;
   Widget? _leaf;
+
+  bool get _inTrip =>
+      widget.tracking.status == RideStatus.tripStarted ||
+      widget.tracking.status == RideStatus.tripInProgress ||
+      widget.tracking.status == RideStatus.approachingDropoff;
 
   @override
   void initState() {
     super.initState();
     _markers = _buildMarkers();
+    unawaited(_prepareMapVisuals());
   }
 
   @override
@@ -816,7 +809,12 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
       return;
     }
     _markers = _buildMarkers();
+    _polylines = const <Polyline>{};
+    _routeKey = null;
     _leaf = null;
+    if (_mapReady) {
+      unawaited(_refreshRoadRoute(force: true));
+    }
   }
 
   void paintIfDue() {
@@ -826,13 +824,22 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
       return;
     }
     _lastPaint = now;
+
     final next = _buildMarkers();
-    if (_sameMarkers(_markers, next)) return;
-    if (!mounted) return;
-    setState(() {
-      _markers = next;
-      _leaf = null;
-    });
+    final markersChanged = !_sameMarkers(_markers, next);
+    if (markersChanged && mounted) {
+      setState(() {
+        _markers = next;
+        _leaf = null;
+      });
+    }
+
+    if (_mapReady &&
+        (_lastRouteRefresh == null ||
+            now.difference(_lastRouteRefresh!) >=
+                const Duration(seconds: 10))) {
+      unawaited(_refreshRoadRoute());
+    }
   }
 
   bool _sameMarkers(Set<Marker> current, Set<Marker> next) {
@@ -850,16 +857,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
 
   Set<Marker> _buildMarkers() {
     final eta = widget.tracking.eta;
-    final inTrip =
-        widget.tracking.status == RideStatus.tripStarted ||
-        widget.tracking.status == RideStatus.tripInProgress ||
-        widget.tracking.status == RideStatus.approachingDropoff;
     return {
-      if (!inTrip)
+      if (!_inTrip)
         Marker(
           markerId: const MarkerId('pickup'),
           position: widget.pickupPosition,
           infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
+          icon:
+              _riderPuck ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          anchor: const Offset(0.5, 0.72),
         ),
       Marker(
         markerId: const MarkerId('destination'),
@@ -873,11 +880,86 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         Marker(
           markerId: const MarkerId('driver'),
           position: LatLng(eta!.latitude!, eta.longitude!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
-          ),
+          rotation: 0,
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
+          icon:
+              _driverCar ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
         ),
     };
+  }
+
+  Future<void> _prepareMapVisuals() async {
+    final icons = await Future.wait<BitmapDescriptor>([
+      MoveraRiderPuckMarker.createIcon(),
+      MoveraVehicleMarker.createIcon(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _riderPuck = icons[0];
+      _driverCar = icons[1];
+      _markers = _buildMarkers();
+      _leaf = null;
+    });
+  }
+
+  ({GeoPoint from, GeoPoint to})? _routeEndpoints() {
+    final eta = widget.tracking.eta;
+    final driverPoint = eta?.latitude != null && eta?.longitude != null
+        ? GeoPoint(eta!.latitude!, eta.longitude!)
+        : null;
+
+    if (_inTrip) {
+      return (
+        from:
+            driverPoint ??
+            GeoPoint(
+              widget.pickupPosition.latitude,
+              widget.pickupPosition.longitude,
+            ),
+        to: GeoPoint(
+          widget.destinationPosition.latitude,
+          widget.destinationPosition.longitude,
+        ),
+      );
+    }
+
+    if (driverPoint == null) return null;
+    return (
+      from: driverPoint,
+      to: GeoPoint(
+        widget.pickupPosition.latitude,
+        widget.pickupPosition.longitude,
+      ),
+    );
+  }
+
+  Future<void> _refreshRoadRoute({bool force = false}) async {
+    if (!_mapReady) return;
+    final endpoints = _routeEndpoints();
+    if (endpoints == null) return;
+
+    String keyFor(GeoPoint point) =>
+        '${point.latitude.toStringAsFixed(4)},${point.longitude.toStringAsFixed(4)}';
+    final requestKey =
+        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>${keyFor(endpoints.to)}';
+    if (!force && requestKey == _routeKey) return;
+
+    _routeKey = requestKey;
+    _lastRouteRefresh = DateTime.now();
+    final route = await roadRoutePolyline(
+      id: 'active-road-route',
+      from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
+      to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
+      color: const Color(0xFF1D252C),
+    );
+    if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
+
+    setState(() {
+      _polylines = {route};
+      _leaf = null;
+    });
   }
 
   @override
@@ -887,6 +969,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         key: const ValueKey('waiting-map'),
         initialPosition: widget.initialPosition,
         markers: _markers,
+        polylines: _polylines,
         myLocationEnabled: true,
         myLocationButtonEnabled: false,
         zoomControlsEnabled: false,
@@ -899,10 +982,12 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         rotateGesturesEnabled: false,
         mapType: MapType.normal,
         onMapCreated: (controller) {
+          _mapReady = true;
           AppScope.instance.maps.attach(
             controller,
             owner: MapOwners.waiting,
           );
+          unawaited(_refreshRoadRoute(force: true));
         },
       ),
     );

@@ -33,3 +33,30 @@ Polyline routePolyline({
     width: width,
   );
 }
+
+
+/// Resolves road-following geometry through the shared routing seam and returns
+/// a map-ready polyline. Feature screens must use this instead of constructing
+/// their own [Polyline], preserving one routing source of truth.
+Future<Polyline> roadRoutePolyline({
+  required String id,
+  required LatLng from,
+  required LatLng to,
+  required Color color,
+  int width = 4,
+  RoutingService? routing,
+}) async {
+  final service = routing ?? AppScope.instance.routing;
+  final points = await service.roadLine(
+    from: GeoPoint(from.latitude, from.longitude),
+    to: GeoPoint(to.latitude, to.longitude),
+  );
+  return Polyline(
+    polylineId: PolylineId(id),
+    points: [
+      for (final point in points) LatLng(point.latitude, point.longitude),
+    ],
+    color: color,
+    width: width,
+  );
+}

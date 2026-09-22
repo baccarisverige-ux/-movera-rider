@@ -99,7 +99,7 @@ void main() {
     }
   });
 
-  test('sheet AnimationControllers use motion tokens', () {
+  test('sheet motion uses the shared Home motion system', () {
     const files = [
       'lib/features/finding_driver/presentation/finding_drivers.dart',
       'lib/features/active_ride/presentation/waiting_for_driver.dart',
@@ -107,11 +107,18 @@ void main() {
     ];
     for (final path in files) {
       final src = File(path).readAsStringSync();
-      expect(src.contains('MoveraDurations.sheetOpen'), isTrue, reason: path);
+      final usesHomeSheet =
+          src.contains('SheetController') &&
+          src.contains('MoveraSheetMotion.physics');
+      final usesTokenizedAnimationController =
+          src.contains('MoveraDurations.sheetOpen') &&
+          src.contains(
+            'MoveraMotion.of(context, MoveraDurations.sheetOpen)',
+          );
       expect(
-        src.contains('MoveraMotion.of(context, MoveraDurations.sheetOpen)'),
+        usesHomeSheet || usesTokenizedAnimationController,
         isTrue,
-        reason: path,
+        reason: '$path must use Home sheet physics or tokenized sheet motion',
       );
       expect(
         RegExp(
