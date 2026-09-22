@@ -89,6 +89,31 @@ void main() {
     expect(find.text('Safety preferences'), findsOneWidget);
   });
 
+  testWidgets('every Safety Hub row opens its real destination page', (
+    tester,
+  ) async {
+    for (final route in const <(String, String)>[
+      ('PIN verification', 'Verify rides with a PIN'),
+      ('Emergency contacts', 'No emergency contacts yet'),
+      ('Share trip status', 'Trip sharing'),
+      ('RideCheck', 'RideCheck alerts'),
+    ]) {
+      final ctl = buildController();
+      await ctl.load();
+      await tester.pumpWidget(MaterialApp(home: SafetyHub(controller: ctl)));
+      await tester.pumpAndSettle();
+
+      final row = find.bySemanticsLabel(route.$1);
+      expect(row, findsOneWidget, reason: route.$1);
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+
+      expect(find.text(route.$2), findsOneWidget, reason: route.$1);
+    }
+  });
+
   testWidgets('PIN page shows a framed 4-digit cadre', (tester) async {
     final ctl = buildController();
     await ctl.load();
