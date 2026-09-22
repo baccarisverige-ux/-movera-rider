@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 
 void main() {
@@ -55,9 +56,14 @@ void main() {
 
   testWidgets('custom tip works alongside fixed tip suggestions', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(child: RideCompletedAddTip()),
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) => const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(child: RideCompletedAddTip()),
+          ),
         ),
       ),
     );
