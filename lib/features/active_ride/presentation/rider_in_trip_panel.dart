@@ -14,7 +14,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.price,
     required this.driver,
     required this.rideId,
-    required this.status,
+    this.status = RideStatus.tripInProgress,
     required this.onOpenProfile,
     required this.onCall,
     required this.onMore,
