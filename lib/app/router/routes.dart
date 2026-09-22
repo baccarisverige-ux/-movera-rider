@@ -10,6 +10,7 @@ abstract final class AppRoutes {
   static const payments = '/payments';
   static const rideHistory = '/history';
   static const support = '/support';
+  static const messages = '/messages';
   static const schedule = '/schedule';
   static const profile = '/profile';
 }
