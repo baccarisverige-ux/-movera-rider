@@ -159,6 +159,7 @@ void main() {
         },
       );
     }
+  }
 
   testWidgets('account editor remains usable with a mobile keyboard inset', (
     tester,
@@ -202,5 +203,4 @@ void main() {
       reason: 'Save must remain above the simulated software keyboard.',
     );
   });
-  }
 }
