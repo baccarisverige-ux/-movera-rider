@@ -121,6 +121,9 @@ void main() {
 }
 
 class _CompletionRealtime implements RideRealtime {
+  @override
+  bool get supportsRiderSignals => true;
+
   final StreamController<RideRealtimeEvent> _controller =
       StreamController<RideRealtimeEvent>.broadcast(sync: true);
   String? _rideId;
