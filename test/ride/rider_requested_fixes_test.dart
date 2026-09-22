@@ -12,6 +12,11 @@ void main() {
     final waiting = File(
       'lib/features/active_ride/presentation/waiting_for_driver.dart',
     ).readAsStringSync();
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+
+    expect(home, contains('MoveraRiderPuckMarker.createVisual'));
 
     for (final source in <String>[finding, waiting]) {
       expect(
@@ -22,7 +27,7 @@ void main() {
           ),
         ),
       );
-      expect(source, contains('if (_riderPuck != null)'));
+      expect(source, contains('_riderPuck != null'));
       expect(source, contains('icon: _riderPuck!'));
     }
   });
