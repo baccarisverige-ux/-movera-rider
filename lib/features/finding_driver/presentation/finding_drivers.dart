@@ -63,6 +63,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   Set<Polyline> _polylines = {};
   final FindingDriverController _match = FindingDriverController();
   bool _mapParked = false;
+  bool _mapReady = false;
   bool _leaving = false;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
@@ -89,7 +90,6 @@ class _FindingDriversState extends State<FindingDrivers> {
     _syncSheetOverlay();
     _loadMapBits();
     unawaited(_prepareMapVisuals());
-    unawaited(_refreshRoadRoute());
     _startMatching(price: widget.price);
   }
 
@@ -388,7 +388,7 @@ class _FindingDriversState extends State<FindingDrivers> {
               _loadMapBits();
             }
           });
-          if (updated && result is ConfirmPickupResult) {
+          if (updated && result is ConfirmPickupResult && _mapReady) {
             unawaited(_refreshRoadRoute());
           }
 
@@ -506,10 +506,12 @@ class _FindingDriversState extends State<FindingDrivers> {
                         rotateGesturesEnabled: false,
                         mapType: MapType.normal,
                         onMapCreated: (controller) {
+                          _mapReady = true;
                           AppScope.instance.maps.attach(
                             controller,
                             owner: MapOwners.finding,
                           );
+                          unawaited(_refreshRoadRoute());
                         },
                       ),
               ),
