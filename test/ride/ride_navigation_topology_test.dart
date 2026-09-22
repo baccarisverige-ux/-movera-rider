@@ -153,6 +153,11 @@ void main() {
     expect(finding, contains('_drainDeferredNavigation()'));
     expect(
       finding,
+      contains('WidgetsBinding.instance.addPostFrameCallback'),
+      reason: 'Finding must not push a stage while NavigatorObserver is locked',
+    );
+    expect(
+      finding,
       contains('!_routeIsCurrent'),
       reason: 'Finding must not transition stages under a child route',
     );
@@ -161,6 +166,11 @@ void main() {
     expect(waiting, contains('_pendingStageStatus'));
     expect(waiting, contains('moveraNavigationEpoch.addListener'));
     expect(waiting, contains('_queueStageNavigation'));
+    expect(
+      waiting,
+      contains('WidgetsBinding.instance.addPostFrameCallback'),
+      reason: 'Waiting must not push sheets/routes while NavigatorObserver is locked',
+    );
     expect(
       waiting,
       contains('!_routeIsCurrent'),
