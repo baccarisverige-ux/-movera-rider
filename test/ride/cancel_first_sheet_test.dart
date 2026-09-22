@@ -86,4 +86,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(outcome?.cancelled, isTrue);
   });
+  testWidgets('active-trip cancel stays reversible until the final step', (
+    tester,
+  ) async {
+    await phoneSurface(tester);
+    var committedEarly = false;
+    CancelOutcome? outcome;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              outcome = await showCancelRideSheet(
+                context,
+                takingLonger: false,
+                phase: CancelPhase.inTrip,
+                onCancelConfirmed: () async {
+                  committedEarly = true;
+                },
+              );
+            },
+            child: const Text('open-active-trip-cancel'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open-active-trip-cancel'));
+    await tester.pumpAndSettle();
+
+    // First confirmation only opens the final reason/keep step.
+    await tester.tap(find.text('Cancel ride'));
+    await tester.pumpAndSettle();
+    expect(committedEarly, isFalse);
+    expect(find.text('Why are you cancelling?'), findsOneWidget);
+
+    // Aborting the final step must keep the same active ride alive.
+    await tester.tap(find.text('Keep ride'));
+    await tester.pumpAndSettle();
+    expect(outcome?.cancelled, isFalse);
+    expect(committedEarly, isFalse);
+  });
+
 }
