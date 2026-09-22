@@ -105,33 +105,55 @@ jobs:
           if(fatalErrors().length)throw new Error('Fatal runtime error during heading QA: '+fatalErrors().join(' | '));
           console.log('PASS: heading permission granted/denied, inject while GPS fixed, 350\u219210 shortest turn, no duplicate listeners');
           await page.mouse.click(310,89);await page.waitForTimeout(1100);await shot('safety-menu');
-          let safetySnap={}; let safetyVia='tap';
-          for (const y of [357,340,372,318]) {
-            await page.mouse.click(120,y);await page.waitForTimeout(2000);
+          let safetySnap={}; let safetyVia='menu:text';
+          let safetyItem=page.getByText('Safety',{exact:true});
+          let safetyCount=await safetyItem.count().catch(()=>0);
+          if(!safetyCount){
+            await page.mouse.wheel(0,650);await page.waitForTimeout(500);
+            safetyItem=page.getByText('Safety',{exact:true});
+            safetyCount=await safetyItem.count().catch(()=>0);
+          }
+          if(safetyCount){
+            await safetyItem.last().click({timeout:8000});
+            await page.waitForTimeout(1800);
             safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
-            if(typeof safetySnap.pinRequired==='boolean'){safetyVia='menu:'+y;break;}
-            await page.mouse.click(28,48);await page.waitForTimeout(600);
-            await page.mouse.click(310,89);await page.waitForTimeout(900);
           }
           if(typeof safetySnap.pinRequired!=='boolean'){
-            const opened=await page.evaluate(()=>window.moveraOpenSafety?window.moveraOpenSafety():'missing');
-            await page.waitForTimeout(2200);
-            safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
+            const opened=await page.evaluate(()=>{
+              if(typeof window.moveraOpenSafety!=='function') return 'missing';
+              return window.moveraOpenSafety();
+            });
             safetyVia='hook:'+opened;
+            if(opened==='ok'){
+              await page.waitForTimeout(1800);
+              safetySnap=await page.evaluate(()=>{try{return JSON.parse(window.moveraSafetySnapshotJson||'{}');}catch(e){return {};}});
+            }
+          }
+          const safetyLabels={};
+          for(const label of ['PIN verification','Emergency contacts','Share trip status','RideCheck']){
+            safetyLabels[label]=(await page.getByText(label,{exact:true}).count())>0;
           }
           await shot('safety-hub');
-          fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
+          fs.writeFileSync('qa-safety.json', JSON.stringify({safetySnap,safetyVia,safetyLabels,pageErrors:[...pageErrors],consoleErrors:[...consoleErrors]},null,2));
           if(fatalErrors().length)throw new Error('Fatal runtime error opening Safety: '+fatalErrors().join(' | '));
-          if(typeof safetySnap.pinRequired!=='boolean')throw new Error('Safety hub snapshot missing: '+JSON.stringify({safetySnap,safetyVia}));
+          for(const [label,visible] of Object.entries(safetyLabels)){
+            if(!visible) throw new Error('Safety hub missing '+label+': '+JSON.stringify({safetyVia,safetySnap,safetyLabels}));
+          }
+          if(typeof safetySnap.pinRequired!=='boolean'){
+            throw new Error('Safety hub opened but state snapshot was not published: '+JSON.stringify({safetyVia,safetySnap}));
+          }
           await page.evaluate(()=>window.moveraSimulateRideCheck&&window.moveraSimulateRideCheck('unexpectedStop'));
-          await page.mouse.click(200,290);await page.waitForTimeout(1100);await shot('safety-pin');
-          await page.mouse.click(28,48);await page.waitForTimeout(800);
-          await page.mouse.click(200,360);await page.waitForTimeout(1100);await shot('safety-contacts');
-          await page.mouse.click(28,48);await page.waitForTimeout(800);
-          await page.mouse.click(200,430);await page.waitForTimeout(1100);await shot('safety-share');
-          await page.mouse.click(28,48);await page.waitForTimeout(800);
-          await page.mouse.click(200,500);await page.waitForTimeout(1100);await shot('safety-ridecheck');
-          await page.mouse.click(28,48);await page.waitForTimeout(800);
+          for(const [label,shotName] of [
+            ['PIN verification','safety-pin'],
+            ['Emergency contacts','safety-contacts'],
+            ['Share trip status','safety-share'],
+            ['RideCheck','safety-ridecheck'],
+          ]){
+            const row=page.getByText(label,{exact:true});
+            if(!(await row.count())) throw new Error('Safety row not reachable: '+label);
+            await row.last().click({timeout:8000});await page.waitForTimeout(1100);await shot(shotName);
+            await page.mouse.click(28,48);await page.waitForTimeout(800);
+          }
           if(fatalErrors().length)throw new Error('Fatal runtime error in Safety pages: '+fatalErrors().join(' | '));
           console.log('PASS: Safety hub PIN contacts share RideCheck from side menu via '+safetyVia);
           await page.goto(base+`?v=${Date.now()}`,{waitUntil:'networkidle',timeout:120000}); await page.waitForTimeout(4000);
