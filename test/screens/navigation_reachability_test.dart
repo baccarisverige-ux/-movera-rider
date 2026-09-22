@@ -135,7 +135,7 @@ void main() {
           continue;
         }
 
-        final end = (i + 16).clamp(0, lines.length);
+        final end = i + 16 < lines.length ? i + 16 : lines.length;
         final window = lines.sublist(i, end).join('\n');
         if (window.contains('Navigator.push') ||
             window.contains('Navigator.of(context).push')) {
