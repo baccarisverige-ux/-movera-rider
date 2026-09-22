@@ -15,6 +15,8 @@ bool get moveraNavigationSettled => moveraNavigationTransitions.value == 0;
 
 /// Keep Chrome from treating Home sheet overscroll as history.back.
 class HomeHistoryObserver extends NavigatorObserver {
+  final Map<Route<dynamic>, VoidCallback> _pendingEnterFinish = {};
+
   void _sync({bool unlockFirst = false}) {
     if (unlockFirst) setWebHomeLock(false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -49,10 +51,9 @@ class HomeHistoryObserver extends NavigatorObserver {
     }
 
     // didPush can fire before TransitionRoute exposes a live animation. Count
-    // the route as unsettled immediately, then attach to its animation on the
-    // next frame. This closes the first-frame window where realtime/timer work
-    // could otherwise push another route while the incoming page is still
-    // entering.
+    // the route as unsettled immediately. If the route is popped/replaced
+    // before its first forward tick, the Navigator callbacks below explicitly
+    // finish this pending-enter token, so it can never leak.
     moveraNavigationTransitions.value += 1;
     var finished = false;
     Animation<double>? watchedAnimation;
@@ -62,6 +63,7 @@ class HomeHistoryObserver extends NavigatorObserver {
     void finish() {
       if (finished) return;
       finished = true;
+      _pendingEnterFinish.remove(route);
       if (watchedAnimation != null && listener != null) {
         watchedAnimation!.removeStatusListener(listener!);
       }
@@ -69,6 +71,8 @@ class HomeHistoryObserver extends NavigatorObserver {
       moveraNavigationTransitions.value = next < 0 ? 0 : next;
       _routeChanged(unlockFirst: unlockFirst);
     }
+
+    _pendingEnterFinish[route] = finish;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (finished) return;
@@ -86,8 +90,7 @@ class HomeHistoryObserver extends NavigatorObserver {
           hasStarted = true;
         }
         if (status == AnimationStatus.completed ||
-            (status == AnimationStatus.dismissed &&
-                (hasStarted || !route.isActive))) {
+            (status == AnimationStatus.dismissed && hasStarted)) {
           finish();
         }
       };
@@ -99,8 +102,7 @@ class HomeHistoryObserver extends NavigatorObserver {
         hasStarted = true;
       }
       if (status == AnimationStatus.completed ||
-          (status == AnimationStatus.dismissed &&
-              (hasStarted || !route.isActive))) {
+          (status == AnimationStatus.dismissed && hasStarted)) {
         finish();
       }
     });
@@ -132,16 +134,21 @@ class HomeHistoryObserver extends NavigatorObserver {
   }
 
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _routeChangedAfterExit(route);
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _pendingEnterFinish.remove(route)?.call();
+    _routeChangedAfterExit(route);
+  }
 
   @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _routeChanged();
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _pendingEnterFinish.remove(route)?.call();
+    _routeChanged();
+  }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     if (oldRoute != null) {
+      _pendingEnterFinish.remove(oldRoute)?.call();
       _routeChangedAfterExit(oldRoute);
     }
     if (newRoute != null) {
