@@ -249,7 +249,7 @@ void main() {
     expect(chrono, contains('_openedLiveId = null;'));
     expect(
       chrono,
-      contains('if (!mounted || _openedLiveId == ride.reservationId) return;'),
+      contains('if (!mounted || !_routeIsCurrent || _openedLiveId == ride.reservationId) return;'),
       reason: 'manual and automatic chrono opens must share one duplicate guard',
     );
 
