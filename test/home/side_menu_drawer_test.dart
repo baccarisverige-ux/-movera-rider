@@ -10,14 +10,20 @@ void main() {
         'lib/features/home/presentation/side_menu.dart',
       ).readAsStringSync();
       expect(menu.contains('final nav = Navigator.of(context);'), isTrue);
-      expect(menu.contains('Scaffold.of(context).closeDrawer();'), isTrue);
+      expect(menu.contains('final scaffold = Scaffold.of(context);'), isTrue);
+      expect(menu.contains('scaffold.closeDrawer();'), isTrue);
+      expect(menu.contains('scaffold.isDrawerOpen'), isTrue);
+      expect(menu.contains('await WidgetsBinding.instance.endOfFrame;'), isTrue);
+      expect(menu.contains('if (!nav.mounted) return;'), isTrue);
       expect(menu.contains('await nav.push('), isTrue);
       expect(menu.contains('openDrawer()'), isFalse);
       expect(menu.contains('Navigator.push('), isFalse);
-      final closeAt = menu.indexOf('Scaffold.of(context).closeDrawer();');
+      final closeAt = menu.indexOf('scaffold.closeDrawer();');
+      final settledAt = menu.indexOf('scaffold.isDrawerOpen');
       final pushAt = menu.indexOf('await nav.push(');
       expect(closeAt, greaterThan(0));
-      expect(pushAt, greaterThan(closeAt));
+      expect(settledAt, greaterThan(closeAt));
+      expect(pushAt, greaterThan(settledAt));
     },
   );
 }
