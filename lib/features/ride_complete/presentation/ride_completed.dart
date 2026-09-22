@@ -131,6 +131,17 @@ class _RideCompletedState extends State<RideCompleted> {
                         const _SurfaceCard(
                           child: RideCompletedAddTip(),
                         ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Rating and tip are optional. Tap Done when you are finished.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: MoveraTokens.muted,
+                            height: 1.4,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 12),
                       const _BelongingsReminder(),
