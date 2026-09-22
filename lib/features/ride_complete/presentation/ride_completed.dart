@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
@@ -111,7 +112,7 @@ class _RideCompletedState extends State<RideCompleted> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 46),
+                    const SizedBox(width: 48),
                   ],
                 ),
               ),
@@ -121,6 +122,8 @@ class _RideCompletedState extends State<RideCompleted> {
                   child: Column(
                     children: [
                       _CompletionHero(spec: spec),
+                      const SizedBox(height: 12),
+                      const _BelongingsReminder(),
                       const SizedBox(height: 14),
                       _SurfaceCard(
                         child: const RideCompletedDriverInfo(),
@@ -267,6 +270,44 @@ class _CompletionHero extends StatelessWidget {
   }
 }
 
+class _BelongingsReminder extends StatelessWidget {
+  const _BelongingsReminder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F7),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Make sure you have all your belongings.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MoveraTokens.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Image.asset(
+            excludeFromSemantics: true,
+            AppAssets.eyeEmoji,
+            width: 20,
+            height: 20,
+            fit: BoxFit.contain,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SurfaceCard extends StatelessWidget {
   const _SurfaceCard({required this.child});
 
@@ -310,8 +351,8 @@ class _CircleAction extends StatelessWidget {
           onTap: onTap,
           customBorder: const CircleBorder(),
           child: Container(
-            width: 46,
-            height: 46,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: MoveraTokens.line),
