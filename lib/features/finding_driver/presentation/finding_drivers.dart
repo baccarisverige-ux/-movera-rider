@@ -135,7 +135,13 @@ class _FindingDriversState extends State<FindingDrivers>
 
   void _onNavigationChanged() {
     if (!mounted) return;
-    _drainDeferredNavigation();
+    // NavigatorObserver notifications fire while Navigator is still locked.
+    // A deferred match/terminal may need to push a route, so drain it only
+    // after the current push/pop has fully committed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _drainDeferredNavigation();
+    });
   }
 
   void _drainDeferredNavigation() {
