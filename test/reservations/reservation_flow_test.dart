@@ -89,6 +89,81 @@ void main() {
     expect(find.textContaining('Uber'), findsNothing);
   });
 
+  testWidgets(
+    'scheduled Back reverses one route while Done returns to the root',
+    (tester) async {
+      final c = await seeded();
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (rootContext) => Scaffold(
+              body: Column(
+                children: [
+                  const Text('root-home'),
+                  TextButton(
+                    key: const ValueKey('open-middle'),
+                    onPressed: () {
+                      Navigator.push(
+                        rootContext,
+                        MaterialPageRoute<void>(
+                          builder: (_) => Builder(
+                            builder: (middleContext) => Scaffold(
+                              body: Column(
+                                children: [
+                                  const Text('middle-screen'),
+                                  TextButton(
+                                    key: const ValueKey('open-scheduled'),
+                                    onPressed: () {
+                                      RideScheduledPage.open(
+                                        middleContext,
+                                        reservationId: 'rsv_ui',
+                                        controller: c,
+                                      );
+                                    },
+                                    child: const Text('Open scheduled'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Open middle'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('open-middle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('open-scheduled')));
+      await tester.pumpAndSettle();
+      expect(find.text('Your ride is scheduled'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text('middle-screen'), findsOneWidget);
+      expect(find.text('root-home'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('open-scheduled')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('root-home'), findsOneWidget);
+      expect(find.text('middle-screen'), findsNothing);
+    },
+  );
+
   testWidgets('history lists the reservation immediately under Upcoming', (
     tester,
   ) async {
