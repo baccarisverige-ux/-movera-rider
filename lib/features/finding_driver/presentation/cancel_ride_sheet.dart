@@ -24,7 +24,7 @@ Future<CancelOutcome> showCancelRideSheet(
     barrierDismissible: false,
     builder: (_) => CancelRideSheet(
       takingLonger: takingLonger,
-      matched: phase == CancelPhase.matched,
+      phase: phase,
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
@@ -47,16 +47,20 @@ class CancelRideSheet extends StatelessWidget {
   const CancelRideSheet({
     super.key,
     required this.takingLonger,
-    this.matched = false,
+    this.phase = CancelPhase.searching,
   });
 
   final bool takingLonger;
-  final bool matched;
+  final CancelPhase phase;
 
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
-    final body = matched
+    final matched = phase == CancelPhase.matched;
+    final inTrip = phase == CancelPhase.inTrip;
+    final body = inTrip
+        ? 'Your trip is already in progress. Cancelling will end this ride and return you to Home.'
+        : matched
         ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
         : takingLonger
         ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
@@ -120,7 +124,7 @@ class CancelRideSheet extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'Cancel request',
+                inTrip ? 'Cancel ride' : 'Cancel request',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
@@ -141,7 +145,7 @@ class CancelRideSheet extends StatelessWidget {
                 ),
               ),
               child: Text(
-                matched
+                (matched || inTrip)
                     ? 'Keep ride'
                     : takingLonger
                     ? 'Keep searching'
