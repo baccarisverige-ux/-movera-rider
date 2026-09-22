@@ -98,6 +98,20 @@ void main() {
     expect(schedule, contains('setState(() => _mapParked = false)'));
   });
 
+  test('Ride Scheduled Back reverses one route while Done is the Home exit', () {
+    final scheduled = File(
+      'lib/features/reservations/presentation/ride_scheduled.dart',
+    ).readAsStringSync();
+
+    expect(scheduled, contains('void _goBack()'));
+    expect(scheduled, contains('Navigator.maybePop(context);'));
+    expect(scheduled, contains('onTap: _goBack'));
+    expect(
+      scheduled,
+      contains("ReservationFillButton(label: 'Done', onTap: _closeHome)"),
+    );
+  });
+
   test('normal Home exit does not rebuild root; restored root still can', () {
     final navigator =
         File('lib/app/router/ride_navigator.dart').readAsStringSync();
