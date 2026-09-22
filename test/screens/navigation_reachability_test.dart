@@ -123,4 +123,33 @@ void main() {
       expect(menu.contains('$screen('), isTrue, reason: screen);
     }
   });
+
+  test('screen changes are not sequenced by fixed arbitrary delays', () {
+    final offenders = <String>[];
+
+    for (final file in presentation()) {
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i += 1) {
+        if (!lines[i].contains('Future<void>.delayed') &&
+            !lines[i].contains('Future.delayed')) {
+          continue;
+        }
+
+        final end = (i + 16).clamp(0, lines.length);
+        final window = lines.sublist(i, end).join('\n');
+        if (window.contains('Navigator.push') ||
+            window.contains('Navigator.of(context).push')) {
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'navigation must wait for route/frame lifecycle, not a guessed millisecond delay: $offenders',
+    );
+  });
+
 }
