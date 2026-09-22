@@ -139,10 +139,6 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Arm the route-entry watcher before realtime can deliver a lifecycle
-    // event. This guarantees a retry signal when the page finishes entering,
-    // even if the event arrives between animation frames.
-    moveraRouteIsSettled(context);
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
@@ -225,7 +221,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
-  bool get _routeIsCurrent => moveraRouteIsSettled(context);
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
 
   void _onNavigationChanged() {
     if (!mounted) return;
