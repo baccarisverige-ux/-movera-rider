@@ -284,7 +284,7 @@ void main() {
   });
 
 
-  test('side menu does not list Promotions or Scheduled Rides', () {
+  test('side menu lists only currently reachable production destinations', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
@@ -299,7 +299,7 @@ void main() {
     expect(menu.contains('Support'), isTrue);
     expect(menu.contains('Invite Friends'), isTrue);
     expect(menu.contains('About'), isTrue);
-    expect(menu.contains('Become a driver'), isTrue);
+    expect(menu.contains('Become a driver'), isFalse);
   });
 
   test('safety presentation stays off the data and platform layers', () {
