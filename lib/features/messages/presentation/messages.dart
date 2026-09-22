@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 
+export 'package:movera_rider/features/messages/presentation/chat.dart';
+
 /// Rider message inbox.
 ///
 /// Until the real backend/message transport is connected, this surface stays
@@ -78,5 +80,3 @@ class MessagesInbox extends StatelessWidget {
     );
   }
 }
-
-export 'package:movera_rider/features/messages/presentation/chat.dart';
