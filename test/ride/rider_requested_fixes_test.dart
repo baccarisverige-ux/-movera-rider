@@ -22,11 +22,8 @@ void main() {
           ),
         ),
       );
-      expect(source, contains('MOVERA_RIDER_PUCK_SENTINEL').having(
-        (value) => value,
-        'shared Rider puck sentinel',
-        isNotEmpty,
-      ));
+      expect(source, contains('if (_riderPuck != null)'));
+      expect(source, contains('icon: _riderPuck!'));
     }
   });
 
