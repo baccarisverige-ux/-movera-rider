@@ -78,37 +78,16 @@ class RiderProfile extends StatelessWidget {
               ],
             ),
           ),
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                height: ResSize.h * 85,
-                width: ResSize.w * 85,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: AssetImage(AppAssets.profileImg),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+          Container(
+            height: ResSize.h * 85,
+            width: ResSize.w * 85,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              image: DecorationImage(
+                image: AssetImage(AppAssets.profileImg),
+                fit: BoxFit.cover,
               ),
-              Container(
-                height: ResSize.h * 26,
-                width: ResSize.w * 26,
-                decoration: BoxDecoration(
-                  color: AppColor.primary,
-                  borderRadius: BorderRadius.circular(20 * ResSize.w),
-                  border: Border.all(color: Colors.white, width: 1),
-                ),
-                child: Center(
-                  child: Image.asset(
-                    excludeFromSemantics: true,
-                    AppAssets.camera,
-                    height: ResSize.h * 17,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
           10.height,
           Center(
@@ -200,16 +179,6 @@ class RiderProfile extends StatelessWidget {
               );
             },
           ),
-          _menuItem(
-            title: 'Log out',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Demo account stays signed in.')),
-              );
-            },
-            isLogout: true,
-          ),
-
           // ✅ Rest of your code untouched
         ],
       ),

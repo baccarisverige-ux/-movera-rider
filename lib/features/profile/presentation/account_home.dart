@@ -59,7 +59,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
             padding: EdgeInsets.fromLTRB(4, 0, 4, 18),
             child: AccountHeadline(
               'Account',
-              body: 'Your Movera profile and sign-in.',
+              body: 'Your Movera profile and account settings.',
             ),
           ),
           AccountGroup(
@@ -166,30 +166,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          Center(
-            child: TextButton(
-              onPressed: () async {
-                final leave = await showAccountChoice(
-                  context,
-                  title: 'Log out of Movera?',
-                  options: const ['Log out', 'Stay signed in'],
-                  selected: '',
-                );
-                if (leave == 'Log out' && context.mounted) {
-                  Navigator.popUntil(context, (route) => route.isFirst);
-                }
-              },
-              child: Text(
-                'Log out',
-                style: accountText(
-                  15,
-                  weight: FontWeight.w600,
-                  color: const Color(0xFFB42318),
-                ),
-              ),
-            ),
-          ),
+
         ],
       ),
     );

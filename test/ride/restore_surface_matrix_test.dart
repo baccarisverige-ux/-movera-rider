@@ -33,6 +33,7 @@ void main() {
       RideStatus.driverWaiting,
       RideStatus.tripStarted,
       RideStatus.tripInProgress,
+      RideStatus.approachingDropoff,
     };
     const complete = {
       RideStatus.tripCompleted,
