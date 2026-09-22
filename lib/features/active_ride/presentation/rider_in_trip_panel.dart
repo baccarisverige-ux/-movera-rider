@@ -73,7 +73,7 @@ class RiderInTripPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'On the way',
+                      'Ride in progress',
                       style: waitingText(23, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
