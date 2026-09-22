@@ -131,8 +131,7 @@ class _FindingDriversState extends State<FindingDrivers>
     );
   }
 
-  bool get _routeIsCurrent =>
-      (ModalRoute.of(context)?.isCurrent ?? true) && moveraNavigationSettled;
+  bool get _routeIsCurrent => moveraRouteIsSettled(context);
 
   void _onNavigationChanged() {
     if (!mounted) return;
