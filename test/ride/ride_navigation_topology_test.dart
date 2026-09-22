@@ -361,12 +361,19 @@ void main() {
       'lib/shared/widgets/navigation_transition.dart',
     ).readAsStringSync();
 
+    expect(observer, contains('void _routeChangedAfterEnter('));
     expect(observer, contains('void _routeChangedAfterExit('));
     expect(observer, contains('route is TransitionRoute<dynamic>'));
     expect(observer, contains('route.completed.whenComplete('));
     expect(observer, contains('moveraNavigationTransitions'));
     expect(observer, contains('bool get moveraNavigationSettled'));
     expect(observer, contains('moveraNavigationTransitions.value += 1'));
+    expect(observer, contains('animation.addStatusListener(listener);'));
+    expect(
+      observer,
+      contains('_routeChangedAfterEnter(route, unlockFirst: true);'),
+      reason: 'incoming animated routes must also count as unsettled',
+    );
     expect(
       observer,
       contains('void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>\n      _routeChangedAfterExit(route);'),
