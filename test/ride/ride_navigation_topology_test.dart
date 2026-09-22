@@ -364,6 +364,9 @@ void main() {
     expect(observer, contains('void _routeChangedAfterExit('));
     expect(observer, contains('route is TransitionRoute<dynamic>'));
     expect(observer, contains('route.completed.whenComplete('));
+    expect(observer, contains('moveraNavigationTransitions'));
+    expect(observer, contains('bool get moveraNavigationSettled'));
+    expect(observer, contains('moveraNavigationTransitions.value += 1'));
     expect(
       observer,
       contains('void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>\n      _routeChangedAfterExit(route);'),
@@ -371,6 +374,28 @@ void main() {
 
     expect(transitions, contains('Future<void> popCurrentRouteAndWaitForExit('));
     expect(transitions, contains('await route.completed;'));
+
+    final finding = File(
+      'lib/features/finding_driver/presentation/finding_drivers.dart',
+    ).readAsStringSync();
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+    final chrono = File(
+      'lib/features/reservations/presentation/home_reservation_chrono.dart',
+    ).readAsStringSync();
+    final upcoming = File(
+      'lib/features/reservations/presentation/upcoming_reservation.dart',
+    ).readAsStringSync();
+
+    for (final source in <String>[finding, waiting, chrono, upcoming]) {
+      expect(
+        source,
+        contains('&& moveraNavigationSettled'),
+        reason:
+            'realtime/timer driven navigation must stay blocked until outgoing routes are gone',
+      );
+    }
   });
 
   test('Safety and ride-detail handoffs never pop and push in the same transition', () {
