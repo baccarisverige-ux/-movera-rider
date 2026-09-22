@@ -21,6 +21,9 @@ class ReservationRideRealtime implements RideRealtime {
   final ReservationController controller;
   final String reservationId;
 
+  @override
+  bool get supportsRiderSignals => false;
+
   bool _disposed = false;
   int _sequence = 0;
   ReservationStatus? _lastReservationStatus;
@@ -58,7 +61,10 @@ class ReservationRideRealtime implements RideRealtime {
       case ReservationStatus.completed:
         return RideStatus.tripCompleted;
       case ReservationStatus.cancelled:
-        return RideStatus.cancelledByRider;
+        // The reservation record does not encode who cancelled it. A rider
+        // initiated cancel is handled synchronously by the screen callback;
+        // an unsolicited cancelled record is therefore treated as external.
+        return RideStatus.cancelledBySystem;
     }
   }
 
