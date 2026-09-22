@@ -142,6 +142,7 @@ class _ChatState extends State<Chat> {
                     button: true,
                     enabled: showSendIcon,
                     label: 'Send message',
+                    onTap: showSendIcon ? _sendMessage : null,
                     child: ExcludeSemantics(
                       child: Material(
                         color: const Color(0xffF6F6F6),
