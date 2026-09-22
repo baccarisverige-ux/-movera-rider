@@ -131,7 +131,7 @@ class _FindingDriversState extends State<FindingDrivers>
     );
   }
 
-  bool get _routeIsCurrent => moveraRouteIsSettled(context);
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
 
   void _onNavigationChanged() {
     if (!mounted) return;
@@ -195,9 +195,6 @@ class _FindingDriversState extends State<FindingDrivers>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Arm the route-entry watcher before matching/realtime can trigger a
-    // lifecycle handoff between animation frames.
-    moveraRouteIsSettled(context);
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
   }
 
