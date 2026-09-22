@@ -19,7 +19,23 @@ void main() {
     ).readAsStringSync();
 
     expect(transitions, contains('class RideStageTransition'));
-    expect(transitions, contains('reverseTransitionDuration: Duration.zero'));
+    final rideStageStart = transitions.indexOf('class RideStageTransition');
+    final rideStageEnd = transitions.indexOf('class SwitchTransition');
+    expect(rideStageStart, greaterThanOrEqualTo(0));
+    expect(rideStageEnd, greaterThan(rideStageStart));
+    final rideStage = transitions.substring(rideStageStart, rideStageEnd);
+    expect(rideStage, contains('reverseTransitionDuration: Duration.zero'));
+    expect(
+      rideStage,
+      contains("const ColoredBox(color: Color(0xFFF6F5F1))"),
+      reason: 'incoming ride stages need an opaque cover over the previous route',
+    );
+    expect(rideStage, contains('opacity: veil'));
+    expect(
+      rideStage,
+      isNot(contains('FadeTransition(opacity: curved, child: child)')),
+      reason: 'fading the entire incoming ride stage exposes the previous stage',
+    );
     expect(home, contains('RideStageTransition(\n          SelectRide('));
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));

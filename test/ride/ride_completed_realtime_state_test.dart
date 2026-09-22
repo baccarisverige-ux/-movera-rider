@@ -53,6 +53,18 @@ void main() {
 
       expect(find.text('Trip complete'), findsOneWidget);
       expect(find.text('Trip completed'), findsOneWidget);
+      expect(find.text('How was your trip'), findsOneWidget);
+      expect(find.text('Tip your driver'), findsOneWidget);
+      expect(
+        find.text(
+          'Rating and tip will be available after payment confirmation.',
+        ),
+        findsOneWidget,
+      );
+      final initialLock = tester.widget<IgnorePointer>(
+        find.byKey(const ValueKey('completion-feedback-lock')),
+      );
+      expect(initialLock.ignoring, isTrue);
       expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
 
       realtime.emit(RideStatus.paymentProcessing);
@@ -75,12 +87,17 @@ void main() {
       expect(find.text('Trip complete'), findsOneWidget);
       expect(find.text('Ready for feedback'), findsOneWidget);
       expect(find.text('How was your trip'), findsOneWidget);
+      expect(find.text('Tip your driver'), findsOneWidget);
       expect(
         find.text(
           'Rating and tip are optional. Tap Done when you are finished.',
         ),
         findsOneWidget,
       );
+      final unlocked = tester.widget<IgnorePointer>(
+        find.byKey(const ValueKey('completion-feedback-lock')),
+      );
+      expect(unlocked.ignoring, isFalse);
       expect(AppScope.instance.ride.status, RideStatus.ratingPending);
       expect(tester.takeException(), isNull);
     },

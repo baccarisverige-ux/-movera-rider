@@ -50,7 +50,7 @@ class RideStageTransition<T> extends PageRouteBuilder<T> {
   RideStageTransition(Widget page)
       : super(
           pageBuilder: (context, animation, secondary) => page,
-          transitionDuration: const Duration(milliseconds: 140),
+          transitionDuration: const Duration(milliseconds: 120),
           reverseTransitionDuration: Duration.zero,
           transitionsBuilder: (context, animation, secondary, child) {
             if (MoveraMotion.reduced(context)) return child;
@@ -58,7 +58,28 @@ class RideStageTransition<T> extends PageRouteBuilder<T> {
               parent: animation,
               curve: Curves.easeOutCubic,
             );
-            return FadeTransition(opacity: curved, child: child);
+            final veil = Tween<double>(
+              begin: 0.12,
+              end: 0,
+            ).animate(curved);
+            // Never fade the incoming ride stage itself. Fading the whole
+            // child exposes the previous stage underneath for a few frames,
+            // which is especially visible after that stage has already parked
+            // its map. Keep an opaque neutral surface behind the new stage and
+            // fade only a very light veil over the new screen.
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                const ColoredBox(color: Color(0xFFF6F5F1)),
+                child,
+                IgnorePointer(
+                  child: FadeTransition(
+                    opacity: veil,
+                    child: const ColoredBox(color: Color(0xFFF6F5F1)),
+                  ),
+                ),
+              ],
+            );
           },
         );
 }
