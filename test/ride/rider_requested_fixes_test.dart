@@ -46,6 +46,8 @@ void main() {
     expect(waiting, contains('allowCancel: true'));
     expect(waiting, contains('CancelPhase.inTrip'));
     expect(waiting, contains('onCancel: _confirmCancel'));
+    expect(waiting, contains("label: 'Cancel ride'"));
+    expect(waiting, contains('onPressed: _confirmCancel'));
     expect(panel, contains("ValueKey<String>('active-trip-cancel')"));
     expect(panel, contains("label: const Text('Cancel ride')"));
     expect(phase, contains('inTrip'));
