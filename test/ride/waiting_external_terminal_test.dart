@@ -86,7 +86,8 @@ void main() {
     final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
     realtime.emit(terminal);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    // Let the modal sheet finish its entrance before hit-testing the CTA.
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(find.byType(RideTerminalStateSheet), findsOneWidget);
     expect(AppScope.instance.ride.status, terminal);
