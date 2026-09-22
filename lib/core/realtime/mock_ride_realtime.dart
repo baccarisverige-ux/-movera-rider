@@ -18,6 +18,9 @@ class MockRideRealtime implements RideRealtime {
     this.boardAfter = const Duration(seconds: 8),
     this.tripTick = const Duration(seconds: 3),
     this.tripTicks = 6,
+    this.paymentProcessingAfter = const Duration(milliseconds: 500),
+    this.paymentFinalizedAfter = const Duration(milliseconds: 500),
+    this.ratingPendingAfter = const Duration(milliseconds: 300),
     RealtimeConnection? connection,
     this.api,
   }) : connection = connection ?? RealtimeConnection();
@@ -30,6 +33,13 @@ class MockRideRealtime implements RideRealtime {
   /// Cadence and length of the trip itself, so a ride can actually finish.
   final Duration tripTick;
   final int tripTicks;
+
+  /// Demo-only post-trip cadence. Production replaces MockRideRealtime with
+  /// the real transport, where these statuses are backend-authored.
+  final Duration paymentProcessingAfter;
+  final Duration paymentFinalizedAfter;
+  final Duration ratingPendingAfter;
+
   final RealtimeConnection connection;
   final ApiClient? api;
   final _controller = StreamController<RideRealtimeEvent>.broadcast();
@@ -37,6 +47,9 @@ class MockRideRealtime implements RideRealtime {
   Timer? _gps;
   Timer? _board;
   Timer? _trip;
+  Timer? _paymentProcessing;
+  Timer? _paymentFinalized;
+  Timer? _ratingPending;
   int _tripTicksDone = 0;
   int _assignmentAttempt = 0;
   String? _rideId;
@@ -63,6 +76,9 @@ class MockRideRealtime implements RideRealtime {
     _gps?.cancel();
     _board?.cancel();
     _trip?.cancel();
+    _paymentProcessing?.cancel();
+    _paymentFinalized?.cancel();
+    _ratingPending?.cancel();
     _tripTicksDone = 0;
     _assignmentAttempt = 0;
     cancelled = false;
@@ -316,10 +332,35 @@ class MockRideRealtime implements RideRealtime {
           timer.cancel();
           lastStatus = RideStatus.tripCompleted;
           _emit(RideStatus.tripCompleted);
+          _startPostTripFlow();
           return;
         }
         lastStatus = RideStatus.tripInProgress;
         _emit(RideStatus.tripInProgress);
+      });
+    });
+  }
+
+  void _startPostTripFlow() {
+    _paymentProcessing?.cancel();
+    _paymentFinalized?.cancel();
+    _ratingPending?.cancel();
+
+    _paymentProcessing = Timer(paymentProcessingAfter, () {
+      if (cancelled || disposed || _rideId == null) return;
+      lastStatus = RideStatus.paymentProcessing;
+      _emit(RideStatus.paymentProcessing);
+
+      _paymentFinalized = Timer(paymentFinalizedAfter, () {
+        if (cancelled || disposed || _rideId == null) return;
+        lastStatus = RideStatus.paymentFinalized;
+        _emit(RideStatus.paymentFinalized);
+
+        _ratingPending = Timer(ratingPendingAfter, () {
+          if (cancelled || disposed || _rideId == null) return;
+          lastStatus = RideStatus.ratingPending;
+          _emit(RideStatus.ratingPending);
+        });
       });
     });
   }
@@ -437,6 +478,12 @@ class MockRideRealtime implements RideRealtime {
     _board = null;
     _trip?.cancel();
     _trip = null;
+    _paymentProcessing?.cancel();
+    _paymentProcessing = null;
+    _paymentFinalized?.cancel();
+    _paymentFinalized = null;
+    _ratingPending?.cancel();
+    _ratingPending = null;
   }
 
   @override

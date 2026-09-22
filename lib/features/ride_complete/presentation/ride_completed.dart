@@ -122,16 +122,6 @@ class _RideCompletedState extends State<RideCompleted> {
                   child: Column(
                     children: [
                       _CompletionHero(spec: spec),
-                      const SizedBox(height: 12),
-                      const _BelongingsReminder(),
-                      const SizedBox(height: 14),
-                      _SurfaceCard(
-                        child: const RideCompletedDriverInfo(),
-                      ),
-                      const SizedBox(height: 14),
-                      _SurfaceCard(
-                        child: const RideCompletedTripDetail(),
-                      ),
                       if (canRate) ...[
                         const SizedBox(height: 14),
                         const _SurfaceCard(
@@ -142,6 +132,16 @@ class _RideCompletedState extends State<RideCompleted> {
                           child: RideCompletedAddTip(),
                         ),
                       ],
+                      const SizedBox(height: 12),
+                      const _BelongingsReminder(),
+                      const SizedBox(height: 14),
+                      _SurfaceCard(
+                        child: const RideCompletedDriverInfo(),
+                      ),
+                      const SizedBox(height: 14),
+                      _SurfaceCard(
+                        child: const RideCompletedTripDetail(),
+                      ),
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
