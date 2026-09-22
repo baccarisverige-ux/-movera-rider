@@ -16,7 +16,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: RiderInTripPanel(
             destinationAddress: 'Hornsgatan 2, Stockholm',
