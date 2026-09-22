@@ -728,7 +728,7 @@ class _SelectRideState extends State<SelectRide>
         SheetCoordinator.instance.open(RideSheet.finding);
         await Navigator.push(
           context,
-          BottomToTopTransition(
+          RideStageTransition(
             FindingDrivers(
               pickupAddress: _pickupAddress,
               destinationAddress: widget.destinationAddress,
