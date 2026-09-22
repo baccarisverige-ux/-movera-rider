@@ -880,7 +880,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         Marker(
           markerId: const MarkerId('driver'),
           position: LatLng(eta!.latitude!, eta.longitude!),
-          rotation: eta.bearing ?? 0,
+          rotation: 0,
           flat: true,
           anchor: const Offset(0.5, 0.5),
           icon:
