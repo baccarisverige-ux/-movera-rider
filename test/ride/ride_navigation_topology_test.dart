@@ -20,6 +20,16 @@ void main() {
 
     expect(transitions, contains('class RideStageTransition'));
     expect(transitions, contains('reverseTransitionDuration: Duration.zero'));
+    expect(
+      transitions,
+      contains("const ColoredBox(color: Color(0xFFF6F5F1))"),
+      reason: 'incoming ride stages need an opaque cover over the previous route',
+    );
+    expect(
+      transitions,
+      isNot(contains('FadeTransition(opacity: curved, child: child)')),
+      reason: 'fading the entire incoming ride stage exposes the previous stage',
+    );
     expect(home, contains('RideStageTransition(\n          SelectRide('));
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));
