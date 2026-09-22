@@ -8,8 +8,32 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
-class AddPlace extends StatelessWidget {
+class AddPlace extends StatefulWidget {
   const AddPlace({super.key});
+
+  @override
+  State<AddPlace> createState() => _AddPlaceState();
+}
+
+class _AddPlaceState extends State<AddPlace> {
+  final TextEditingController _locationController = TextEditingController();
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickLocation() async {
+    final selected = await Navigator.push<String>(
+      context,
+      BottomToTopTransition(
+        const RiderSearchPickupLocation(allowCreateShortcut: false),
+      ),
+    );
+    if (!mounted || selected == null || selected.trim().isEmpty) return;
+    setState(() => _locationController.text = selected.trim());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,12 +129,7 @@ class AddPlace extends StatelessWidget {
               ),
               16.height,
               InkWell(
-                onTap: () {
-                  Navigator.pushReplacement(
-                    context,
-                    BottomToTopTransition(RiderSearchPickupLocation()),
-                  );
-                },
+                onTap: _pickLocation,
                 child: Container(
                   decoration: BoxDecoration(
                     border: Border(
@@ -118,6 +137,7 @@ class AddPlace extends StatelessWidget {
                     ),
                   ),
                   child: TextField(
+                    controller: _locationController,
                     enabled: false,
                     style: GoogleFonts.poppins(
                       color: AppColor.title,
