@@ -32,7 +32,8 @@ import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';\nimport 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class WaitingForDriver extends StatefulWidget {
