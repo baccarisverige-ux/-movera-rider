@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -55,7 +57,18 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     final ride = _reservations.byId(widget.reservationId);
     if (ride == null || !ride.revealsDriver || _handedOff || !mounted) return;
     _handedOff = true;
-    ReservationLiveRide.open(context, ride, replace: true);
+    unawaited(_openLiveRide(ride));
+  }
+
+  Future<void> _openLiveRide(Reservation ride) async {
+    await ReservationLiveRide.open(
+      context,
+      ride,
+      controller: _reservations,
+    );
+    if (!mounted) return;
+    _handedOff = false;
+    _handoffIfLive();
   }
 
   Future<void> _editReservation(Reservation ride) async {
