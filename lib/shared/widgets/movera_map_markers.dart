@@ -7,7 +7,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class MoveraRiderPuckMarker {
   const MoveraRiderPuckMarker._();
 
-  static Future<BitmapDescriptor> createIcon() async {
+  static Future<({BitmapDescriptor icon, ui.Image image})> createVisual({
+    bool expanded = false,
+  }) async {
     const width = 65.9;
     const height = 75.3;
     final recorder = ui.PictureRecorder();
@@ -25,7 +27,11 @@ class MoveraRiderPuckMarker {
         const Color(0x35747B80),
       ]);
     canvas.drawPath(beam, beamPaint);
-    canvas.drawCircle(center, 25, Paint()..color = const Color(0x18747B80));
+    canvas.drawCircle(
+      center,
+      expanded ? 31 : 25,
+      Paint()..color = const Color(0x18747B80),
+    );
     canvas.drawCircle(center, 20, Paint()..color = Colors.white);
     canvas.drawCircle(center, 15, Paint()..color = const Color(0xFF747B80));
 
@@ -34,9 +40,16 @@ class MoveraRiderPuckMarker {
       height.toInt(),
     );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    if (data == null) return BitmapDescriptor.defaultMarker;
-    return BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+    final icon = data == null
+        ? BitmapDescriptor.defaultMarker
+        : BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+    return (icon: icon, image: image);
+  }
+
+  static Future<BitmapDescriptor> createIcon({bool expanded = false}) async {
+    final visual = await createVisual(expanded: expanded);
+    visual.image.dispose();
+    return visual.icon;
   }
 }
 

@@ -18,6 +18,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.onOpenProfile,
     required this.onCall,
     required this.onMore,
+    required this.onCancel,
   });
 
   final String destinationAddress;
@@ -30,6 +31,7 @@ class RiderInTripPanel extends StatelessWidget {
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
   final VoidCallback onMore;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +144,24 @@ class RiderInTripPanel extends StatelessWidget {
                 const SizedBox(height: 10),
                 SafetyKitSheetRow(rideId: rideId),
               ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey<String>('active-trip-cancel'),
+              onPressed: onCancel,
+              icon: const Icon(Icons.close_rounded, size: 18),
+              label: const Text('Cancel ride'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFB42318),
+                side: const BorderSide(color: Color(0xFFE4B8B4)),
+                minimumSize: const Size.fromHeight(50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
             ),
           ),
         ],

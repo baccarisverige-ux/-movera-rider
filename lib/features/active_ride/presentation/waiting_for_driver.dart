@@ -405,7 +405,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final outcome = await showCancelRideSheet(
       context,
       takingLonger: false,
-      phase: CancelPhase.matched,
+      phase: _isInTrip ? CancelPhase.inTrip : CancelPhase.matched,
     );
     if (!outcome.cancelled || !mounted) return;
     _leaving = true;
@@ -452,7 +452,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
         canEditPickup: false,
-        allowCancel: !_isInTrip,
+        allowCancel: true,
         onEditPickup: () {},
         onEditDestination: () {},
         onCancelTrip: () async {
@@ -573,10 +573,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   children: [
                     MoveraIconButton.round(
                       icon: _isInTrip
-                          ? Icons.receipt_long_outlined
+                          ? Icons.close_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      onPressed: _isInTrip ? _openDetails : _confirmCancel,
-                      label: _isInTrip ? 'Trip details' : 'Cancel ride',
+                      onPressed: _confirmCancel,
+                      label: 'Cancel ride',
                     ),
                     const Spacer(),
                     SafetyKitMapButton(rideId: _rideId),
@@ -719,6 +719,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         onOpenProfile: _openProfile,
         onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
         onMore: _openDetails,
+        onCancel: _confirmCancel,
       );
     }
 
@@ -858,14 +859,12 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
   Set<Marker> _buildMarkers() {
     final eta = widget.tracking.eta;
     return {
-      if (!_inTrip)
+      if (!_inTrip && _riderPuck != null)
         Marker(
           markerId: const MarkerId('pickup'),
           position: widget.pickupPosition,
           infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
-          icon:
-              _riderPuck ??
-              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          icon: _riderPuck!,
           anchor: const Offset(0.5, 0.72),
         ),
       Marker(

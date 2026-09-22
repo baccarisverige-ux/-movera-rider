@@ -72,6 +72,8 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             Text(
               widget.phase == CancelPhase.reservation
                   ? 'Optional. This helps us improve scheduled rides.'
+                  : widget.phase == CancelPhase.inTrip
+                  ? 'Optional. This helps us understand active-trip cancellations.'
                   : 'Optional. This helps us improve matching.',
               style: GoogleFonts.poppins(
                 fontSize: 13,
