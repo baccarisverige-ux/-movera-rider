@@ -6,7 +6,7 @@ class ReservationPolicyCatalog {
     pricingDisclaimer:
         'Reserved prices can differ from on-demand prices for the same route. The amount shown is your current reserved estimate for this category.',
     assignmentDisclaimer:
-        'Driver details will appear here if an assignment is confirmed.',
+        'Driver details will appear here when a driver is assigned. Assignment timing is not published yet.',
     waitingSummary:
         'No included waiting period is currently published.',
     cancellationSummary:
