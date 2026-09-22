@@ -363,6 +363,8 @@ void main() {
 
     expect(observer, contains('bool moveraRouteIsSettled(BuildContext context)'));
     expect(observer, contains('animation.status != AnimationStatus.completed'));
+    expect(observer, contains('_signalWhenRouteEntryFinishes(route, animation)'));
+    expect(observer, contains('moveraNavigationEpoch.value += 1'));
     expect(observer, contains('void _routeChangedAfterExit('));
     expect(observer, contains('route is TransitionRoute<dynamic>'));
     expect(observer, contains('route.completed.whenComplete('));
