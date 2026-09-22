@@ -6,6 +6,7 @@ import 'package:movera_rider/features/auth/presentation/create_acc.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in_phone.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/features/messages/presentation/messages.dart';
 import 'package:movera_rider/features/safety/presentation/how_movera_protects_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_tips_page.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
@@ -24,6 +25,7 @@ void main() {
     'Sign in with phone': () => const SignInPhone(),
     'Create account': () => const CreateAccount(),
     'Add place': () => const AddPlace(),
+    'Messages inbox': () => const MessagesInbox(),
     'How Movera protects you': () => const HowMoveraProtectsPage(),
     'Safety tips': () => const SafetyTipsPage(),
     'Help articles': () => const HelpArticles(),
