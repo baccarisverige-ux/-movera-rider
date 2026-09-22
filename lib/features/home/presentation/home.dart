@@ -460,15 +460,13 @@ class _HomeState extends State<Home> {
         resolvedDestination = destinationResult.address;
         destinationPosition = destinationResult.point;
       } else {
-        final result = await _openPickupMapPicker(
-          destination,
-          isDestination: true,
-        );
-        if (result == null || !mounted) return null;
-        resolvedDestination = result.address.trim().isNotEmpty
-            ? result.address.trim()
-            : destination;
-        destinationPosition = result.position;
+        if (mounted) {
+          MoveraToast.show(
+            context,
+            'Choose a valid destination address.',
+          );
+        }
+        return null;
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
@@ -681,6 +679,29 @@ class _HomeState extends State<Home> {
                         ),
                       ),
                       8.width,
+                      if (badgeColor != null) ...[
+                        Semantics(
+                          button: true,
+                          label: field == 'pickup'
+                              ? 'Set pickup on map'
+                              : 'Select final destination',
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap:
+                                onMapTap ??
+                                () => activateField(
+                                  field,
+                                  controller,
+                                  stopIndex: stopIndex,
+                                ),
+                            child: PremiumRouteLocationBadge(
+                              color: badgeColor,
+                              size: ResSize.h * 35.2,
+                            ),
+                          ),
+                        ),
+                        7.width,
+                      ],
                       Expanded(
                         child: TextField(
                           controller: controller,
@@ -737,30 +758,6 @@ class _HomeState extends State<Home> {
                           ),
                         ),
                       ),
-                      if (badgeColor != null)
-                        Semantics(
-                          button: true,
-                          label: field == 'pickup'
-                              ? 'Set pickup on map'
-                              : 'Select final destination',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap:
-                                onMapTap ??
-                                () => activateField(
-                                  field,
-                                  controller,
-                                  stopIndex: stopIndex,
-                                ),
-                            child: Padding(
-                              padding: EdgeInsets.only(left: ResSize.w * 3),
-                              child: PremiumRouteLocationBadge(
-                                color: badgeColor,
-                                size: ResSize.h * 35.2,
-                              ),
-                            ),
-                          ),
-                        ),
                       if (removable)
                         IconButton(
                           onPressed: () {
@@ -852,22 +849,9 @@ class _HomeState extends State<Home> {
                     controller: destinationController,
                     focusNode: destinationFocus,
                     badgeColor: const Color(0xFF1769E8),
-                    onMapTap: () async {
-                      FocusScope.of(context).unfocus();
-                      final result = await _openPickupMapPicker(
-                        destinationController.text.trim(),
-                        isDestination: true,
-                      );
-                      if (result == null || !mounted) return;
-                      destinationController.text = result.address;
-                      destinationController.selection = TextSelection.collapsed(
-                        offset: destinationController.text.length,
-                      );
-                      setModalState(() {
-                        destinationConfirmedOnMap = true;
-                        confirmedDestinationLatLng = result.position;
-                        query = destinationController.text;
-                      });
+                    onMapTap: () {
+                      activateField('destination', destinationController);
+                      destinationFocus.requestFocus();
                     },
                   ),
                 );
@@ -894,9 +878,9 @@ class _HomeState extends State<Home> {
                   child: Container(
                     height: MediaQuery.of(context).size.height * 0.92,
                     padding: EdgeInsets.fromLTRB(
-                      ResSize.w * 18,
+                      ResSize.w * 14,
                       ResSize.h * 10,
-                      ResSize.w * 18,
+                      ResSize.w * 14,
                       ResSize.h * 16,
                     ),
                     decoration: const BoxDecoration(
@@ -983,7 +967,7 @@ class _HomeState extends State<Home> {
                                 ),
                               ),
                             ),
-                            10.width,
+                            6.width,
                             Material(
                               color: const Color(0xFFF0F2F3),
                               shape: const CircleBorder(),
@@ -1011,8 +995,8 @@ class _HomeState extends State<Home> {
                                       },
                                 customBorder: const CircleBorder(),
                                 child: SizedBox(
-                                  width: ResSize.w * 48,
-                                  height: ResSize.h * 48,
+                                  width: ResSize.w * 44,
+                                  height: ResSize.h * 44,
                                   child: Icon(
                                     Icons.add_rounded,
                                     color: stopControllers.length >= 3
@@ -1246,16 +1230,13 @@ class _HomeState extends State<Home> {
                                         exactDestinationPosition =
                                             geocodedDestination.point;
                                       } else {
-                                        final result =
-                                            await _openPickupMapPicker(
-                                              destinationText,
-                                              isDestination: true,
-                                            );
-                                        if (result == null || !mounted) return;
-                                        destinationController.text =
-                                            result.address;
-                                        exactDestinationPosition =
-                                            result.position;
+                                        if (sheetContext.mounted) {
+                                          MoveraToast.show(
+                                            sheetContext,
+                                            'Choose a valid destination address.',
+                                          );
+                                        }
+                                        return;
                                       }
                                     }
                                     if (!mounted ||
@@ -1362,7 +1343,7 @@ class _HomeState extends State<Home> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Please confirm pickup and destination on the map.',
+                'Please choose a valid pickup and destination.',
               ),
             ),
           );
@@ -2194,7 +2175,7 @@ class _HomeState extends State<Home> {
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
                         screenHorizPadding,
-                        ResSize.h * 60,
+                        ResSize.h * 50,
                         screenHorizPadding,
                         0,
                       ),
