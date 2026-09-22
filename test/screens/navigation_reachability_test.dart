@@ -15,8 +15,8 @@ void main() {
   test('no rendered control is left with an empty handler', () {
     final dead = <String>[];
     final empty = RegExp(
-      r'on(Pressed|Tap|LongPress|DoubleTap|Submitted)\\s*:\\s*'
-      r'\\([^)]*\\)\\s*(?:async\\s*)?\\{\\s*\\}',
+      r'on(Pressed|Tap|LongPress|DoubleTap|Submitted)\s*:\s*'
+      r'\([^)]*\)\s*(?:async\s*)?\{\s*\}',
       multiLine: true,
     );
 
