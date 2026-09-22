@@ -4,8 +4,14 @@ import 'package:flutter/widgets.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
-/// Monotonic signal for route-stack changes.
+/// Monotonic signal for settled route-stack changes.
 final ValueNotifier<int> moveraNavigationEpoch = ValueNotifier<int>(0);
+
+/// Number of outgoing animated routes that have been popped/replaced but have
+/// not yet finished leaving the Navigator overlay.
+final ValueNotifier<int> moveraNavigationTransitions = ValueNotifier<int>(0);
+
+bool get moveraNavigationSettled => moveraNavigationTransitions.value == 0;
 
 /// Keep Chrome from treating Home sheet overscroll as history.back.
 class HomeHistoryObserver extends NavigatorObserver {
@@ -31,10 +37,13 @@ class HomeHistoryObserver extends NavigatorObserver {
   }) {
     if (unlockFirst) setWebHomeLock(false);
     if (route is TransitionRoute<dynamic>) {
+      moveraNavigationTransitions.value += 1;
       unawaited(
-        route.completed.whenComplete(
-          () => _routeChanged(unlockFirst: unlockFirst),
-        ),
+        route.completed.whenComplete(() {
+          final next = moveraNavigationTransitions.value - 1;
+          moveraNavigationTransitions.value = next < 0 ? 0 : next;
+          _routeChanged(unlockFirst: unlockFirst);
+        }),
       );
       return;
     }
