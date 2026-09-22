@@ -228,7 +228,7 @@ void main() {
 
     final original = RideSnapshot(
       status: RideStatus.findingDriver,
-      savedAt: DateTime(2026, 9, 22, 12),
+      savedAt: DateTime.now(),
       pickupAddress: 'Book Now pickup',
       destinationAddress: 'Book Now destination',
       pickupLat: 59.3,
