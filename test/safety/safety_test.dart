@@ -22,6 +22,7 @@ import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 SafetyController buildController({SafetyStore? store}) {
@@ -329,4 +330,65 @@ void main() {
     expect(RideCheckEvent.fromJson({}).type, RideCheckEventType.manualSafetyCheck);
     expect(EmergencyContact.fromJson({}).name, '');
   });
+
+  testWidgets('Safety Kit finishes closing before Trip Share page opens', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  showRideSafetyKit(context, rideId: 'ride_handoff_share'),
+              child: const Text('Open Safety Kit'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Safety Kit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Safety tools'), findsOneWidget);
+
+    await tester.tap(find.text('Share trip'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Share trip status'), findsOneWidget);
+    expect(find.text('Trip sharing'), findsOneWidget);
+    expect(find.text('Safety tools'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Safety Kit finishes closing before Safety Hub opens', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  showRideSafetyKit(context, rideId: 'ride_handoff_hub'),
+              child: const Text('Open Safety Kit'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Safety Kit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Safety tools'), findsOneWidget);
+
+    await tester.tap(find.text('Safety preferences'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PIN verification'), findsOneWidget);
+    expect(find.text('Emergency contacts'), findsOneWidget);
+    expect(find.text('Safety tools'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }
