@@ -261,6 +261,41 @@ void main() {
     expect(waiting, contains('final customCancel = widget.onCancel;'));
   });
 
+
+  test('scheduled live handoff never hijacks an open child route', () {
+    final chrono = File(
+      'lib/features/reservations/presentation/home_reservation_chrono.dart',
+    ).readAsStringSync();
+    final upcoming = File(
+      'lib/features/reservations/presentation/upcoming_reservation.dart',
+    ).readAsStringSync();
+
+    for (final source in <String>[chrono, upcoming]) {
+      expect(source, contains('moveraNavigationEpoch.addListener'));
+      expect(source, contains('moveraNavigationEpoch.removeListener'));
+      expect(source, contains('bool get _routeIsCurrent'));
+      expect(source, contains('!_routeIsCurrent'));
+      expect(
+        source,
+        contains('WidgetsBinding.instance.addPostFrameCallback'),
+        reason:
+            'auto-handoff must retry only after Navigator finishes child-route changes',
+      );
+    }
+
+    expect(
+      chrono,
+      contains('if (!mounted || !_routeIsCurrent) return;'),
+      reason: 'Home chrono must not push a scheduled live ride over Profile/Wallet',
+    );
+    expect(
+      upcoming,
+      contains('_handedOff = false;'),
+      reason: 'deferred Upcoming handoff must release its duplicate guard',
+    );
+  });
+
+
   test('Saved Places location chooser keeps Add Place as its reverse parent', () {
     final add = File(
       'lib/features/saved_places/presentation/add_place.dart',
