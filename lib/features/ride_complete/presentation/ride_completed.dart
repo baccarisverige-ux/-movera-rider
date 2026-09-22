@@ -106,7 +106,7 @@ class _RideCompletedState extends State<RideCompleted> {
                     ),
                     Expanded(
                       child: Text(
-                        'Trip complete',
+                        'Ride summary',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: 17,
