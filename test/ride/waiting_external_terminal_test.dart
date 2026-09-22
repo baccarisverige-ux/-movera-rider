@@ -169,7 +169,7 @@ void main() {
     // The ride is still theirs: nothing archived, nothing wiped.
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
     expect(
-      AppScope.instance.rideRealtime.lastStatus,
+      (AppScope.instance.rideRealtime as MockRideRealtime).lastStatus,
       RideStatus.findingDriver,
     );
   });
