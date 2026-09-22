@@ -13,6 +13,31 @@ final ValueNotifier<int> moveraNavigationTransitions = ValueNotifier<int>(0);
 
 bool get moveraNavigationSettled => moveraNavigationTransitions.value == 0;
 
+final Map<Route<dynamic>, AnimationStatusListener> _moveraEntryListeners = {};
+
+void _signalWhenRouteEntryFinishes(
+  TransitionRoute<dynamic> route,
+  Animation<double> animation,
+) {
+  if (_moveraEntryListeners.containsKey(route)) return;
+  late AnimationStatusListener listener;
+  listener = (status) {
+    if (status != AnimationStatus.completed &&
+        status != AnimationStatus.dismissed) {
+      return;
+    }
+    animation.removeStatusListener(listener);
+    _moveraEntryListeners.remove(route);
+    moveraNavigationEpoch.value += 1;
+    // Route-driven screens defer their retry to post-frame; guarantee that
+    // frame even when the entry animation completion was the last scheduled
+    // visual update.
+    WidgetsBinding.instance.ensureVisualUpdate();
+  };
+  _moveraEntryListeners[route] = listener;
+  animation.addStatusListener(listener);
+}
+
 /// A screen may navigate only when it is the visible current route, its own
 /// entrance animation has completed, and no older route is still animating out
 /// above/beside it.
@@ -25,6 +50,9 @@ bool moveraRouteIsSettled(BuildContext context) {
   if (!route.isCurrent) return false;
   final animation = route.animation;
   if (animation != null && animation.status != AnimationStatus.completed) {
+    if (route is TransitionRoute<dynamic>) {
+      _signalWhenRouteEntryFinishes(route, animation);
+    }
     return false;
   }
   return moveraNavigationSettled;
