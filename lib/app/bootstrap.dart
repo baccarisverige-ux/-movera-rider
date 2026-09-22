@@ -14,14 +14,19 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // window.movera* hooks stay OFF on public web release unless debug / MOVERA_QA.
+  // Public web gets one navigation-only bridge for Safety. It exposes no
+  // ride seeding, matching controls, or Safety mutations.
+  installSafetyNavigationBridge(() {
+    final nav = moveraNavigatorKey.currentState;
+    if (nav == null) return false;
+    unawaited(nav.push<void>(RightToLeftTransition(const SafetyHub())));
+    return true;
+  });
+
+  // Debug / MOVERA_QA keeps the broader mutation-capable QA hooks gated off
+  // from public release builds.
   if (moveraQaHooksEnabled) {
     registerWebQaHooks();
-    installSafetyQaOpener(() {
-      final nav = moveraNavigatorKey.currentState;
-      if (nav == null) return;
-      nav.push(RightToLeftTransition(const SafetyHub()));
-    });
   }
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
 
