@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
@@ -13,9 +17,16 @@ class RideCompleted extends StatefulWidget {
   const RideCompleted({
     super.key,
     this.status = RideStatus.tripCompleted,
+    this.rideId,
+    this.realtime,
   });
 
   final RideStatus status;
+  final String? rideId;
+
+  /// Optional transport override keeps this surface testable while production
+  /// uses the same RideRealtime seam as the active-ride screen.
+  final RideRealtime? realtime;
 
   @override
   State<RideCompleted> createState() => _RideCompletedState();
@@ -23,7 +34,36 @@ class RideCompleted extends StatefulWidget {
 
 class _RideCompletedState extends State<RideCompleted> {
   final RideCompleteController _controller = RideCompleteController();
+  StreamSubscription<RideRealtimeEvent>? _completionSub;
+  late RideStatus _status;
   bool _leaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.status;
+    final rideId = widget.rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+
+    final realtime = widget.realtime ?? AppScope.instance.rideRealtime;
+    _completionSub = realtime.subscribe(rideId).listen((event) {
+      final status = event.status;
+      if (!mounted ||
+          _leaving ||
+          !status.isCompletedSurface ||
+          status == _status) {
+        return;
+      }
+      AppScope.instance.ride.restoreFromBackend(status, id: rideId);
+      setState(() => _status = status);
+    });
+  }
+
+  @override
+  void dispose() {
+    _completionSub?.cancel();
+    super.dispose();
+  }
 
   Future<void> _closeAndHome() async {
     if (_leaving || !mounted) return;
@@ -32,18 +72,18 @@ class _RideCompletedState extends State<RideCompleted> {
     RideNavigator.home(context, status: RideStatus.closed);
   }
 
-  _CompletionSpec get _spec => _CompletionSpec.fromStatus(widget.status);
+  _CompletionSpec get _spec => _CompletionSpec.fromStatus(_status);
 
   @override
   Widget build(BuildContext context) {
     final spec = _spec;
-    final canRate = widget.status == RideStatus.ratingPending;
+    final canRate = _status == RideStatus.ratingPending;
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
+      onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
-          _closeAndHome();
+          await _closeAndHome();
         }
       },
       child: Scaffold(
