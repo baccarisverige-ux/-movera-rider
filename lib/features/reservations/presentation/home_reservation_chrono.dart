@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -35,6 +36,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   @override
   void initState() {
     super.initState();
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
       unawaited(_onTick());
     });
@@ -49,18 +51,32 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     _openLiveIfNeeded();
   }
 
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    // Scheduled rides can become live while Profile, Wallet or another child
+    // route is open above Home. Never hijack that route; retry only after the
+    // user returns to Home and Navigator has finished the pop.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_routeIsCurrent) return;
+      _openLiveIfNeeded();
+    });
+  }
+
   void _openLiveIfNeeded() {
+    if (!mounted || !_routeIsCurrent) return;
     final ride = _nextRide();
-    if (ride == null || !ride.revealsDriver || !mounted) return;
+    if (ride == null || !ride.revealsDriver) return;
     if (_openedLiveId == ride.reservationId) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || !_routeIsCurrent) return;
       unawaited(_openLiveRide(ride));
     });
   }
 
   Future<void> _openLiveRide(Reservation ride) async {
-    if (!mounted || _openedLiveId == ride.reservationId) return;
+    if (!mounted || !_routeIsCurrent || _openedLiveId == ride.reservationId) return;
     _openedLiveId = ride.reservationId;
     await ReservationLiveRide.open(
       context,
@@ -89,6 +105,7 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
 
   @override
   void dispose() {
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _tick?.cancel();
     super.dispose();
   }
