@@ -27,7 +27,15 @@ class RiderSideMenu extends StatelessWidget {
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
-    Scaffold.of(context).closeDrawer();
+    final scaffold = Scaffold.of(context);
+    scaffold.closeDrawer();
+
+    // Drawer close is animated and is not a Navigator Future. Do not start a
+    // page transition while that surface is still moving out.
+    while (scaffold.mounted && scaffold.isDrawerOpen) {
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (!nav.mounted) return;
     await nav.push(RightToLeftTransition(page));
   }
 

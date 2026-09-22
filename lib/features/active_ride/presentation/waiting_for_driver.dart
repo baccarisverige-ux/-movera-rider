@@ -104,6 +104,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   bool _researching = false;
   bool _overlayOn = false;
   bool _mapParked = false;
+  bool _modalHandoffInProgress = false;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
@@ -179,6 +180,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         _leaving ||
         _arrivalAnnounced ||
         _completedOpened ||
+        _modalHandoffInProgress ||
         !_routeIsCurrent) {
       return;
     }
@@ -240,7 +242,13 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   }
 
   void _drainStageNavigation() {
-    if (!mounted || _leaving || _completedOpened || !_routeIsCurrent) return;
+    if (!mounted ||
+        _leaving ||
+        _completedOpened ||
+        _modalHandoffInProgress ||
+        !_routeIsCurrent) {
+      return;
+    }
     final status = _pendingStageStatus;
     if (status == null) return;
     _pendingStageStatus = null;
@@ -442,8 +450,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       _tracking.status == RideStatus.tripInProgress ||
       _tracking.status == RideStatus.approachingDropoff;
 
-  Future<void> _openDetails() {
-    return MoveraSheet.show<void>(
+  Future<void> _openDetails() async {
+    await MoveraSheet.show<void>(
       context: context,
       builder: (sheetContext) => RideDetailsSheet(
         pickupAddress: widget.pickupAddress,
@@ -456,9 +464,12 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         allowCancel: !_isInTrip,
         onEditPickup: () {},
         onEditDestination: () {},
-        onCancelTrip: () {
-          Navigator.pop(sheetContext);
-          _confirmCancel();
+        onCancelTrip: () async {
+          _modalHandoffInProgress = true;
+          await popCurrentRouteAndWaitForExit(sheetContext);
+          if (!mounted) return;
+          _modalHandoffInProgress = false;
+          await _confirmCancel();
         },
       ),
     );

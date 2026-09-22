@@ -12,16 +12,31 @@ void main() {
       .whereType<File>()
       .where((f) => f.path.endsWith('.dart') && f.path.contains('/presentation/'));
 
-  test('no control is left with an empty handler', () {
+  test('no rendered control is left with an empty handler', () {
     final dead = <String>[];
-    final empty = RegExp(r'on(Pressed|Tap): \(\) \{\}');
+    final empty = RegExp(
+      r'on(Pressed|Tap|LongPress|DoubleTap|Submitted)\s*:\s*'
+      r'\([^)]*\)\s*(?:async\s*)?\{\s*\}',
+      multiLine: true,
+    );
+
     for (final file in presentation()) {
-      if (empty.hasMatch(file.readAsStringSync())) dead.add(file.path);
+      final source = file.readAsStringSync();
+      for (final match in empty.allMatches(source)) {
+        final handler = match.group(0) ?? '';
+        final intentionalHomeMapNoop =
+            file.path.endsWith('features/home/presentation/home.dart') &&
+            handler.contains('onTap: (LatLng position) {}');
+        if (!intentionalHomeMapNoop) {
+          dead.add(file.path);
+        }
+      }
     }
+
     expect(
       dead,
       isEmpty,
-      reason: 'these render a tappable control that does nothing: $dead',
+      reason: 'these render a tappable/input control that does nothing: $dead',
     );
   });
 
@@ -108,4 +123,33 @@ void main() {
       expect(menu.contains('$screen('), isTrue, reason: screen);
     }
   });
+
+  test('screen changes are not sequenced by fixed arbitrary delays', () {
+    final offenders = <String>[];
+
+    for (final file in presentation()) {
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i += 1) {
+        if (!lines[i].contains('Future<void>.delayed') &&
+            !lines[i].contains('Future.delayed')) {
+          continue;
+        }
+
+        final end = i + 16 < lines.length ? i + 16 : lines.length;
+        final window = lines.sublist(i, end).join('\n');
+        if (window.contains('Navigator.push') ||
+            window.contains('Navigator.of(context).push')) {
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'navigation must wait for route/frame lifecycle, not a guessed millisecond delay: $offenders',
+    );
+  });
+
 }
