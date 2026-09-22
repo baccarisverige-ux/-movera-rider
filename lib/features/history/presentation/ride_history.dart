@@ -482,7 +482,7 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${ride.categoryName} · ${ReservationFormat.price(ride)}',
+              '${ride.categoryName} · Booked price ${ReservationFormat.price(ride)}',
               style: _text(15, weight: FontWeight.w700),
             ),
             const SizedBox(height: 5),
@@ -492,7 +492,7 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 5),
             Text(
-              'Paid with ${ride.paymentMethod}',
+              'Payment method: ${ride.paymentMethod}',
               style: _text(13.5, color: _muted),
             ),
             if (ride.cancellationReason?.trim().isNotEmpty == true) ...[
