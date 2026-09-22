@@ -28,6 +28,8 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     RideSnapshotStore.epoch = 0;
+    moveraNavigationEpoch.value = 0;
+    moveraNavigationTransitions.value = 0;
     AppScope.instance.ride
       ..rideId = null
       ..suppressRestore = false
@@ -89,8 +91,13 @@ void main() {
     final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
     realtime.emit(terminal);
     await tester.pump();
-    // Let the modal sheet finish its entrance before hit-testing the CTA.
+    // Let Waiting finish entering, then process the safe deferred-navigation
+    // frame requested by moveraRouteIsSettled before asserting the terminal
+    // sheet. A single long pump does not consume a frame scheduled from the
+    // end of that same pump.
     await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    await tester.pump();
 
     expect(find.byType(RideTerminalStateSheet), findsOneWidget);
     expect(AppScope.instance.ride.status, terminal);
@@ -153,6 +160,8 @@ void main() {
         .emit(RideStatus.cancelledByDriver);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+    await tester.pump();
 
     // The rider is told what happened...
     expect(find.byType(DriverCancelledSheet), findsOneWidget);
