@@ -417,7 +417,7 @@ void main() {
     ).readAsStringSync();
 
     expect(
-      RegExp(r'await popCurrentRouteAndWaitForExit\\(context\\);')
+      'await popCurrentRouteAndWaitForExit(context);'
           .allMatches(safety)
           .length,
       greaterThanOrEqualTo(2),
@@ -426,7 +426,7 @@ void main() {
     expect(safety, isNot(contains('nav.pop();\n    nav.push')));
 
     expect(
-      RegExp(r'await popCurrentRouteAndWaitForExit\\(sheetContext\\);')
+      'await popCurrentRouteAndWaitForExit(sheetContext);'
           .allMatches(finding)
           .length,
       greaterThanOrEqualTo(2),
