@@ -187,4 +187,75 @@ void main() {
     expect(restore, contains('showing = surface'));
   });
 
+
+  test('Scheduled live uses reservation transport and reversible parent topology', () {
+    final live = File(
+      'lib/features/reservations/presentation/reservation_live_ride.dart',
+    ).readAsStringSync();
+    final upcoming = File(
+      'lib/features/reservations/presentation/upcoming_reservation.dart',
+    ).readAsStringSync();
+    final chrono = File(
+      'lib/features/reservations/presentation/home_reservation_chrono.dart',
+    ).readAsStringSync();
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+
+    expect(live, contains('ReservationRideRealtime('));
+    expect(live, contains('rideId: ride.reservationId'));
+    expect(live, contains('persistRideSnapshot: false'));
+    expect(live, contains('onDriverCancelled: (context) async'));
+    expect(live, contains('Navigator.of(context).pop();'));
+    expect(live, contains('persistOnDemandState: false'));
+    expect(live, contains('showConnectionBanner: false'));
+
+    expect(upcoming, contains('unawaited(_openLiveRide(ride));'));
+    expect(upcoming, contains('_handedOff = false;'));
+    expect(
+      upcoming,
+      isNot(contains('ReservationLiveRide.open(context, ride, replace: true)')),
+      reason: 'Upcoming must remain underneath live ride for reverse navigation.',
+    );
+
+    expect(chrono, contains('Future<void> _openLiveRide(Reservation ride) async'));
+    expect(chrono, contains('_openedLiveId = ride.reservationId;'));
+    expect(chrono, contains('_openedLiveId = null;'));
+    expect(
+      chrono,
+      contains('if (!mounted || _openedLiveId == ride.reservationId) return;'),
+      reason: 'manual and automatic chrono opens must share one duplicate guard',
+    );
+
+    expect(waiting, contains('final RideRealtime? realtime;'));
+    expect(waiting, contains('final String? rideId;'));
+    expect(waiting, contains('final bool persistRideSnapshot;'));
+    expect(waiting, contains('final customDriverCancelled = widget.onDriverCancelled;'));
+    expect(waiting, contains('final customCompleted = widget.onCompleted;'));
+    expect(waiting, contains('final customCancel = widget.onCancel;'));
+  });
+
+  test('Saved Places location chooser keeps Add Place as its reverse parent', () {
+    final add = File(
+      'lib/features/saved_places/presentation/add_place.dart',
+    ).readAsStringSync();
+    final pickup = File(
+      'lib/features/saved_places/presentation/pickup_location.dart',
+    ).readAsStringSync();
+
+    expect(add, contains('class AddPlace extends StatefulWidget'));
+    expect(add, contains('final selected = await Navigator.push<String>('));
+    expect(add, isNot(contains('Navigator.pushReplacement(')));
+    expect(add, contains('controller: _locationController'));
+    expect(
+      pickup,
+      contains('this.allowCreateShortcut = true'),
+    );
+    expect(
+      pickup,
+      contains('if (!widget.allowCreateShortcut) return;'),
+      reason: 'Add Place -> location search must not recurse into Add Place again',
+    );
+  });
+
 }
