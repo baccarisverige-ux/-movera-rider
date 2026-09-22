@@ -148,6 +148,7 @@ class SafetyRow extends StatelessWidget {
         Semantics(
           button: onTap != null,
           label: title,
+          onTap: onTap,
           child: ExcludeSemantics(
             child: InkWell(
               onTap: onTap,
