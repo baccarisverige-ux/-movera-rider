@@ -29,6 +29,12 @@ class HomeHistoryObserver extends NavigatorObserver {
   void _routeChanged({bool unlockFirst = false}) {
     moveraNavigationEpoch.value += 1;
     _sync(unlockFirst: unlockFirst);
+
+    // Epoch listeners defer their work to a post-frame callback because normal
+    // NavigatorObserver callbacks can run while Navigator is locked. Route
+    // completion futures can resolve after the last animation frame, though,
+    // so explicitly request one frame to guarantee that deferred work drains.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
 
@@ -42,6 +48,12 @@ class HomeHistoryObserver extends NavigatorObserver {
       if (animation != null && animation.status != AnimationStatus.completed) {
         moveraNavigationTransitions.value += 1;
         var finished = false;
+        // Newly pushed TransitionRoutes commonly report "dismissed" before
+        // their first forward tick. Do not mistake that initial state for a
+        // finished transition. A later dismissed state is terminal only after
+        // the animation has actually started (for example, an interrupted push
+        // that reverses before reaching completed).
+        var hasStarted = animation.status != AnimationStatus.dismissed;
         late AnimationStatusListener listener;
 
         void finish() {
@@ -54,15 +66,24 @@ class HomeHistoryObserver extends NavigatorObserver {
         }
 
         listener = (status) {
+          if (status == AnimationStatus.forward ||
+              status == AnimationStatus.reverse) {
+            hasStarted = true;
+          }
           if (status == AnimationStatus.completed ||
-              status == AnimationStatus.dismissed) {
+              (status == AnimationStatus.dismissed && hasStarted)) {
             finish();
           }
         };
         animation.addStatusListener(listener);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (animation.status == AnimationStatus.completed ||
-              animation.status == AnimationStatus.dismissed) {
+          final status = animation.status;
+          if (status == AnimationStatus.forward ||
+              status == AnimationStatus.reverse) {
+            hasStarted = true;
+          }
+          if (status == AnimationStatus.completed ||
+              (status == AnimationStatus.dismissed && hasStarted)) {
             finish();
           }
         });
