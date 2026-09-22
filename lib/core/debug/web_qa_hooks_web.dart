@@ -60,6 +60,22 @@ void installSafetyQaOpener(void Function() open) {
   );
 }
 
+void installSafetyNavigationBridge(bool Function() open) {
+  // This bridge is intentionally available in public web builds. It can only
+  // navigate to the same Safety screen the rider can already open from the
+  // drawer; it cannot seed rides, alter matching, or mutate Safety state.
+  globalContext.setProperty(
+    'moveraOpenSafety'.toJS,
+    (() {
+      try {
+        return (open() ? 'ok' : 'unavailable').toJS;
+      } catch (_) {
+        return 'error'.toJS;
+      }
+    }).toJS,
+  );
+}
+
 void reportSearchSnapshot(String json) {
   globalContext.setProperty('moveraSearchSnapshotJson'.toJS, json.toJS);
 }
