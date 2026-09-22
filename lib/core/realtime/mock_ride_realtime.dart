@@ -13,6 +13,9 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// Mock matching transport. Assignment is an event, not a widget timer.
 class MockRideRealtime implements RideRealtime {
+  @override
+  bool get supportsRiderSignals => true;
+
   MockRideRealtime({
     this.assignAfter = const Duration(seconds: 25),
     this.boardAfter = const Duration(seconds: 8),

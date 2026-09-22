@@ -9,7 +9,10 @@ void main() {
     ).readAsStringSync();
 
     expect(source, contains('onTerminal: (status)'));
-    expect(source, contains('unawaited(_handleTerminal(status))'));
+    expect(source, contains('_terminalPending = status;'));
+    expect(source, contains('_drainDeferredNavigation();'));
+    expect(source, contains('!_routeIsCurrent'));
+    expect(source, contains('unawaited(_handleTerminal(terminal))'));
     expect(source, contains('Future<void> _handleTerminal(RideStatus status)'));
     expect(source, contains('_leaving = true;'));
     expect(source, contains('showRideTerminalStateSheet(context, status: status)'));

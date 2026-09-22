@@ -21,6 +21,9 @@ class RideCompleted extends StatefulWidget {
     this.status = RideStatus.tripCompleted,
     this.rideId,
     this.realtime,
+    this.persistOnDemandState = true,
+    this.showConnectionBanner = true,
+    this.onClose,
   });
 
   final RideStatus status;
@@ -29,6 +32,9 @@ class RideCompleted extends StatefulWidget {
   /// Optional transport override keeps this surface testable while production
   /// uses the same RideRealtime seam as the active-ride screen.
   final RideRealtime? realtime;
+  final bool persistOnDemandState;
+  final bool showConnectionBanner;
+  final Future<void> Function(BuildContext context)? onClose;
 
   @override
   State<RideCompleted> createState() => _RideCompletedState();
@@ -56,10 +62,12 @@ class _RideCompletedState extends State<RideCompleted> {
           status == _status) {
         return;
       }
-      AppScope.instance.ride.restoreFromBackend(status, id: rideId);
-      unawaited(
-        _controller.persistCompletedStatus(status, rideId: rideId),
-      );
+      if (widget.persistOnDemandState) {
+        AppScope.instance.ride.restoreFromBackend(status, id: rideId);
+        unawaited(
+          _controller.persistCompletedStatus(status, rideId: rideId),
+        );
+      }
       setState(() => _status = status);
     });
   }
@@ -73,6 +81,11 @@ class _RideCompletedState extends State<RideCompleted> {
   Future<void> _closeAndHome() async {
     if (_leaving || !mounted) return;
     _leaving = true;
+    final customClose = widget.onClose;
+    if (customClose != null) {
+      await customClose(context);
+      return;
+    }
     _controller.close();
     RideNavigator.home(context, status: RideStatus.closed);
   }
@@ -120,12 +133,13 @@ class _RideCompletedState extends State<RideCompleted> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: RealtimeConnectionBanner(
-                  connection: AppScope.instance.realtime,
+              if (widget.showConnectionBanner)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: RealtimeConnectionBanner(
+                    connection: AppScope.instance.realtime,
+                  ),
                 ),
-              ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),

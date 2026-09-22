@@ -2,6 +2,9 @@ import 'package:flutter/widgets.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
+/// Monotonic signal for route-stack changes.
+final ValueNotifier<int> moveraNavigationEpoch = ValueNotifier<int>(0);
+
 /// Keep Chrome from treating Home sheet overscroll as history.back.
 class HomeHistoryObserver extends NavigatorObserver {
   void _sync({bool unlockFirst = false}) {
@@ -15,19 +18,25 @@ class HomeHistoryObserver extends NavigatorObserver {
     });
   }
 
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    _sync(unlockFirst: true);
+  void _routeChanged({bool unlockFirst = false}) {
+    moveraNavigationEpoch.value += 1;
+    _sync(unlockFirst: unlockFirst);
   }
 
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => _sync();
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routeChanged(unlockFirst: true);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _routeChanged();
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _sync();
+      _routeChanged();
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
-      _sync();
+      _routeChanged();
 }

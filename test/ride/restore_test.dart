@@ -106,6 +106,46 @@ void main() {
     expect(shown, isA<Home>());
   });
 
+  test('goHome can reveal existing Home without rebuilding the root child', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    Widget? shown;
+    c.onReplaceRoot = (page) => shown = page;
+    c.showing = RestoredSurface.home;
+
+    c.goHome(replaceRoot: false);
+
+    expect(c.showing, RestoredSurface.home);
+    expect(shown, isNull);
+  });
+
+  test('replaceRootSurface updates a restored stage without replacing Navigator root', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    Widget? shown;
+    c.onReplaceRoot = (page) => shown = page;
+
+    final replaced = c.replaceRootSurface(
+      const Home(),
+      RestoredSurface.finding,
+    );
+
+    expect(replaced, isTrue);
+    expect(c.showing, RestoredSurface.finding);
+    expect(shown, isA<Home>());
+  });
+
+  test('replaceRootSurface reports unavailable when restore gate is absent', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    c.showing = RestoredSurface.waiting;
+
+    final replaced = c.replaceRootSurface(
+      const Home(),
+      RestoredSurface.finding,
+    );
+
+    expect(replaced, isFalse);
+    expect(c.showing, RestoredSurface.waiting);
+  });
+
   test('resume is idempotent when already showing', () async {
     final snapshot = snap(RideStatus.findingDriver);
     final c = RideRestoreCoordinator(reader: () async => snapshot);

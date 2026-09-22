@@ -52,6 +52,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
     zoom: 14.0,
   );
   bool _nextInFlight = false;
+  bool _mapParked = false;
 
   @override
   void initState() {
@@ -126,17 +127,39 @@ class _ScheduleRideState extends State<ScheduleRide> {
         return;
       }
       if (currentStep >= 1) {
-        await openScheduledCategorySelector(
-          context,
-          session: _session,
-          editingReservationId: widget.editing?.reservationId,
-          initialRideId: widget.editing?.categoryId,
-          initialPaymentMethod: widget.editing?.paymentMethod,
-        );
+        await _withParkedScheduleMap(() {
+          return openScheduledCategorySelector(
+            context,
+            session: _session,
+            editingReservationId: widget.editing?.reservationId,
+            initialRideId: widget.editing?.categoryId,
+            initialPaymentMethod: widget.editing?.paymentMethod,
+          );
+        });
       }
     } finally {
       _nextInFlight = false;
       if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _withParkedScheduleMap(
+    Future<void> Function() action,
+  ) async {
+    final parkedNow = !_mapParked;
+    if (parkedNow) {
+      setState(() => _mapParked = true);
+      AppScope.instance.maps.detach(owner: MapOwners.schedule);
+      _mapController = null;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    try {
+      await action();
+    } finally {
+      if (parkedNow && mounted) {
+        setState(() => _mapParked = false);
+      }
     }
   }
 
@@ -227,7 +250,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                           color: _scheduleSurface,
                           shape: const CircleBorder(),
                           child: InkWell(
-                            onTap: () => Navigator.pop(context),
+                            onTap: goToPreviousStep,
                             customBorder: const CircleBorder(),
                             child: const SizedBox(
                               width: 44,
@@ -477,7 +500,15 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   @override
   Widget build(BuildContext context) {
-    return PointerInterceptor(child: Scaffold(body: _buildPanelContent()));
+    return PopScope(
+      canPop: currentStep == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) goToPreviousStep();
+      },
+      child: PointerInterceptor(
+        child: Scaffold(body: _buildPanelContent()),
+      ),
+    );
   }
 
   Widget verticleCircle({
@@ -565,7 +596,9 @@ class _ScheduleRideState extends State<ScheduleRide> {
     return SizedBox(
       child: Stack(
         children: [
-          CustomGoogleMap(
+          _mapParked
+              ? const ColoredBox(color: Color(0xFFF5F6F6))
+              : CustomGoogleMap(
             initialPosition: _initialPosition,
             markers: _markers,
             myLocationEnabled: true,
@@ -598,9 +631,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                   Row(
                     children: [
                       InkWell(
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
+                        onTap: goToPreviousStep,
                         child: Container(
                           height: ResSize.h * 24,
                           width: ResSize.w * 24,

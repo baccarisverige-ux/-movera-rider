@@ -62,6 +62,10 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
     if (mounted) setState(() {});
   }
 
+  void _goBack() {
+    Navigator.maybePop(context);
+  }
+
   void _closeHome() {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
@@ -117,7 +121,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
                 color: kReservationSoft,
                 shape: const CircleBorder(),
                 child: InkWell(
-                  onTap: _closeHome,
+                  onTap: _goBack,
                   customBorder: const CircleBorder(),
                   child: const SizedBox(
                     width: 42,

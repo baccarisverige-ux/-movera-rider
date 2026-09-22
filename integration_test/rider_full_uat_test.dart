@@ -55,6 +55,22 @@ Future<void> _waitForStatus(
   );
 }
 
+Future<void> _waitForSeen(
+  List<RideStatus> seen,
+  RideStatus expected, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  while (DateTime.now().isBefore(deadline)) {
+    if (seen.contains(expected)) return;
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail(
+    'Timed out waiting for observed ${expected.name}; '
+    'seen: ${seen.map((status) => status.name).join(', ')}',
+  );
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -96,6 +112,10 @@ void main() {
       await _waitForStatus(realtime, RideStatus.driverAssigned);
       realtime.markArrivedForTest();
       await _waitForStatus(realtime, RideStatus.ratingPending);
+      // lastStatus is updated just before the broadcast stream delivers the
+      // same event. Wait for the observer too, because this UAT certifies the
+      // externally observed lifecycle order rather than an internal field.
+      await _waitForSeen(seen, RideStatus.ratingPending);
 
       for (final expected in const [
         RideStatus.findingDriver,

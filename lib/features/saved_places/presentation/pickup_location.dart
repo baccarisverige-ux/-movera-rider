@@ -13,9 +13,14 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RiderSearchPickupLocation extends StatefulWidget {
-  const RiderSearchPickupLocation({super.key, this.places});
+  const RiderSearchPickupLocation({
+    super.key,
+    this.places,
+    this.allowCreateShortcut = true,
+  });
 
   final SavedPlacesController? places;
+  final bool allowCreateShortcut;
 
   @override
   State<RiderSearchPickupLocation> createState() =>
@@ -216,6 +221,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       Navigator.maybePop(context, subtitle);
       return;
     }
+    if (!widget.allowCreateShortcut) return;
     Navigator.push(context, RightToLeftTransition(const AddPlace()));
   }
 

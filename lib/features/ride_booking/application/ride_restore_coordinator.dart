@@ -60,7 +60,7 @@ class RideRestoreCoordinator {
   /// tapping the public link never sees someone else's trip.
   static bool defaultSkipRestore() => false;
 
-  void goHome() {
+  void goHome({bool replaceRoot = true}) {
     // Deliberately back to Home: nothing to explain on the next load.
     clearSearchLive();
     showing = RestoredSurface.home;
@@ -70,7 +70,20 @@ class RideRestoreCoordinator {
         await RideSnapshotStore.clear();
       } catch (_) {}
     }());
-    onReplaceRoot?.call(const Home());
+    // Normal pushed ride flows already reveal the existing Home when the
+    // navigator pops to root. Rebuilding the root Home again causes a visible
+    // double transition and unnecessary map/controller churn. Cold-restored
+    // ride surfaces still need an explicit root replacement.
+    if (replaceRoot) onReplaceRoot?.call(const Home());
+  }
+
+  bool replaceRootSurface(Widget page, RestoredSurface surface) {
+    final replace = onReplaceRoot;
+    if (replace == null) return false;
+    showing = surface;
+    reportRestoreSurface(surface.name);
+    replace(page);
+    return true;
   }
 
   /// Chrome Refresh / bfcache leave fires pagehide. The live snapshot stays

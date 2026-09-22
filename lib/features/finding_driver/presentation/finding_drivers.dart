@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -64,6 +65,9 @@ class _FindingDriversState extends State<FindingDrivers>
   bool _leaving = false;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
+  bool _detailsSheetOpen = false;
+  bool _matchedPending = false;
+  RideStatus? _terminalPending;
   bool _overlayOn = false;
   int _nearbyPaintKey = 0;
   late final AnimationController _sheetSlide;
@@ -82,8 +86,15 @@ class _FindingDriversState extends State<FindingDrivers>
       value: 0,
     );
     _sheetSlide.addListener(_syncSheetOverlay);
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
     _syncSheetOverlay();
     _loadMapBits();
+    _startMatching(price: widget.price);
+  }
+
+  void _startMatching({double? price}) {
+    final effectivePrice =
+        price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
     _match.startFrom(
       pickupAddress: _pickupAddress,
       destinationAddress: widget.destinationAddress,
@@ -92,7 +103,7 @@ class _FindingDriversState extends State<FindingDrivers>
       destinationLat: widget.destinationPosition.latitude,
       destinationLng: widget.destinationPosition.longitude,
       rideType: widget.rideType,
-      price: widget.price,
+      price: effectivePrice,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
       onTick: (_) {
@@ -108,14 +119,68 @@ class _FindingDriversState extends State<FindingDrivers>
         _syncSheetOverlay();
       },
       onMatched: () {
-        if (!mounted || _leaving || _cancelSheetOpen || _pickupEditOpen) return;
-        unawaited(_openWaiting());
+        if (!mounted || _leaving) return;
+        _matchedPending = true;
+        _drainDeferredNavigation();
       },
       onTerminal: (status) {
         if (!mounted || _leaving) return;
-        unawaited(_handleTerminal(status));
+        _terminalPending = status;
+        _drainDeferredNavigation();
       },
     );
+  }
+
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    // NavigatorObserver notifications fire while Navigator is still locked.
+    // A deferred match/terminal may need to push a route, so drain it only
+    // after the current push/pop has fully committed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _drainDeferredNavigation();
+    });
+  }
+
+  void _drainDeferredNavigation() {
+    if (!mounted ||
+        _leaving ||
+        !_routeIsCurrent ||
+        _cancelSheetOpen ||
+        _pickupEditOpen ||
+        _detailsSheetOpen) {
+      return;
+    }
+
+    final terminal = _terminalPending;
+    if (terminal != null) {
+      _terminalPending = null;
+      _matchedPending = false;
+      unawaited(_handleTerminal(terminal));
+      return;
+    }
+
+    if (_matchedPending) {
+      _matchedPending = false;
+      unawaited(_openWaiting());
+    }
+  }
+
+  void _resumeFindingAfterDriverCancel() {
+    if (!mounted) return;
+    final effectivePrice =
+        _match.currentPrice > 0 ? _match.currentPrice : widget.price;
+    _leaving = false;
+    _cancelSheetOpen = false;
+    _pickupEditOpen = false;
+    _overlayOn = false;
+    _nearbyPaintKey = 0;
+    setWebOverlayOpen(false);
+    setState(() => _mapParked = false);
+    _startMatching(price: effectivePrice);
+    _loadMapBits();
   }
 
   Future<void> _handleTerminal(RideStatus status) async {
@@ -180,7 +245,7 @@ class _FindingDriversState extends State<FindingDrivers>
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
 
-    Navigator.push(
+    final researchDriver = await Navigator.push<bool>(
       context,
       RideStageTransition(
         WaitingForDriver(
@@ -196,6 +261,8 @@ class _FindingDriversState extends State<FindingDrivers>
         ),
       ),
     );
+    if (!mounted || researchDriver != true) return;
+    _resumeFindingAfterDriverCancel();
   }
 
   Future<void> _confirmCancel() async {
@@ -211,8 +278,12 @@ class _FindingDriversState extends State<FindingDrivers>
       return;
     }
     _cancelSheetOpen = false;
+    if (_terminalPending != null) {
+      _drainDeferredNavigation();
+      return;
+    }
     if (!outcome.cancelled) {
-      if (_match.matchCount == 1) unawaited(_openWaiting());
+      _drainDeferredNavigation();
       return;
     }
     _leaving = true;
@@ -223,8 +294,11 @@ class _FindingDriversState extends State<FindingDrivers>
   }
 
   Future<void> _openDetails() async {
-    await MoveraSheet.show<void>(
-      context: context,
+    if (_detailsSheetOpen || _leaving) return;
+    _detailsSheetOpen = true;
+    try {
+      await MoveraSheet.show<void>(
+        context: context,
       builder: (sheetContext) => RideDetailsSheet(
         pickupAddress: _pickupAddress,
         destinationAddress: widget.destinationAddress,
@@ -275,9 +349,8 @@ class _FindingDriversState extends State<FindingDrivers>
             }
           });
 
-          if (_match.matchCount == 1 && !_leaving) {
-            _openWaiting();
-          }
+          if (_match.matchCount == 1) _matchedPending = true;
+          _drainDeferredNavigation();
         },
         onEditDestination: () => Navigator.pop(sheetContext),
         onCancelTrip: () {
@@ -285,11 +358,16 @@ class _FindingDriversState extends State<FindingDrivers>
           _confirmCancel();
         },
       ),
-    );
+      );
+    } finally {
+      _detailsSheetOpen = false;
+      if (mounted) _drainDeferredNavigation();
+    }
   }
 
   @override
   void dispose() {
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
     if (!_leaving && _match.matchCount == 0) {

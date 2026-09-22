@@ -51,19 +51,30 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
 
   void _openLiveIfNeeded() {
     final ride = _nextRide();
-    if (ride == null || !ride.revealsDriver) return;
+    if (ride == null || !ride.revealsDriver || !mounted) return;
     if (_openedLiveId == ride.reservationId) return;
-    if (!mounted) return;
-    _openedLiveId = ride.reservationId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ReservationLiveRide.open(context, ride);
+      unawaited(_openLiveRide(ride));
     });
+  }
+
+  Future<void> _openLiveRide(Reservation ride) async {
+    if (!mounted || _openedLiveId == ride.reservationId) return;
+    _openedLiveId = ride.reservationId;
+    await ReservationLiveRide.open(
+      context,
+      ride,
+      controller: _reservations,
+    );
+    if (!mounted || _openedLiveId != ride.reservationId) return;
+    _openedLiveId = null;
+    _openLiveIfNeeded();
   }
 
   void _openRide(Reservation ride) {
     if (ride.revealsDriver) {
-      ReservationLiveRide.open(context, ride);
+      unawaited(_openLiveRide(ride));
       return;
     }
     Navigator.of(context).push(

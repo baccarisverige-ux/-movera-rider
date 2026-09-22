@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/application/reservation_ride_realtime.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 abstract final class ReservationLiveRide {
@@ -43,7 +47,19 @@ abstract final class ReservationLiveRide {
     return _fallback;
   }
 
-  static WaitingForDriver pageFor(Reservation ride) {
+  static ReservationController _controller(ReservationController? controller) =>
+      controller ?? AppScope.instance.reservations;
+
+  static WaitingForDriver pageFor(
+    Reservation ride, {
+    ReservationController? controller,
+  }) {
+    final reservations = _controller(controller);
+    final realtime = ReservationRideRealtime(
+      controller: reservations,
+      reservationId: ride.reservationId,
+    );
+
     return WaitingForDriver(
       pickupAddress: ride.pickup.label,
       destinationAddress: ride.destination.label,
@@ -54,15 +70,63 @@ abstract final class ReservationLiveRide {
       paymentMethod: ride.paymentMethod,
       notes: notesOf(ride),
       driver: ride.driver == null ? null : driverOf(ride.driver!),
+      rideId: ride.reservationId,
+      realtime: realtime,
+      persistRideSnapshot: false,
+      onCancel: (context, reasonId) async {
+        await reservations.cancel(
+          ride.reservationId,
+          reason: reasonId ?? 'rider_cancelled_live',
+        );
+        if (!context.mounted) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      },
+      onDriverCancelled: (context) async {
+        if (!context.mounted) return;
+        // The parent is either Upcoming Reservation or Home. Returning one
+        // route preserves the reverse path and leaves the reservation alive.
+        Navigator.of(context).pop();
+      },
+      onTerminal: (context, status) async {
+        if (!context.mounted) return;
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      },
+      onCompleted: (context, status) async {
+        if (!context.mounted) return;
+        final completionRealtime = ReservationRideRealtime(
+          controller: reservations,
+          reservationId: ride.reservationId,
+        );
+        Navigator.of(context).pushReplacement(
+          RideStageTransition(
+            RideCompleted(
+              status: status,
+              rideId: ride.reservationId,
+              realtime: completionRealtime,
+              persistOnDemandState: false,
+              showConnectionBanner: false,
+              onClose: (completionContext) async {
+                if (!completionContext.mounted) return;
+                Navigator.of(
+                  completionContext,
+                ).popUntil((route) => route.isFirst);
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
   static Future<void> open(
     BuildContext context,
     Reservation ride, {
+    ReservationController? controller,
     bool replace = false,
   }) {
-    final route = BottomToTopTransition(pageFor(ride));
+    final route = BottomToTopTransition(
+      pageFor(ride, controller: controller),
+    );
     if (replace) {
       return Navigator.of(context).pushReplacement(route);
     }

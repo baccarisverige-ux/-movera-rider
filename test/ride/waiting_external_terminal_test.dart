@@ -3,9 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -110,7 +113,7 @@ void main() {
   // A driver dropping the ride before pickup is not the rider's ride ending:
   // dispatch looks again, so Waiting goes back to searching rather than Home,
   // and the ride is not filed away as cancelled.
-  testWidgets('driver cancellation returns Waiting to searching', (
+  testWidgets('driver cancellation reverses Waiting to its existing parent route', (
     tester,
   ) async {
     const rideId = 'waiting-driver-cancel-research';
@@ -158,14 +161,97 @@ void main() {
     await tester.tap(find.text('Keep searching'));
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
-    // ...and lands back in the search, not on Home.
+    // Normal navigation reverses one level instead of stacking a second
+    // Finding route. This isolated host uses audit-root as the parent; in the
+    // production stack that parent is the already parked Finding route.
     expect(find.byType(WaitingForDriver), findsNothing);
-    expect(find.text('audit-root'), findsNothing);
-    expect(find.byType(FindingDrivers), findsOneWidget);
+    expect(find.text('audit-root'), findsOneWidget);
+    expect(find.byType(FindingDrivers), findsNothing);
+    expect(navigatorKey.currentState!.canPop(), isFalse);
 
     // The ride is still theirs: nothing archived, nothing wiped.
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
+    final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+    expect(realtime.lastStatus, RideStatus.findingDriver);
+    // researchAfterDriverCancel intentionally starts the next assignment timer.
+    // This test only certifies the reverse route topology, so stop that future
+    // mock assignment before Flutter verifies there are no leaked timers.
+    realtime.holdAssignment();
   });
+
+  testWidgets(
+    'driver-arrived popup waits until a child route returns to the active ride',
+    (tester) async {
+      const rideId = 'waiting-arrival-child-route';
+      await RideSnapshotStore.save(waitingSnapshot(rideId));
+      AppScope.instance.ride.restoreFromBackend(
+        RideStatus.driverAssigned,
+        id: rideId,
+      );
+
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          navigatorObservers: [HomeHistoryObserver()],
+          home: const Scaffold(body: Center(child: Text('audit-root'))),
+        ),
+      );
+
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const WaitingForDriver(
+            pickupAddress: 'Stockholm pickup',
+            destinationAddress: 'Stockholm destination',
+            pickupPosition: LatLng(59.3293, 18.0686),
+            destinationPosition: LatLng(59.3326, 18.0649),
+            rideType: 'Movera',
+            price: 259,
+            paymentMethod: 'Apple Pay',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+      realtime.holdAssignment();
+
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(
+            body: Center(child: Text('temporary-child')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('temporary-child'), findsOneWidget);
+
+      realtime.emit(
+        RideStatus.driverWaiting,
+        signal: RideRealtimeSignal.driverArrived,
+        message: 'Driver arrived',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(find.byType(DriverArrivedSheet), findsNothing);
+      expect(find.text('temporary-child'), findsOneWidget);
+
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle(const Duration(milliseconds: 250));
+
+      expect(find.byType(DriverArrivedSheet), findsOneWidget);
+
+      // Close the modal and stop any future mock assignment before teardown.
+      Navigator.of(
+        tester.element(find.byType(DriverArrivedSheet)),
+        rootNavigator: true,
+      ).pop();
+      await tester.pumpAndSettle();
+      realtime.holdAssignment();
+    },
+  );
 
   testWidgets('system cancellation exits Waiting to Home exactly as terminal', (
     tester,
