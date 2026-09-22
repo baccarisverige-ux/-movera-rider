@@ -40,6 +40,29 @@ class TopToBottomTransition<T> extends PageRouteBuilder<T> {
         );
 }
 
+/// Full-screen ride lifecycle stages use a deliberately quiet transition.
+///
+/// Map-heavy ride pages must not slide over one another for hundreds of
+/// milliseconds: on web/PWA that briefly keeps two platform maps alive and can
+/// look like a crash. Forward navigation gets a short fade; unwinding the ride
+/// stack back to Home is instantaneous so intermediate stages never flash.
+class RideStageTransition<T> extends PageRouteBuilder<T> {
+  RideStageTransition(Widget page)
+      : super(
+          pageBuilder: (context, animation, secondary) => page,
+          transitionDuration: const Duration(milliseconds: 140),
+          reverseTransitionDuration: Duration.zero,
+          transitionsBuilder: (context, animation, secondary, child) {
+            if (MoveraMotion.reduced(context)) return child;
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            );
+            return FadeTransition(opacity: curved, child: child);
+          },
+        );
+}
+
 class SwitchTransition<T> extends PageRouteBuilder<T> {
   SwitchTransition(Widget page)
       : super(
