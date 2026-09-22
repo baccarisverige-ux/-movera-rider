@@ -6,6 +6,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
@@ -204,6 +205,7 @@ class WaitingDriverCard extends StatelessWidget {
       );
     }
     final d = driver!;
+    final unreadMessages = MessagesController.forRide(rideId).unreadCount;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
       decoration: BoxDecoration(
@@ -339,7 +341,9 @@ class WaitingDriverCard extends StatelessWidget {
                   child: InkWell(
                     onTap: () => Navigator.push(
                       context,
-                      BottomToTopTransition(Chat(driverName: d.firstName)),
+                      BottomToTopTransition(
+                        Chat(driverName: d.firstName, rideId: rideId),
+                      ),
                     ),
                     borderRadius: BorderRadius.circular(14),
                     child: Padding(
@@ -357,6 +361,29 @@ class WaitingDriverCard extends StatelessWidget {
                             'Message',
                             style: waitingText(14, weight: FontWeight.w600),
                           ),
+                          if (unreadMessages > 0) ...[
+                            const SizedBox(width: 7),
+                            Container(
+                              constraints: const BoxConstraints(minWidth: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MoveraTokens.accent,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                unreadMessages > 99 ? '99+' : '$unreadMessages',
+                                textAlign: TextAlign.center,
+                                style: waitingText(
+                                  10,
+                                  weight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
