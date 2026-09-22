@@ -114,7 +114,7 @@ void main() {
     realtime.emit(RideStatus.driverWaiting);
     await tester.pump();
 
-    expect(find.text('You have arrived'), findsOneWidget);
+    expect(find.text('Trip complete'), findsOneWidget);
     expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
     expect(tester.takeException(), isNull);
   });
