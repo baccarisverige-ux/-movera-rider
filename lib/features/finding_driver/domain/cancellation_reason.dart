@@ -1,4 +1,4 @@
-enum CancelPhase { searching, matched, reservation }
+enum CancelPhase { searching, matched, inTrip, reservation }
 
 class CancellationReason {
   const CancellationReason({required this.id, required this.label});
@@ -54,6 +54,13 @@ class CancellationReason {
       case CancelPhase.matched:
         return const [
           pickupIncorrect,
+          destinationChange,
+          driverNotSuitable,
+          plansChanged,
+          somethingElse,
+        ];
+      case CancelPhase.inTrip:
+        return const [
           destinationChange,
           driverNotSuitable,
           plansChanged,
