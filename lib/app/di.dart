@@ -63,7 +63,7 @@ class AppScope {
       profile = ProfileController() {
     api = ApiClient(tokens: tokens);
     quotes = ApiQuoteRepository(api: api, fallback: CatalogQuoteRepository());
-    rideRealtime = MockRideRealtime(api: api);
+    rideRealtime = MockRideRealtime(api: api, connection: realtime);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search);
