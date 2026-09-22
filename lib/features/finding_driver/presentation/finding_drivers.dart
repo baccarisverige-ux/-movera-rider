@@ -16,6 +16,7 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
@@ -110,15 +111,18 @@ class _FindingDriversState extends State<FindingDrivers>
       },
       onTerminal: (status) {
         if (!mounted || _leaving) return;
-        _leaving = true;
-        setState(() {});
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            RideNavigator.home(context, status: status);
-          }
-        });
+        unawaited(_handleTerminal(status));
       },
     );
+  }
+
+  Future<void> _handleTerminal(RideStatus status) async {
+    if (!mounted || _leaving) return;
+    _leaving = true;
+    setState(() {});
+    await showRideTerminalStateSheet(context, status: status);
+    if (!mounted) return;
+    RideNavigator.home(context, status: status);
   }
 
   @override
