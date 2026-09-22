@@ -61,9 +61,14 @@ void main() {
     expect(c.showing, RestoredSurface.waiting);
   });
 
-  test('trip active uses waiting surface', () {
+  test('trip active and approaching dropoff use waiting surface', () {
     final c = RideRestoreCoordinator(reader: () async => null);
     expect(c.pageFor(snap(RideStatus.tripInProgress)), isA<WaitingForDriver>());
+    expect(
+      c.pageFor(snap(RideStatus.approachingDropoff)),
+      isA<WaitingForDriver>(),
+    );
+    expect(c.showing, RestoredSurface.waiting);
   });
 
   test('completed restores the exact post-trip status and ride id', () {
