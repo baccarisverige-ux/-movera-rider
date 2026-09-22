@@ -33,6 +33,7 @@ import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class WaitingForDriver extends StatefulWidget {
@@ -452,6 +453,16 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                     const Spacer(),
                     SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
                   ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: media.padding.top + 62,
+              left: 12,
+              right: 12,
+              child: PointerInterceptor(
+                child: RealtimeConnectionBanner(
+                  connection: AppScope.instance.realtime,
                 ),
               ),
             ),
