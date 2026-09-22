@@ -473,8 +473,8 @@ class _HomeState extends State<Home> {
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
       return Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SelectRide(
+        RideStageTransition(
+          SelectRide(
             pickupAddress: _pickupAddress ?? 'Current location',
             destinationAddress: resolvedDestination,
             pickupPosition: confirmedPickupPosition,
