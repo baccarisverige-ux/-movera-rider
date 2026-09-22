@@ -26,12 +26,35 @@ void main() {
     ).readAsStringSync();
 
     expect(card.contains('Chat('), isTrue);
-    expect(card.contains('driverName: d.firstName'), isTrue);
-    expect(card.contains('rideId: rideId'), isTrue);
+    expect(
+      card.contains('Chat(driverName: d.firstName, rideId: rideId)'),
+      isTrue,
+      reason: 'active ride chat must stay scoped to the current ride',
+    );
     expect(chat.contains('MessagesController.forRide(widget.rideId)'), isTrue);
     expect(chat.contains('message.fromRider'), isTrue);
     expect(chat.contains('? RiderMessageBubble(message: message)'), isTrue);
     expect(chat.contains(': DriverMessageBubble(message: message)'), isTrue);
+    expect(chat.contains('SystemMessageBubble(message: message)'), isTrue);
+    expect(chat.contains('message.isSystem'), isTrue);
+  });
+
+  test('message model supports unread driver/system truth without fake inbox data', () {
+    final domain = File(
+      'lib/features/messages/domain/messages.dart',
+    ).readAsStringSync();
+    final controller = File(
+      'lib/features/messages/application/messages_controller.dart',
+    ).readAsStringSync();
+    final card = File(
+      'lib/features/active_ride/presentation/waiting_sheet_bits.dart',
+    ).readAsStringSync();
+
+    expect(domain.contains('ChatMessageSender.system'), isTrue);
+    expect(domain.contains('isUnreadForRider'), isTrue);
+    expect(controller.contains('void receive(ChatMessage message)'), isTrue);
+    expect(controller.contains('int get unreadCount'), isTrue);
+    expect(card.contains('unreadMessages'), isTrue);
   });
 
   test('message inbox stays honest until real transport exists', () {
