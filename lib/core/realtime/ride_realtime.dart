@@ -35,6 +35,10 @@ class RideRealtimeEvent {
 }
 
 abstract class RideRealtime {
+  /// Whether this transport has an authoritative rider -> driver signal path.
+  /// Surfaces must not claim a signal was sent when the transport cannot send it.
+  bool get supportsRiderSignals => true;
+
   Stream<RideRealtimeEvent> subscribe(String rideId);
   Future<void> reconnectAndResync(String rideId);
   Future<void> sendSignal({
