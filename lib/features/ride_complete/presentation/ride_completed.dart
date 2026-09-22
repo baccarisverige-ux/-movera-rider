@@ -96,6 +96,7 @@ class _RideCompletedState extends State<RideCompleted> {
   Widget build(BuildContext context) {
     final spec = _spec;
     final canRate = _status == RideStatus.ratingPending;
+    final showFeedbackSurface = widget.persistOnDemandState || canRate;
 
     return PopScope(
       canPop: false,
@@ -145,19 +146,44 @@ class _RideCompletedState extends State<RideCompleted> {
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
                   child: Column(
                     children: [
-                      _CompletionHero(spec: spec),
-                      if (canRate) ...[
-                        const SizedBox(height: 14),
-                        const _SurfaceCard(
-                          child: RideCompletedGiveReview(),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 160),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeOutCubic,
+                        child: KeyedSubtree(
+                          key: ValueKey(_status),
+                          child: _CompletionHero(spec: spec),
                         ),
+                      ),
+                      if (showFeedbackSurface) ...[
                         const SizedBox(height: 14),
-                        const _SurfaceCard(
-                          child: RideCompletedAddTip(),
+                        IgnorePointer(
+                          key: const ValueKey('completion-feedback-lock'),
+                          ignoring: !canRate,
+                          child: AnimatedOpacity(
+                            key: const ValueKey('completion-feedback'),
+                            duration: const Duration(milliseconds: 160),
+                            curve: Curves.easeOutCubic,
+                            opacity: canRate ? 1 : 0.52,
+                            child: const Column(
+                              children: [
+                                _SurfaceCard(
+                                  child: RideCompletedGiveReview(),
+                                ),
+                                SizedBox(height: 14),
+                                _SurfaceCard(
+                                  child: RideCompletedAddTip(),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Rating and tip are optional. Tap Done when you are finished.',
+                          canRate
+                              ? 'Rating and tip are optional. Tap Done when you are finished.'
+                              : 'Rating and tip will be available after payment confirmation.',
+                          key: const ValueKey('completion-feedback-status'),
                           textAlign: TextAlign.center,
                           style: GoogleFonts.poppins(
                             fontSize: 11.5,
