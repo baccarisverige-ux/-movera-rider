@@ -777,13 +777,25 @@ class _WaitingRideMap extends StatefulWidget {
 
 class _WaitingRideMapState extends State<_WaitingRideMap> {
   Set<Marker> _markers = const <Marker>{};
+  Set<Polyline> _polylines = const <Polyline>{};
+  BitmapDescriptor? _riderPuck;
+  BitmapDescriptor? _driverCar;
   DateTime? _lastPaint;
+  DateTime? _lastRouteRefresh;
+  bool _mapReady = false;
+  String? _routeKey;
   Widget? _leaf;
+
+  bool get _inTrip =>
+      widget.tracking.status == RideStatus.tripStarted ||
+      widget.tracking.status == RideStatus.tripInProgress ||
+      widget.tracking.status == RideStatus.approachingDropoff;
 
   @override
   void initState() {
     super.initState();
     _markers = _buildMarkers();
+    unawaited(_prepareMapVisuals());
   }
 
   @override
@@ -797,7 +809,12 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
       return;
     }
     _markers = _buildMarkers();
+    _polylines = const <Polyline>{};
+    _routeKey = null;
     _leaf = null;
+    if (_mapReady) {
+      unawaited(_refreshRoadRoute(force: true));
+    }
   }
 
   void paintIfDue() {
@@ -807,13 +824,22 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
       return;
     }
     _lastPaint = now;
+
     final next = _buildMarkers();
-    if (_sameMarkers(_markers, next)) return;
-    if (!mounted) return;
-    setState(() {
-      _markers = next;
-      _leaf = null;
-    });
+    final markersChanged = !_sameMarkers(_markers, next);
+    if (markersChanged && mounted) {
+      setState(() {
+        _markers = next;
+        _leaf = null;
+      });
+    }
+
+    if (_mapReady &&
+        (_lastRouteRefresh == null ||
+            now.difference(_lastRouteRefresh!) >=
+                const Duration(seconds: 10))) {
+      unawaited(_refreshRoadRoute());
+    }
   }
 
   bool _sameMarkers(Set<Marker> current, Set<Marker> next) {
@@ -831,16 +857,16 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
 
   Set<Marker> _buildMarkers() {
     final eta = widget.tracking.eta;
-    final inTrip =
-        widget.tracking.status == RideStatus.tripStarted ||
-        widget.tracking.status == RideStatus.tripInProgress ||
-        widget.tracking.status == RideStatus.approachingDropoff;
     return {
-      if (!inTrip)
+      if (!_inTrip)
         Marker(
           markerId: const MarkerId('pickup'),
           position: widget.pickupPosition,
           infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
+          icon:
+              _riderPuck ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          anchor: const Offset(0.5, 0.72),
         ),
       Marker(
         markerId: const MarkerId('destination'),
@@ -854,11 +880,94 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         Marker(
           markerId: const MarkerId('driver'),
           position: LatLng(eta!.latitude!, eta.longitude!),
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
-          ),
+          rotation: eta.bearing ?? 0,
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
+          icon:
+              _driverCar ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
         ),
     };
+  }
+
+  Future<void> _prepareMapVisuals() async {
+    final icons = await Future.wait<BitmapDescriptor>([
+      MoveraRiderPuckMarker.createIcon(),
+      MoveraVehicleMarker.createIcon(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _riderPuck = icons[0];
+      _driverCar = icons[1];
+      _markers = _buildMarkers();
+      _leaf = null;
+    });
+  }
+
+  ({GeoPoint from, GeoPoint to})? _routeEndpoints() {
+    final eta = widget.tracking.eta;
+    final driverPoint = eta?.latitude != null && eta?.longitude != null
+        ? GeoPoint(eta!.latitude!, eta.longitude!)
+        : null;
+
+    if (_inTrip) {
+      return (
+        from:
+            driverPoint ??
+            GeoPoint(
+              widget.pickupPosition.latitude,
+              widget.pickupPosition.longitude,
+            ),
+        to: GeoPoint(
+          widget.destinationPosition.latitude,
+          widget.destinationPosition.longitude,
+        ),
+      );
+    }
+
+    if (driverPoint == null) return null;
+    return (
+      from: driverPoint,
+      to: GeoPoint(
+        widget.pickupPosition.latitude,
+        widget.pickupPosition.longitude,
+      ),
+    );
+  }
+
+  Future<void> _refreshRoadRoute({bool force = false}) async {
+    if (!_mapReady) return;
+    final endpoints = _routeEndpoints();
+    if (endpoints == null) return;
+
+    String keyFor(GeoPoint point) =>
+        '${point.latitude.toStringAsFixed(4)},${point.longitude.toStringAsFixed(4)}';
+    final requestKey =
+        '${_inTrip ? 'trip' : 'pickup'}:${keyFor(endpoints.from)}>${keyFor(endpoints.to)}';
+    if (!force && requestKey == _routeKey) return;
+
+    _routeKey = requestKey;
+    _lastRouteRefresh = DateTime.now();
+    final points = await AppScope.instance.routing.roadLine(
+      from: endpoints.from,
+      to: endpoints.to,
+    );
+    if (!mounted || _routeKey != requestKey || points.length < 2) return;
+
+    setState(() {
+      _polylines = {
+        Polyline(
+          polylineId: const PolylineId('active-road-route'),
+          points: [
+            for (final point in points)
+              LatLng(point.latitude, point.longitude),
+          ],
+          color: const Color(0xFF1D252C),
+          width: 4,
+        ),
+      };
+      _leaf = null;
+    });
   }
 
   @override
@@ -868,6 +977,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         key: const ValueKey('waiting-map'),
         initialPosition: widget.initialPosition,
         markers: _markers,
+        polylines: _polylines,
         myLocationEnabled: true,
         myLocationButtonEnabled: false,
         zoomControlsEnabled: false,
@@ -880,10 +990,12 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         rotateGesturesEnabled: false,
         mapType: MapType.normal,
         onMapCreated: (controller) {
+          _mapReady = true;
           AppScope.instance.maps.attach(
             controller,
             owner: MapOwners.waiting,
           );
+          unawaited(_refreshRoadRoute(force: true));
         },
       ),
     );
