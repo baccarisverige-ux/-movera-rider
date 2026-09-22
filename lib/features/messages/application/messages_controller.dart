@@ -23,6 +23,7 @@ class MessagesController {
   final DateTime Function() _now;
 
   List<ChatMessage> get messages => _store.messages;
+  int get unreadCount => _store.unreadCount;
 
   bool send(String raw) {
     final text = raw.trim();
@@ -39,4 +40,11 @@ class MessagesController {
     );
     return true;
   }
+
+  /// Adapter seam for a future transport. It never synthesizes Driver/System
+  /// messages; callers must provide the authoritative message object.
+  void receive(ChatMessage message) => _store.ingest(message);
+
+  void markAllRead() => _store.markAllRead(_now());
 }
+
