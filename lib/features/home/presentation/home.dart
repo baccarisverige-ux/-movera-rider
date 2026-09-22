@@ -659,50 +659,45 @@ class _HomeState extends State<Home> {
                       (field != 'stop' || activeStopIndex == stopIndex);
                   return Row(
                     children: [
-                      Container(
+                      SizedBox(
                         width: ResSize.w * 27,
-                        alignment: Alignment.center,
-                        child: Container(
-                          width: ResSize.w * 10,
-                          height: ResSize.h * 10,
-                          decoration: BoxDecoration(
-                            color: field == 'destination'
-                                ? _premiumAccent
-                                : AppColor.white,
-                            shape: field == 'destination'
-                                ? BoxShape.rectangle
-                                : BoxShape.circle,
-                            borderRadius: field == 'destination'
-                                ? BorderRadius.circular(2)
-                                : null,
-                            border: Border.all(color: _premiumInk, width: 2),
-                          ),
+                        child: Center(
+                          child: badgeColor != null
+                              ? Semantics(
+                                  button: true,
+                                  label: field == 'pickup'
+                                      ? 'Set pickup on map'
+                                      : 'Select final destination',
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap:
+                                        onMapTap ??
+                                        () => activateField(
+                                          field,
+                                          controller,
+                                          stopIndex: stopIndex,
+                                        ),
+                                    child: PremiumRouteLocationBadge(
+                                      color: badgeColor,
+                                      size: ResSize.h * 27,
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  width: ResSize.w * 10,
+                                  height: ResSize.h * 10,
+                                  decoration: BoxDecoration(
+                                    color: AppColor.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: _premiumInk,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                       8.width,
-                      if (badgeColor != null) ...[
-                        Semantics(
-                          button: true,
-                          label: field == 'pickup'
-                              ? 'Set pickup on map'
-                              : 'Select final destination',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap:
-                                onMapTap ??
-                                () => activateField(
-                                  field,
-                                  controller,
-                                  stopIndex: stopIndex,
-                                ),
-                            child: PremiumRouteLocationBadge(
-                              color: badgeColor,
-                              size: ResSize.h * 35.2,
-                            ),
-                          ),
-                        ),
-                        7.width,
-                      ],
                       Expanded(
                         child: TextField(
                           controller: controller,

@@ -488,6 +488,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setWebOverlayOpen(cover);
   }
 
+  double _collapsedSheet(MediaQueryData media) => 190 + media.padding.bottom;
+
   double _minSheet(MediaQueryData media) => 390 + media.padding.bottom;
 
   double _maxSheet(MediaQueryData media) {
@@ -532,7 +534,6 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             ? 'Driver details will appear when matching confirms them.'
             : 'Leave now to meet ${driver.firstName}');
     final media = MediaQuery.of(context);
-    const mapReserve = 300.0;
     return PopScope(
       canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) async {
@@ -551,7 +552,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               top: 0,
               left: 0,
               right: 0,
-              bottom: mapReserve,
+              bottom: 0,
               child: _mapParked
                   ? const ColoredBox(color: Color(0xFFF6F5F1))
                   : _WaitingRideMap(
@@ -597,7 +598,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               ),
             Positioned(
               right: 12,
-              bottom: mapReserve + 16,
+              bottom: _minSheet(media) + 16,
               child: PointerInterceptor(
                 child: MoveraIconButton.round(
                   icon: Icons.my_location_rounded,
@@ -613,6 +614,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 physics: MoveraSheetMotion.physics,
                 snapGrid: SheetSnapGrid(
                   snaps: [
+                    SheetOffset.absolute(_collapsedSheet(media)),
                     SheetOffset.absolute(_minSheet(media)),
                     SheetOffset.absolute(_maxSheet(media)),
                   ],
@@ -969,7 +971,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         initialPosition: widget.initialPosition,
         markers: _markers,
         polylines: _polylines,
-        myLocationEnabled: true,
+        myLocationEnabled: false,
         myLocationButtonEnabled: false,
         zoomControlsEnabled: false,
         mapToolbarEnabled: false,

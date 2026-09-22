@@ -8,9 +8,9 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 /// Confirm cancel, then optionally collect a why-reason.
 ///
-/// **Cancel-first:** after **Cancel request**, matching + snapshot are cleared
-/// before the why-sheet (via [onCancelConfirmed] or [commitCancelFirst]).
-/// **Keep ride** on the why-sheet must not undo cancel.
+/// Searching/matched rides preserve the existing cancel-first behavior.
+/// Active trips are intentionally different: no ride state is mutated until
+/// the rider finishes the final cancellation step.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
   required bool takingLonger,
@@ -29,6 +29,18 @@ Future<CancelOutcome> showCancelRideSheet(
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
   if (confirmed != true) return const CancelOutcome.keep();
+
+  // Once a trip has started, opening/confirming the first cancel sheet must
+  // never mutate ride state. The rider can still close the reason sheet or
+  // choose Keep ride and continue the same active trip.
+  if (phase == CancelPhase.inTrip) {
+    if (!context.mounted) return const CancelOutcome.keep();
+    return showCancelReasonSheet(
+      context,
+      phase: phase,
+      dismissKeepsRide: true,
+    );
+  }
 
   if (onCancelConfirmed != null) {
     await onCancelConfirmed();

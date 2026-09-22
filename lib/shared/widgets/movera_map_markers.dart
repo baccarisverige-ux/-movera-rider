@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -40,9 +41,16 @@ class MoveraRiderPuckMarker {
       height.toInt(),
     );
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    // Never fall back to Google's default pin for the Rider location.
+    // In the unlikely event PNG encoding fails, use an invisible descriptor
+    // rather than flashing a red pin underneath the Movera puck.
     final icon = data == null
-        ? BitmapDescriptor.defaultMarker
-        : BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+        ? BitmapDescriptor.bytes(
+            base64Decode(
+              'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+            ),
+          )
+        : BitmapDescriptor.bytes(data.buffer.asUint8List());
     return (icon: icon, image: image);
   }
 
