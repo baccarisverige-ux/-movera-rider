@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -21,6 +22,7 @@ import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
@@ -81,6 +83,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   bool _researching = false;
   bool _overlayOn = false;
   bool _mapParked = false;
+  RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
   @override
@@ -93,6 +96,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       value: 0,
     );
     _sheetSlide.addListener(_syncSheetOverlay);
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
     _syncSheetOverlay();
     _tracking.driver = widget.driver;
     SafetyController.shared.load();
@@ -116,7 +120,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     if (!mounted) return;
     final status = _tracking.status;
     if (status.isTerminal && !status.isCompletedSurface) {
-      unawaited(_handleExternalTerminal(status));
+      _queueStageNavigation(status);
       return;
     }
     _maybeAnnounceArrival();
@@ -183,11 +187,39 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    _drainStageNavigation();
+  }
+
+  void _queueStageNavigation(RideStatus status) {
+    if (!mounted || _leaving || _completedOpened) return;
+    _pendingStageStatus = status;
+    _drainStageNavigation();
+  }
+
+  void _drainStageNavigation() {
+    if (!mounted || _leaving || _completedOpened || !_routeIsCurrent) return;
+    final status = _pendingStageStatus;
+    if (status == null) return;
+    _pendingStageStatus = null;
+
+    if (status.isTerminal && !status.isCompletedSurface) {
+      unawaited(_handleExternalTerminal(status));
+      return;
+    }
+    if (status.isCompletedSurface) {
+      unawaited(_openCompleted(status));
+    }
+  }
+
   void _maybeOpenCompleted() {
     if (!mounted || _leaving || _completedOpened) return;
     final status = _tracking.status;
     if (!status.isCompletedSurface) return;
-    unawaited(_openCompleted(status));
+    _queueStageNavigation(status);
   }
 
   Future<void> _handleExternalTerminal(RideStatus status) async {
@@ -245,22 +277,28 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       return;
     }
 
-    // Cold restore can put Waiting directly at root, so there is no parked
-    // Finding parent to resume. Replace that root-stage child with Finding.
+    // Cold restore can put Waiting directly inside RideRestoreGate, with no
+    // pushed Finding route underneath. Replace only the gate child so the app
+    // root/navigator stays intact.
+    final finding = FindingDrivers(
+      pickupAddress: widget.pickupAddress,
+      destinationAddress: widget.destinationAddress,
+      pickupPosition: widget.pickupPosition,
+      destinationPosition: widget.destinationPosition,
+      rideType: widget.rideType,
+      price: widget.price,
+      paymentMethod: widget.paymentMethod,
+      notes: widget.notes,
+    );
+    final coordinator = RideRestoreCoordinator.instance;
+    if (coordinator.replaceRootSurface(finding, RestoredSurface.finding)) {
+      return;
+    }
+
+    // Widget tests or isolated hosts may not have RideRestoreGate installed.
     Navigator.pushReplacement(
       context,
-      RideStageTransition(
-        FindingDrivers(
-          pickupAddress: widget.pickupAddress,
-          destinationAddress: widget.destinationAddress,
-          pickupPosition: widget.pickupPosition,
-          destinationPosition: widget.destinationPosition,
-          rideType: widget.rideType,
-          price: widget.price,
-          paymentMethod: widget.paymentMethod,
-          notes: widget.notes,
-        ),
-      ),
+      RideStageTransition(finding),
     );
   }
 
@@ -337,6 +375,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
 
   @override
   void dispose() {
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
     _tracking.dispose();
