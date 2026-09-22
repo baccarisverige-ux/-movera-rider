@@ -109,7 +109,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
 
   RideRealtime get _realtime =>
       widget.realtime ?? AppScope.instance.rideRealtime;
-  String? get _rideId => widget.rideId ?? _rideId;
+  String? get _rideId => widget.rideId ?? AppScope.instance.ride.rideId;
 
   @override
   void initState() {
