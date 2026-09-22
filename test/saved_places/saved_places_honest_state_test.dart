@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/data/saved_places_repository.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 
@@ -81,6 +82,65 @@ void main() {
     expect(find.text('Add new address'), findsOneWidget);
     expect(find.text('Add location'), findsOneWidget);
   });
+
+  testWidgets(
+    'Add Place location picker reverses back to Add Place and keeps the selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => const MaterialApp(home: AddPlace()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add location'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pickup location'), findsOneWidget);
+
+      await tester.tap(find.text('CURRENT'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add new address'), findsOneWidget);
+      expect(find.text('Current location'), findsOneWidget);
+      expect(find.text('Pickup location'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'location picker opened by Add Place cannot recurse into another Add Place',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => const MaterialApp(home: AddPlace()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add location'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pickup location'), findsOneWidget);
+      expect(find.text('Add new address'), findsNothing);
+    },
+  );
 
   testWidgets('saved Home shortcut keeps selection instead of opening save flow',
       (tester) async {
