@@ -50,6 +50,13 @@ class WaitingForDriver extends StatefulWidget {
     required this.paymentMethod,
     this.notes = RideNotes.empty,
     this.driver,
+    this.realtime,
+    this.rideId,
+    this.persistRideSnapshot = true,
+    this.onTerminal,
+    this.onDriverCancelled,
+    this.onCompleted,
+    this.onCancel,
   });
 
   final String pickupAddress;
@@ -62,6 +69,18 @@ class WaitingForDriver extends StatefulWidget {
   final RideNotes notes;
   final MatchedDriver? driver;
 
+  /// Optional transport and lifecycle overrides let Scheduled Ride reuse this
+  /// exact presentation without touching the on-demand ride session.
+  final RideRealtime? realtime;
+  final String? rideId;
+  final bool persistRideSnapshot;
+  final Future<void> Function(BuildContext context, RideStatus status)?
+  onTerminal;
+  final Future<void> Function(BuildContext context)? onDriverCancelled;
+  final Future<void> Function(BuildContext context, RideStatus status)?
+  onCompleted;
+  final Future<void> Function(BuildContext context, String? reasonId)? onCancel;
+
   @override
   State<WaitingForDriver> createState() => _WaitingForDriverState();
 }
@@ -70,8 +89,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     with SingleTickerProviderStateMixin {
   final ActiveRideController _ride = ActiveRideController();
   late final DriverTrackingController _tracking = DriverTrackingController(
+    realtime: widget.realtime,
     pickupLat: widget.pickupPosition.latitude,
     pickupLng: widget.pickupPosition.longitude,
+    persistRideSnapshot: widget.persistRideSnapshot,
   );
   late final CameraPosition _initialPosition;
   late final AnimationController _sheetSlide;
@@ -85,6 +106,10 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   bool _mapParked = false;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
+
+  RideRealtime get _realtime =>
+      widget.realtime ?? AppScope.instance.rideRealtime;
+  String? get _rideId => widget.rideId ?? _rideId;
 
   @override
   void initState() {
@@ -100,8 +125,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     _syncSheetOverlay();
     _tracking.driver = widget.driver;
     SafetyController.shared.load();
-    final rideId = AppScope.instance.ride.rideId;
-    if (rideId != null) {
+    final rideId = _rideId;
+    if (rideId != null && rideId.trim().isNotEmpty) {
       _tracking.start(
         rideId: rideId,
         initial: widget.driver,
@@ -167,15 +192,16 @@ class _WaitingForDriverState extends State<WaitingForDriver>
       showDriverArrivedSheet(
         context,
         driver: _tracking.driver ?? widget.driver,
-        onWay: _sendOnTheWay,
+        onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
       ),
     );
   }
 
   Future<void> _sendOnTheWay() async {
-    final rideId = AppScope.instance.ride.rideId;
-    if (rideId == null) return;
-    await AppScope.instance.rideRealtime.sendSignal(
+    final rideId = _rideId;
+    if (rideId == null || rideId.trim().isEmpty) return;
+    if (!_realtime.supportsRiderSignals) return;
+    await _realtime.sendSignal(
       rideId: rideId,
       signal: RideRealtimeSignal.riderOnTheWay,
       message: "I'm on the way",
@@ -247,6 +273,17 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     _leaving = true;
     setState(() {});
     _tracking.dispose();
+
+    final customTerminal = widget.onTerminal;
+    if (customTerminal != null) {
+      await showRideTerminalStateSheet(context, status: status);
+      if (!mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      await customTerminal(context, status);
+      return;
+    }
+
     await _ride.markExternalTerminal(status);
     if (!mounted) return;
     await showRideTerminalStateSheet(context, status: status);
@@ -270,8 +307,16 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     await _parkMapForStageChange();
     if (!mounted) return;
 
+    final customDriverCancelled = widget.onDriverCancelled;
+    if (customDriverCancelled != null) {
+      _leaving = true;
+      setState(() {});
+      await customDriverCancelled(context);
+      return;
+    }
+
     // Same ride, same price, same addresses — only the driver changes.
-    AppScope.instance.rideRealtime.researchAfterDriverCancel();
+    _realtime.researchAfterDriverCancel();
     _leaving = true;
     if (mounted) setState(() {});
 
@@ -312,10 +357,19 @@ class _WaitingForDriverState extends State<WaitingForDriver>
   Future<void> _openCompleted(RideStatus status) async {
     if (!mounted || _leaving || _completedOpened) return;
     _completedOpened = true;
-    final rideId = AppScope.instance.ride.rideId;
+    final rideId = _rideId;
+    _tracking.dispose();
+
+    final customCompleted = widget.onCompleted;
+    if (customCompleted != null) {
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      await customCompleted(context, status);
+      return;
+    }
+
     await _ride.markCompleted(status);
     if (!mounted) return;
-    _tracking.dispose();
     await _parkMapForStageChange();
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -337,6 +391,15 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     _leaving = true;
     setState(() {});
     _tracking.dispose();
+
+    final customCancel = widget.onCancel;
+    if (customCancel != null) {
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      await customCancel(context, outcome.reasonId);
+      return;
+    }
+
     await _ride.markCancelled(reasonId: outcome.reasonId);
     if (!mounted) return;
     await _parkMapForStageChange();
@@ -512,21 +575,22 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                       label: _isInTrip ? 'Trip details' : 'Cancel ride',
                     ),
                     const Spacer(),
-                    SafetyKitMapButton(rideId: AppScope.instance.ride.rideId),
+                    SafetyKitMapButton(rideId: _rideId),
                   ],
                 ),
               ),
             ),
-            Positioned(
-              top: media.padding.top + 62,
-              left: 12,
-              right: 12,
-              child: PointerInterceptor(
-                child: RealtimeConnectionBanner(
-                  connection: AppScope.instance.realtime,
+            if (widget.realtime == null)
+              Positioned(
+                top: media.padding.top + 62,
+                left: 12,
+                right: 12,
+                child: PointerInterceptor(
+                  child: RealtimeConnectionBanner(
+                    connection: AppScope.instance.realtime,
+                  ),
                 ),
               ),
-            ),
             Positioned(
               right: 12,
               bottom: mapReserve + 16,
@@ -613,7 +677,7 @@ class _WaitingForDriverState extends State<WaitingForDriver>
         paymentMethod: widget.paymentMethod,
         price: widget.price,
         driver: driver,
-        rideId: AppScope.instance.ride.rideId,
+        rideId: _rideId,
         status: _tracking.status,
         onOpenProfile: _openProfile,
         onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
@@ -646,13 +710,13 @@ class _WaitingForDriverState extends State<WaitingForDriver>
                 ),
               ),
               const SizedBox(width: 8),
-              WaitingShareButton(rideId: AppScope.instance.ride.rideId),
+              WaitingShareButton(rideId: _rideId),
             ],
           ),
           const SizedBox(height: 16),
           WaitingDriverCard(
             driver: driver,
-            rideId: AppScope.instance.ride.rideId,
+            rideId: _rideId,
             onOpenProfile: _openProfile,
             onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
             onMore: _openDetails,
