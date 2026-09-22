@@ -45,70 +45,7 @@ void main() {
     expect(receipt!.pickup, 'Sveavägen 1');
     expect(receipt.destination, 'Hornsgatan 2');
     expect(receipt.total, '259 kr');
-    expect(receipt.total, isNot(contains(r'
-  });
-
-  test('driver profile comes from the completed ride', () {
-    LastCompletedRide.remember(finished());
-    final driver = const DriverRepository().current();
-
-    expect(driver, isNotNull);
-    expect(driver!.name, 'Elin');
-    expect(driver.plate, 'MVR 204');
-    expect(driver.vehicle, 'Black Volvo XC40');
-    expect(driver.ratingLabel, '4.9');
-  });
-
-  test('no completed ride keeps the honest empty state', () {
-    expect(const TripReceiptRepository().last(), isNull);
-    expect(const DriverRepository().current(), isNull);
-  });
-
-  test('a completed ride without a driver still yields a receipt', () {
-    LastCompletedRide.remember(
-      RideSnapshot(
-        status: RideStatus.tripCompleted,
-        rideId: 'ride_done_2',
-        pickupAddress: 'A',
-        destinationAddress: 'B',
-        pickupLat: 59.34,
-        pickupLng: 18.05,
-        destinationLat: 59.31,
-        destinationLng: 18.04,
-        rideType: 'Movera',
-        price: 120,
-        paymentMethod: 'Cash',
-        savedAt: DateTime(2026, 9, 18, 7, 5),
-      ),
-    );
-    expect(const TripReceiptRepository().last()?.total, '120 kr');
-    expect(const DriverRepository().current(), isNull);
-  });
-
-  test('an explicitly passed profile still wins', () {
-    LastCompletedRide.remember(finished());
-    const injected = DriverProfile(
-      name: 'Injected',
-      tagline: 't',
-      vehicle: 'v',
-      plate: 'p',
-      rideNumber: 'r',
-      ratingLabel: '5.0',
-      completedAt: 'now',
-    );
-    expect(const DriverRepository(current: injected).current()?.name, 'Injected');
-  });
-
-  test('tip amounts are offered in SEK', () {
-    final amounts = const TipCatalog().amounts();
-    expect(amounts, isNotEmpty);
-    for (final amount in amounts) {
-      expect(amount, contains('kr'));
-      expect(amount, isNot(contains(r'$')));
-    }
-  });
-}
-)));
+    expect(receipt.total, isNot(contains(r'$')));
     expect(receipt.method, 'Apple Pay');
     expect(receipt.isFinal, isFalse);
   });
