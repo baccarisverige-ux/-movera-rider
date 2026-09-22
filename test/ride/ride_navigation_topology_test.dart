@@ -352,4 +352,72 @@ void main() {
     );
   });
 
+
+  test('deferred navigation waits for the outgoing route transition to finish', () {
+    final observer = File(
+      'lib/app/router/home_history_observer.dart',
+    ).readAsStringSync();
+    final transitions = File(
+      'lib/shared/widgets/navigation_transition.dart',
+    ).readAsStringSync();
+
+    expect(observer, contains('void _routeChangedAfterExit('));
+    expect(observer, contains('route is TransitionRoute<dynamic>'));
+    expect(observer, contains('route.completed.whenComplete('));
+    expect(
+      observer,
+      contains('void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>\n      _routeChangedAfterExit(route);'),
+    );
+
+    expect(transitions, contains('Future<void> popCurrentRouteAndWaitForExit('));
+    expect(transitions, contains('await route.completed;'));
+  });
+
+  test('Safety and ride-detail handoffs never pop and push in the same transition', () {
+    final safety = File(
+      'lib/features/safety/presentation/ride_safety_kit.dart',
+    ).readAsStringSync();
+    final finding = File(
+      'lib/features/finding_driver/presentation/finding_drivers.dart',
+    ).readAsStringSync();
+    final waiting = File(
+      'lib/features/active_ride/presentation/waiting_for_driver.dart',
+    ).readAsStringSync();
+
+    expect(
+      RegExp(r'await popCurrentRouteAndWaitForExit\\(context\\);')
+          .allMatches(safety)
+          .length,
+      greaterThanOrEqualTo(2),
+    );
+    expect(safety, isNot(contains('nav.pop();\n      await nav.push')));
+    expect(safety, isNot(contains('nav.pop();\n    nav.push')));
+
+    expect(
+      RegExp(r'await popCurrentRouteAndWaitForExit\\(sheetContext\\);')
+          .allMatches(finding)
+          .length,
+      greaterThanOrEqualTo(2),
+    );
+    expect(
+      finding,
+      isNot(
+        contains(
+          'Future<void>.delayed(const Duration(milliseconds: 90))',
+        ),
+      ),
+      reason: 'route handoffs must use lifecycle barriers, not blind delays',
+    );
+
+    expect(waiting, contains('_modalHandoffInProgress = true;'));
+    expect(waiting, contains('await popCurrentRouteAndWaitForExit(sheetContext);'));
+    expect(waiting, contains('_modalHandoffInProgress = false;'));
+    final waitForExit = waiting.indexOf(
+      'await popCurrentRouteAndWaitForExit(sheetContext);',
+    );
+    final confirmCancel = waiting.indexOf('await _confirmCancel();', waitForExit);
+    expect(waitForExit, greaterThanOrEqualTo(0));
+    expect(confirmCancel, greaterThan(waitForExit));
+  });
+
 }
