@@ -357,7 +357,8 @@
       window._moveraPendingRideCheck = String(type || 'unexpectedStop');
       return true;
     };
-    window.moveraOpenSafety = window.moveraOpenSafety || function() { return 'not-ready'; };
+    // Public releases intentionally do not install the Dart QA opener.
+    // When MOVERA_QA is enabled, Flutter installs window.moveraOpenSafety.
     window.moveraSafetySnapshot = function() {
       try { return JSON.parse(window.moveraSafetySnapshotJson || '{}'); } catch (e) { return {}; }
     };
