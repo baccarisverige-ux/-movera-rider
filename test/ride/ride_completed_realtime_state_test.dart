@@ -116,7 +116,7 @@ void main() {
 
 class _CompletionRealtime implements RideRealtime {
   final StreamController<RideRealtimeEvent> _controller =
-      StreamController<RideRealtimeEvent>.broadcast();
+      StreamController<RideRealtimeEvent>.broadcast(sync: true);
   String? _rideId;
   int _sequence = 0;
 
