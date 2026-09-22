@@ -84,6 +84,12 @@ class _FindingDriversState extends State<FindingDrivers>
     _sheetSlide.addListener(_syncSheetOverlay);
     _syncSheetOverlay();
     _loadMapBits();
+    _startMatching(price: widget.price);
+  }
+
+  void _startMatching({double? price}) {
+    final effectivePrice =
+        price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
     _match.startFrom(
       pickupAddress: _pickupAddress,
       destinationAddress: widget.destinationAddress,
@@ -92,7 +98,7 @@ class _FindingDriversState extends State<FindingDrivers>
       destinationLat: widget.destinationPosition.latitude,
       destinationLng: widget.destinationPosition.longitude,
       rideType: widget.rideType,
-      price: widget.price,
+      price: effectivePrice,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
       onTick: (_) {
@@ -116,6 +122,21 @@ class _FindingDriversState extends State<FindingDrivers>
         unawaited(_handleTerminal(status));
       },
     );
+  }
+
+  void _resumeFindingAfterDriverCancel() {
+    if (!mounted) return;
+    final effectivePrice =
+        _match.currentPrice > 0 ? _match.currentPrice : widget.price;
+    _leaving = false;
+    _cancelSheetOpen = false;
+    _pickupEditOpen = false;
+    _overlayOn = false;
+    _nearbyPaintKey = 0;
+    setWebOverlayOpen(false);
+    setState(() => _mapParked = false);
+    _startMatching(price: effectivePrice);
+    _loadMapBits();
   }
 
   Future<void> _handleTerminal(RideStatus status) async {
@@ -180,7 +201,7 @@ class _FindingDriversState extends State<FindingDrivers>
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
 
-    Navigator.push(
+    final researchDriver = await Navigator.push<bool>(
       context,
       RideStageTransition(
         WaitingForDriver(
@@ -196,6 +217,8 @@ class _FindingDriversState extends State<FindingDrivers>
         ),
       ),
     );
+    if (!mounted || researchDriver != true) return;
+    _resumeFindingAfterDriverCancel();
   }
 
   Future<void> _confirmCancel() async {
