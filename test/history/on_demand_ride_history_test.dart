@@ -83,7 +83,7 @@ void main() {
     expect(await const OnDemandHistoryController().load(), isEmpty);
   });
 
-  test('completed Book Now ride is archived before active snapshot clears', () async {
+  test('completed Book Now ride archives while completion snapshot stays restorable', () async {
     final active = snapshot(
       rideId: 'ride-completed',
       savedAt: DateTime.now().subtract(const Duration(minutes: 45)),
@@ -105,7 +105,10 @@ void main() {
     expect(history.single.pickup.label, 'Current location');
     expect(history.single.destination.label, 'Stockholm Central Station');
     expect(history.single.price, 259);
-    expect(await RideSnapshotStore.readForArchive(), isNull);
+    final completionSnapshot = await RideSnapshotStore.readForArchive();
+    expect(completionSnapshot, isNotNull);
+    expect(completionSnapshot!.status, RideStatus.tripCompleted);
+    expect(completionSnapshot.rideId, 'ride-completed');
     expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
   });
 
