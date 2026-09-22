@@ -25,14 +25,16 @@ void main() {
     );
   });
 
-  test('Notifications and Saved Places are reachable', () {
+  test('Notifications, Messages and Saved Places are reachable', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
 
     expect(menu.contains('NotificationScreen('), isTrue);
+    expect(menu.contains('MessagesInbox('), isTrue);
     expect(menu.contains('SavedPlaces('), isTrue);
     expect(menu.contains("title: 'Notifications'"), isTrue);
+    expect(menu.contains("title: 'Messages'"), isTrue);
     expect(menu.contains("title: 'Saved Places'"), isTrue);
   });
 
@@ -48,6 +50,7 @@ void main() {
       'SupportHome',
       'ReferAndEarn',
       'NotificationScreen',
+      'MessagesInbox',
       'SavedPlaces',
     ]) {
       expect(menu.contains('$screen('), isTrue, reason: screen);
