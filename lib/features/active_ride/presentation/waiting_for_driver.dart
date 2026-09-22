@@ -221,7 +221,8 @@ class _WaitingForDriverState extends State<WaitingForDriver>
     );
   }
 
-  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+  bool get _routeIsCurrent =>
+      (ModalRoute.of(context)?.isCurrent ?? true) && moveraNavigationSettled;
 
   void _onNavigationChanged() {
     if (!mounted) return;
