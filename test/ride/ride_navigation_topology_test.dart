@@ -39,7 +39,11 @@ void main() {
     expect(home, contains('RideStageTransition(\n          SelectRide('));
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));
-    expect(waiting, contains('RideStageTransition(\n        RideCompleted('));
+    expect(
+      waiting,
+      contains('final completed = RideCompleted(status: status, rideId: rideId);'),
+    );
+    expect(waiting, contains('RideStageTransition(completed)'));
   });
 
   test('matching map is parked before active ride map is mounted', () {
