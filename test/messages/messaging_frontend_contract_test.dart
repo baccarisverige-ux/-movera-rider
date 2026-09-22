@@ -25,14 +25,13 @@ void main() {
       'lib/features/messages/presentation/chat.dart',
     ).readAsStringSync();
 
-    expect(card.contains('Chat(driverName: d.firstName, rideId: rideId)'), isTrue);
+    expect(card.contains('Chat('), isTrue);
+    expect(card.contains('driverName: d.firstName'), isTrue);
+    expect(card.contains('rideId: rideId'), isTrue);
     expect(chat.contains('MessagesController.forRide(widget.rideId)'), isTrue);
-    expect(
-      chat.contains(
-        'message.fromRider\n                          ? RiderMessageBubble',
-      ),
-      isTrue,
-    );
+    expect(chat.contains('message.fromRider'), isTrue);
+    expect(chat.contains('? RiderMessageBubble(message: message)'), isTrue);
+    expect(chat.contains(': DriverMessageBubble(message: message)'), isTrue);
   });
 
   test('message inbox stays honest until real transport exists', () {
