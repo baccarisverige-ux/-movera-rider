@@ -36,7 +36,10 @@ abstract final class RideNavigator {
 
     void finish() {
       unawaited(RideSnapshotStore.clear());
-      RideRestoreCoordinator.instance.goHome();
+      final coordinator = RideRestoreCoordinator.instance;
+      final rootWasRestoredRide =
+          coordinator.showing != RestoredSurface.home;
+      coordinator.goHome(replaceRoot: rootWasRestoredRide);
       final atRoot = nav == null || !nav.canPop();
       setWebHomeLock(atRoot);
     }
