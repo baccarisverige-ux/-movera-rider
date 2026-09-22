@@ -157,6 +157,9 @@ class _CompletionRealtime implements RideRealtime {
   void cancelRide() {}
 
   @override
+  void researchAfterDriverCancel() {}
+
+  @override
   void dispose() {
     _controller.close();
   }
