@@ -12,6 +12,9 @@ void main() {
     final active = File(
       'lib/features/active_ride/presentation/waiting_for_driver.dart',
     ).readAsStringSync();
+    final completed = File(
+      'lib/features/ride_complete/presentation/ride_completed.dart',
+    ).readAsStringSync();
 
     expect(
       di,
@@ -20,12 +23,17 @@ void main() {
     );
     expect(finding, contains('RealtimeConnectionBanner('));
     expect(active, contains('RealtimeConnectionBanner('));
+    expect(completed, contains('RealtimeConnectionBanner('));
     expect(
       finding,
       contains('connection: AppScope.instance.realtime'),
     );
     expect(
       active,
+      contains('connection: AppScope.instance.realtime'),
+    );
+    expect(
+      completed,
       contains('connection: AppScope.instance.realtime'),
     );
   });
