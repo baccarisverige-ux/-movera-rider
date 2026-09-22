@@ -223,8 +223,14 @@ class _WaitingForDriverState extends State<WaitingForDriver>
 
   void _onNavigationChanged() {
     if (!mounted) return;
-    _drainStageNavigation();
-    if (!_leaving && !_completedOpened) _maybeAnnounceArrival();
+    // Route observer callbacks occur while Navigator is locked. Completion,
+    // terminal and arrival surfaces can push sheets/routes, so wait one frame
+    // before draining anything that was deferred behind a child route.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _drainStageNavigation();
+      if (!_leaving && !_completedOpened) _maybeAnnounceArrival();
+    });
   }
 
   void _queueStageNavigation(RideStatus status) {
