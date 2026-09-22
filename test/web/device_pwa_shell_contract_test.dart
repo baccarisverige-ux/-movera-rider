@@ -21,13 +21,17 @@ void main() {
   test('web shell preserves safe-area behavior used by installed iOS mode', () {
     final index = File('web/index.html').readAsStringSync();
 
+    final viewport = RegExp(
+      r'<meta name="viewport" content="([^"]+)">',
+    ).firstMatch(index)?.group(1);
+    expect(viewport, isNotNull);
     expect(
-      index,
+      viewport,
       contains(
         'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
       ),
     );
-    expect(index, isNot(contains('viewport-fit=cover')));
+    expect(viewport, isNot(contains('viewport-fit=cover')));
     expect(index, contains('apple-mobile-web-app-capable'));
     expect(index, contains('apple-mobile-web-app-status-bar-style'));
     expect(index, contains('black-translucent'));
