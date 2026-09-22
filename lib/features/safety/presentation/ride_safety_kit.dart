@@ -181,7 +181,8 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   Future<void> _shareTrip() async {
     if (!_ctl.preferences.tripShareEnabled) {
       final nav = Navigator.of(context);
-      nav.pop();
+      await popCurrentRouteAndWaitForExit(context);
+      if (!nav.mounted) return;
       await nav.push(RightToLeftTransition(TripSharePage(controller: _ctl)));
       return;
     }
@@ -192,10 +193,11 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
     });
   }
 
-  void _openHub() {
+  Future<void> _openHub() async {
     final nav = Navigator.of(context);
-    nav.pop();
-    nav.push(RightToLeftTransition(SafetyHub(controller: _ctl)));
+    await popCurrentRouteAndWaitForExit(context);
+    if (!nav.mounted) return;
+    await nav.push(RightToLeftTransition(SafetyHub(controller: _ctl)));
   }
 
   @override
