@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -11,6 +12,16 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+class RecordingMockClient extends InProcessMockClient {
+  final List<String?> idempotencyKeys = <String?>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    idempotencyKeys.add(request.headers['Idempotency-Key']);
+    return super.send(request);
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -86,6 +97,82 @@ void main() {
     );
     expect(retried, isNotEmpty);
     expect(AppScope.instance.ride.rideId, retried);
+  });
+
+  test('failed finding retry reuses the same logical booking key', () async {
+    final mock = RecordingMockClient()..failNext = true;
+    final booking = BookingCoordinator(api: ApiClient(client: mock));
+
+    Future<String> submit({double price = 259}) => booking.submitFinding(
+      pickupAddress: 'A',
+      destinationAddress: 'B',
+      pickupLat: 59.3,
+      pickupLng: 18.0,
+      destinationLat: 59.4,
+      destinationLng: 18.1,
+      rideType: 'Movera',
+      price: price,
+      paymentMethod: 'Apple Pay',
+    );
+
+    await expectLater(submit(), throwsA(isA<ApiError>()));
+    await submit();
+
+    expect(mock.idempotencyKeys, hasLength(2));
+    expect(mock.idempotencyKeys.first, isNotNull);
+    expect(mock.idempotencyKeys[1], mock.idempotencyKeys.first);
+  });
+
+  test('changed finding intent receives a new booking key', () async {
+    final mock = RecordingMockClient()..failNext = true;
+    final booking = BookingCoordinator(api: ApiClient(client: mock));
+
+    await expectLater(
+      booking.submitFinding(
+        pickupAddress: 'A',
+        destinationAddress: 'B',
+        pickupLat: 59.3,
+        pickupLng: 18.0,
+        destinationLat: 59.4,
+        destinationLng: 18.1,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+      ),
+      throwsA(isA<ApiError>()),
+    );
+
+    await booking.submitFinding(
+      pickupAddress: 'A',
+      destinationAddress: 'B',
+      pickupLat: 59.3,
+      pickupLng: 18.0,
+      destinationLat: 59.4,
+      destinationLng: 18.1,
+      rideType: 'Movera',
+      price: 269,
+      paymentMethod: 'Apple Pay',
+    );
+
+    expect(mock.idempotencyKeys, hasLength(2));
+    expect(mock.idempotencyKeys[1], isNot(mock.idempotencyKeys.first));
+  });
+
+  test('failed scheduled retry reuses the same logical booking key', () async {
+    final mock = RecordingMockClient()..failNext = true;
+    final booking = BookingCoordinator(api: ApiClient(client: mock));
+
+    Future<String> submit() => booking.requestBooking(
+      rideType: 'movera',
+      paymentMethod: 'Wallet',
+      scheduledAt: '2026-09-13T10:00:00Z',
+    );
+
+    await expectLater(submit(), throwsA(isA<ApiError>()));
+    await submit();
+
+    expect(mock.idempotencyKeys, hasLength(2));
+    expect(mock.idempotencyKeys[1], mock.idempotencyKeys.first);
   });
 
   test('in-flight scheduled booking is reused', () async {
