@@ -185,48 +185,6 @@ class RideSelectionController {
     }
   }
 
-  Future<T> _withQuoteTimeout<T>(
-    Future<T> source,
-    Duration timeout,
-  ) {
-    final completer = Completer<T>();
-    late Timer timer;
-
-    void finish() {
-      timer.cancel();
-      _quoteTimeoutCancels.remove(timer);
-    }
-
-    timer = Timer(timeout, () {
-      _quoteTimeoutCancels.remove(timer);
-      if (!completer.isCompleted) {
-        completer.completeError(
-          TimeoutException('quote request timed out', timeout),
-        );
-      }
-    });
-
-    _quoteTimeoutCancels[timer] = () {
-      timer.cancel();
-      if (!completer.isCompleted) {
-        completer.completeError(StateError('quote load disposed'));
-      }
-    };
-
-    source.then<void>(
-      (value) {
-        finish();
-        if (!completer.isCompleted) completer.complete(value);
-      },
-      onError: (Object error, StackTrace stack) {
-        finish();
-        if (!completer.isCompleted) completer.completeError(error, stack);
-      },
-    );
-
-    return completer.future;
-  }
-
   bool quoteIsFresh(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
     if (expiresAt == null) return false;
