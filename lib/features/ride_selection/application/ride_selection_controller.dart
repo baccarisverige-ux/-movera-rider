@@ -81,11 +81,11 @@ class RideSelectionController {
   }) async {
     usedFallback = false;
     final catalog = rides();
-    final width = parallelism.clamp(1, catalog.length);
+    final width = parallelism.clamp(1, catalog.length).toInt();
 
     for (var start = 0; start < catalog.length; start += width) {
       if (generation != _quoteGeneration) return;
-      final end = (start + width).clamp(0, catalog.length);
+      final end = (start + width).clamp(0, catalog.length).toInt();
       final batch = catalog.sublist(start, end);
       await Future.wait<void>(
         batch.map(
