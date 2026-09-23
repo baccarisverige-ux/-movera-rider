@@ -59,7 +59,30 @@ class InProcessMockClient extends http.BaseClient {
     var status = 200;
     final parts = path.split('/');
 
-    if (path == '/api/v1/routes' && method == 'POST') {
+    if (path == '/api/v1/auth/otp/request' && method == 'POST') {
+      final phone = body['phone'];
+      if (phone is! String || phone.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PHONE', 'requestId': requestId};
+      } else {
+        payload = {'code': 'OK', 'requestId': requestId};
+      }
+    } else if (path == '/api/v1/auth/provider' && method == 'POST') {
+      final provider = body['provider'];
+      if (provider is! String || provider.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PROVIDER', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'accessToken': 'mock-access-${provider.trim()}',
+          'refreshToken': 'mock-refresh-${provider.trim()}',
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
+      payload = {'code': 'OK', 'requestId': requestId};
+    } else if (path == '/api/v1/routes' && method == 'POST') {
       final from = body['from'];
       final to = body['to'];
       final fromMap = from is Map ? Map<String, dynamic>.from(from) : const <String, dynamic>{};
