@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -13,9 +14,12 @@ class DriverTrackingController {
     required this.pickupLat,
     required this.pickupLng,
     this.persistRideSnapshot = true,
-  }) : _realtime = realtime ?? AppScope.instance.rideRealtime;
+    RideSession? ride,
+  })  : _realtime = realtime ?? AppScope.instance.rideRealtime,
+        _ride = ride;
 
   final RideRealtime _realtime;
+  final RideSession? _ride;
   final bool persistRideSnapshot;
   final double pickupLat;
   final double pickupLng;
@@ -37,6 +41,15 @@ class DriverTrackingController {
     this.onChange = onChange;
     _sub?.cancel();
     _sub = _realtime.subscribe(rideId).listen((event) {
+      if (persistRideSnapshot) {
+        final accepted = (_ride ?? AppScope.instance.ride).backendReconcile(
+          event.status,
+          id: event.tripId,
+          version: event.version ?? event.sequence,
+          updatedAt: event.serverTime ?? event.occurredAt,
+        );
+        if (!accepted) return;
+      }
       final statusChanged = event.status != status;
       status = event.status;
       lastSignal = event.signal;
