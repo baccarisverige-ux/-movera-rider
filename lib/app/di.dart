@@ -59,10 +59,10 @@ class AppScope {
       pickup = PickupSession(),
       destination = DestinationSession(),
       booking = BookingCoordinator(),
-      routing = RoutingService(),
       reservations = ReservationController(),
       profile = ProfileController() {
     api = ApiClient(tokens: tokens);
+    routing = RoutingService(api: api);
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = MockRideRealtime(api: api, connection: realtime);
     sockets = SocketClient(realtime);
@@ -113,7 +113,7 @@ class AppScope {
   final DestinationSession destination;
   final BookingCoordinator booking;
   late final DestinationSearchController destinationSearch;
-  final RoutingService routing;
+  late final RoutingService routing;
   late final RideRealtime rideRealtime;
   final ReservationController reservations;
   final ProfileController profile;
