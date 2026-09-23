@@ -244,7 +244,7 @@ class _HomeState extends State<Home> {
     if (!interrupted) return;
     // Let the first frame settle so the messenger has a Scaffold to put this
     // in, and leave it up long enough to actually be read.
-    Future<void>.delayed(const Duration(milliseconds: 400), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       MoveraToast.show(
         context,
@@ -410,8 +410,8 @@ class _HomeState extends State<Home> {
     final capture = EarlyInputCapture()..start();
     try {
       if (!_destinationSheetOpen) {
-        _openDestinationSheet();
-        await Future<void>.delayed(const Duration(milliseconds: 360));
+        await _openDestinationSheet();
+        await WidgetsBinding.instance.endOfFrame;
         if (!mounted) return;
       }
       await _showRouteAddressPicker(
@@ -1993,11 +1993,11 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void _openDestinationSheet() {
+  Future<void> _openDestinationSheet() async {
     if (!_destinationSheetOpen) {
       setState(() => _destinationSheetOpen = true);
     }
-    _animateHomeSheetTo(const SheetOffset(1));
+    await _animateHomeSheetTo(const SheetOffset(1));
   }
 
   void _closeDestinationSheet() {
