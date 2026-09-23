@@ -66,6 +66,7 @@ class FindingDriverController {
   int timeoutLogs = 0;
   int elapsedSeconds = 0;
   String? offerConfirmation;
+  String? editFeedback;
   MatchedDriver? matchedDriver;
   List<NearbyVehicle> nearby = const [];
 
@@ -73,13 +74,13 @@ class FindingDriverController {
   ApiClient get api => _api ?? AppScope.instance.api;
 
   int get matchCount => _assigned ? 1 : 0;
+  bool get editInFlight => _editInFlight;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
   bool get showPriceBump =>
       isDelayed &&
       !_bumpDismissed &&
       !_assigned &&
       !_assignmentPending &&
-      !_editInFlight &&
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
@@ -159,6 +160,7 @@ class FindingDriverController {
     }
     timeoutLogs = 0;
     offerConfirmation = null;
+    editFeedback = null;
     matchedDriver = snapshot.driver;
     nearby = const [];
     if (ride.status != snapshot.status || ride.rideId != snapshot.rideId) {
@@ -316,6 +318,7 @@ class FindingDriverController {
     if (token == _editEpoch || _editInFlight) {
       _editInFlight = false;
     }
+    _onTick?.call(elapsedSeconds);
     if (_assignmentPending && !_cancelled && !_terminated && !_disposed) {
       _assignmentPending = false;
       _completeAssigned();
@@ -331,7 +334,15 @@ class FindingDriverController {
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
     final editToken = _beginEdit();
-    if (editToken == null) return false;
+    if (editToken == null) {
+      editFeedback = _assigned || _assignmentPending
+          ? 'Driver assigned before the pickup change could be applied.'
+          : 'Couldn’t update pickup. Try again.';
+      _onTick?.call(elapsedSeconds);
+      return false;
+    }
+    editFeedback = null;
+    _onTick?.call(elapsedSeconds);
     final updateEpoch = ++_pickupUpdateEpoch;
     final intent = jsonEncode({
       'rideId': id,
@@ -371,10 +382,14 @@ class FindingDriverController {
       if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
         return false;
       }
+      editFeedback = 'Pickup updated';
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
     } catch (_) {
+      editFeedback = 'Couldn’t update pickup. Try again.';
+      _onTick?.call(elapsedSeconds);
+      _reportQa();
       return false;
     } finally {
       _finishEdit(editToken);
@@ -390,7 +405,15 @@ class FindingDriverController {
     final next = snapshot.price + kr;
     if (!FareRules.allowsTotal(total: next, catalog: catalog)) return false;
     final editToken = _beginEdit();
-    if (editToken == null) return false;
+    if (editToken == null) {
+      editFeedback = _assigned || _assignmentPending
+          ? 'Driver assigned before the offer change could be applied.'
+          : 'Couldn’t update offer. Try again.';
+      _onTick?.call(elapsedSeconds);
+      return false;
+    }
+    editFeedback = null;
+    _onTick?.call(elapsedSeconds);
     final intent = jsonEncode({
       'rideId': id,
       'price': next,
@@ -407,6 +430,7 @@ class FindingDriverController {
       _priceUpdated = true;
       _bumpDismissed = true;
       offerConfirmation = 'Updated offer: ${next.round()} kr';
+      editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(
         status: ride.status,
         price: next,
@@ -419,6 +443,9 @@ class FindingDriverController {
       _reportQa();
       return true;
     } catch (_) {
+      editFeedback = 'Couldn’t update offer. Try again.';
+      _onTick?.call(elapsedSeconds);
+      _reportQa();
       return false;
     } finally {
       _finishEdit(editToken);
@@ -589,6 +616,7 @@ class FindingDriverController {
     'assigned': _assigned,
     'assignmentPending': _assignmentPending,
     'editInFlight': _editInFlight,
+    'editFeedback': editFeedback,
     'terminated': _terminated,
     'status': ride.status.name,
     'offerConfirmation': offerConfirmation,
