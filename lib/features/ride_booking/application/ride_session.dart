@@ -14,7 +14,12 @@ class RideSession {
   final stale = StaleGuard();
   bool suppressRestore = false;
 
-  RideStatus apply(RideStatus next) {
+  /// Last authoritative backend ordering metadata accepted for this ride.
+  int? authoritativeVersion;
+  DateTime? authoritativeUpdatedAt;
+
+  /// Strict client-side mutation path. Local/UI actions must obey the graph.
+  RideStatus localTransition(RideStatus next) {
     status = transitionRide(status, next);
     AppLog.info(
       'ride.transition',
@@ -23,7 +28,43 @@ class RideSession {
     return status;
   }
 
-  void restoreFromBackend(RideStatus backendStatus, {String? id}) {
+  /// Backwards-compatible alias for existing local callers.
+  RideStatus apply(RideStatus next) => localTransition(next);
+
+  /// Authoritative backend reconciliation path.
+  ///
+  /// Backend projections may legitimately jump over client-only intermediate
+  /// states, but they must never move this session backwards in backend
+  /// ordering. A new ride id starts a fresh ordering domain.
+  bool backendReconcile(
+    RideStatus backendStatus, {
+    String? id,
+    int? version,
+    DateTime? updatedAt,
+  }) {
+    final isNewRide =
+        id != null && rideId != null && id != rideId;
+
+    if (isNewRide) {
+      authoritativeVersion = null;
+      authoritativeUpdatedAt = null;
+    } else if (!_isFreshBackendProjection(
+      backendStatus,
+      version: version,
+      updatedAt: updatedAt,
+    )) {
+      AppLog.info(
+        'ride.restore.stale',
+        extra: {
+          'status': backendStatus.name,
+          'rideId': id ?? rideId,
+          'version': version,
+          'updatedAt': updatedAt?.toIso8601String(),
+        },
+      );
+      return false;
+    }
+
     if (status != backendStatus && !canTransition(status, backendStatus)) {
       AppLog.info(
         'ride.restore.jump',
@@ -34,9 +75,48 @@ class RideSession {
         },
       );
     }
+
     rideId = id ?? rideId;
     status = backendStatus;
     suppressRestore = backendStatus.isTerminal;
+    if (version != null) authoritativeVersion = version;
+    if (updatedAt != null) authoritativeUpdatedAt = updatedAt;
+    return true;
+  }
+
+  /// Backwards-compatible adapter for restore/realtime callers that do not yet
+  /// carry backend ordering metadata.
+  void restoreFromBackend(RideStatus backendStatus, {String? id}) {
+    backendReconcile(backendStatus, id: id);
+  }
+
+  bool _isFreshBackendProjection(
+    RideStatus incomingStatus, {
+    int? version,
+    DateTime? updatedAt,
+  }) {
+    final currentVersion = authoritativeVersion;
+    final currentUpdatedAt = authoritativeUpdatedAt;
+
+    if (version != null && currentVersion != null) {
+      if (version < currentVersion) return false;
+      if (version > currentVersion) return true;
+
+      // Same backend version is either a duplicate or a conflicting replay.
+      if (incomingStatus == status) return false;
+      if (updatedAt == null || currentUpdatedAt == null) return false;
+      return updatedAt.isAfter(currentUpdatedAt);
+    }
+
+    if (updatedAt != null && currentUpdatedAt != null) {
+      if (updatedAt.isBefore(currentUpdatedAt)) return false;
+      if (updatedAt.isAtSameMomentAs(currentUpdatedAt) &&
+          incomingStatus == status) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Future<RideSnapshot?> loadSnapshot() => RideSnapshotStore.read();
