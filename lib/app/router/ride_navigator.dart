@@ -26,8 +26,17 @@ abstract final class RideNavigator {
     RideStatus status = RideStatus.cancelledByRider,
   }) {
     final ride = AppScope.instance.ride;
-    if (ride.status != status && canTransition(ride.status, status)) {
-      ride.localTransition(status);
+    if (ride.status != status) {
+      if (canTransition(ride.status, status)) {
+        ride.localTransition(status);
+      } else if (status.isTerminal &&
+          status != RideStatus.cancelledByRider &&
+          status != RideStatus.closed) {
+        // Driver/system/no-driver/payment/expiry terminals are external truth.
+        // Navigation may acknowledge them, but must not downgrade them into a
+        // local transition just to get back Home.
+        ride.backendReconcile(status, id: ride.rideId);
+      }
     }
     SheetCoordinator.instance.current = RideSheet.none;
     setWebOverlayOpen(false);
