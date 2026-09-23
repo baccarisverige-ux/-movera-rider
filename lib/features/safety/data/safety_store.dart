@@ -1,3 +1,4 @@
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
@@ -23,8 +24,9 @@ class SafetyStore {
   SafetyStore({
     SafetyLocalDataSource? local,
     SafetyRemoteDataSource? remote,
+    ApiClient? api,
   })  : _local = local ?? PreferencesSafetyLocalDataSource(),
-        _remote = remote ?? ApiSafetyRemoteDataSource(ApiClient());
+        _remote = remote ?? ApiSafetyRemoteDataSource(api ?? AppScope.instance.api);
 
   static SafetyStore? _shared;
   static SafetyStore get shared => _shared ??= SafetyStore();
