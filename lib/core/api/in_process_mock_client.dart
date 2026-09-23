@@ -227,12 +227,20 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   Map<String, dynamic> _ride(Map<String, dynamic> body, String requestId) {
+    final categoryId =
+        (body['categoryId'] ?? body['rideType'] ?? 'movera').toString();
+    final paymentMethodId =
+        (body['paymentMethodId'] ?? body['paymentMethod'] ?? 'wallet').toString();
     return {
       'id': 'ride_$requestId',
       'status': body['scheduledAt'] != null ? 'bookingRequested' : 'findingDriver',
-      'rideType': body['rideType'] ?? 'movera',
+      'categoryId': categoryId,
+      'paymentMethodId': paymentMethodId,
+      // Transitional aliases keep older read-side tests compatible while every
+      // new write uses the canonical backend vocabulary above.
+      'rideType': categoryId,
+      'paymentMethod': paymentMethodId,
       'price': body['price'],
-      'paymentMethod': body['paymentMethod'],
       'pickupAddress': body['pickupAddress'],
       'destinationAddress': body['destinationAddress'],
       'pickupLat': body['pickupLat'],

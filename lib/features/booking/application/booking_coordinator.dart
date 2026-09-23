@@ -91,8 +91,8 @@ class BookingCoordinator {
     final json = await _client.post(
       '/api/v1/rides',
       body: {
-        'rideType': rideType,
-        'paymentMethod': paymentMethod,
+        'categoryId': rideType,
+        'paymentMethodId': paymentMethod,
         'scheduledAt': scheduledAt,
       },
       idempotencyKey: id,
@@ -122,6 +122,8 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
+    String? rideTypeLabel,
+    String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
   }) {
     if (_inflight != null) return _inflight!;
@@ -136,9 +138,9 @@ class BookingCoordinator {
       'pickupLng': pickupLng,
       'destinationLat': destinationLat,
       'destinationLng': destinationLng,
-      'rideType': rideType,
+      'categoryId': rideType,
       'price': price,
-      'paymentMethod': paymentMethod,
+      'paymentMethodId': paymentMethod,
       'notes': notes.toJson(),
     });
     final attempt = _attemptFor(intentKey);
@@ -152,6 +154,8 @@ class BookingCoordinator {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      rideTypeLabel: rideTypeLabel,
+      paymentMethodLabel: paymentMethodLabel,
       notes: notes,
       attempt: attempt,
     );
@@ -170,6 +174,8 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
+    String? rideTypeLabel,
+    String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
     required BookingAttempt attempt,
   }) async {
@@ -183,9 +189,9 @@ class BookingCoordinator {
         'pickupLng': pickupLng,
         'destinationLat': destinationLat,
         'destinationLng': destinationLng,
-        'rideType': rideType,
+        'categoryId': rideType,
         'price': price,
-        'paymentMethod': paymentMethod,
+        'paymentMethodId': paymentMethod,
         // Bags, pet, baby and child are accessibility and safety options, not
         // cosmetics: the driver needs them before accepting, so they travel
         // with the booking rather than stopping at the selection screen.
@@ -206,9 +212,9 @@ class BookingCoordinator {
         pickupLng: pickupLng,
         destinationLat: destinationLat,
         destinationLng: destinationLng,
-        rideType: rideType,
+        rideType: rideTypeLabel ?? rideType,
         price: price,
-        paymentMethod: paymentMethod,
+        paymentMethod: paymentMethodLabel ?? paymentMethod,
         rideId: id,
         notes: notes,
       ),
