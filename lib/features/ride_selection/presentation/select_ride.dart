@@ -22,6 +22,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -715,7 +716,11 @@ class _SelectRideState extends State<SelectRide>
     if (_bookingInFlight) return;
 
     final selected = _selectedRide;
-    if (!_selection.quoteIsAvailable(selected.id)) {
+    final quote = _selection.quoteForBooking(selected.id);
+    if (quote == null ||
+        !_selection.quoteIsAvailable(selected.id) ||
+        quote.signedPayload == null ||
+        quote.signedPayload!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Price unavailable. Refreshing fare…'),
@@ -731,12 +736,24 @@ class _SelectRideState extends State<SelectRide>
       _bookScheduled();
       return;
     }
-    _bookNow();
+    _bookNow(quote);
   }
 
-  void _bookNow() {
+  void _bookNow(RideQuote quote) {
     final selected = _selectedRide;
-    final payment = _payments[_selection.selectedPayment];
+    final paymentItem = _selection.selectedPaymentItem();
+    if (paymentItem == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No payment method is available.')),
+      );
+      _releaseBookingLock();
+      return;
+    }
+    final payment = _PaymentOption(
+      brand: paymentItem.brand,
+      name: paymentItem.name,
+      detail: paymentItem.detail,
+    );
     _withParkedMap(() async {
       try {
         if (!mounted) return;
@@ -751,6 +768,10 @@ class _SelectRideState extends State<SelectRide>
           rideType: selected.id,
           price: _priceFor(selected),
           paymentMethod: payment.brand,
+          quoteId: quote.id,
+          quoteSignedPayload: quote.signedPayload!,
+          quoteExpiresAt: quote.expiresAt,
+          quoteTotalMinor: quote.totalMinor,
           rideTypeLabel: selected.name,
           paymentMethodLabel: payment.name,
           notes: _notes,
@@ -1439,7 +1460,39 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _paymentButton() {
-    final method = _payments[_selection.selectedPayment];
+    final selected = _selection.selectedPaymentItem();
+    if (selected == null) {
+      return Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.payment_rounded, color: _muted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'No payment method available',
+                  style: _text(13.5, color: _muted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final method = _PaymentOption(
+      brand: selected.brand,
+      name: selected.name,
+      detail: selected.detail,
+    );
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
