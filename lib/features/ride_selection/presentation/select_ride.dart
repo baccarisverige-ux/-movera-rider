@@ -741,7 +741,19 @@ class _SelectRideState extends State<SelectRide>
 
   void _bookNow(RideQuote quote) {
     final selected = _selectedRide;
-    final payment = _payments[_selection.selectedPayment];
+    final paymentItem = _selection.selectedPaymentItem();
+    if (paymentItem == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No payment method is available.')),
+      );
+      _releaseBookingLock();
+      return;
+    }
+    final payment = _PaymentOption(
+      brand: paymentItem.brand,
+      name: paymentItem.name,
+      detail: paymentItem.detail,
+    );
     _withParkedMap(() async {
       try {
         if (!mounted) return;
@@ -1448,7 +1460,39 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _paymentButton() {
-    final method = _payments[_selection.selectedPayment];
+    final selected = _selection.selectedPaymentItem();
+    if (selected == null) {
+      return Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _line),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.payment_rounded, color: _muted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'No payment method available',
+                  style: _text(13.5, color: _muted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final method = _PaymentOption(
+      brand: selected.brand,
+      name: selected.name,
+      detail: selected.detail,
+    );
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
