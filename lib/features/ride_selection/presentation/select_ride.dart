@@ -499,6 +499,7 @@ class _SelectRideState extends State<SelectRide>
       await _chooseLater();
       return;
     }
+    var chooseLaterAfterClose = false;
     await MoveraSheet.show<void>(
       context: context,
       builder: (sheetContext) {
@@ -546,8 +547,8 @@ class _SelectRideState extends State<SelectRide>
                   subtitle: 'Choose a date and pickup time',
                   selected: _selection.bookingMode == BookingMode.scheduled,
                   onTap: () {
+                    chooseLaterAfterClose = true;
                     Navigator.pop(sheetContext);
-                    _chooseLater();
                   },
                 ),
               ],
@@ -556,6 +557,9 @@ class _SelectRideState extends State<SelectRide>
         );
       },
     );
+    if (chooseLaterAfterClose && mounted) {
+      await _chooseLater();
+    }
   }
 
   Future<void> _showPaymentPicker() async {
