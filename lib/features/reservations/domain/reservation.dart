@@ -1,4 +1,5 @@
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/trips/domain/trip.dart';
 
 class ReservationPlace {
   const ReservationPlace({
@@ -192,6 +193,8 @@ class Reservation {
     this.driver,
     this.note,
     this.cancellationReason,
+    this.cancellationActor,
+    this.cancelledAt,
     this.policyVersion,
     this.parentReservationId,
   });
@@ -213,6 +216,8 @@ class Reservation {
   final ReservationDriver? driver;
   final String? note;
   final String? cancellationReason;
+  final TripCancellationActor? cancellationActor;
+  final DateTime? cancelledAt;
   final String? policyVersion;
   final String? parentReservationId;
 
@@ -240,6 +245,8 @@ class Reservation {
     ReservationDriver? driver,
     String? note,
     String? cancellationReason,
+    TripCancellationActor? cancellationActor,
+    DateTime? cancelledAt,
     String? policyVersion,
     String? parentReservationId,
     bool clearDriver = false,
@@ -262,6 +269,8 @@ class Reservation {
       driver: clearDriver ? null : (driver ?? this.driver),
       note: note ?? this.note,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      cancellationActor: cancellationActor ?? this.cancellationActor,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
       policyVersion: policyVersion ?? this.policyVersion,
       parentReservationId: parentReservationId ?? this.parentReservationId,
     );
@@ -286,6 +295,8 @@ class Reservation {
     if (driver != null) 'driver': driver!.toJson(),
     if (note != null) 'note': note,
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
+    if (cancellationActor != null) 'cancellationActor': cancellationActor!.name,
+    if (cancelledAt != null) 'cancelledAt': cancelledAt!.toIso8601String(),
     if (policyVersion != null) 'policyVersion': policyVersion,
     if (parentReservationId != null) 'parentReservationId': parentReservationId,
   };
@@ -329,6 +340,10 @@ class Reservation {
         driver: ReservationDriver.tryParse(map['driver']),
         note: map['note'] as String?,
         cancellationReason: map['cancellationReason'] as String?,
+        cancellationActor: _parseCancellationActor(
+          map['cancellationActor'] as String?,
+        ),
+        cancelledAt: DateTime.tryParse(map['cancelledAt'] as String? ?? ''),
         policyVersion: map['policyVersion'] as String?,
         parentReservationId: map['parentReservationId'] as String?,
       );
@@ -336,4 +351,13 @@ class Reservation {
       return null;
     }
   }
+}
+
+
+TripCancellationActor? _parseCancellationActor(String? name) {
+  if (name == null) return null;
+  for (final actor in TripCancellationActor.values) {
+    if (actor.name == name) return actor;
+  }
+  return null;
 }
