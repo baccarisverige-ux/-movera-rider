@@ -329,6 +329,22 @@ class _FindingDriversState extends State<FindingDrivers> {
     RideNavigator.home(context);
   }
 
+  void _showEditFeedback({
+    required bool success,
+    required String fallback,
+  }) {
+    if (!mounted) return;
+    final message = _match.editFeedback ?? fallback;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
   Future<void> _openDetails() async {
     if (_detailsSheetOpen || _leaving) return;
     _detailsSheetOpen = true;
@@ -342,7 +358,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         price: _match.currentPrice,
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
-        canEditPickup: true,
+        canEditPickup: !_match.editInFlight && _match.matchCount == 0,
         canEditDestination: false,
         onEditPickup: () async {
           AppScope.instance.maps.detach(owner: MapOwners.finding);
@@ -388,6 +404,15 @@ class _FindingDriversState extends State<FindingDrivers> {
           });
           if (updated && result is ConfirmPickupResult && _mapReady) {
             unawaited(_refreshRoadRoute());
+          }
+
+          if (result is ConfirmPickupResult) {
+            _showEditFeedback(
+              success: updated,
+              fallback: updated
+                  ? 'Pickup updated'
+                  : 'Couldn’t update pickup. Try again.',
+            );
           }
 
           if (_match.matchCount == 1) _matchedPending = true;
@@ -701,10 +726,18 @@ class _FindingDriversState extends State<FindingDrivers> {
             PriceBumpCard(
               currentPrice: _match.currentPrice,
               maxPrice: _match.maxOfferPrice,
+              busy: _match.editInFlight,
               steps: const [50, 100, 150, 200],
               onConfirm: (kr) async {
-                await _match.confirmPriceIncrease(kr);
-                if (mounted) setState(() {});
+                final updated = await _match.confirmPriceIncrease(kr);
+                if (!mounted) return;
+                setState(() {});
+                _showEditFeedback(
+                  success: updated,
+                  fallback: updated
+                      ? 'Offer updated'
+                      : 'Couldn’t update offer. Try again.',
+                );
               },
               onKeepWaiting: () {
                 _match.dismissPriceBump();
