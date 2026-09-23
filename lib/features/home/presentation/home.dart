@@ -410,7 +410,12 @@ class _HomeState extends State<Home> {
     final capture = EarlyInputCapture()..start();
     try {
       if (!_destinationSheetOpen) {
-        await _openDestinationSheet();
+        // Do not block destination entry on the home-sheet animation. On web
+        // and installed PWA the SmoothSheet animation can wait on a platform
+        // map frame, leaving the tap accepted but the editable route fields
+        // never mounted. Start the premium expansion in parallel, then mount
+        // the route picker on the next Flutter frame.
+        unawaited(_openDestinationSheet());
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted) return;
       }
