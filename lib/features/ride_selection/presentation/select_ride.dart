@@ -287,6 +287,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
     _mapController = null;
