@@ -18,7 +18,10 @@ class RecordingMockClient extends InProcessMockClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
-    idempotencyKeys.add(request.headers['Idempotency-Key']);
+    if (request.method.toUpperCase() == 'POST' &&
+        request.url.path == '/api/v1/rides') {
+      idempotencyKeys.add(request.headers['Idempotency-Key']);
+    }
     return super.send(request);
   }
 }
