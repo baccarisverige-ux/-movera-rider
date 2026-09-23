@@ -22,7 +22,9 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
-    ride.localTransition(RideStatus.cancelledByRider);
+    if (ride.status != RideStatus.cancelledByRider && !ride.status.isTerminal) {
+      ride.localTransition(RideStatus.cancelledByRider);
+    }
     AppScope.instance.rideRealtime.cancelRide();
     await _archive(
       snapshot,
