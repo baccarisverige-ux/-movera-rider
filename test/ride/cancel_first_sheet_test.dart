@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 
-/// Extends cancel_reason_test coverage for cancel-first orchestration.
+/// Cancellation orchestration must remain reversible until the final action.
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -17,9 +17,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  testWidgets('Cancel request runs onCancelConfirmed before why-sheet', (
-    tester,
-  ) async {
+  testWidgets('first confirmation does not commit cancellation', (tester) async {
     await phoneSurface(tester);
     final order = <String>[];
     CancelOutcome? outcome;
@@ -41,23 +39,25 @@ void main() {
         ),
       ),
     );
+
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    expect(order, isEmpty);
     await tester.tap(find.text('Cancel request'));
     await tester.pumpAndSettle();
-    expect(order, ['cancelled']);
+
+    expect(order, isEmpty);
     expect(find.text('Why are you cancelling?'), findsOneWidget);
+
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
+
+    expect(order, ['cancelled']);
     expect(outcome?.cancelled, isTrue);
   });
 
-  testWidgets('Keep after Cancel request still stays cancelled', (
-    tester,
-  ) async {
+  testWidgets('Keep ride after first confirmation keeps the ride', (tester) async {
     await phoneSurface(tester);
-    var confirmed = false;
+    var committed = false;
     CancelOutcome? outcome;
     await tester.pumpWidget(
       MaterialApp(
@@ -68,7 +68,7 @@ void main() {
                 context,
                 takingLonger: false,
                 onCancelConfirmed: () async {
-                  confirmed = true;
+                  committed = true;
                 },
               );
             },
@@ -77,20 +77,25 @@ void main() {
         ),
       ),
     );
+
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel request'));
     await tester.pumpAndSettle();
-    expect(confirmed, isTrue);
+
+    expect(committed, isFalse);
     await tester.tap(find.text('Keep ride'));
     await tester.pumpAndSettle();
-    expect(outcome?.cancelled, isTrue);
+
+    expect(outcome?.cancelled, isFalse);
+    expect(committed, isFalse);
   });
-  testWidgets('active-trip cancel stays reversible until the final step', (
+
+  testWidgets('active-trip cancel is reversible until the final step', (
     tester,
   ) async {
     await phoneSurface(tester);
-    var committedEarly = false;
+    var committed = false;
     CancelOutcome? outcome;
     await tester.pumpWidget(
       MaterialApp(
@@ -102,7 +107,7 @@ void main() {
                 takingLonger: false,
                 phase: CancelPhase.inTrip,
                 onCancelConfirmed: () async {
-                  committedEarly = true;
+                  committed = true;
                 },
               );
             },
@@ -114,18 +119,16 @@ void main() {
 
     await tester.tap(find.text('open-active-trip-cancel'));
     await tester.pumpAndSettle();
-
-    // First confirmation only opens the final reason/keep step.
     await tester.tap(find.text('Cancel ride'));
     await tester.pumpAndSettle();
-    expect(committedEarly, isFalse);
+
+    expect(committed, isFalse);
     expect(find.text('Why are you cancelling?'), findsOneWidget);
 
-    // Aborting the final step must keep the same active ride alive.
     await tester.tap(find.text('Keep ride'));
     await tester.pumpAndSettle();
-    expect(outcome?.cancelled, isFalse);
-    expect(committedEarly, isFalse);
-  });
 
+    expect(outcome?.cancelled, isFalse);
+    expect(committed, isFalse);
+  });
 }
