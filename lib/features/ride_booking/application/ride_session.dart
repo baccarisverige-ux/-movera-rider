@@ -29,6 +29,7 @@ class RideSession {
   RideStatus localTransition(RideStatus next) {
     status = transitionRide(status, next);
     _syncContractProjection();
+    suppressRestore = status.isTerminal;
     AppLog.info(
       'ride.transition',
       extra: {'to': status.name, 'rideId': rideId},

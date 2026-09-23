@@ -83,12 +83,17 @@ void main() {
     RideStatus.tripCompleted: {
       RideStatus.paymentProcessing,
       RideStatus.paymentFailed,
+      RideStatus.closed,
     },
     RideStatus.paymentProcessing: {
       RideStatus.paymentFinalized,
       RideStatus.paymentFailed,
+      RideStatus.closed,
     },
-    RideStatus.paymentFinalized: {RideStatus.ratingPending},
+    RideStatus.paymentFinalized: {
+      RideStatus.ratingPending,
+      RideStatus.closed,
+    },
     RideStatus.ratingPending: {RideStatus.closed},
   };
 

@@ -9,6 +9,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 abstract final class RideNavigator {
@@ -24,7 +25,19 @@ abstract final class RideNavigator {
     BuildContext? context, {
     RideStatus status = RideStatus.cancelledByRider,
   }) {
-    AppScope.instance.ride.restoreFromBackend(status);
+    final ride = AppScope.instance.ride;
+    if (ride.status != status) {
+      if (canTransition(ride.status, status)) {
+        ride.localTransition(status);
+      } else if (status.isTerminal &&
+          status != RideStatus.cancelledByRider &&
+          status != RideStatus.closed) {
+        // Driver/system/no-driver/payment/expiry terminals are external truth.
+        // Navigation may acknowledge them, but must not downgrade them into a
+        // local transition just to get back Home.
+        ride.backendReconcile(status, id: ride.rideId);
+      }
+    }
     SheetCoordinator.instance.current = RideSheet.none;
     setWebOverlayOpen(false);
 

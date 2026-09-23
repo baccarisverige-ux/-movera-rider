@@ -133,7 +133,7 @@ class RideRestoreCoordinator {
     // AppScope, and a cold restore starts with it empty. Without this the
     // restored search has no rideId, so Cancel reaches no ride to cancel and
     // raising the offer refuses because it cannot name the ride it belongs to.
-    AppScope.instance.ride.restoreFromBackend(
+    AppScope.instance.ride.backendReconcile(
       snapshot.status,
       id: snapshot.rideId,
     );

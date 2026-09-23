@@ -98,13 +98,13 @@ class BookingCoordinator {
       idempotencyKey: id,
     );
     final rideId = (json['ride'] is Map ? json['ride']['id'] : id).toString();
-    AppScope.instance.ride.restoreFromBackend(
+    AppScope.instance.ride.backendReconcile(
       RideStatus.bookingRequested,
       id: rideId,
     );
     Analytics.bookingSubmitted(rideId: rideId);
     if (scheduledAt == null) {
-      AppScope.instance.ride.restoreFromBackend(
+      AppScope.instance.ride.backendReconcile(
         RideStatus.findingDriver,
         id: rideId,
       );
@@ -201,7 +201,7 @@ class BookingCoordinator {
     );
     final id = (json['ride'] is Map ? json['ride']['id'] : key).toString();
     Analytics.bookingSubmitted(rideId: id);
-    AppScope.instance.ride.restoreFromBackend(RideStatus.findingDriver, id: id);
+    AppScope.instance.ride.backendReconcile(RideStatus.findingDriver, id: id);
     await RideSnapshotStore.save(
       RideSnapshot(
         status: RideStatus.findingDriver,

@@ -1,5 +1,4 @@
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 
 class ScheduledRideSession {
@@ -61,11 +60,6 @@ class ScheduledRideSession {
               scheduledAt: scheduledAt?.toIso8601String(),
             ))();
     submissionStatus = 'confirmed';
-    markScheduled();
     return bookingId!;
-  }
-
-  void markScheduled() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.bookingRequested);
   }
 }

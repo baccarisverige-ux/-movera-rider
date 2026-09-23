@@ -15,14 +15,16 @@ class ActiveRideController {
   final ActiveRideRepository _store;
 
   void markArriving() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.driverArriving);
+    AppScope.instance.ride.localTransition(RideStatus.driverArriving);
   }
 
   Future<void> markCancelled({String? reasonId}) async {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
-    ride.restoreFromBackend(RideStatus.cancelledByRider);
+    if (ride.status != RideStatus.cancelledByRider && !ride.status.isTerminal) {
+      ride.localTransition(RideStatus.cancelledByRider);
+    }
     AppScope.instance.rideRealtime.cancelRide();
     await _archive(
       snapshot,
@@ -50,7 +52,7 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
-    ride.restoreFromBackend(status, id: id);
+    ride.backendReconcile(status, id: id);
     if (status == RideStatus.cancelledByDriver ||
         status == RideStatus.cancelledBySystem) {
       await _archive(snapshot, status, expectedRideId: id);
@@ -79,7 +81,7 @@ class ActiveRideController {
     }
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
-    AppScope.instance.ride.restoreFromBackend(status, id: id);
+    AppScope.instance.ride.backendReconcile(status, id: id);
     if (snapshot == null) return;
 
     // Keep a restorable completion snapshot until the rider explicitly leaves
@@ -147,7 +149,7 @@ class ActiveRideController {
   }
 
   void markClosed() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.closed);
+    AppScope.instance.ride.localTransition(RideStatus.closed);
     unawaited(_store.clear());
   }
 }

@@ -18,7 +18,9 @@ Future<void> commitCancelFirst({String? reasonId}) async {
     }
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
-    ride.restoreFromBackend(RideStatus.cancelledByRider);
+    if (!ride.status.isTerminal) {
+      ride.localTransition(RideStatus.cancelledByRider);
+    }
     AppScope.instance.rideRealtime.cancelRide();
     if (id != null) {
       unawaited(_cancelViaAdapter(id, reasonId));
