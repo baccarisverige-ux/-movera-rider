@@ -14,7 +14,7 @@ abstract final class TransportComposition {
     required PaymentGateway paymentGateway,
     required PushService push,
   }) {
-    if (!environment.isProduction) return;
+    if (environment.allowsMockTransport) return;
 
     final mockSurfaces = <String>[
       if (api.usesMockTransport) 'api',
@@ -25,8 +25,8 @@ abstract final class TransportComposition {
 
     if (mockSurfaces.isNotEmpty) {
       throw StateError(
-        'Production transport composition is incomplete: '
-        '${mockSurfaces.join(', ')}',
+        'Mock/no-op transport is forbidden for '
+        '${environment.flavor.name}: ${mockSurfaces.join(', ')}',
       );
     }
   }
