@@ -54,6 +54,34 @@ class BookingCoordinator {
     );
   }
 
+  String _requireRideId(Map<String, dynamic> json) {
+    final rawRide = json['ride'];
+    if (rawRide is! Map) {
+      throw const FormatException('Booking response missing ride object');
+    }
+    final rawId = rawRide['id'];
+    if (rawId is! String) {
+      throw const FormatException('Booking response missing ride id');
+    }
+    final id = rawId.trim();
+    if (id.isEmpty || id.toLowerCase() == 'null') {
+      throw const FormatException('Booking response contains invalid ride id');
+    }
+    return id;
+  }
+
+  int? _rideVersion(Map<String, dynamic> json) {
+    final ride = json['ride'];
+    if (ride is! Map) return null;
+    return (ride['version'] as num?)?.toInt();
+  }
+
+  DateTime? _rideUpdatedAt(Map<String, dynamic> json) {
+    final ride = json['ride'];
+    if (ride is! Map) return null;
+    return DateTime.tryParse(ride['updatedAt'] as String? ?? '');
+  }
+
   Future<String> requestBooking({
     required String rideType,
     required String paymentMethod,
@@ -97,16 +125,20 @@ class BookingCoordinator {
       },
       idempotencyKey: id,
     );
-    final rideId = (json['ride'] is Map ? json['ride']['id'] : id).toString();
+    final rideId = _requireRideId(json);
     AppScope.instance.ride.backendReconcile(
       RideStatus.bookingRequested,
       id: rideId,
+      version: _rideVersion(json),
+      updatedAt: _rideUpdatedAt(json),
     );
     Analytics.bookingSubmitted(rideId: rideId);
     if (scheduledAt == null) {
       AppScope.instance.ride.backendReconcile(
         RideStatus.findingDriver,
         id: rideId,
+        version: _rideVersion(json),
+        updatedAt: _rideUpdatedAt(json),
       );
     }
     return rideId;
@@ -122,6 +154,10 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
+    required String quoteId,
+    required String quoteSignedPayload,
+    required DateTime quoteExpiresAt,
+    required int quoteTotalMinor,
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
@@ -141,6 +177,10 @@ class BookingCoordinator {
       'categoryId': rideType,
       'price': price,
       'paymentMethodId': paymentMethod,
+      'quoteId': quoteId,
+      'quoteSignedPayload': quoteSignedPayload,
+      'quoteExpiresAt': quoteExpiresAt.toUtc().toIso8601String(),
+      'quoteTotalMinor': quoteTotalMinor,
       'notes': notes.toJson(),
     });
     final attempt = _attemptFor(intentKey);
@@ -154,6 +194,10 @@ class BookingCoordinator {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      quoteId: quoteId,
+      quoteSignedPayload: quoteSignedPayload,
+      quoteExpiresAt: quoteExpiresAt,
+      quoteTotalMinor: quoteTotalMinor,
       rideTypeLabel: rideTypeLabel,
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
@@ -174,11 +218,23 @@ class BookingCoordinator {
     required String rideType,
     required double price,
     required String paymentMethod,
+    required String quoteId,
+    required String quoteSignedPayload,
+    required DateTime quoteExpiresAt,
+    required int quoteTotalMinor,
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
     required BookingAttempt attempt,
   }) async {
+    if (quoteId.trim().isEmpty ||
+        quoteSignedPayload.trim().isEmpty ||
+        !quoteExpiresAt.isAfter(DateTime.now()) ||
+        quoteTotalMinor <= 0 ||
+        (price * 100).round() != quoteTotalMinor) {
+      throw StateError('A fresh authoritative quote is required for booking');
+    }
+
     final key = attempt.idempotencyKey;
     final json = await _client.post(
       '/api/v1/rides',
@@ -192,6 +248,10 @@ class BookingCoordinator {
         'categoryId': rideType,
         'price': price,
         'paymentMethodId': paymentMethod,
+        'quoteId': quoteId,
+        'quoteSignedPayload': quoteSignedPayload,
+        'quoteExpiresAt': quoteExpiresAt.toUtc().toIso8601String(),
+        'quoteTotalMinor': quoteTotalMinor,
         // Bags, pet, baby and child are accessibility and safety options, not
         // cosmetics: the driver needs them before accepting, so they travel
         // with the booking rather than stopping at the selection screen.
@@ -199,9 +259,14 @@ class BookingCoordinator {
       },
       idempotencyKey: key,
     );
-    final id = (json['ride'] is Map ? json['ride']['id'] : key).toString();
+    final id = _requireRideId(json);
     Analytics.bookingSubmitted(rideId: id);
-    AppScope.instance.ride.backendReconcile(RideStatus.findingDriver, id: id);
+    AppScope.instance.ride.backendReconcile(
+      RideStatus.findingDriver,
+      id: id,
+      version: _rideVersion(json),
+      updatedAt: _rideUpdatedAt(json),
+    );
     await RideSnapshotStore.save(
       RideSnapshot(
         status: RideStatus.findingDriver,
