@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
-/// Confirm cancel, then optionally collect a why-reason.
+/// Confirm cancel, then collect the rider's final decision.
 ///
-/// Searching/matched rides preserve the existing cancel-first behavior.
-/// Active trips are intentionally different: no ride state is mutated until
-/// the rider finishes the final cancellation step.
+/// This helper is intentionally side-effect free until the final reason/skip
+/// step returns a cancellation outcome. Closing either sheet or choosing
+/// Keep ride must leave matching/active-trip state untouched.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
   required bool takingLonger,
@@ -28,29 +27,17 @@ Future<CancelOutcome> showCancelRideSheet(
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
-  if (confirmed != true) return const CancelOutcome.keep();
-
-  // Once a trip has started, opening/confirming the first cancel sheet must
-  // never mutate ride state. The rider can still close the reason sheet or
-  // choose Keep ride and continue the same active trip.
-  if (phase == CancelPhase.inTrip) {
-    if (!context.mounted) return const CancelOutcome.keep();
-    return showCancelReasonSheet(
-      context,
-      phase: phase,
-      dismissKeepsRide: true,
-    );
+  if (confirmed != true || !context.mounted) {
+    return const CancelOutcome.keep();
   }
 
+  final outcome = await showCancelReasonSheet(context, phase: phase);
+  if (!outcome.cancelled) return const CancelOutcome.keep();
+
+  // Legacy callback remains supported, but now fires only after the rider
+  // completed the final cancellation action.
   if (onCancelConfirmed != null) {
     await onCancelConfirmed();
-  } else {
-    await commitCancelFirst();
-  }
-  if (!context.mounted) return const CancelOutcome.cancel();
-  final outcome = await showCancelReasonSheet(context, phase: phase);
-  if (!outcome.cancelled) {
-    return const CancelOutcome.cancel();
   }
   return outcome;
 }
