@@ -254,25 +254,71 @@ jobs:
             await enterFinding(page, 'cancel-standalone');
             await page.screenshot({ path: 'qa-critical-cancel-finding.png', fullPage: true });
 
-            await page.touchscreen.tap(36, 32);
-            await page.waitForTimeout(700);
-            await page.screenshot({ path: 'qa-critical-cancel-confirm.png', fullPage: true });
+            async function openCurrentCancel() {
+              const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
+              if (owner === 'waiting') {
+                const cancel = page.getByLabel('Cancel ride', { exact: true });
+                if (await cancel.count()) await cancel.last().click();
+                else await page.touchscreen.tap(36, 32);
+              } else {
+                await page.touchscreen.tap(36, 32);
+              }
+              await page.waitForTimeout(700);
+            }
 
-            await page.touchscreen.tap(195, 739);
+            async function confirmFirstCancelStep() {
+              const request = page.getByText('Cancel request', { exact: true });
+              if (await request.count()) {
+                await request.last().click();
+                return;
+              }
+              const ride = page.getByText('Cancel ride', { exact: true });
+              if (await ride.count()) {
+                await ride.last().click();
+                return;
+              }
+              throw new Error('Standalone Cancel: first confirmation action missing');
+            }
+
+            // First pass: abandon cancellation. The active ride must survive.
+            await openCurrentCancel();
+            await page.screenshot({ path: 'qa-critical-cancel-confirm.png', fullPage: true });
+            await confirmFirstCancelStep();
             await page.waitForTimeout(1000);
             await page.screenshot({ path: 'qa-critical-cancel-reason.png', fullPage: true });
             await page.keyboard.press('Escape');
             await page.waitForTimeout(1500);
 
+            const afterAbortOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (!['finding', 'waiting'].includes(afterAbortOwner)) {
+              throw new Error(
+                `Standalone Cancel: abandoning cancel must keep active ride, got ${afterAbortOwner}`,
+              );
+            }
+            const afterAbortSnapshot = await activeRideSnapshot(page);
+            if (String(afterAbortSnapshot.status || '').toLowerCase().includes('cancel')) {
+              throw new Error(
+                `Standalone Cancel: abandoning cancel mutated status to ${afterAbortSnapshot.status}`,
+              );
+            }
+            await page.screenshot({ path: 'qa-critical-cancel-aborted.png', fullPage: true });
+
+            // Second pass: complete cancellation explicitly, then Home must be stable.
+            await openCurrentCancel();
+            await confirmFirstCancelStep();
+            await page.waitForTimeout(700);
+            const skip = page.getByText('Skip', { exact: true });
+            if (!(await skip.count())) {
+              throw new Error('Standalone Cancel: final reason step missing');
+            }
+            await skip.last().click();
+
             await page.waitForFunction(
-              () => !['finding', 'waiting'].includes(window.moveraMapOwner || 'none'),
+              () => (window.moveraMapOwner || 'none') === 'home',
               null,
               { timeout: 10000 },
             );
             const afterCancelOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
-            if (afterCancelOwner !== 'home') {
-              throw new Error(`Standalone Cancel: expected Home after cancel, got ${afterCancelOwner}`);
-            }
 
             await page.waitForTimeout(28000);
             const stableOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
@@ -281,7 +327,7 @@ jobs:
             }
             await page.screenshot({ path: 'qa-critical-cancel-home.png', fullPage: true });
             await context.close();
-            return { afterCancelOwner, stableOwner };
+            return { afterAbortOwner, afterCancelOwner, stableOwner };
           });
 
           await runScenario('wallet_standalone', async () => {
