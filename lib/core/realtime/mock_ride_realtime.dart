@@ -454,8 +454,13 @@ class MockRideRealtime implements RideRealtime {
         }
       } catch (_) {}
     }
-    lastStatus = status;
-    if (!cancelled && !disposed) _emit(status);
+    // Deliver the authoritative resync status before committing it to
+    // lastStatus. emit() guards against events after a terminal status; writing
+    // the incoming terminal status first would therefore make the event block
+    // itself and disappear from the Rider stream.
+    if (!cancelled && !disposed) {
+      _emit(status);
+    }
   }
 
   @override
