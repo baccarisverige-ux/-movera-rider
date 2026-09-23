@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
@@ -126,8 +127,8 @@ class RideSelectionController {
     required String pickup,
     required String destination,
     int distanceMeters = 3000,
-    int parallelism = 3,
-    Duration timeout = const Duration(seconds: 8),
+    int parallelism = PerformanceBudgets.quoteParallelism,
+    Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
     usedFallback = false;
     final catalog = rides();
