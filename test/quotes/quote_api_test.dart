@@ -3,13 +3,11 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
-import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 
 void main() {
   ApiQuoteRepository repo([InProcessMockClient? client]) {
     return ApiQuoteRepository(
       api: ApiClient(client: client ?? InProcessMockClient()),
-      fallback: CatalogQuoteRepository(),
     );
   }
 
@@ -22,28 +20,32 @@ void main() {
   });
 
   test('every ride category', () async {
-    for (final type in CatalogQuoteRepository.pricesKr.keys) {
+    for (final type in <String>['movera', 'comfort', 'premium', 'priority', 'xl', 'electric', 'pet']) {
       final quote = await repo().quote(rideType: type, distanceMeters: 1000);
-      expect(quote.totalMinor, CatalogQuoteRepository.pricesKr[type]! * 100);
+      expect(quote.totalMinor, greaterThan(0));
+      expect(quote.signedPayload, 'mock-api');
     }
   });
 
-  test('timeout uses fallback', () async {
+  test('timeout is surfaced instead of using a fallback fare', () async {
     final client = InProcessMockClient();
     client.timeoutNext = const Duration(milliseconds: 1);
     final quotes = repo(client);
-    final quote = await quotes.quote(rideType: 'comfort', distanceMeters: 1);
-    expect(quote.signedPayload, 'fallback');
-    expect(quotes.lastUsedFallback, isTrue);
-    expect(quote.totalMinor, 33900);
+    await expectLater(
+      quotes.quote(rideType: 'comfort', distanceMeters: 1),
+      throwsA(isA<ApiError>()),
+    );
+    expect(quotes.lastUsedFallback, isFalse);
   });
 
-  test('malformed 500 uses fallback', () async {
+  test('HTTP 500 is surfaced instead of using a fallback fare', () async {
     final client = InProcessMockClient()..failNext = true;
     final quotes = repo(client);
-    final quote = await quotes.quote(rideType: 'premium', distanceMeters: 1);
-    expect(quote.signedPayload, 'fallback');
-    expect(quote.totalMinor, 36900);
+    await expectLater(
+      quotes.quote(rideType: 'premium', distanceMeters: 1),
+      throwsA(isA<ApiError>()),
+    );
+    expect(quotes.lastUsedFallback, isFalse);
   });
 
   test('stale generation is ignored by repository guard', () async {
