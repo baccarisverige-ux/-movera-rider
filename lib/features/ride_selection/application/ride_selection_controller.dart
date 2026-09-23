@@ -6,6 +6,7 @@ import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
@@ -34,6 +35,7 @@ class RideSelectionController {
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
   final Map<String, DateTime> quoteExpiresAt = {};
+  final Map<String, RideQuote> authoritativeQuotes = {};
   final Set<String> unavailableQuoteIds = <String>{};
   int _quoteGeneration = 0;
   final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
@@ -176,12 +178,14 @@ class RideSelectionController {
       offeredPrices[rideId] = quote.totalMinor / 100;
       quoteIds[rideId] = quote.id;
       quoteExpiresAt[rideId] = quote.expiresAt;
+      authoritativeQuotes[rideId] = quote;
       unavailableQuoteIds.remove(rideId);
     } catch (_) {
       if (generation != _quoteGeneration) return;
       offeredPrices.remove(rideId);
       quoteIds.remove(rideId);
       quoteExpiresAt.remove(rideId);
+      authoritativeQuotes.remove(rideId);
       unavailableQuoteIds.add(rideId);
     }
   }
@@ -204,6 +208,7 @@ class RideSelectionController {
     offeredPrices.remove(id);
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
+    authoritativeQuotes.remove(id);
     unavailableQuoteIds.add(id);
   }
 
@@ -274,6 +279,11 @@ class RideSelectionController {
   String? quoteIdFor(String id, {DateTime? now}) {
     _discardExpiredQuote(id, now: now);
     return quoteIds[id];
+  }
+
+  RideQuote? quoteForBooking(String id, {DateTime? now}) {
+    _discardExpiredQuote(id, now: now);
+    return authoritativeQuotes[id];
   }
 
   DateTime? expiryFor(String id) => quoteExpiresAt[id];
