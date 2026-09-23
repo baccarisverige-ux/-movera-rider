@@ -712,6 +712,18 @@ class _SelectRideState extends State<SelectRide>
 
   void _book() {
     if (_bookingInFlight) return;
+
+    final selected = _selectedRide;
+    if (!_selection.quoteIsAvailable(selected.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Price unavailable. Refreshing fare…'),
+        ),
+      );
+      unawaited(_loadQuotes());
+      return;
+    }
+
     _bookingInFlight = true;
     setState(() {});
     if (_selection.bookingMode == BookingMode.scheduled) {
