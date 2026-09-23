@@ -1,16 +1,13 @@
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
-import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
 class ApiQuoteRepository implements QuoteRepository {
-  ApiQuoteRepository({required this.api, QuoteRepository? fallback})
-    : fallback = fallback ?? CatalogQuoteRepository();
+  ApiQuoteRepository({required this.api});
 
   final ApiClient api;
-  final QuoteRepository fallback;
   final StaleGuard stale = StaleGuard();
   bool lastUsedFallback = false;
 
@@ -82,22 +79,16 @@ class ApiQuoteRepository implements QuoteRepository {
       if (quote.expired) throw StateError('expired quote');
       return quote;
     } catch (error, stack) {
-      lastUsedFallback = true;
+      lastUsedFallback = false;
       AppLog.error(
-        'quote.fallback',
+        'quote.unavailable',
         extra: {
           'rideType': rideType,
           'reason': error.toString(),
-          'fallback': true,
         },
       );
-      AppLog.error('quote.fallback.stack', extra: {'stack': stack.toString()});
-      return fallback.quote(
-        rideType: rideType,
-        distanceMeters: distanceMeters,
-        pickup: pickup,
-        destination: destination,
-      );
+      AppLog.error('quote.unavailable.stack', extra: {'stack': stack.toString()});
+      rethrow;
     }
   }
 }
