@@ -33,6 +33,7 @@ class RideSelectionController {
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
   final Map<String, DateTime> quoteExpiresAt = {};
+  final Set<String> unavailableQuoteIds = <String>{};
   int _quoteGeneration = 0;
   bool usedFallback = false;
   String selectedRideId = 'movera';
@@ -79,24 +80,38 @@ class RideSelectionController {
     usedFallback = false;
     for (final ride in rides()) {
       if (generation != _quoteGeneration) return;
-      final quote = await _quotes.quote(
-        rideType: ride.id,
-        distanceMeters: distanceMeters,
-        pickup: pickup,
-        destination: destination,
-      );
-      if (generation != _quoteGeneration) return;
-      offeredPrices[ride.id] = quote.totalMinor / 100;
-      quoteIds[ride.id] = quote.id;
-      quoteExpiresAt[ride.id] = quote.expiresAt;
-      if (quote.signedPayload == 'fallback') usedFallback = true;
+      try {
+        final quote = await _quotes.quote(
+          rideType: ride.id,
+          distanceMeters: distanceMeters,
+          pickup: pickup,
+          destination: destination,
+        );
+        if (generation != _quoteGeneration) return;
+        offeredPrices[ride.id] = quote.totalMinor / 100;
+        quoteIds[ride.id] = quote.id;
+        quoteExpiresAt[ride.id] = quote.expiresAt;
+        unavailableQuoteIds.remove(ride.id);
+      } catch (_) {
+        if (generation != _quoteGeneration) return;
+        offeredPrices.remove(ride.id);
+        quoteIds.remove(ride.id);
+        quoteExpiresAt.remove(ride.id);
+        unavailableQuoteIds.add(ride.id);
+      }
     }
   }
 
   bool quoteIsFresh(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
-    if (expiresAt == null) return quoteIds[id] == null;
+    if (expiresAt == null) return false;
     return expiresAt.isAfter(now ?? DateTime.now());
+  }
+
+  bool quoteIsAvailable(String id, {DateTime? now}) {
+    if (unavailableQuoteIds.contains(id)) return false;
+    if (!quoteIds.containsKey(id)) return false;
+    return quoteIsFresh(id, now: now);
   }
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
@@ -105,6 +120,7 @@ class RideSelectionController {
     offeredPrices.remove(id);
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
+    unavailableQuoteIds.add(id);
   }
 
   double priceFor(String id, double catalog, {DateTime? now}) {
