@@ -23,30 +23,34 @@ class MoveraSheet extends StatelessWidget {
     bool barrierDismissible = true,
     Color barrierColor = const Color(0x46000000),
     Color backgroundColor = Colors.white,
-  }) {
+  }) async {
     final motion = MoveraSheetMotion.of(context);
-    return Navigator.of(context, rootNavigator: true).push<T>(
-      MoveraModalSheetRoute<T>(
-        barrierDismissible: barrierDismissible,
-        swipeDismissible: swipeDismissible,
-        barrierColor: barrierColor,
-        openDuration: motion.forward,
-        closeDuration: motion.reverse,
-        openCurve: motion.forwardCurve,
-        builder: (ctx) {
-          final keyboardInset = MediaQuery.viewInsetsOf(ctx).bottom;
-          return Sheet(
-            physics: MoveraSheetMotion.physics,
-            scrollConfiguration: const SheetScrollConfiguration(),
-            decoration: MoveraSheetMotion.decoration(color: backgroundColor),
-            child: Padding(
-              padding: EdgeInsets.only(bottom: keyboardInset),
-              child: PointerInterceptor(child: builder(ctx)),
-            ),
-          );
-        },
-      ),
+    final route = MoveraModalSheetRoute<T>(
+      barrierDismissible: barrierDismissible,
+      swipeDismissible: swipeDismissible,
+      barrierColor: barrierColor,
+      openDuration: motion.forward,
+      closeDuration: motion.reverse,
+      openCurve: motion.forwardCurve,
+      builder: (ctx) {
+        final keyboardInset = MediaQuery.viewInsetsOf(ctx).bottom;
+        return Sheet(
+          physics: MoveraSheetMotion.physics,
+          scrollConfiguration: const SheetScrollConfiguration(),
+          decoration: MoveraSheetMotion.decoration(color: backgroundColor),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: keyboardInset),
+            child: PointerInterceptor(child: builder(ctx)),
+          ),
+        );
+      },
     );
+    final result = await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push<T>(route);
+    await route.completed;
+    return result;
   }
 
   @override
@@ -81,10 +85,9 @@ class MoveraSheet extends StatelessWidget {
 
 /// Owns [ChangeNotifier]s for the life of a pushed [MoveraSheet] route.
 ///
-/// [MoveraSheet.show] completes as soon as [Navigator.pop] runs, while the
-/// sheet is still animating out. Disposing controllers in a `finally` after
-/// that Future hits attached [TextField]s. Put the notifiers here so they
-/// dispose when the route actually unmounts.
+/// [MoveraSheet.show] now resolves only after the route fully unmounts.
+/// Keeping field-owned notifiers here still guarantees their lifetime matches
+/// the modal route itself, including interrupted/gesture dismissals.
 class MoveraSheetDisposables extends StatefulWidget {
   const MoveraSheetDisposables({
     super.key,
