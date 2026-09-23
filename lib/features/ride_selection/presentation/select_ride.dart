@@ -810,7 +810,7 @@ class _SelectRideState extends State<SelectRide>
           await Navigator.push(
             context,
             RideStageTransition(
-              FindingDrivers(
+            FindingDrivers(
                 pickupAddress: _pickupAddress,
                 destinationAddress: widget.destinationAddress,
                 pickupPosition: _pickupPosition,
