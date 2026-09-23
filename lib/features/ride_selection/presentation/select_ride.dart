@@ -22,6 +22,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -715,7 +716,11 @@ class _SelectRideState extends State<SelectRide>
     if (_bookingInFlight) return;
 
     final selected = _selectedRide;
-    if (!_selection.quoteIsAvailable(selected.id)) {
+    final quote = _selection.quoteForBooking(selected.id);
+    if (quote == null ||
+        !_selection.quoteIsAvailable(selected.id) ||
+        quote.signedPayload == null ||
+        quote.signedPayload!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Price unavailable. Refreshing fare…'),
@@ -731,10 +736,10 @@ class _SelectRideState extends State<SelectRide>
       _bookScheduled();
       return;
     }
-    _bookNow();
+    _bookNow(quote);
   }
 
-  void _bookNow() {
+  void _bookNow(RideQuote quote) {
     final selected = _selectedRide;
     final payment = _payments[_selection.selectedPayment];
     _withParkedMap(() async {
@@ -751,6 +756,10 @@ class _SelectRideState extends State<SelectRide>
           rideType: selected.id,
           price: _priceFor(selected),
           paymentMethod: payment.brand,
+          quoteId: quote.id,
+          quoteSignedPayload: quote.signedPayload!,
+          quoteExpiresAt: quote.expiresAt,
+          quoteTotalMinor: quote.totalMinor,
           rideTypeLabel: selected.name,
           paymentMethodLabel: payment.name,
           notes: _notes,
