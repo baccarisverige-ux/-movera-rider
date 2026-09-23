@@ -204,6 +204,7 @@ class _SelectRideState extends State<SelectRide>
     paymentStore: AppScope.instance.defaultPayment,
   );
   bool _mapReady = false;
+  bool _mapMountScheduled = false;
   bool _mapParked = false;
   bool _overlayOn = false;
   bool _pickupConfirmed = false;
@@ -249,11 +250,6 @@ class _SelectRideState extends State<SelectRide>
     } else if (widget.bookingMode == BookingMode.scheduled) {
       _selection.setBookingMode(BookingMode.scheduled);
     }
-    // Home already unmounted its map. Wait one frame so the platform view
-    // is gone before this screen creates the only live map.
-    Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
-      if (mounted) setState(() => _mapReady = true);
-    });
     _loadQuotes();
   }
 
@@ -266,6 +262,18 @@ class _SelectRideState extends State<SelectRide>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
+    if (!_mapMountScheduled) {
+      _mapMountScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_mountMapWhenRouteSettles());
+      });
+    }
+  }
+
+  Future<void> _mountMapWhenRouteSettles() async {
+    await waitForCurrentRouteToSettle(context);
+    if (!mounted) return;
+    setState(() => _mapReady = true);
   }
 
   Future<void> _loadQuotes() async {
