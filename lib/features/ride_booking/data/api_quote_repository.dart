@@ -1,6 +1,5 @@
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
-import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
@@ -8,7 +7,6 @@ class ApiQuoteRepository implements QuoteRepository {
   ApiQuoteRepository({required this.api});
 
   final ApiClient api;
-  final StaleGuard stale = StaleGuard();
   bool lastUsedFallback = false;
 
   @override
@@ -20,7 +18,6 @@ class ApiQuoteRepository implements QuoteRepository {
     String? destination,
   }) async {
     lastUsedFallback = false;
-    final generation = stale.next();
     try {
       final json = await api.post(
         '/api/v1/quotes',
@@ -33,9 +30,6 @@ class ApiQuoteRepository implements QuoteRepository {
           'apiVersion': 'v1',
         },
       );
-      if (!stale.isCurrent(generation)) {
-        throw const FormatException('stale quote');
-      }
       final raw = json['quote'];
       if (raw is! Map) {
         throw const FormatException('malformed quote');
