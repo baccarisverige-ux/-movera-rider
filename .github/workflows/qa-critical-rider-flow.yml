@@ -277,7 +277,10 @@ jobs:
                 await ride.last().click();
                 return;
               }
-              throw new Error('Standalone Cancel: first confirmation action missing');
+              // Flutter canvas semantics do not always expose modal button text.
+              // The viewport is fixed at 390x844 and this is the proven
+              // destructive-button center used by the existing live QA.
+              await page.touchscreen.tap(195, 739);
             }
 
             // First pass: abandon cancellation. The active ride must survive.
