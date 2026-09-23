@@ -18,6 +18,16 @@ void main() {
     apiBaseUrl: 'https://api.dev.movera.invalid',
     mapsEnabled: true,
   );
+  const testEnv = AppEnv(
+    flavor: AppFlavor.test,
+    apiBaseUrl: 'https://api.test.movera.invalid',
+    mapsEnabled: true,
+  );
+  const staging = AppEnv(
+    flavor: AppFlavor.staging,
+    apiBaseUrl: 'https://api.staging.movera.example',
+    mapsEnabled: true,
+  );
 
   test('production ApiClient never silently chooses in-process mock', () {
     final api = ApiClient(env: production);
@@ -25,29 +35,33 @@ void main() {
   });
 
   test('dev/test may explicitly use in-process transport', () {
-    final api = ApiClient(
-      env: dev,
-      client: InProcessMockClient(),
-    );
-    expect(api.usesMockTransport, isTrue);
+    for (final environment in <AppEnv>[dev, testEnv]) {
+      final api = ApiClient(
+        env: environment,
+        client: InProcessMockClient(),
+      );
+      expect(api.usesMockTransport, isTrue);
+    }
   });
 
-  test('production composition rejects mock realtime/payment/push', () {
-    final api = ApiClient(env: production);
-    final realtime = MockRideRealtime(api: api);
+  test('staging/production composition rejects mock realtime/payment/push', () {
+    for (final environment in <AppEnv>[staging, production]) {
+      final api = ApiClient(env: environment);
+      final realtime = MockRideRealtime(api: api);
 
-    expect(
-      () => TransportComposition.validate(
-        environment: production,
-        api: api,
-        realtime: realtime,
-        paymentGateway: MockPaymentGateway(),
-        push: NoopPushService(),
-      ),
-      throwsStateError,
-    );
+      expect(
+        () => TransportComposition.validate(
+          environment: environment,
+          api: api,
+          realtime: realtime,
+          paymentGateway: MockPaymentGateway(),
+          push: NoopPushService(),
+        ),
+        throwsStateError,
+      );
 
-    realtime.dispose();
+      realtime.dispose();
+    }
   });
 
   test('dev composition accepts mock stack', () {
