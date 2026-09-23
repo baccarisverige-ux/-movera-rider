@@ -5,7 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
-import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
@@ -40,6 +40,9 @@ class FindingDriverController {
   final RideSession? _ride;
   final ApiClient? _api;
   final Duration delayedAfter;
+  final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
+  final MutationAttempt _priceMutation = MutationAttempt('ride-price');
+  final MutationAttempt _cancelMutation = MutationAttempt('ride-cancel');
   Timer? _tick;
   StreamSubscription<RideRealtimeEvent>? _sub;
   bool _assigned = false;
@@ -330,6 +333,12 @@ class FindingDriverController {
     final editToken = _beginEdit();
     if (editToken == null) return false;
     final updateEpoch = ++_pickupUpdateEpoch;
+    final intent = jsonEncode({
+      'rideId': id,
+      'pickupAddress': address,
+      'pickupLat': latitude,
+      'pickupLng': longitude,
+    });
     try {
       await api.patch(
         '/api/v1/rides/$id',
@@ -338,8 +347,9 @@ class FindingDriverController {
           'pickupLat': latitude,
           'pickupLng': longitude,
         },
-        idempotencyKey: newIdempotencyKey('ride-pickup'),
+        idempotencyKey: _pickupMutation.keyFor(intent),
       );
+      _pickupMutation.succeeded(intent);
       if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
         return false;
       }
@@ -381,12 +391,18 @@ class FindingDriverController {
     if (!FareRules.allowsTotal(total: next, catalog: catalog)) return false;
     final editToken = _beginEdit();
     if (editToken == null) return false;
+    final intent = jsonEncode({
+      'rideId': id,
+      'price': next,
+      'offerIncreaseKr': kr,
+    });
     try {
       await api.patch(
         '/api/v1/rides/$id',
         body: {'price': next, 'offerIncreaseKr': kr},
-        idempotencyKey: newIdempotencyKey('ride-price'),
+        idempotencyKey: _priceMutation.keyFor(intent),
       );
+      _priceMutation.succeeded(intent);
       if (_editInvalid(editToken)) return false;
       _priceUpdated = true;
       _bumpDismissed = true;
@@ -540,12 +556,14 @@ class FindingDriverController {
   }
 
   Future<void> _cancelViaAdapter(String id, String? reasonId) async {
+    final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
     try {
       await api.post(
         '/api/v1/rides/$id/cancel',
         body: {if (reasonId != null) 'reason': reasonId},
-        idempotencyKey: newIdempotencyKey('ride-cancel'),
+        idempotencyKey: _cancelMutation.keyFor(intent),
       );
+      _cancelMutation.succeeded(intent);
     } catch (error) {
       AppLog.warning(
         'ride.cancel.adapter_failed',
