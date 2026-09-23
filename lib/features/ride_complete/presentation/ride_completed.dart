@@ -63,7 +63,12 @@ class _RideCompletedState extends State<RideCompleted> {
         return;
       }
       if (widget.persistOnDemandState) {
-        AppScope.instance.ride.restoreFromBackend(status, id: rideId);
+        AppScope.instance.ride.backendReconcile(
+          status,
+          id: event.tripId,
+          version: event.version ?? event.sequence,
+          updatedAt: event.serverTime ?? event.occurredAt,
+        );
         unawaited(
           _controller.persistCompletedStatus(status, rideId: rideId),
         );
