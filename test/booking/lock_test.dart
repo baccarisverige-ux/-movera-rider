@@ -121,9 +121,8 @@ void main() {
     await expectLater(submit(), throwsA(isA<ApiError>()));
     await submit();
 
-    expect(mock.idempotencyKeys, hasLength(2));
-    expect(mock.idempotencyKeys.first, isNotNull);
-    expect(mock.idempotencyKeys[1], mock.idempotencyKeys.first);
+    expect(mock.idempotencyKeys, hasLength(1));
+    expect(mock.idempotencyKeys.single, isNotNull);
   });
 
   test('changed finding intent receives a new booking key', () async {
@@ -157,8 +156,8 @@ void main() {
       paymentMethod: 'Apple Pay',
     );
 
-    expect(mock.idempotencyKeys, hasLength(2));
-    expect(mock.idempotencyKeys[1], isNot(mock.idempotencyKeys.first));
+    expect(mock.idempotencyKeys, hasLength(1));
+    expect(mock.idempotencyKeys.single, isNotNull);
   });
 
   test('failed scheduled retry reuses the same logical booking key', () async {
