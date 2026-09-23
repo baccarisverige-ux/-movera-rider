@@ -1,8 +1,11 @@
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/observability/observability.dart';
 
 abstract final class Analytics {
   static void track(String event, {Map<String, Object?> extra = const {}}) {
-    AppLog.info('analytics.$event', extra: extra);
+    final safe = Observability.sanitize(extra);
+    Observability.analytics.track(event, extra: safe);
+    AppLog.info('analytics.$event', extra: safe);
   }
 
   static void bookingStarted({String? rideId}) =>

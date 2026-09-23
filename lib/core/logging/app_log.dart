@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/observability/observability.dart';
 
 enum LogLevel { debug, info, warning, error, fatal }
 
@@ -52,20 +53,16 @@ abstract final class AppLog {
     Object? error,
     StackTrace? stackTrace,
   }) {
-    final safe = Map<String, Object?>.from(extra)
-      ..remove('password')
-      ..remove('token')
-      ..remove('accessToken')
-      ..remove('refreshToken')
-      ..remove('cardNumber')
-      ..remove('cvc')
-      ..remove('pin')
-      ..remove('phone')
-      ..remove('phoneE164')
-      ..remove('localPath')
-      ..remove('shareToken');
-    // Keys are scrubbed above, but event names, ids and stack traces are still
-    // internals. They belong in a developer's console, not a rider's.
+    final safe = Observability.sanitize(extra);
+    Observability.logger.log(
+      TelemetryLevel.values.byName(level.name),
+      event,
+      extra: safe,
+      error: error,
+      stackTrace: stackTrace,
+    );
+    // Production delivery happens through LoggerSink. Console output remains a
+    // developer-only surface so riders never see internal diagnostics.
     if (!kDebugMode) return;
     debugPrint('[movera:${level.name}] $event $safe');
     if (error != null) debugPrint('  error=$error');
