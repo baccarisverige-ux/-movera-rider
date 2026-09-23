@@ -10,12 +10,14 @@ class PriceBumpCard extends StatefulWidget {
     super.key,
     required this.currentPrice,
     required this.steps,
+    required this.maxPrice,
     required this.onConfirm,
     required this.onKeepWaiting,
   });
 
   final double currentPrice;
   final List<int> steps;
+  final double maxPrice;
   final ValueChanged<int> onConfirm;
   final VoidCallback onKeepWaiting;
 
@@ -40,7 +42,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
     final total = _typedTotal;
     if (total == null) return _selectedStep;
     final extra = total - _current;
-    if (extra <= 0) return null;
+    if (extra <= 0 || total > widget.maxPrice.round()) return null;
     return extra;
   }
 
