@@ -735,6 +735,7 @@ class _SelectRideState extends State<SelectRide>
 
   void _bookNow() {
     final selected = _selectedRide;
+    final payment = _payments[_selection.selectedPayment];
     _withParkedMap(() async {
       try {
         if (!mounted) return;
@@ -746,9 +747,11 @@ class _SelectRideState extends State<SelectRide>
           pickupLng: _pickupPosition.longitude,
           destinationLat: widget.destinationPosition.latitude,
           destinationLng: widget.destinationPosition.longitude,
-          rideType: selected.name,
+          rideType: selected.id,
           price: _priceFor(selected),
-          paymentMethod: _payments[_selection.selectedPayment].name,
+          paymentMethod: payment.brand,
+          rideTypeLabel: selected.name,
+          paymentMethodLabel: payment.name,
           notes: _notes,
         );
         if (!mounted) return;
@@ -764,7 +767,7 @@ class _SelectRideState extends State<SelectRide>
               destinationPosition: widget.destinationPosition,
               rideType: selected.name,
               price: _priceFor(selected),
-              paymentMethod: _payments[_selection.selectedPayment].name,
+              paymentMethod: payment.name,
               notes: _notes,
             ),
           ),
