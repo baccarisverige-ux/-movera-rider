@@ -62,7 +62,10 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.cancelledByRider,
     RideStatus.cancelledByDriver,
   },
-  RideStatus.tripStarted: {RideStatus.tripInProgress},
+  RideStatus.tripStarted: {
+    RideStatus.tripInProgress,
+    RideStatus.cancelledByRider,
+  },
   RideStatus.tripInProgress: {
     // Backends that do not emit an explicit approach event may complete
     // directly; authoritative transports that do emit it can surface it first.
@@ -72,6 +75,7 @@ const _allowed = <RideStatus, Set<RideStatus>>{
   },
   RideStatus.approachingDropoff: {
     RideStatus.tripCompleted,
+    RideStatus.cancelledByRider,
     RideStatus.cancelledBySystem,
   },
   RideStatus.tripCompleted: {
