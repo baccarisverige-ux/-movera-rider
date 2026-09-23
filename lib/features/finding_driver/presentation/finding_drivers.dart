@@ -416,9 +416,10 @@ class _FindingDriversState extends State<FindingDrivers> {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
     _sheetController.dispose();
-    if (!_leaving && _match.matchCount == 0) {
-      unawaited(_match.cancelSearch());
-    }
+    // Widget teardown is not a rider business action. Navigation, hot
+    // reload, restoration, or parent replacement may dispose this surface
+    // while the ride is still active; cancellation must happen only through
+    // the explicit cancel flow.
     _match.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.finding);
