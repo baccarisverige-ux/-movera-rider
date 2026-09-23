@@ -1949,7 +1949,14 @@ class _HomeState extends State<Home> {
   }
 
   void _scheduleSheetIdleClose() {
-    if (!_isSheetAtMiddle || _sheetIdleTimer?.isActive == true) return;
+    final accessibleNavigation =
+        MediaQuery.maybeOf(context)?.accessibleNavigation ?? false;
+    if (accessibleNavigation ||
+        !_isSheetAtMiddle ||
+        _sheetIdleTimer?.isActive == true) {
+      _cancelSheetIdleTimer();
+      return;
+    }
     _sheetIdleTimer = Timer(const Duration(seconds: 3), () {
       _sheetIdleTimer = null;
       if (!mounted || !_isSheetAtMiddle) return;
@@ -2060,8 +2067,9 @@ class _HomeState extends State<Home> {
       extendBody: true,
       drawer: const RiderSideMenu(),
       drawerScrimColor: Colors.black.withValues(alpha: 0.38),
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
+      body: FocusTraversalGroup(
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => _cancelSheetIdleTimer(),
         onPointerUp: (_) => _scheduleSheetIdleClose(),
         onPointerCancel: (_) => _scheduleSheetIdleClose(),
@@ -2104,21 +2112,28 @@ class _HomeState extends State<Home> {
                       right: ResSize.w * 18,
                       bottom: _sheetMinPixels + ResSize.h * 14,
                       child: PointerInterceptor(
-                        child: Material(
-                          color: Colors.white,
-                          shape: const CircleBorder(),
-                          elevation: 8,
-                          shadowColor: Colors.black26,
-                          child: InkWell(
-                            onTap: _recenterOnUser,
-                            customBorder: const CircleBorder(),
-                            child: SizedBox(
-                              width: ResSize.w * 45,
-                              height: ResSize.h * 45,
-                              child: Icon(
-                                Icons.near_me_outlined,
-                                color: _premiumInk,
-                                size: ResSize.h * 22,
+                        child: Tooltip(
+                          message: 'Recenter map on your location',
+                          child: Semantics(
+                            button: true,
+                            label: 'Recenter map on your location',
+                            child: Material(
+                              color: Colors.white,
+                              shape: const CircleBorder(),
+                              elevation: 8,
+                              shadowColor: Colors.black26,
+                              child: InkWell(
+                                onTap: _recenterOnUser,
+                                customBorder: const CircleBorder(),
+                                child: const SizedBox(
+                                  width: 48,
+                                  height: 48,
+                                  child: Icon(
+                                    Icons.near_me_outlined,
+                                    color: _premiumInk,
+                                    size: 22,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -2219,6 +2234,7 @@ class _HomeState extends State<Home> {
               },
             ),
           ],
+          ),
         ),
       ),
     );
@@ -2255,14 +2271,28 @@ class _HomeState extends State<Home> {
               ),
               child: Column(
                 children: [
-                  GestureDetector(
-                    onTap: _toggleHomeSheet,
-                    child: Container(
-                      width: ResSize.w * 42,
-                      height: ResSize.h * 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFCED4D8),
-                        borderRadius: BorderRadius.circular(11),
+                  Semantics(
+                    button: true,
+                    label: 'Toggle home panel',
+                    child: Tooltip(
+                      message: 'Toggle home panel',
+                      child: InkWell(
+                        onTap: _toggleHomeSheet,
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          width: 48,
+                          height: 32,
+                          child: Center(
+                            child: Container(
+                              width: ResSize.w * 42,
+                              height: ResSize.h * 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCED4D8),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
