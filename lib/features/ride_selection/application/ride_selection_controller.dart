@@ -71,6 +71,8 @@ class RideSelectionController {
 
   int beginQuotes() => ++_quoteGeneration;
 
+  void dispose() => _quoteGeneration += 1;
+
   Future<void> loadQuotes({
     required int generation,
     required String pickup,
