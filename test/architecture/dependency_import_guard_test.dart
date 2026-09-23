@@ -16,7 +16,9 @@ void main() {
       ..._dartFiles('lib'),
       ..._dartFiles('test'),
       ..._dartFiles('integration_test'),
-    ];
+    ].where(
+      (file) => !file.path.endsWith('dependency_import_guard_test.dart'),
+    );
     final source = files.map((file) => file.readAsStringSync()).join('\n');
 
     expect(
