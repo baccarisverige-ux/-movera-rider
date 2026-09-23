@@ -11,7 +11,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: ['Odenplan'],
     );
-    final when = DateTime(2026, 9, 23, 10, 30);
+    final when = DateTime(2099, 9, 23, 10, 30);
     session.captureSchedule(
       when,
       timezone: 'Europe/Stockholm',
@@ -50,7 +50,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: const [],
     );
-    session.captureSchedule(DateTime(2026, 9, 23, 10, 30));
+    session.captureSchedule(DateTime(2099, 9, 23, 10, 30));
     session.capturePayment('Wallet');
     session.captureRideType('movera', quoteId: 'q_sched_1');
     final id = await session.confirm(book: () async => 'b_sched_1');
