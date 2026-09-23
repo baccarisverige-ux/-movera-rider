@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/data/active_ride_repository.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -13,6 +13,7 @@ class ActiveRideController {
   ActiveRideController({ActiveRideRepository? store})
     : _store = store ?? ActiveRideRepository();
   final ActiveRideRepository _store;
+  final MutationAttempt _cancelMutation = MutationAttempt('ride-cancel');
 
   void markArriving() {
     AppScope.instance.ride.localTransition(RideStatus.driverArriving);
@@ -59,12 +60,14 @@ class ActiveRideController {
   }
 
   Future<void> _cancelViaAdapter(String id, String? reasonId) async {
+    final intent = '$id|${reasonId ?? ''}';
     try {
       await AppScope.instance.api.post(
         '/api/v1/rides/$id/cancel',
         body: {if (reasonId != null) 'reason': reasonId},
-        idempotencyKey: newIdempotencyKey('ride-cancel'),
+        idempotencyKey: _cancelMutation.keyFor(intent),
       );
+      _cancelMutation.succeeded(intent);
     } catch (error) {
       AppLog.warning(
         'ride.cancel.adapter_failed',
