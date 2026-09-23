@@ -151,21 +151,47 @@ class RideSnapshotStore {
   /// SharedPreferences key. On Flutter web this is `flutter.movera_active_ride`.
   static const key = 'movera_active_ride';
   static const webStorageKey = 'flutter.movera_active_ride';
+  static const _writeIdField = '_moveraSnapshotWriteId';
 
-  /// Bumped on every [clear] so an in-flight [save] cannot revive a cancelled ride.
+  /// Bumped synchronously on every [clear] so a save can detect that it became
+  /// stale while awaiting SharedPreferences/platform persistence.
   static int epoch = 0;
+
+  /// Monotonic process-local identity for each persisted write.
+  ///
+  /// It is embedded in the stored JSON as an ignored metadata field. That lets
+  /// a stale writer clean up only its own value instead of blindly deleting the
+  /// shared key and potentially removing a newer ride.
+  static int _writeSerial = 0;
 
   static Future<void> save(RideSnapshot snapshot) async {
     if (snapshot.status.isTerminal) return;
+
     // A live ride is worth remembering across a reload so the same trip
     // reopens instead of dumping the rider on Home.
     markSearchLive();
+
     final token = epoch;
+    final writeId = ++_writeSerial;
+    final payload = <String, dynamic>{
+      ...snapshot.toJson(),
+      _writeIdField: writeId,
+    };
+    final encoded = jsonEncode(payload);
+
     final prefs = await PreferencesStore.load();
     if (token != epoch) return;
-    await prefs.setString(key, jsonEncode(snapshot.toJson()));
+
+    await prefs.setString(key, encoded);
+
     if (token != epoch) {
-      await prefs.remove(key);
+      // Never perform an unconditional stale rollback. Read and compare without
+      // an await between the comparison and remove invocation, so a newer save
+      // cannot be mistaken for this write. The unique write id also makes two
+      // otherwise-identical snapshots distinguishable.
+      if (prefs.getString(key) == encoded) {
+        await prefs.remove(key);
+      }
     }
   }
 
