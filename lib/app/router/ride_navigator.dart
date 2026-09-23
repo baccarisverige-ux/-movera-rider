@@ -9,6 +9,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 abstract final class RideNavigator {
@@ -25,14 +26,8 @@ abstract final class RideNavigator {
     RideStatus status = RideStatus.cancelledByRider,
   }) {
     final ride = AppScope.instance.ride;
-    if (ride.status != status) {
-      if ((status == RideStatus.cancelledByRider ||
-              status == RideStatus.closed) &&
-          !ride.status.isTerminal) {
-        ride.localTransition(status);
-      } else if (status.isTerminal) {
-        ride.backendReconcile(status, id: ride.rideId);
-      }
+    if (ride.status != status && canTransition(ride.status, status)) {
+      ride.localTransition(status);
     }
     SheetCoordinator.instance.current = RideSheet.none;
     setWebOverlayOpen(false);
