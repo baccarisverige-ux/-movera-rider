@@ -1,4 +1,6 @@
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/app/config/transport_composition.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/secure_token_store.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
@@ -72,6 +74,13 @@ class AppScope {
       markers: markers,
       lifecycle: mapLifecycle,
       routing: routing,
+    );
+    TransportComposition.validate(
+      environment: AppEnv.current,
+      api: api,
+      realtime: rideRealtime,
+      paymentGateway: paymentGateway,
+      push: push,
     );
   }
 
