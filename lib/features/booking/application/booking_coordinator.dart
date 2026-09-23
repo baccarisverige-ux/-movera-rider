@@ -1,7 +1,9 @@
+import 'dart:convert';
+
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
-import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/features/booking/application/booking_attempt.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
@@ -12,6 +14,7 @@ class BookingCoordinator {
 
   final ApiClient? _api;
   Future<String>? _inflight;
+  BookingAttempt? _attempt;
 
   ApiClient get _client => _api ?? AppScope.instance.api;
 
@@ -26,12 +29,26 @@ class BookingCoordinator {
     return Future<String>.error(StateError('Finding already active'));
   }
 
-  void _releaseWhenDone(Future<String> started) {
+  BookingAttempt _attemptFor(String intentKey) {
+    final current = _attempt;
+    if (current != null && current.matches(intentKey)) return current;
+    final next = BookingAttempt(intentKey: intentKey);
+    _attempt = next;
+    return next;
+  }
+
+  void _releaseWhenDone(
+    Future<String> started,
+    BookingAttempt attempt,
+  ) {
     started.then<void>(
       (_) {
         if (identical(_inflight, started)) _inflight = null;
+        if (identical(_attempt, attempt)) _attempt = null;
       },
       onError: (Object _, StackTrace __) {
+        // Keep the logical attempt after failure so an explicit retry of the
+        // same booking intent reuses the exact same idempotency key.
         if (identical(_inflight, started)) _inflight = null;
       },
     );
@@ -46,13 +63,21 @@ class BookingCoordinator {
     if (scheduledAt == null && _findingAlreadyActive) {
       return _refuseOrExisting();
     }
+    final intentKey = jsonEncode(<String, Object?>{
+      'operation': 'requestBooking',
+      'rideType': rideType,
+      'paymentMethod': paymentMethod,
+      'scheduledAt': scheduledAt,
+    });
+    final attempt = _attemptFor(intentKey);
     final started = _requestBooking(
       rideType: rideType,
       paymentMethod: paymentMethod,
       scheduledAt: scheduledAt,
+      attempt: attempt,
     );
     _inflight = started;
-    _releaseWhenDone(started);
+    _releaseWhenDone(started, attempt);
     return started;
   }
 
@@ -60,8 +85,9 @@ class BookingCoordinator {
     required String rideType,
     required String paymentMethod,
     String? scheduledAt,
+    required BookingAttempt attempt,
   }) async {
-    final id = newIdempotencyKey('booking');
+    final id = attempt.idempotencyKey;
     final json = await _client.post(
       '/api/v1/rides',
       body: {
@@ -102,6 +128,20 @@ class BookingCoordinator {
     if (_findingAlreadyActive) {
       return _refuseOrExisting();
     }
+    final intentKey = jsonEncode(<String, Object?>{
+      'operation': 'submitFinding',
+      'pickupAddress': pickupAddress,
+      'destinationAddress': destinationAddress,
+      'pickupLat': pickupLat,
+      'pickupLng': pickupLng,
+      'destinationLat': destinationLat,
+      'destinationLng': destinationLng,
+      'rideType': rideType,
+      'price': price,
+      'paymentMethod': paymentMethod,
+      'notes': notes.toJson(),
+    });
+    final attempt = _attemptFor(intentKey);
     final started = _submitFinding(
       pickupAddress: pickupAddress,
       destinationAddress: destinationAddress,
@@ -113,9 +153,10 @@ class BookingCoordinator {
       price: price,
       paymentMethod: paymentMethod,
       notes: notes,
+      attempt: attempt,
     );
     _inflight = started;
-    _releaseWhenDone(started);
+    _releaseWhenDone(started, attempt);
     return started;
   }
 
@@ -130,8 +171,9 @@ class BookingCoordinator {
     required double price,
     required String paymentMethod,
     RideNotes notes = RideNotes.empty,
+    required BookingAttempt attempt,
   }) async {
-    final key = newIdempotencyKey('booking');
+    final key = attempt.idempotencyKey;
     final json = await _client.post(
       '/api/v1/rides',
       body: {
