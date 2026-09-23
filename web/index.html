@@ -60,14 +60,11 @@
     // Old Flutter builds used a service worker on this same GitHub Pages scope.
     // Remove any surviving worker/cache before booting the current non-PWA app.
     (function() {
-      var resetKey = 'movera-web-cache-reset:v16';
-      var resetNeeded = false;
       var tasks = [];
 
       if ('serviceWorker' in navigator) {
         tasks.push(
           navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            if (registrations.length) resetNeeded = true;
             return Promise.all(registrations.map(function(registration) {
               return registration.unregister();
             }));
@@ -78,7 +75,6 @@
       if ('caches' in window) {
         tasks.push(
           caches.keys().then(function(keys) {
-            if (keys.length) resetNeeded = true;
             return Promise.all(keys.map(function(key) {
               return caches.delete(key);
             }));
@@ -86,14 +82,10 @@
         );
       }
 
-      Promise.all(tasks).then(function() {
-        if (resetNeeded && !sessionStorage.getItem(resetKey)) {
-          sessionStorage.setItem(resetKey, '1');
-          location.reload();
-        }
-      }).catch(function() {
-        // Cache cleanup must never prevent the Rider app from starting.
-      });
+      // Cleanup is deliberately fire-and-forget. Flutter bootstrap below is
+      // deferred and must never wait for cache APIs or be interrupted by a
+      // reload after the engine has already started.
+      Promise.allSettled(tasks).catch(function() {});
     })();
 
     // Address lookup is intentionally independent from the Google Maps JS
@@ -110,7 +102,7 @@
         var response = await fetch(url, {
           method: 'GET',
           mode: 'cors',
-          cache: 'force-cache',
+          cache: 'no-store',
           signal: controller.signal,
           headers: { 'Accept': 'application/json' }
         });
