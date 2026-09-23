@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -449,7 +448,8 @@ class _SelectRideState extends State<SelectRide>
     try {
       await action();
     } finally {
-      if (mounted) setState(() => _mapParked = false);
+      final routeIsCurrent = mounted && (ModalRoute.of(context)?.isCurrent ?? false);
+      if (routeIsCurrent) setState(() => _mapParked = false);
     }
   }
 
@@ -845,10 +845,9 @@ class _SelectRideState extends State<SelectRide>
                             widget.destinationPosition.longitude,
                           ),
                         );
-                        Future<void>.delayed(
-                          const Duration(milliseconds: 280),
-                          _fitRoute,
-                        );
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) unawaited(_fitRoute());
+                        });
                       },
                     )
                   : const _RouteCanvas(),
