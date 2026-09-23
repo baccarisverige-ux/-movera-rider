@@ -39,20 +39,21 @@ class ConfirmPickupSpot extends StatefulWidget {
     String title = 'Confirm pickup spot',
     String hint = 'Drag map to move pin',
     String confirmLabel = 'Confirm pickup',
-  }) {
-    return Navigator.of(context).push<ConfirmPickupResult>(
-      RightToLeftTransition(
-        ConfirmPickupSpot(
-          initialPosition: initialPosition,
-          initialAddress: initialAddress,
-          scheduledSummary: scheduledSummary,
-          categoryName: categoryName,
-          title: title,
-          hint: hint,
-          confirmLabel: confirmLabel,
-        ),
+  }) async {
+    final route = RightToLeftTransition<ConfirmPickupResult>(
+      ConfirmPickupSpot(
+        initialPosition: initialPosition,
+        initialAddress: initialAddress,
+        scheduledSummary: scheduledSummary,
+        categoryName: categoryName,
+        title: title,
+        hint: hint,
+        confirmLabel: confirmLabel,
       ),
     );
+    final result = await Navigator.of(context).push<ConfirmPickupResult>(route);
+    await route.completed;
+    return result;
   }
 
   final LatLng initialPosition;
