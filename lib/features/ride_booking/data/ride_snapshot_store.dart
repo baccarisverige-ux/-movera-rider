@@ -155,7 +155,25 @@ class RideSnapshotStore {
 
   /// Bumped synchronously on every [clear] so a save can detect that it became
   /// stale while awaiting SharedPreferences/platform persistence.
-  static int epoch = 0;
+  static int _epoch = 0;
+  static int get epoch => _epoch;
+  static set epoch(int value) {
+    _epoch = value;
+    // Tests reset epoch between cases; reset the lifecycle intent too so no
+    // previous test can poison a later one.
+    if (value == 0) {
+      _intentSerial = 0;
+      _lifecycleRefreshBlocked = false;
+      _activeRideId = null;
+    }
+  }
+
+  /// Changes synchronously whenever business logic explicitly saves or clears
+  /// ride state. Lifecycle timestamp refreshes capture this value so they
+  /// cannot outlive a newer ride decision.
+  static int _intentSerial = 0;
+  static bool _lifecycleRefreshBlocked = false;
+  static String? _activeRideId;
 
   /// Monotonic process-local identity for each persisted write.
   ///
@@ -165,7 +183,16 @@ class RideSnapshotStore {
   static int _writeSerial = 0;
 
   static Future<void> save(RideSnapshot snapshot) async {
-    if (snapshot.status.isTerminal) return;
+    _intentSerial += 1;
+
+    if (snapshot.status.isTerminal) {
+      _lifecycleRefreshBlocked = true;
+      _activeRideId = snapshot.rideId;
+      return;
+    }
+
+    _lifecycleRefreshBlocked = false;
+    _activeRideId = snapshot.rideId;
 
     // A live ride is worth remembering across a reload so the same trip
     // reopens instead of dumping the rider on Home.
@@ -189,6 +216,73 @@ class RideSnapshotStore {
       // an await between the comparison and remove invocation, so a newer save
       // cannot be mistaken for this write. The unique write id also makes two
       // otherwise-identical snapshots distinguishable.
+      if (prefs.getString(key) == encoded) {
+        await prefs.remove(key);
+      }
+    }
+  }
+
+  /// Refreshes only the snapshot that is still current at the instant this
+  /// lifecycle operation starts.
+  ///
+  /// Unlike `read() -> save(snapshot)`, this never turns an old read into a
+  /// brand-new save after cancellation. Any explicit save/clear invalidates the
+  /// captured intent. A clear also blocks lifecycle refresh synchronously while
+  /// its SharedPreferences removal is still in flight.
+  static Future<void> touchCurrent() async {
+    if (_lifecycleRefreshBlocked) return;
+
+    final token = epoch;
+    final intentToken = _intentSerial;
+    final expectedRideId = _activeRideId;
+
+    final prefs = await PreferencesStore.load();
+    if (token != epoch ||
+        intentToken != _intentSerial ||
+        _lifecycleRefreshBlocked) {
+      return;
+    }
+
+    final raw = prefs.getString(key);
+    if (raw == null || raw.isEmpty) return;
+
+    Map<String, dynamic> decoded;
+    try {
+      final value = jsonDecode(raw);
+      if (value is! Map<String, dynamic>) return;
+      decoded = Map<String, dynamic>.from(value);
+    } catch (_) {
+      return;
+    }
+
+    final snapshot = RideSnapshot.fromJson(decoded);
+    if (snapshot == null ||
+        snapshot.status.isTerminal ||
+        !snapshot.isFresh) {
+      return;
+    }
+
+    if (expectedRideId != null && snapshot.rideId != expectedRideId) {
+      return;
+    }
+
+    final writeId = ++_writeSerial;
+    decoded['savedAt'] = DateTime.now().toIso8601String();
+    decoded[_writeIdField] = writeId;
+    final encoded = jsonEncode(decoded);
+
+    if (token != epoch ||
+        intentToken != _intentSerial ||
+        _lifecycleRefreshBlocked) {
+      return;
+    }
+
+    markSearchLive();
+    await prefs.setString(key, encoded);
+
+    if (token != epoch ||
+        intentToken != _intentSerial ||
+        _lifecycleRefreshBlocked) {
       if (prefs.getString(key) == encoded) {
         await prefs.remove(key);
       }
@@ -224,7 +318,10 @@ class RideSnapshotStore {
   }
 
   static Future<void> clear() async {
-    epoch += 1;
+    _epoch += 1;
+    _intentSerial += 1;
+    _lifecycleRefreshBlocked = true;
+    _activeRideId = null;
     final prefs = await PreferencesStore.load();
     await prefs.remove(key);
   }

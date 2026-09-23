@@ -24,9 +24,11 @@ class AppLifecycleObserver with WidgetsBindingObserver {
       case AppLifecycleState.hidden:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        RideSnapshotStore.read().then((snapshot) {
-          if (snapshot == null) return;
-          RideSnapshotStore.save(snapshot.copyWith(savedAt: DateTime.now()));
+        RideSnapshotStore.touchCurrent().catchError((Object error) {
+          AppLog.error(
+            'app.lifecycle.persist_failed',
+            extra: {'reason': error.toString()},
+          );
         });
     }
   }

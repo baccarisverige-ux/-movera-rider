@@ -77,4 +77,52 @@ void main() {
     expect(restored?.rideId, 'ride-active');
     expect(restored?.status, RideStatus.findingDriver);
   });
+
+
+  test('lifecycle touch after clear cannot resurrect a cancelled ride', () async {
+    await RideSnapshotStore.save(snapshot('ride-cancelled'));
+    await RideSnapshotStore.clear();
+
+    await RideSnapshotStore.touchCurrent();
+
+    expect(await RideSnapshotStore.read(), isNull);
+  });
+
+  test('lifecycle touch keeps the same active ride identity', () async {
+    await RideSnapshotStore.save(snapshot('ride-active'));
+    final before = await RideSnapshotStore.read();
+
+    await Future<void>.delayed(const Duration(milliseconds: 2));
+    await RideSnapshotStore.touchCurrent();
+
+    final after = await RideSnapshotStore.read();
+    expect(after?.rideId, 'ride-active');
+    expect(after?.status, RideStatus.findingDriver);
+    expect(after!.savedAt.isAfter(before!.savedAt), isTrue);
+  });
+
+  test('clear then rebook then lifecycle touch preserves only the new ride', () async {
+    await RideSnapshotStore.save(snapshot('ride-old'));
+
+    final clearing = RideSnapshotStore.clear();
+    final rebooking = RideSnapshotStore.save(snapshot('ride-new'));
+    final touching = RideSnapshotStore.touchCurrent();
+
+    await Future.wait(<Future<void>>[clearing, rebooking, touching]);
+
+    final restored = await RideSnapshotStore.read();
+    expect(restored?.rideId, 'ride-new');
+  });
+
+  test('explicit newer save invalidates an older lifecycle touch intent', () async {
+    await RideSnapshotStore.save(snapshot('ride-old'));
+
+    final touching = RideSnapshotStore.touchCurrent();
+    final newerSave = RideSnapshotStore.save(snapshot('ride-new'));
+
+    await Future.wait(<Future<void>>[touching, newerSave]);
+
+    final restored = await RideSnapshotStore.read();
+    expect(restored?.rideId, 'ride-new');
+  });
 }
