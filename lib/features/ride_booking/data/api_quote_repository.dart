@@ -37,13 +37,22 @@ class ApiQuoteRepository implements QuoteRepository {
       final map = Map<String, dynamic>.from(raw);
       final total = (map['totalMinor'] ?? map['amountMinor']) as num?;
       if (total == null) throw const FormatException('malformed quote');
+      final rawId = map['quoteId'] ?? map['id'];
+      if (rawId is! String || rawId.trim().isEmpty) {
+        throw const FormatException('quote id missing');
+      }
+      final signedPayload = map['signedPayload'];
+      if (signedPayload is! String || signedPayload.trim().isEmpty) {
+        throw const FormatException('quote signature missing');
+      }
       final expires = DateTime.tryParse(map['expiresAt'] as String? ?? '');
+      if (expires == null) throw const FormatException('quote expiry missing');
       final quote = RideQuote(
-        id: (map['quoteId'] ?? map['id'] ?? 'q_$rideType').toString(),
+        id: rawId.trim(),
         rideType: (map['rideType'] ?? rideType).toString(),
         totalMinor: total.round(),
         currency: (map['currency'] ?? 'SEK').toString(),
-        expiresAt: expires ?? DateTime.now().add(const Duration(minutes: 2)),
+        expiresAt: expires,
         baseMinor:
             (map['breakdown'] is Map
                     ? (map['breakdown']['baseMinor'] as num?)
@@ -68,7 +77,7 @@ class ApiQuoteRepository implements QuoteRepository {
                     : null)
                 ?.round() ??
             0,
-        signedPayload: map['signedPayload'] as String? ?? 'mock-api',
+        signedPayload: signedPayload.trim(),
       );
       if (quote.expired) throw StateError('expired quote');
       return quote;
