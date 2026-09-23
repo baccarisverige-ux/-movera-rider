@@ -28,6 +28,7 @@ class FindingDriverController {
     RideSession? ride,
     ApiClient? api,
     this.delayedAfter = SearchCopy.delayedAfter,
+    this.searchTimeout = const Duration(minutes: 3),
   }) : _store = store ?? FindingDriverRepository(),
        _realtime = realtime ?? AppScope.instance.rideRealtime,
        _ride = ride,
@@ -40,6 +41,7 @@ class FindingDriverController {
   final RideSession? _ride;
   final ApiClient? _api;
   final Duration delayedAfter;
+  final Duration searchTimeout;
   final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
   final MutationAttempt _priceMutation = MutationAttempt('ride-price');
   final MutationAttempt _cancelMutation = MutationAttempt('ride-cancel');
@@ -176,6 +178,11 @@ class FindingDriverController {
         return;
       }
       elapsedSeconds += 1;
+      if (elapsedSeconds >= searchTimeout.inSeconds) {
+        timer.cancel();
+        unawaited(_finishSearchWithoutDriver());
+        return;
+      }
       _evaluatePhase();
       _onTick?.call(elapsedSeconds);
     });
@@ -515,6 +522,17 @@ class FindingDriverController {
     matched?.call();
   }
 
+  Future<void> _finishSearchWithoutDriver() async {
+    if (_assigned || _cancelled || _terminated || _disposed) return;
+    final accepted = ride.backendReconcile(
+      RideStatus.noDriverFound,
+      id: _snapshot?.rideId ?? ride.rideId,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    if (!accepted && ride.status != RideStatus.noDriverFound) return;
+    await _completeTerminal(RideStatus.noDriverFound);
+  }
+
   Future<void> _completeTerminal(RideStatus status) async {
     if (_terminated || _cancelled || _disposed || !status.isTerminal) return;
     _terminated = true;
@@ -530,7 +548,10 @@ class FindingDriverController {
     final snapshot = _snapshot;
     if (snapshot != null &&
         (status == RideStatus.cancelledByDriver ||
-            status == RideStatus.cancelledBySystem)) {
+            status == RideStatus.cancelledBySystem ||
+            status == RideStatus.noDriverFound ||
+            status == RideStatus.paymentFailed ||
+            status == RideStatus.bookingExpired)) {
       try {
         await OnDemandRideHistoryStore.archive(
           snapshot,
