@@ -7,7 +7,9 @@ class AuthController {
   String? lastPhone;
 
   Future<void> requestOtp({String phone = ''}) async {
-    lastPhone = phone;
+    final normalized = phone.trim();
+    await _auth.requestOtp(phone: normalized);
+    lastPhone = normalized;
   }
 
   Future<void> signIn({required String provider}) async {
