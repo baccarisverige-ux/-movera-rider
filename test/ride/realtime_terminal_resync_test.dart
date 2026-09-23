@@ -34,7 +34,7 @@ Future<(ApiClient, MockRideRealtime, String)> harness() async {
   final created = await api.post(
     '/api/v1/rides',
     body: <String, dynamic>{
-      'rideType': 'movera',
+      'categoryId': 'movera',
       'price': 259,
       'paymentMethod': 'apple_pay',
       'pickupAddress': 'Pickup',
