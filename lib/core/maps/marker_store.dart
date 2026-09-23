@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/performance/performance_budgets.dart';
 
 class MarkerRecord {
   const MarkerRecord({
@@ -18,8 +19,9 @@ class MarkerRecord {
 /// rebuilt at sensor cadence.
 class MarkerStore {
   MarkerStore({
-    this.minimumMoveMeters = 1.5,
-    this.minimumHeadingDegrees = 3,
+    this.minimumMoveMeters = PerformanceBudgets.markerMinimumMoveMeters,
+    this.minimumHeadingDegrees =
+        PerformanceBudgets.markerMinimumHeadingDegrees,
   });
 
   final double minimumMoveMeters;
