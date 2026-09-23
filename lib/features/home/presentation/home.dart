@@ -2004,6 +2004,7 @@ class _HomeState extends State<Home> {
     if (!_destinationSheetOpen) {
       setState(() => _destinationSheetOpen = true);
     }
+
     await _animateHomeSheetTo(const SheetOffset(1));
   }
 
