@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -71,6 +73,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   late LatLng _center;
   late String _address;
   bool _mapReady = false;
+  bool _mapMountScheduled = false;
   bool _moving = false;
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
@@ -87,9 +90,22 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     _address = widget.initialAddress;
     _search.text = widget.initialAddress;
     setWebOverlayOpen(false);
-    Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
-      if (mounted) setState(() => _mapReady = true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_mapMountScheduled) return;
+    _mapMountScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_mountMapWhenRouteSettles());
     });
+  }
+
+  Future<void> _mountMapWhenRouteSettles() async {
+    await waitForCurrentRouteToSettle(context);
+    if (!mounted) return;
+    setState(() => _mapReady = true);
   }
 
   @override
