@@ -24,7 +24,16 @@ abstract final class RideNavigator {
     BuildContext? context, {
     RideStatus status = RideStatus.cancelledByRider,
   }) {
-    AppScope.instance.ride.restoreFromBackend(status);
+    final ride = AppScope.instance.ride;
+    if (ride.status != status) {
+      if ((status == RideStatus.cancelledByRider ||
+              status == RideStatus.closed) &&
+          !ride.status.isTerminal) {
+        ride.localTransition(status);
+      } else if (status.isTerminal) {
+        ride.backendReconcile(status, id: ride.rideId);
+      }
+    }
     SheetCoordinator.instance.current = RideSheet.none;
     setWebOverlayOpen(false);
 
