@@ -228,6 +228,12 @@ class FindingDriverController {
   void debugAdvance(int seconds) {
     if (_disposed || _assigned || _cancelled || _terminated) return;
     elapsedSeconds += seconds;
+    if (elapsedSeconds >= searchTimeout.inSeconds) {
+      _tick?.cancel();
+      _tick = null;
+      unawaited(_finishSearchWithoutDriver());
+      return;
+    }
     _evaluatePhase();
     _onTick?.call(elapsedSeconds);
     _reportQa();
