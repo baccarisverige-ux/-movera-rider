@@ -736,7 +736,19 @@ class _SelectRideState extends State<SelectRide>
 
   void _bookNow() {
     final selected = _selectedRide;
-    final payment = _payments[_selection.selectedPayment];
+    final paymentItem = _selection.selectedPaymentItem();
+    if (paymentItem == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No payment method is available.')),
+      );
+      _releaseBookingLock();
+      return;
+    }
+    final payment = _PaymentOption(
+      brand: paymentItem.brand,
+      name: paymentItem.name,
+      detail: paymentItem.detail,
+    );
     _withParkedMap(() async {
       try {
         if (!mounted) return;

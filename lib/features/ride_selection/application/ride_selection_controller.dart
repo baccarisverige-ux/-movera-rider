@@ -228,8 +228,23 @@ class RideSelectionController {
     offeredPrices.putIfAbsent(id, () => catalog);
   }
 
+  RidePaymentItem? selectedPaymentItem() {
+    final list = payments();
+    if (list.isEmpty) {
+      selectedPayment = 0;
+      return null;
+    }
+    selectedPayment = selectedPayment.clamp(0, list.length - 1).toInt();
+    return list[selectedPayment];
+  }
+
   void selectPayment(int index) {
-    selectedPayment = index;
+    final list = payments();
+    if (list.isEmpty) {
+      selectedPayment = 0;
+      return;
+    }
+    selectedPayment = index.clamp(0, list.length - 1).toInt();
     _persistSelectedBrand();
   }
 
@@ -253,16 +268,20 @@ class RideSelectionController {
 
   Future<void> restoreDefaultPayment() async {
     final store = _paymentStore;
-    if (store == null) return;
+    if (store == null) {
+      selectedPaymentItem();
+      return;
+    }
     selectPaymentByBrand(await store.read());
+    selectedPaymentItem();
   }
 
   void _persistSelectedBrand() {
     final store = _paymentStore;
     if (store == null) return;
-    final list = payments();
-    if (selectedPayment < 0 || selectedPayment >= list.length) return;
-    unawaited(store.save(list[selectedPayment].brand));
+    final selected = selectedPaymentItem();
+    if (selected == null) return;
+    unawaited(store.save(selected.brand));
   }
 
   void setBookingMode(BookingMode mode) {
