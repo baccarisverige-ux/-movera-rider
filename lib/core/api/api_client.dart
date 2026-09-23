@@ -11,9 +11,15 @@ import 'package:movera_rider/core/utils/request_id.dart';
 
 class ApiClient {
   ApiClient({http.Client? client, AppEnv? env, TokenStore? tokens})
-      : _client = client ?? InProcessMockClient(),
-        _env = env ?? AppEnv.current,
+      : _env = env ?? AppEnv.current,
+        _client = client ?? _defaultClient(env ?? AppEnv.current),
         _tokens = tokens;
+
+  static http.Client _defaultClient(AppEnv env) {
+    return env.allowsMockTransport ? InProcessMockClient() : http.Client();
+  }
+
+  bool get usesMockTransport => _client is InProcessMockClient;
 
   final http.Client _client;
   final AppEnv _env;

@@ -1,4 +1,4 @@
-enum AppFlavor { dev, staging, production }
+enum AppFlavor { dev, test, staging, production }
 
 class AppEnv {
   const AppEnv({
@@ -18,4 +18,7 @@ class AppEnv {
   );
 
   bool get isProduction => flavor == AppFlavor.production;
+
+  bool get allowsMockTransport =>
+      flavor == AppFlavor.dev || flavor == AppFlavor.test;
 }
