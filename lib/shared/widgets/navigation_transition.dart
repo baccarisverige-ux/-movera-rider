@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 
@@ -184,4 +186,33 @@ Future<void> popCurrentRouteAndWaitForExit(BuildContext context) async {
   } else {
     await WidgetsBinding.instance.endOfFrame;
   }
+}
+
+
+/// Wait until the current route's forward transition has fully settled.
+///
+/// This replaces guessed millisecond delays before mounting platform views
+/// such as Google Maps. If the route is already settled, this waits one frame.
+Future<void> waitForCurrentRouteToSettle(BuildContext context) async {
+  final route = ModalRoute.of(context);
+  final animation = route?.animation;
+  if (animation == null || animation.status == AnimationStatus.completed) {
+    await WidgetsBinding.instance.endOfFrame;
+    return;
+  }
+
+  final completer = Completer<void>();
+  void listener(AnimationStatus status) {
+    if (status != AnimationStatus.completed || completer.isCompleted) return;
+    animation.removeStatusListener(listener);
+    completer.complete();
+  }
+
+  animation.addStatusListener(listener);
+  if (animation.status == AnimationStatus.completed && !completer.isCompleted) {
+    animation.removeStatusListener(listener);
+    completer.complete();
+  }
+  await completer.future;
+  await WidgetsBinding.instance.endOfFrame;
 }
