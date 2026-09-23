@@ -10,6 +10,7 @@ import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
@@ -55,6 +56,7 @@ class FindingDriverController {
   int _pickupUpdateEpoch = 0;
   int _editEpoch = 0;
   RideSnapshot? _snapshot;
+  double? _catalogPrice;
   void Function()? _onMatched;
   void Function(RideStatus status)? _onTerminal;
   void Function(int elapsed)? _onTick;
@@ -78,6 +80,8 @@ class FindingDriverController {
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
+  double get maxOfferPrice =>
+      FareRules.maximum(_catalogPrice ?? currentPrice);
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
   double? get pickupLng => _snapshot?.pickupLng;
@@ -129,6 +133,7 @@ class FindingDriverController {
   }) {
     active = this;
     _snapshot = snapshot;
+    _catalogPrice = snapshot.price;
     _onMatched = onMatched;
     _onTerminal = onTerminal;
     _onTick = onTick;
@@ -358,9 +363,11 @@ class FindingDriverController {
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
+    final catalog = _catalogPrice ?? snapshot.price;
+    final next = snapshot.price + kr;
+    if (!FareRules.allowsTotal(total: next, catalog: catalog)) return false;
     final editToken = _beginEdit();
     if (editToken == null) return false;
-    final next = snapshot.price + kr;
     try {
       await api.patch(
         '/api/v1/rides/$id',

@@ -145,7 +145,6 @@ void main() {
   test('api quote repository parses mock contract', () async {
     final repo = ApiQuoteRepository(
       api: ApiClient(client: InProcessMockClient()),
-      fallback: CatalogQuoteRepository(),
     );
     final quote = await repo.quote(
       rideType: 'xl',

@@ -700,6 +700,7 @@ class _FindingDriversState extends State<FindingDrivers> {
             const SizedBox(height: 16),
             PriceBumpCard(
               currentPrice: _match.currentPrice,
+              maxPrice: _match.maxOfferPrice,
               steps: const [50, 100, 150, 200],
               onConfirm: (kr) async {
                 await _match.confirmPriceIncrease(kr);

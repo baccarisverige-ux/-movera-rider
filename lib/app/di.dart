@@ -31,7 +31,6 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
-import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
@@ -62,7 +61,7 @@ class AppScope {
       reservations = ReservationController(),
       profile = ProfileController() {
     api = ApiClient(tokens: tokens);
-    quotes = ApiQuoteRepository(api: api, fallback: CatalogQuoteRepository());
+    quotes = ApiQuoteRepository(api: api);
     rideRealtime = MockRideRealtime(api: api, connection: realtime);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
