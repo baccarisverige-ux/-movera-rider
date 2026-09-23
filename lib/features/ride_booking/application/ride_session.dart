@@ -4,12 +4,19 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
+import 'package:movera_rider/features/payments/domain/payment_status.dart';
+import 'package:movera_rider/features/ratings/domain/rating_status.dart';
+import 'package:movera_rider/features/trips/domain/ride_status_adapter.dart';
+import 'package:movera_rider/features/trips/domain/trip_status.dart';
 
 class RideSession {
   RideSession({this.rideId});
 
   String? rideId;
   RideStatus status = RideStatus.idle;
+  TripStatus tripStatus = TripStatus.draft;
+  PaymentStatus paymentStatus = PaymentStatus.notStarted;
+  RatingStatus ratingStatus = RatingStatus.notRequested;
   RideQuote? quote;
   final stale = StaleGuard();
   bool suppressRestore = false;
@@ -21,6 +28,7 @@ class RideSession {
   /// Strict client-side mutation path. Local/UI actions must obey the graph.
   RideStatus localTransition(RideStatus next) {
     status = transitionRide(status, next);
+    _syncContractProjection();
     AppLog.info(
       'ride.transition',
       extra: {'to': status.name, 'rideId': rideId},
@@ -78,6 +86,7 @@ class RideSession {
 
     rideId = id ?? rideId;
     status = backendStatus;
+    _syncContractProjection();
     suppressRestore = backendStatus.isTerminal;
     if (version != null) authoritativeVersion = version;
     if (updatedAt != null) authoritativeUpdatedAt = updatedAt;
@@ -117,6 +126,12 @@ class RideSession {
     }
 
     return true;
+  }
+
+  void _syncContractProjection() {
+    tripStatus = status.tripStatus;
+    paymentStatus = status.paymentStatus;
+    ratingStatus = status.ratingStatus;
   }
 
   Future<RideSnapshot?> loadSnapshot() => RideSnapshotStore.read();
