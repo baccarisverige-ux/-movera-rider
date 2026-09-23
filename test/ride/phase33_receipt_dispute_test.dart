@@ -19,7 +19,7 @@ void main() {
     ).readAsStringSync();
 
     expect(dispute, contains("MutationAttempt('ride-dispute')"));
-    expect(dispute, contains("'/api/v1/rides/$id/disputes'"));
+    expect(dispute, contains("'/api/v1/rides/\$id/disputes'"));
     expect(dispute, contains('idempotencyKey: _mutation.keyFor(intent)'));
     expect(dispute, contains('_mutation.succeeded(intent)'));
   });
