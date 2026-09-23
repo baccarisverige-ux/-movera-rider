@@ -14,6 +14,7 @@ class InProcessMockClient extends http.BaseClient {
   final Duration latency;
   final Map<String, Map<String, dynamic>> idempotency = {};
   final Map<String, Map<String, dynamic>> rides = {};
+  final Map<String, Map<String, dynamic>> quotes = {};
   final SafetyMockApi safety = safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
@@ -73,11 +74,23 @@ class InProcessMockClient extends http.BaseClient {
         'requestId': requestId,
       };
     } else if (path == '/api/v1/quotes' && method == 'POST') {
-      payload = {'code': 'OK', 'quote': _quote(body), 'requestId': requestId};
+      final quote = _quote(body);
+      quotes[quote['id'] as String] = quote;
+      payload = {'code': 'OK', 'quote': quote, 'requestId': requestId};
     } else if (path == '/api/v1/rides' && method == 'POST') {
-      final ride = _ride(body, requestId);
-      rides[ride['id'] as String] = ride;
-      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      final validation = _validateQuoteBinding(body);
+      if (validation != null) {
+        status = 409;
+        payload = {
+          'code': validation,
+          'message': 'Booking quote is missing, expired or does not match.',
+          'requestId': requestId,
+        };
+      } else {
+        final ride = _ride(body, requestId);
+        rides[ride['id'] as String] = ride;
+        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      }
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
@@ -242,6 +255,54 @@ class InProcessMockClient extends http.BaseClient {
     };
   }
 
+  String? _validateQuoteBinding(Map<String, dynamic> body) {
+    // Scheduled test bookings do not yet use the on-demand quote path.
+    if (body['scheduledAt'] != null) return null;
+    if (body['pickupAddress'] == null) return null;
+
+    final quoteId = body['quoteId'] as String?;
+    final signed = body['quoteSignedPayload'] as String?;
+    final expiryRaw = body['quoteExpiresAt'] as String?;
+    final quotedTotal = (body['quoteTotalMinor'] as num?)?.round();
+    if (quoteId == null ||
+        quoteId.isEmpty ||
+        signed == null ||
+        signed.isEmpty ||
+        expiryRaw == null ||
+        quotedTotal == null) {
+      return 'QUOTE_REQUIRED';
+    }
+
+    final quote = quotes[quoteId];
+    if (quote == null) return 'QUOTE_NOT_FOUND';
+    if (quote['signedPayload'] != signed) return 'QUOTE_SIGNATURE_MISMATCH';
+
+    final expiresAt = DateTime.tryParse(expiryRaw);
+    final serverExpiry = DateTime.tryParse(quote['expiresAt'] as String? ?? '');
+    if (expiresAt == null ||
+        serverExpiry == null ||
+        expiresAt.toUtc() != serverExpiry.toUtc() ||
+        !serverExpiry.isAfter(DateTime.now())) {
+      return 'QUOTE_EXPIRED';
+    }
+
+    final serverTotal = (quote['totalMinor'] as num?)?.round();
+    if (serverTotal == null || serverTotal != quotedTotal) {
+      return 'QUOTE_AMOUNT_MISMATCH';
+    }
+
+    final categoryId = (body['categoryId'] ?? '').toString();
+    if (quote['rideType'] != categoryId) return 'QUOTE_CATEGORY_MISMATCH';
+
+    final submittedPrice = (body['price'] as num?)?.toDouble();
+    if (submittedPrice == null ||
+        (submittedPrice * 100).round() != serverTotal) {
+      return 'QUOTE_PRICE_MISMATCH';
+    }
+
+    return null;
+  }
+
   Map<String, dynamic> _ride(Map<String, dynamic> body, String requestId) {
     final categoryId =
         (body['categoryId'] ?? body['rideType'] ?? 'movera').toString();
@@ -259,6 +320,10 @@ class InProcessMockClient extends http.BaseClient {
       'rideType': categoryId,
       'paymentMethod': paymentMethodId,
       'price': body['price'],
+      'quoteId': body['quoteId'],
+      'quoteSignedPayload': body['quoteSignedPayload'],
+      'quoteExpiresAt': body['quoteExpiresAt'],
+      'quoteTotalMinor': body['quoteTotalMinor'],
       'pickupAddress': body['pickupAddress'],
       'destinationAddress': body['destinationAddress'],
       'pickupLat': body['pickupLat'],
