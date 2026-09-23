@@ -91,6 +91,48 @@ void main() {
     expect(committed, isFalse);
   });
 
+
+  testWidgets('matched-driver cancel stays reversible until the final step', (
+    tester,
+  ) async {
+    await phoneSurface(tester);
+    var committed = false;
+    CancelOutcome? outcome;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              outcome = await showCancelRideSheet(
+                context,
+                takingLonger: false,
+                phase: CancelPhase.matched,
+                onCancelConfirmed: () async {
+                  committed = true;
+                },
+              );
+            },
+            child: const Text('open-matched-cancel'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open-matched-cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel request'));
+    await tester.pumpAndSettle();
+
+    expect(committed, isFalse);
+    expect(find.text('Why are you cancelling?'), findsOneWidget);
+
+    await tester.tap(find.text('Keep ride'));
+    await tester.pumpAndSettle();
+
+    expect(outcome?.cancelled, isFalse);
+    expect(committed, isFalse);
+  });
+
   testWidgets('active-trip cancel is reversible until the final step', (
     tester,
   ) async {
