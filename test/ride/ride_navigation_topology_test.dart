@@ -68,6 +68,11 @@ void main() {
     );
     expect(select, contains('await waitForCurrentRouteToSettle(context);'));
     expect(pickup, contains('await waitForCurrentRouteToSettle(context);'));
+    expect(
+      pickup,
+      contains('await route.completed;'),
+      reason: 'previous map must resume only after Confirm Pickup fully exits',
+    );
 
     for (final source in <String>[select, pickup]) {
       expect(
