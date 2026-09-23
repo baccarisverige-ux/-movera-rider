@@ -175,7 +175,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Why are you cancelling?'), findsOneWidget);
 
-    await tester.pageBack();
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
     expect(outcome?.cancelled, isFalse);
