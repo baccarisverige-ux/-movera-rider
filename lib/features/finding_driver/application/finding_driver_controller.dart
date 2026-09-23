@@ -158,7 +158,9 @@ class FindingDriverController {
     offerConfirmation = null;
     matchedDriver = snapshot.driver;
     nearby = const [];
-    ride.restoreFromBackend(RideStatus.findingDriver);
+    if (ride.status != snapshot.status || ride.rideId != snapshot.rideId) {
+      ride.backendReconcile(snapshot.status, id: snapshot.rideId);
+    }
     _tick?.cancel();
     _sub?.cancel();
     _evaluatePhase();
@@ -179,6 +181,15 @@ class FindingDriverController {
       if (_assigned && event.status == RideStatus.driverAssigned) return;
       _lastSequence = event.sequence;
       if (event.driver != null) matchedDriver = event.driver;
+
+      final accepted = ride.backendReconcile(
+        event.status,
+        id: event.tripId,
+        version: event.version ?? event.sequence,
+        updatedAt: event.serverTime ?? event.occurredAt,
+      );
+      if (!accepted && event.status != ride.status) return;
+
       if (event.status.isTerminal) {
         unawaited(_completeTerminal(event.status));
         return;
@@ -216,7 +227,9 @@ class FindingDriverController {
     if (!_delayedLogged) {
       _delayedLogged = true;
       timeoutLogs += 1;
-      ride.restoreFromBackend(RideStatus.searchDelayed);
+      if (ride.status == RideStatus.findingDriver) {
+        ride.localTransition(RideStatus.searchDelayed);
+      }
       final snapshot = _snapshot;
       if (snapshot != null) {
         _store.save(
@@ -416,10 +429,11 @@ class FindingDriverController {
     final snapshot = _snapshot;
     final matched = _onMatched;
     if (_cancelled || _terminated || _disposed) return;
-    ride.restoreFromBackend(RideStatus.driverAssigned);
     Analytics.driverFound(rideId: ride.rideId);
     if (_cancelled || _disposed) {
-      ride.restoreFromBackend(RideStatus.cancelledByRider);
+      if (!ride.status.isTerminal) {
+        ride.localTransition(RideStatus.cancelledByRider);
+      }
       unawaited(_store.clear());
       return;
     }
@@ -434,7 +448,9 @@ class FindingDriverController {
     if (snapshot != null) {
       await _store.save(
         snapshot.copyWith(
-          status: RideStatus.driverAssigned,
+          status: ride.status.isMatched
+              ? ride.status
+              : RideStatus.driverAssigned,
           savedAt: DateTime.now(),
           rideId: ride.rideId,
           driver: matchedDriver,
@@ -446,7 +462,9 @@ class FindingDriverController {
       return;
     }
     if (_cancelled || _disposed) {
-      ride.restoreFromBackend(RideStatus.cancelledByRider);
+      if (!ride.status.isTerminal) {
+        ride.localTransition(RideStatus.cancelledByRider);
+      }
       await _store.clear();
       return;
     }
@@ -466,8 +484,6 @@ class FindingDriverController {
     _tick = null;
     await _sub?.cancel();
     _sub = null;
-    ride.restoreFromBackend(status, id: _snapshot?.rideId ?? ride.rideId);
-
     final snapshot = _snapshot;
     if (snapshot != null &&
         (status == RideStatus.cancelledByDriver ||
@@ -509,7 +525,9 @@ class FindingDriverController {
         extra: {'reason': reasonId, 'rideId': ride.rideId},
       );
     }
-    ride.restoreFromBackend(RideStatus.cancelledByRider);
+    if (!ride.status.isTerminal) {
+      ride.localTransition(RideStatus.cancelledByRider);
+    }
     final id = _snapshot?.rideId ?? ride.rideId;
     await OnDemandRideHistoryStore.archiveCancelledThenClear(
       snapshot: _snapshot,
