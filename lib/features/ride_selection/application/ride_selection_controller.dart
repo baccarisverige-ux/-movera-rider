@@ -76,29 +76,61 @@ class RideSelectionController {
     required String pickup,
     required String destination,
     int distanceMeters = 3000,
+    int parallelism = 3,
+    Duration timeout = const Duration(seconds: 8),
   }) async {
     usedFallback = false;
-    for (final ride in rides()) {
+    final catalog = rides();
+    final width = parallelism.clamp(1, catalog.length);
+
+    for (var start = 0; start < catalog.length; start += width) {
       if (generation != _quoteGeneration) return;
-      try {
-        final quote = await _quotes.quote(
-          rideType: ride.id,
-          distanceMeters: distanceMeters,
-          pickup: pickup,
-          destination: destination,
-        );
-        if (generation != _quoteGeneration) return;
-        offeredPrices[ride.id] = quote.totalMinor / 100;
-        quoteIds[ride.id] = quote.id;
-        quoteExpiresAt[ride.id] = quote.expiresAt;
-        unavailableQuoteIds.remove(ride.id);
-      } catch (_) {
-        if (generation != _quoteGeneration) return;
-        offeredPrices.remove(ride.id);
-        quoteIds.remove(ride.id);
-        quoteExpiresAt.remove(ride.id);
-        unavailableQuoteIds.add(ride.id);
-      }
+      final end = (start + width).clamp(0, catalog.length);
+      final batch = catalog.sublist(start, end);
+      await Future.wait<void>(
+        batch.map(
+          (ride) => _loadQuote(
+            rideId: ride.id,
+            generation: generation,
+            pickup: pickup,
+            destination: destination,
+            distanceMeters: distanceMeters,
+            timeout: timeout,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadQuote({
+    required String rideId,
+    required int generation,
+    required String pickup,
+    required String destination,
+    required int distanceMeters,
+    required Duration timeout,
+  }) async {
+    if (generation != _quoteGeneration) return;
+    try {
+      final quote = await _quotes
+          .quote(
+            rideType: rideId,
+            distanceMeters: distanceMeters,
+            pickup: pickup,
+            destination: destination,
+          )
+          .timeout(timeout);
+      if (generation != _quoteGeneration) return;
+      offeredPrices[rideId] = quote.totalMinor / 100;
+      quoteIds[rideId] = quote.id;
+      quoteExpiresAt[rideId] = quote.expiresAt;
+      unavailableQuoteIds.remove(rideId);
+    } catch (_) {
+      if (generation != _quoteGeneration) return;
+      offeredPrices.remove(rideId);
+      quoteIds.remove(rideId);
+      quoteExpiresAt.remove(rideId);
+      unavailableQuoteIds.add(rideId);
     }
   }
 
