@@ -98,8 +98,10 @@ class InProcessMockClient extends http.BaseClient {
         parts.last == 'status' &&
         method == 'POST') {
       final id = parts[4];
-      final ride = rides[id] ?? {'id': id};
+      final ride = rides[id] ?? {'id': id, 'version': 0};
       ride['status'] = body['status'] ?? ride['status'];
+      ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
+      ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
       if (body['driver'] is Map) ride['driver'] = body['driver'];
       if (body['lat'] != null) ride['driverLat'] = body['lat'];
       if (body['lng'] != null) ride['driverLng'] = body['lng'];
@@ -234,6 +236,8 @@ class InProcessMockClient extends http.BaseClient {
     return {
       'id': 'ride_$requestId',
       'status': body['scheduledAt'] != null ? 'bookingRequested' : 'findingDriver',
+      'version': 1,
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
       'categoryId': categoryId,
       'paymentMethodId': paymentMethodId,
       // Transitional aliases keep older read-side tests compatible while every

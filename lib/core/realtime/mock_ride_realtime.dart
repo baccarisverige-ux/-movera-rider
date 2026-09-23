@@ -174,12 +174,16 @@ class MockRideRealtime implements RideRealtime {
     if (latitude != null) lastLat = latitude;
     if (longitude != null) lastLng = longitude;
     if (latitude != null || longitude != null) lastLocationAt = DateTime.now();
+    final occurredAt = DateTime.now().toUtc();
     _controller.add(
       RideRealtimeEvent(
-        rideId: _rideId!,
+        tripId: _rideId!,
+        eventId: '${_rideId!}:$_sequence:${status.name}',
         status: status,
         sequence: _sequence,
-        at: DateTime.now(),
+        version: _sequence,
+        occurredAt: occurredAt,
+        serverTime: occurredAt,
         driver: lastDriver,
         latitude: lastLat,
         longitude: lastLng,
@@ -274,10 +278,13 @@ class MockRideRealtime implements RideRealtime {
     // this ride carries on with someone else driving it.
     _controller.add(
       RideRealtimeEvent(
-        rideId: rideId,
+        tripId: rideId,
+        eventId: '$rideId:$_sequence:${RideStatus.cancelledByDriver.name}',
         status: RideStatus.cancelledByDriver,
         sequence: _sequence,
-        at: DateTime.now(),
+        version: _sequence,
+        occurredAt: DateTime.now().toUtc(),
+        serverTime: DateTime.now().toUtc(),
       ),
     );
   }

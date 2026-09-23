@@ -7,11 +7,17 @@ enum RideRealtimeSignal {
 }
 
 class RideRealtimeEvent {
-  const RideRealtimeEvent({
-    required this.rideId,
+  RideRealtimeEvent({
+    String? rideId,
+    String? tripId,
     required this.status,
     required this.sequence,
-    required this.at,
+    DateTime? at,
+    DateTime? occurredAt,
+    String? eventId,
+    this.version,
+    this.serverTime,
+    this.payload = const <String, Object?>{},
     this.driver,
     this.latitude,
     this.longitude,
@@ -19,12 +25,38 @@ class RideRealtimeEvent {
     this.locationAt,
     this.signal,
     this.message,
-  });
+  })  : rideId = (tripId ?? rideId)!,
+        at = occurredAt ?? at ?? DateTime.now(),
+        eventId =
+            eventId ??
+            '${tripId ?? rideId}:$sequence:${status.name}';
 
+  /// Backwards-compatible Rider identifier. New platform code should use
+  /// [tripId] so Rider, Driver and Admin speak the same contract.
   final String rideId;
+
+  String get tripId => rideId;
+
+  final String eventId;
   final RideStatus status;
+
+  /// Monotonic transport ordering for this trip stream.
   final int sequence;
+
+  /// Optional persisted backend aggregate version.
+  final int? version;
+
+  /// Backwards-compatible local occurrence time.
   final DateTime at;
+
+  DateTime get occurredAt => at;
+
+  /// Server clock when the event was committed, when available.
+  final DateTime? serverTime;
+
+  /// Extensible contract payload for backend-authored event metadata.
+  final Map<String, Object?> payload;
+
   final MatchedDriver? driver;
   final double? latitude;
   final double? longitude;
@@ -32,6 +64,16 @@ class RideRealtimeEvent {
   final DateTime? locationAt;
   final RideRealtimeSignal? signal;
   final String? message;
+
+  bool isNewerThan(RideRealtimeEvent other) {
+    if (tripId != other.tripId) return true;
+    final thisVersion = version;
+    final otherVersion = other.version;
+    if (thisVersion != null && otherVersion != null) {
+      return thisVersion > otherVersion;
+    }
+    return sequence > other.sequence;
+  }
 }
 
 abstract class RideRealtime {
