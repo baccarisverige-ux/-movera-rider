@@ -94,6 +94,28 @@ class InProcessMockClient extends http.BaseClient {
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
+        parts.last == 'disputes' &&
+        method == 'POST') {
+      final id = parts[4];
+      final reason = body['reason'];
+      if (reason is! String || reason.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_DISPUTE', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'dispute': {
+            'rideId': id,
+            'reason': reason,
+            if (body['detail'] is String) 'detail': body['detail'],
+            'status': 'submitted',
+          },
+          'requestId': requestId,
+        };
+      }
+    } else if (parts.length >= 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
         parts.last == 'cancel' &&
         method == 'POST') {
       final id = parts[4];
