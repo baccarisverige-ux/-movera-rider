@@ -410,12 +410,7 @@ class _HomeState extends State<Home> {
     final capture = EarlyInputCapture()..start();
     try {
       if (!_destinationSheetOpen) {
-        // Do not block destination entry on the home-sheet animation. On web
-        // and installed PWA the SmoothSheet animation can wait on a platform
-        // map frame, leaving the tap accepted but the editable route fields
-        // never mounted. Start the premium expansion in parallel, then mount
-        // the route picker on the next Flutter frame.
-        unawaited(_openDestinationSheet());
+        await _openDestinationSheet();
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted) return;
       }
@@ -2009,7 +2004,16 @@ class _HomeState extends State<Home> {
     if (!_destinationSheetOpen) {
       setState(() => _destinationSheetOpen = true);
     }
-    await _animateHomeSheetTo(const SheetOffset(1));
+
+    // SmoothSheet can occasionally keep its animation future pending on web
+    // while the embedded platform map is producing a frame. Destination entry
+    // must never be held hostage by that platform-view frame. Keep awaiting the
+    // real animation in the normal path, but bound that wait to the animation
+    // budget so the route editor can always mount.
+    await Future.any<void>([
+      _animateHomeSheetTo(const SheetOffset(1)),
+      Future<void>.delayed(MoveraDurations.large),
+    ]);
   }
 
   void _closeDestinationSheet() {
