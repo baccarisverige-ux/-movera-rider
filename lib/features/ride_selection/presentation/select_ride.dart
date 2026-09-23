@@ -736,6 +736,19 @@ class _SelectRideState extends State<SelectRide>
 
   void _bookNow() {
     final selected = _selectedRide;
+    final quote = _selection.quoteForBooking(selected.id);
+    final authoritativePrice = _selection.authoritativePriceFor(selected.id);
+    if (quote == null ||
+        authoritativePrice == null ||
+        quote.signedPayload == null ||
+        quote.signedPayload!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Fare changed or expired. Refreshing price…')),
+      );
+      _releaseBookingLock();
+      unawaited(_loadQuotes());
+      return;
+    }
     final paymentItem = _selection.selectedPaymentItem();
     if (paymentItem == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -753,7 +766,7 @@ class _SelectRideState extends State<SelectRide>
       try {
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
-        await BookingController().submitFinding(
+        final rideId = await BookingController().submitFinding(
           pickupAddress: _pickupAddress,
           destinationAddress: widget.destinationAddress,
           pickupLat: _pickupPosition.latitude,
@@ -761,12 +774,19 @@ class _SelectRideState extends State<SelectRide>
           destinationLat: widget.destinationPosition.latitude,
           destinationLng: widget.destinationPosition.longitude,
           rideType: selected.id,
-          price: _priceFor(selected),
+          price: authoritativePrice,
           paymentMethod: payment.brand,
+          quoteId: quote.id,
+          quoteSignedPayload: quote.signedPayload,
+          quoteExpiresAt: quote.expiresAt,
+          quoteTotalMinor: quote.totalMinor,
           rideTypeLabel: selected.name,
           paymentMethodLabel: payment.name,
           notes: _notes,
         );
+        if (rideId.trim().isEmpty) {
+          throw StateError('Booking response did not contain a ride id.');
+        }
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
         SheetCoordinator.instance.open(RideSheet.finding);
@@ -786,6 +806,14 @@ class _SelectRideState extends State<SelectRide>
           ),
         );
         SheetCoordinator.instance.close(RideSheet.finding);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('We could not book this ride. Check the fare and try again.'),
+          ),
+        );
+        unawaited(_loadQuotes());
       } finally {
         _releaseBookingLock();
       }
