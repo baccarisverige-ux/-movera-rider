@@ -16,6 +16,8 @@ class BookingController {
     required String rideType,
     required double price,
     required String paymentMethod,
+    String? rideTypeLabel,
+    String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
   }) {
     return _store.submitFinding(
@@ -28,6 +30,8 @@ class BookingController {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      rideTypeLabel: rideTypeLabel,
+      paymentMethodLabel: paymentMethodLabel,
       notes: notes,
     );
   }
