@@ -205,7 +205,11 @@ class RideSelectionController {
         quote.signedPayload!.trim().isEmpty) {
       return false;
     }
-    return quoteIsFresh(id, now: now);
+    if (!quoteIsFresh(id, now: now)) return false;
+    if (quote.rideType != id) return false;
+    final offered = offeredPrices[id];
+    if (offered == null) return false;
+    return (offered * 100).round() == quote.totalMinor;
   }
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
@@ -221,6 +225,12 @@ class RideSelectionController {
   double priceFor(String id, double catalog, {DateTime? now}) {
     _discardExpiredQuote(id, now: now);
     return offeredPrices[id] ?? catalog;
+  }
+
+  double? authoritativePriceFor(String id, {DateTime? now}) {
+    if (!quoteIsAvailable(id, now: now)) return null;
+    final quote = authoritativeQuotes[id]!;
+    return quote.totalMinor / 100;
   }
 
   void selectRide(String id, double catalog) {
