@@ -58,7 +58,21 @@ class InProcessMockClient extends http.BaseClient {
     var status = 200;
     final parts = path.split('/');
 
-    if (path == '/api/v1/quotes' && method == 'POST') {
+    if (path == '/api/v1/routes' && method == 'POST') {
+      final from = body['from'];
+      final to = body['to'];
+      final fromMap = from is Map ? Map<String, dynamic>.from(from) : const <String, dynamic>{};
+      final toMap = to is Map ? Map<String, dynamic>.from(to) : const <String, dynamic>{};
+      payload = {
+        'code': 'OK',
+        'points': [
+          {'lat': fromMap['lat'], 'lng': fromMap['lng']},
+          {'lat': toMap['lat'], 'lng': toMap['lng']},
+        ],
+        'provider': 'movera-controlled',
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/quotes' && method == 'POST') {
       payload = {'code': 'OK', 'quote': _quote(body), 'requestId': requestId};
     } else if (path == '/api/v1/rides' && method == 'POST') {
       final ride = _ride(body, requestId);
