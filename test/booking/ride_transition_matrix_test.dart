@@ -65,14 +65,19 @@ void main() {
       RideStatus.cancelledByRider,
       RideStatus.cancelledByDriver,
     },
-    RideStatus.tripStarted: {RideStatus.tripInProgress},
+    RideStatus.tripStarted: {
+      RideStatus.tripInProgress,
+      RideStatus.cancelledByRider,
+    },
     RideStatus.tripInProgress: {
       RideStatus.approachingDropoff,
       RideStatus.tripCompleted,
+      RideStatus.cancelledByRider,
       RideStatus.cancelledBySystem,
     },
     RideStatus.approachingDropoff: {
       RideStatus.tripCompleted,
+      RideStatus.cancelledByRider,
       RideStatus.cancelledBySystem,
     },
     RideStatus.tripCompleted: {

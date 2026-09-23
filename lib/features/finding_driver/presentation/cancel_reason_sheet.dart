@@ -7,7 +7,6 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 Future<CancelOutcome> showCancelReasonSheet(
   BuildContext context, {
   required CancelPhase phase,
-  bool dismissKeepsRide = false,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancelReason);
   final result = await MoveraSheet.show<CancelOutcome>(
@@ -15,12 +14,9 @@ Future<CancelOutcome> showCancelReasonSheet(
     builder: (_) => CancelReasonSheet(phase: phase),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
-  // Search/matched preserves the legacy cancel-first behavior. Active-trip
-  // cancellation stays reversible until the rider finishes this final step.
-  return result ??
-      (dismissKeepsRide
-          ? const CancelOutcome.keep()
-          : const CancelOutcome.cancel());
+  // Dismissing/backing out never cancels a ride. Cancellation is only
+  // committed by an explicit final action inside this sheet.
+  return result ?? const CancelOutcome.keep();
 }
 
 class CancelReasonSheet extends StatefulWidget {

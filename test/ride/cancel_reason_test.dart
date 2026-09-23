@@ -149,6 +149,38 @@ void main() {
     expect(outcome?.cancelled, isFalse);
   });
 
+
+  testWidgets('backing out of matched cancel reasons keeps the ride', (
+    tester,
+  ) async {
+    await phoneSurface(tester);
+    CancelOutcome? outcome;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              outcome = await showCancelReasonSheet(
+                context,
+                phase: CancelPhase.matched,
+              );
+            },
+            child: const Text('open-matched-reasons'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open-matched-reasons'));
+    await tester.pumpAndSettle();
+    expect(find.text('Why are you cancelling?'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(outcome?.cancelled, isFalse);
+  });
+
   testWidgets('Cancel request then shows why, Skip still cancels', (
     tester,
   ) async {

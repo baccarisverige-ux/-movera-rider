@@ -46,6 +46,58 @@ void main() {
     expect(waiting, contains('RideStageTransition(completed)'));
   });
 
+
+  test('booking sheets and map-heavy pages wait for real route lifecycle', () {
+    final sheet = File(
+      'lib/shared/design_system/movera_sheet.dart',
+    ).readAsStringSync();
+    final transitions = File(
+      'lib/shared/widgets/navigation_transition.dart',
+    ).readAsStringSync();
+    final select = File(
+      'lib/features/ride_selection/presentation/select_ride.dart',
+    ).readAsStringSync();
+    final pickup = File(
+      'lib/features/pickup/presentation/confirm_pickup_spot.dart',
+    ).readAsStringSync();
+
+    expect(sheet, contains('await route.completed;'));
+    expect(
+      transitions,
+      contains('Future<void> waitForCurrentRouteToSettle'),
+    );
+    expect(select, contains('await waitForCurrentRouteToSettle(context);'));
+    expect(pickup, contains('await waitForCurrentRouteToSettle(context);'));
+    expect(
+      pickup,
+      contains('await route.completed;'),
+      reason: 'previous map must resume only after Confirm Pickup fully exits',
+    );
+
+    for (final source in <String>[select, pickup]) {
+      expect(
+        source,
+        isNot(contains('kIsWeb ? 280 : 80')),
+        reason: 'map mounting must not depend on guessed device timing',
+      );
+    }
+
+    expect(select, contains('chooseLaterAfterClose = true;'));
+    expect(
+      select.indexOf('if (chooseLaterAfterClose && mounted)'),
+      greaterThan(select.indexOf('await MoveraSheet.show<void>(')),
+      reason: 'Book for later must open only after the picker route exits',
+    );
+
+    expect(
+      select,
+      contains(
+        'final routeIsCurrent = mounted && (ModalRoute.of(context)?.isCurrent ?? false);',
+      ),
+      reason: 'background Select Ride must not remount its map while being popped',
+    );
+  });
+
   test('matching map is parked before active ride map is mounted', () {
     final finding = File(
       'lib/features/finding_driver/presentation/finding_drivers.dart',

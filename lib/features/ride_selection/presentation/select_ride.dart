@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -204,6 +203,7 @@ class _SelectRideState extends State<SelectRide>
     paymentStore: AppScope.instance.defaultPayment,
   );
   bool _mapReady = false;
+  bool _mapMountScheduled = false;
   bool _mapParked = false;
   bool _overlayOn = false;
   bool _pickupConfirmed = false;
@@ -249,11 +249,6 @@ class _SelectRideState extends State<SelectRide>
     } else if (widget.bookingMode == BookingMode.scheduled) {
       _selection.setBookingMode(BookingMode.scheduled);
     }
-    // Home already unmounted its map. Wait one frame so the platform view
-    // is gone before this screen creates the only live map.
-    Future<void>.delayed(Duration(milliseconds: kIsWeb ? 280 : 80), () {
-      if (mounted) setState(() => _mapReady = true);
-    });
     _loadQuotes();
   }
 
@@ -266,6 +261,18 @@ class _SelectRideState extends State<SelectRide>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
+    if (!_mapMountScheduled) {
+      _mapMountScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_mountMapWhenRouteSettles());
+      });
+    }
+  }
+
+  Future<void> _mountMapWhenRouteSettles() async {
+    await waitForCurrentRouteToSettle(context);
+    if (!mounted) return;
+    setState(() => _mapReady = true);
   }
 
   Future<void> _loadQuotes() async {
@@ -441,7 +448,8 @@ class _SelectRideState extends State<SelectRide>
     try {
       await action();
     } finally {
-      if (mounted) setState(() => _mapParked = false);
+      final routeIsCurrent = mounted && (ModalRoute.of(context)?.isCurrent ?? false);
+      if (routeIsCurrent) setState(() => _mapParked = false);
     }
   }
 
@@ -491,6 +499,7 @@ class _SelectRideState extends State<SelectRide>
       await _chooseLater();
       return;
     }
+    var chooseLaterAfterClose = false;
     await MoveraSheet.show<void>(
       context: context,
       builder: (sheetContext) {
@@ -538,8 +547,8 @@ class _SelectRideState extends State<SelectRide>
                   subtitle: 'Choose a date and pickup time',
                   selected: _selection.bookingMode == BookingMode.scheduled,
                   onTap: () {
+                    chooseLaterAfterClose = true;
                     Navigator.pop(sheetContext);
-                    _chooseLater();
                   },
                 ),
               ],
@@ -548,6 +557,9 @@ class _SelectRideState extends State<SelectRide>
         );
       },
     );
+    if (chooseLaterAfterClose && mounted) {
+      await _chooseLater();
+    }
   }
 
   Future<void> _showPaymentPicker() async {
@@ -833,10 +845,9 @@ class _SelectRideState extends State<SelectRide>
                             widget.destinationPosition.longitude,
                           ),
                         );
-                        Future<void>.delayed(
-                          const Duration(milliseconds: 280),
-                          _fitRoute,
-                        );
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) unawaited(_fitRoute());
+                        });
                       },
                     )
                   : const _RouteCanvas(),
