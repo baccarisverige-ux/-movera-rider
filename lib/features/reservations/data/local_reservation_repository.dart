@@ -7,6 +7,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/trips/domain/trip.dart';
 
 abstract class ReservationStorage {
   Future<String?> read();
@@ -182,6 +183,8 @@ class LocalReservationRepository implements ReservationRepository {
     final next = current.copyWith(
       status: ReservationStatus.cancelled,
       cancellationReason: reason,
+      cancellationActor: TripCancellationActor.rider,
+      cancelledAt: _clock().toUtc(),
     );
     _items[_indexOf(reservationId)] = next;
     await _persist();
