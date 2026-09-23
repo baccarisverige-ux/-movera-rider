@@ -2005,15 +2005,7 @@ class _HomeState extends State<Home> {
       setState(() => _destinationSheetOpen = true);
     }
 
-    // SmoothSheet can occasionally keep its animation future pending on web
-    // while the embedded platform map is producing a frame. Destination entry
-    // must never be held hostage by that platform-view frame. Keep awaiting the
-    // real animation in the normal path, but bound that wait to the animation
-    // budget so the route editor can always mount.
-    await Future.any<void>([
-      _animateHomeSheetTo(const SheetOffset(1)),
-      Future<void>.delayed(MoveraDurations.large),
-    ]);
+    await _animateHomeSheetTo(const SheetOffset(1));
   }
 
   void _closeDestinationSheet() {
