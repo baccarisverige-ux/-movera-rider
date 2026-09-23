@@ -35,6 +35,8 @@ class RideSelectionController {
   final Map<String, DateTime> quoteExpiresAt = {};
   final Set<String> unavailableQuoteIds = <String>{};
   int _quoteGeneration = 0;
+  final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
+  bool _disposed = false;
   bool usedFallback = false;
   String selectedRideId = 'movera';
   int selectedPayment = 1;
@@ -71,7 +73,53 @@ class RideSelectionController {
 
   int beginQuotes() => ++_quoteGeneration;
 
-  void dispose() => _quoteGeneration += 1;
+  Future<T> _withManagedTimeout<T>(Future<T> source, Duration timeout) {
+    final completer = Completer<T>();
+    Timer? timer;
+
+    void cancel() {
+      timer?.cancel();
+      if (!completer.isCompleted) {
+        completer.completeError(const _QuoteLoadCancelled());
+      }
+    }
+
+    _cancelQuoteTimeouts.add(cancel);
+    timer = Timer(timeout, () {
+      _cancelQuoteTimeouts.remove(cancel);
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('Quote request timed out', timeout),
+        );
+      }
+    });
+
+    source.then<void>(
+      (value) {
+        timer?.cancel();
+        _cancelQuoteTimeouts.remove(cancel);
+        if (!completer.isCompleted) completer.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        timer?.cancel();
+        _cancelQuoteTimeouts.remove(cancel);
+        if (!completer.isCompleted) completer.completeError(error, stack);
+      },
+    );
+
+    return completer.future;
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _quoteGeneration += 1;
+    final cancels = _cancelQuoteTimeouts.toList(growable: false);
+    _cancelQuoteTimeouts.clear();
+    for (final cancel in cancels) {
+      cancel();
+    }
+  }
 
   Future<void> loadQuotes({
     required int generation,
@@ -114,14 +162,15 @@ class RideSelectionController {
   }) async {
     if (generation != _quoteGeneration) return;
     try {
-      final quote = await _quotes
-          .quote(
-            rideType: rideId,
-            distanceMeters: distanceMeters,
-            pickup: pickup,
-            destination: destination,
-          )
-          .timeout(timeout);
+      final quote = await _withManagedTimeout(
+        _quotes.quote(
+          rideType: rideId,
+          distanceMeters: distanceMeters,
+          pickup: pickup,
+          destination: destination,
+        ),
+        timeout,
+      );
       if (generation != _quoteGeneration) return;
       offeredPrices[rideId] = quote.totalMinor / 100;
       quoteIds[rideId] = quote.id;
@@ -238,4 +287,9 @@ class RideSelectionController {
     offeredPrices[id] = next;
     return next;
   }
+}
+
+
+class _QuoteLoadCancelled implements Exception {
+  const _QuoteLoadCancelled();
 }
