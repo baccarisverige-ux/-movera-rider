@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
@@ -152,21 +153,51 @@ class RideSnapshotStore {
   static const key = 'movera_active_ride';
   static const webStorageKey = 'flutter.movera_active_ride';
 
-  /// Bumped on every [clear] so an in-flight [save] cannot revive a cancelled ride.
+  /// Bumped synchronously on every [clear]. Saves capture the current epoch
+  /// before entering the mutation queue, so anything that started before a
+  /// clear is stale by definition.
   static int epoch = 0;
 
-  static Future<void> save(RideSnapshot snapshot) async {
-    if (snapshot.status.isTerminal) return;
+  /// All writes/removes are serialized in invocation order.
+  ///
+  /// This is deliberately stronger than trying to "roll back" a stale save
+  /// after it writes. A rollback that blindly removes [key] can delete a newer
+  /// ride that was saved between the stale write and the rollback. Serializing
+  /// mutations gives deterministic ownership:
+  ///
+  ///   old save -> clear -> new save
+  ///
+  /// always leaves the new save in storage.
+  static Future<void> _mutationTail = Future<void>.value();
+
+  static Future<void> _mutate(Future<void> Function() action) {
+    final completer = Completer<void>();
+    _mutationTail = _mutationTail.then((_) async {
+      try {
+        await action();
+        completer.complete();
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
+  }
+
+  static Future<void> save(RideSnapshot snapshot) {
+    if (snapshot.status.isTerminal) return Future<void>.value();
+
     // A live ride is worth remembering across a reload so the same trip
     // reopens instead of dumping the rider on Home.
     markSearchLive();
+
     final token = epoch;
-    final prefs = await PreferencesStore.load();
-    if (token != epoch) return;
-    await prefs.setString(key, jsonEncode(snapshot.toJson()));
-    if (token != epoch) {
-      await prefs.remove(key);
-    }
+    final encoded = jsonEncode(snapshot.toJson());
+    return _mutate(() async {
+      if (token != epoch) return;
+      final prefs = await PreferencesStore.load();
+      if (token != epoch) return;
+      await prefs.setString(key, encoded);
+    });
   }
 
   static Future<RideSnapshot?> read() async {
@@ -197,9 +228,14 @@ class RideSnapshotStore {
     }
   }
 
-  static Future<void> clear() async {
+  static Future<void> clear() {
+    // Advance the epoch before enqueueing the remove so any save that was
+    // invoked earlier becomes stale immediately, even if it has not yet
+    // reached PreferencesStore.load().
     epoch += 1;
-    final prefs = await PreferencesStore.load();
-    await prefs.remove(key);
+    return _mutate(() async {
+      final prefs = await PreferencesStore.load();
+      await prefs.remove(key);
+    });
   }
 }
