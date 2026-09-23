@@ -198,7 +198,13 @@ class RideSelectionController {
 
   bool quoteIsAvailable(String id, {DateTime? now}) {
     if (unavailableQuoteIds.contains(id)) return false;
-    if (!quoteIds.containsKey(id)) return false;
+    final quote = authoritativeQuotes[id];
+    if (quote == null ||
+        quote.id.trim().isEmpty ||
+        quote.signedPayload == null ||
+        quote.signedPayload!.trim().isEmpty) {
+      return false;
+    }
     return quoteIsFresh(id, now: now);
   }
 
