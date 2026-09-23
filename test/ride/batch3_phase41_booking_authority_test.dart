@@ -21,6 +21,8 @@ void main() {
     expect(controller.quoteIsAvailable('movera'), isTrue);
     expect(controller.authoritativePriceFor('movera'), 125);
 
+    // Any rider-visible amount that no longer equals the signed quote must
+    // invalidate booking authority rather than silently submit another fare.
     controller.offeredPrices['movera'] = 124;
     expect(controller.quoteIsAvailable('movera'), isFalse);
     expect(controller.authoritativePriceFor('movera'), isNull);

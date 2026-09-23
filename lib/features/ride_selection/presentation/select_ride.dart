@@ -766,54 +766,65 @@ class _SelectRideState extends State<SelectRide>
       try {
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
-        final rideId = await BookingController().submitFinding(
-          pickupAddress: _pickupAddress,
-          destinationAddress: widget.destinationAddress,
-          pickupLat: _pickupPosition.latitude,
-          pickupLng: _pickupPosition.longitude,
-          destinationLat: widget.destinationPosition.latitude,
-          destinationLng: widget.destinationPosition.longitude,
-          rideType: selected.id,
-          price: authoritativePrice,
-          paymentMethod: payment.brand,
-          quoteId: quote.id,
-          quoteSignedPayload: quote.signedPayload,
-          quoteExpiresAt: quote.expiresAt,
-          quoteTotalMinor: quote.totalMinor,
-          rideTypeLabel: selected.name,
-          paymentMethodLabel: payment.name,
-          notes: _notes,
-        );
-        if (rideId.trim().isEmpty) {
-          throw StateError('Booking response did not contain a ride id.');
+
+        String rideId;
+        try {
+          rideId = await BookingController().submitFinding(
+            pickupAddress: _pickupAddress,
+            destinationAddress: widget.destinationAddress,
+            pickupLat: _pickupPosition.latitude,
+            pickupLng: _pickupPosition.longitude,
+            destinationLat: widget.destinationPosition.latitude,
+            destinationLng: widget.destinationPosition.longitude,
+            rideType: selected.id,
+            price: authoritativePrice,
+            paymentMethod: payment.brand,
+            quoteId: quote.id,
+            quoteSignedPayload: quote.signedPayload,
+            quoteExpiresAt: quote.expiresAt,
+            quoteTotalMinor: quote.totalMinor,
+            rideTypeLabel: selected.name,
+            paymentMethodLabel: payment.name,
+            notes: _notes,
+          );
+          if (rideId.trim().isEmpty) {
+            throw StateError('Booking response did not contain a ride id.');
+          }
+        } catch (_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'We could not book this ride. Check the fare and try again.',
+              ),
+            ),
+          );
+          unawaited(_loadQuotes());
+          return;
         }
+
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
         SheetCoordinator.instance.open(RideSheet.finding);
-        await Navigator.push(
-          context,
-          RideStageTransition(
+        try {
+          await Navigator.push(
+            context,
+            RideStageTransition(
             FindingDrivers(
-              pickupAddress: _pickupAddress,
-              destinationAddress: widget.destinationAddress,
-              pickupPosition: _pickupPosition,
-              destinationPosition: widget.destinationPosition,
-              rideType: selected.name,
-              price: _priceFor(selected),
-              paymentMethod: payment.name,
-              notes: _notes,
+                pickupAddress: _pickupAddress,
+                destinationAddress: widget.destinationAddress,
+                pickupPosition: _pickupPosition,
+                destinationPosition: widget.destinationPosition,
+                rideType: selected.name,
+                price: authoritativePrice,
+                paymentMethod: payment.name,
+                notes: _notes,
+              ),
             ),
-          ),
-        );
-        SheetCoordinator.instance.close(RideSheet.finding);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('We could not book this ride. Check the fare and try again.'),
-          ),
-        );
-        unawaited(_loadQuotes());
+          );
+        } finally {
+          SheetCoordinator.instance.close(RideSheet.finding);
+        }
       } finally {
         _releaseBookingLock();
       }
