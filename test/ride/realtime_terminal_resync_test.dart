@@ -22,6 +22,15 @@ Future<(ApiClient, MockRideRealtime, String)> harness() async {
     assignAfter: const Duration(days: 1),
   );
 
+  final quoteResponse = await api.post(
+    '/api/v1/quotes',
+    body: <String, dynamic>{
+      'rideType': 'movera',
+      'pickup': <String, dynamic>{'lat': 59.3293, 'lng': 18.0686},
+      'destination': <String, dynamic>{'lat': 59.3326, 'lng': 18.0649},
+    },
+  );
+  final quote = Map<String, dynamic>.from(quoteResponse['quote'] as Map);
   final created = await api.post(
     '/api/v1/rides',
     body: <String, dynamic>{
@@ -34,6 +43,10 @@ Future<(ApiClient, MockRideRealtime, String)> harness() async {
       'pickupLng': 18.0686,
       'destinationLat': 59.3326,
       'destinationLng': 18.0649,
+      'quoteId': quote['id'],
+      'quoteSignedPayload': quote['signedPayload'],
+      'quoteExpiresAt': quote['expiresAt'],
+      'quoteTotalMinor': quote['totalMinor'],
     },
   );
   final ride = Map<String, dynamic>.from(created['ride'] as Map);
