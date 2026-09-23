@@ -12,6 +12,7 @@ import 'package:movera_rider/features/finding_driver/presentation/finding_driver
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 
 enum RestoredSurface { home, finding, waiting, complete }
@@ -163,6 +164,10 @@ class RideRestoreCoordinator {
           driver: snapshot.driver,
         );
       case RestoredSurface.complete:
+        // Cold restore rebuilds this in-memory completion context from the
+        // still-owned snapshot so driver/vehicle/route/booked-price cards are
+        // truthful after reload or process death.
+        LastCompletedRide.remember(snapshot);
         return RideCompleted(
           status: snapshot.status,
           rideId: snapshot.rideId,

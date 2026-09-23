@@ -8,12 +8,15 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/web/web_ride_pagehide.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  installWebRidePagehide(RideRestoreCoordinator.instance.onPageHide);
   // Public web gets one navigation-only bridge for Safety. It exposes no
   // ride seeding, matching controls, or Safety mutations.
   installSafetyNavigationBridge(() {
