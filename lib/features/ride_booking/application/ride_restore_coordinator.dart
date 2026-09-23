@@ -91,11 +91,7 @@ class RideRestoreCoordinator {
   void onPageHide() {
     unawaited(() async {
       try {
-        final snapshot = await RideSnapshotStore.read();
-        if (snapshot == null) return;
-        await RideSnapshotStore.save(
-          snapshot.copyWith(savedAt: DateTime.now()),
-        );
+        await RideSnapshotStore.touchCurrent();
       } catch (_) {}
     }());
   }
