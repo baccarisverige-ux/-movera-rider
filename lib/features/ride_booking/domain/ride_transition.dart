@@ -71,6 +71,7 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     // directly; authoritative transports that do emit it can surface it first.
     RideStatus.approachingDropoff,
     RideStatus.tripCompleted,
+    RideStatus.cancelledByRider,
     RideStatus.cancelledBySystem,
   },
   RideStatus.approachingDropoff: {
