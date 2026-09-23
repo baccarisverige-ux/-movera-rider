@@ -8,6 +8,9 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class MoveraRiderPuckMarker {
   const MoveraRiderPuckMarker._();
 
+  static final Map<bool, Future<BitmapDescriptor>> _iconCache =
+      <bool, Future<BitmapDescriptor>>{};
+
   static Future<({BitmapDescriptor icon, ui.Image image})> createVisual({
     bool expanded = false,
   }) async {
@@ -54,10 +57,12 @@ class MoveraRiderPuckMarker {
     return (icon: icon, image: image);
   }
 
-  static Future<BitmapDescriptor> createIcon({bool expanded = false}) async {
-    final visual = await createVisual(expanded: expanded);
-    visual.image.dispose();
-    return visual.icon;
+  static Future<BitmapDescriptor> createIcon({bool expanded = false}) {
+    return _iconCache.putIfAbsent(expanded, () async {
+      final visual = await createVisual(expanded: expanded);
+      visual.image.dispose();
+      return visual.icon;
+    });
   }
 }
 
@@ -68,7 +73,15 @@ class MoveraRiderPuckMarker {
 class MoveraVehicleMarker {
   const MoveraVehicleMarker._();
 
-  static Future<BitmapDescriptor> createIcon({double scale = 0.65}) async {
+  static final Map<int, Future<BitmapDescriptor>> _iconCache =
+      <int, Future<BitmapDescriptor>>{};
+
+  static Future<BitmapDescriptor> createIcon({double scale = 0.65}) {
+    final cacheKey = (scale * 1000).round();
+    return _iconCache.putIfAbsent(cacheKey, () => _createIcon(scale));
+  }
+
+  static Future<BitmapDescriptor> _createIcon(double scale) async {
     const designSize = 96.0;
     final outputSize = 48.0 * scale;
 
@@ -156,6 +169,6 @@ class MoveraVehicleMarker {
     if (data == null) {
       return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
     }
-    return BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+    return BitmapDescriptor.bytes(data.buffer.asUint8List());
   }
 }
