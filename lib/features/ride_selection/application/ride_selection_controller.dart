@@ -35,6 +35,8 @@ class RideSelectionController {
   final Map<String, DateTime> quoteExpiresAt = {};
   final Set<String> unavailableQuoteIds = <String>{};
   int _quoteGeneration = 0;
+  final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
+  bool _disposed = false;
   bool usedFallback = false;
   String selectedRideId = 'movera';
   int selectedPayment = 1;
@@ -71,34 +73,115 @@ class RideSelectionController {
 
   int beginQuotes() => ++_quoteGeneration;
 
+  Future<T> _withManagedTimeout<T>(Future<T> source, Duration timeout) {
+    final completer = Completer<T>();
+    Timer? timer;
+
+    void cancel() {
+      timer?.cancel();
+      if (!completer.isCompleted) {
+        completer.completeError(const _QuoteLoadCancelled());
+      }
+    }
+
+    _cancelQuoteTimeouts.add(cancel);
+    timer = Timer(timeout, () {
+      _cancelQuoteTimeouts.remove(cancel);
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('Quote request timed out', timeout),
+        );
+      }
+    });
+
+    source.then<void>(
+      (value) {
+        timer?.cancel();
+        _cancelQuoteTimeouts.remove(cancel);
+        if (!completer.isCompleted) completer.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        timer?.cancel();
+        _cancelQuoteTimeouts.remove(cancel);
+        if (!completer.isCompleted) completer.completeError(error, stack);
+      },
+    );
+
+    return completer.future;
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _quoteGeneration += 1;
+    final cancels = _cancelQuoteTimeouts.toList(growable: false);
+    _cancelQuoteTimeouts.clear();
+    for (final cancel in cancels) {
+      cancel();
+    }
+  }
+
   Future<void> loadQuotes({
     required int generation,
     required String pickup,
     required String destination,
     int distanceMeters = 3000,
+    int parallelism = 3,
+    Duration timeout = const Duration(seconds: 8),
   }) async {
     usedFallback = false;
-    for (final ride in rides()) {
+    final catalog = rides();
+    final width = parallelism.clamp(1, catalog.length).toInt();
+
+    for (var start = 0; start < catalog.length; start += width) {
       if (generation != _quoteGeneration) return;
-      try {
-        final quote = await _quotes.quote(
-          rideType: ride.id,
+      final end = (start + width).clamp(0, catalog.length).toInt();
+      final batch = catalog.sublist(start, end);
+      await Future.wait<void>(
+        batch.map(
+          (ride) => _loadQuote(
+            rideId: ride.id,
+            generation: generation,
+            pickup: pickup,
+            destination: destination,
+            distanceMeters: distanceMeters,
+            timeout: timeout,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadQuote({
+    required String rideId,
+    required int generation,
+    required String pickup,
+    required String destination,
+    required int distanceMeters,
+    required Duration timeout,
+  }) async {
+    if (generation != _quoteGeneration) return;
+    try {
+      final quote = await _withManagedTimeout(
+        _quotes.quote(
+          rideType: rideId,
           distanceMeters: distanceMeters,
           pickup: pickup,
           destination: destination,
-        );
-        if (generation != _quoteGeneration) return;
-        offeredPrices[ride.id] = quote.totalMinor / 100;
-        quoteIds[ride.id] = quote.id;
-        quoteExpiresAt[ride.id] = quote.expiresAt;
-        unavailableQuoteIds.remove(ride.id);
-      } catch (_) {
-        if (generation != _quoteGeneration) return;
-        offeredPrices.remove(ride.id);
-        quoteIds.remove(ride.id);
-        quoteExpiresAt.remove(ride.id);
-        unavailableQuoteIds.add(ride.id);
-      }
+        ),
+        timeout,
+      );
+      if (generation != _quoteGeneration) return;
+      offeredPrices[rideId] = quote.totalMinor / 100;
+      quoteIds[rideId] = quote.id;
+      quoteExpiresAt[rideId] = quote.expiresAt;
+      unavailableQuoteIds.remove(rideId);
+    } catch (_) {
+      if (generation != _quoteGeneration) return;
+      offeredPrices.remove(rideId);
+      quoteIds.remove(rideId);
+      quoteExpiresAt.remove(rideId);
+      unavailableQuoteIds.add(rideId);
     }
   }
 
@@ -204,4 +287,9 @@ class RideSelectionController {
     offeredPrices[id] = next;
     return next;
   }
+}
+
+
+class _QuoteLoadCancelled implements Exception {
+  const _QuoteLoadCancelled();
 }

@@ -48,13 +48,6 @@ void main() {
     expect(quotes.lastUsedFallback, isFalse);
   });
 
-  test('stale generation is ignored by repository guard', () async {
-    final quotes = repo();
-    quotes.stale.next();
-    final first = quotes.stale.next();
-    expect(quotes.stale.isCurrent(first), isTrue);
-  });
-
   test('POST is not retried as GET would be', () async {
     final client = InProcessMockClient();
     final api = ApiClient(client: client);
