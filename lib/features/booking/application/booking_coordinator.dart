@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/features/booking/application/booking_attempt.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
@@ -15,6 +16,8 @@ class BookingCoordinator {
   BookingCoordinator({ApiClient? api}) : _api = api;
 
   final ApiClient? _api;
+  final MutationAttempt _duplicateCancelMutation =
+      MutationAttempt('duplicate-ride-cancel');
   Future<String>? _inflight;
   BookingAttempt? _attempt;
   String? _autoQuoteIntent;
@@ -431,10 +434,7 @@ class BookingCoordinator {
     final id = _requireRideId(json);
     Analytics.bookingSubmitted(rideId: id);
 
-    final collisionBeforeCommit = await _standDownIfFindingOwned(
-      createdRideId: id,
-      attempt: attempt,
-    );
+    final collisionBeforeCommit = await _standDownIfFindingOwned(createdRideId: id);
     if (collisionBeforeCommit != null) return collisionBeforeCommit;
 
     AppScope.instance.ride.backendReconcile(
@@ -464,10 +464,7 @@ class BookingCoordinator {
     // The snapshot save crosses an async boundary. A Finding surface can
     // become authoritative while persistence is in flight, so close that
     // second race window before returning the created id to presentation.
-    final collisionAfterCommit = await _standDownIfFindingOwned(
-      createdRideId: id,
-      attempt: attempt,
-    );
+    final collisionAfterCommit = await _standDownIfFindingOwned(createdRideId: id);
     if (collisionAfterCommit != null) return collisionAfterCommit;
 
     return id;
@@ -475,7 +472,6 @@ class BookingCoordinator {
 
   Future<String?> _standDownIfFindingOwned({
     required String createdRideId,
-    required BookingAttempt attempt,
   }) async {
     final owner = FindingDriverController.active;
     if (owner == null) return null;
@@ -491,10 +487,12 @@ class BookingCoordinator {
 
     // A visible Finding surface already owns another ride. The race-losing
     // backend ride must be explicitly stood down; never leave two live rides.
+    final cancelIntent = createdRideId;
     await _client.post(
       '/api/v1/rides/$createdRideId/cancel',
-      idempotencyKey: '${attempt.idempotencyKey}:duplicate-cancel',
+      idempotencyKey: _duplicateCancelMutation.keyFor(cancelIntent),
     );
+    _duplicateCancelMutation.succeeded(cancelIntent);
 
     // Restore the visible owner's identity after the duplicate create response
     // may have temporarily projected the new id into the process-wide session.
@@ -506,6 +504,16 @@ class BookingCoordinator {
       ownerSnapshot.copyWith(savedAt: DateTime.now()),
     );
     return ownerId;
+  }
+
+  /// Reconcile a ride that was successfully created while presentation was
+  /// handing ownership to Finding. Returns the ride id that remains
+  /// authoritative after any collision is resolved.
+  Future<String> reconcileCreatedFinding(String createdRideId) async {
+    final resolved = await _standDownIfFindingOwned(
+      createdRideId: createdRideId,
+    );
+    return resolved ?? createdRideId;
   }
 
   Future<void> cancel({required String rideId, required String key}) {
