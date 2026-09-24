@@ -48,6 +48,7 @@ void main() {
           pickupPosition: LatLng(59.3300, 18.0590),
           destinationPosition: LatLng(59.6519, 17.9186),
         ),
+        settings: const RouteSettings(name: AppRoutes.selectRide),
       ),
     );
     await tester.pump();
