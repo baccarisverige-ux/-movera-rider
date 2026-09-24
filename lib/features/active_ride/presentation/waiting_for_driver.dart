@@ -405,7 +405,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;
-    final completed = RideCompleted(status: status, rideId: rideId);
+    final completed = RideCompleted(
+      status: status,
+      rideId: rideId,
+      realtime: widget.realtime,
+      showConnectionBanner: widget.realtime == null,
+    );
     final navigator = Navigator.of(context);
 
     // A cold restore renders Waiting inside RideRestoreGate on the Navigator
