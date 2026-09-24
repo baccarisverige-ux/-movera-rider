@@ -26,6 +26,8 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
@@ -501,6 +503,174 @@ void main() {
           AppRoutes.waitingForDriver,
           AppRoutes.rideCompleted,
         ]),
+      );
+    },
+  );
+
+  testWidgets(
+    'scheduled journey preserves reservation identity through live ride, feedback, and Home',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final controller = ReservationController(
+        store: LocalReservationRepository(
+          storage: MemoryReservationStorage(),
+          nextId: () => 'phase54-scheduled-flow',
+        ),
+      );
+      final created = await controller.create(
+        ReservationDraft(
+          scheduledPickupAt: DateTime(2026, 9, 24, 18),
+          pickup: const ReservationPlace(
+            label: 'Stockholm Central',
+            lat: 59.3300,
+            lng: 18.0590,
+          ),
+          destination: const ReservationPlace(
+            label: 'Arlanda Airport',
+            lat: 59.6519,
+            lng: 17.9186,
+          ),
+          categoryId: 'movera',
+          categoryName: 'Movera',
+          categoryImage: 'assets/images/rides/movera.webp',
+          price: 349,
+          paymentMethod: 'Apple Pay',
+        ),
+      );
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(
+          status: ReservationStatus.driverAssignmentPending,
+        ),
+      );
+
+      final observer = _RecordingObserver();
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(375, 812),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => MaterialApp(
+            navigatorKey: moveraNavigatorKey,
+            navigatorObservers: [observer],
+            home: const Scaffold(
+              body: Center(child: Text('phase54-scheduled-home')),
+            ),
+          ),
+        ),
+      );
+
+      moveraNavigatorKey.currentState!.push(
+        RightToLeftTransition(
+          UpcomingReservationPage(
+            reservationId: created.reservationId,
+            controller: controller,
+          ),
+          settings: const RouteSettings(
+            name: AppRoutes.reservationUpcoming,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(UpcomingReservationPage), findsOneWidget);
+      expect(observer.pushed.last.settings.name, AppRoutes.reservationUpcoming);
+      expect(
+        controller.byId(created.reservationId)?.status,
+        ReservationStatus.driverAssignmentPending,
+      );
+
+      const driver = ReservationDriver(
+        firstName: 'Amina',
+        rating: 4.9,
+        vehicle: 'Volvo EX40',
+        plate: 'ABC 123',
+      );
+      await controller.assignMockDriver(
+        created.reservationId,
+        driver: driver,
+      );
+      await tester.pump();
+      expect(find.byType(UpcomingReservationPage), findsOneWidget);
+
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.driverEnRoute),
+      );
+      for (
+        var i = 0;
+        i < 20 && find.byType(WaitingForDriver).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(observer.pushed.last.settings.name, AppRoutes.reservationLive);
+      final live = tester.widget<WaitingForDriver>(
+        find.byType(WaitingForDriver),
+      );
+      expect(live.rideId, created.reservationId);
+      expect(live.persistRideSnapshot, isFalse);
+
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.inProgress),
+      );
+      await tester.pump();
+      expect(
+        controller.byId(created.reservationId)?.status,
+        ReservationStatus.inProgress,
+      );
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.completed),
+      );
+      for (
+        var i = 0;
+        i < 20 && find.byType(RideCompleted).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(RideCompleted), findsOneWidget);
+      expect(find.byType(WaitingForDriver), findsNothing);
+      expect(observer.pushed.last.settings.name, AppRoutes.rideCompleted);
+      final completed = tester.widget<RideCompleted>(
+        find.byType(RideCompleted),
+      );
+      expect(completed.rideId, created.reservationId);
+      expect(completed.persistOnDemandState, isFalse);
+
+      expect(
+        find.byKey(const ValueKey('completion-feedback-lock')),
+        findsOneWidget,
+      );
+      final feedbackLock = tester.widget<IgnorePointer>(
+        find.byKey(const ValueKey('completion-feedback-lock')),
+      );
+      expect(feedbackLock.ignoring, isFalse);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('ride-completed-done')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('phase54-scheduled-home'), findsOneWidget);
+      expect(find.byType(UpcomingReservationPage), findsNothing);
+      expect(find.byType(WaitingForDriver), findsNothing);
+      expect(find.byType(RideCompleted), findsNothing);
+      expect(
+        controller.byId(created.reservationId)?.reservationId,
+        created.reservationId,
       );
     },
   );
