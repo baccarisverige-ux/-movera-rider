@@ -245,7 +245,7 @@ void main() {
 
     await tester.tap(find.text('open-confirm-pickup'));
     await tester.pump();
-    expect(observer.pushed.last.settings.name, '/ride/pickup-confirm');
+    expect(observer.pushed.last.settings.name, AppRoutes.confirmPickup);
   });
 
 }
