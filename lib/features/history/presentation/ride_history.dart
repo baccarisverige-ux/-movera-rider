@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
@@ -447,6 +448,7 @@ class _RideHistoryState extends State<RideHistory> {
             reservationId: ride.reservationId,
             controller: _reservations,
           ),
+          settings: const RouteSettings(name: AppRoutes.reservationUpcoming),
         ),
       );
       return;
