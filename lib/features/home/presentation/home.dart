@@ -19,6 +19,7 @@ import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
+import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
@@ -499,6 +500,7 @@ class _HomeState extends State<Home> {
     final parkedNow = _mapParkingGuard.enter();
     try {
       if (parkedNow) {
+        final parkingWatch = Stopwatch()..start();
         setWebOverlayOpen(false);
         _mapParked.value = true;
         _locationCtl.pauseLiveUpdates();
@@ -508,6 +510,8 @@ class _HomeState extends State<Home> {
         // Let Flutter remove the platform map for one rendered frame before
         // the next map-heavy ride screen mounts.
         await WidgetsBinding.instance.endOfFrame;
+        parkingWatch.stop();
+        RouteTransitionMetrics.homeMapParking(parkingWatch.elapsed);
         if (!mounted) return null;
       }
       return await action();
@@ -1295,18 +1299,28 @@ class _HomeState extends State<Home> {
     }
 
     if (draft == null || !mounted) return;
-    final pickup = await _normaliseAddress(draft['pickup'] as String? ?? '');
-    final destination = await _normaliseAddress(
-      draft['destination'] as String? ?? '',
-    );
+    final rawPickup = draft['pickup'] as String? ?? '';
+    final rawDestination = draft['destination'] as String? ?? '';
     final rawStops = (draft['stops'] as List<dynamic>? ?? <dynamic>[])
         .whereType<String>()
         .toList();
-    final stops = <String>[];
-    for (final stop in rawStops) {
-      final resolved = await _normaliseAddress(stop);
-      if (resolved.isNotEmpty) stops.add(resolved);
-    }
+    final routePreparationWatch = Stopwatch()..start();
+    final normalizedRoute = await Future.wait<String>([
+      _normaliseAddress(rawPickup),
+      _normaliseAddress(rawDestination),
+      ...rawStops.map(_normaliseAddress),
+    ]);
+    routePreparationWatch.stop();
+    RouteTransitionMetrics.routePreparation(
+      routePreparationWatch.elapsed,
+      stopCount: rawStops.length,
+    );
+    final pickup = normalizedRoute[0];
+    final destination = normalizedRoute[1];
+    final stops = normalizedRoute
+        .skip(2)
+        .where((address) => address.isNotEmpty)
+        .toList();
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;

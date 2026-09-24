@@ -18,8 +18,6 @@ class AppGeocoding implements GeocodingRepository {
   final Map<String, _CachedValue<String?>> _reverseCache = {};
   final Map<String, Future<PlaceResult?>> _forwardInFlight = {};
   final Map<String, Future<String?>> _reverseInFlight = {};
-  int _forwardGeneration = 0;
-  int _reverseGeneration = 0;
 
   @override
   Future<PlaceResult?> forward(String query) async {
@@ -32,12 +30,10 @@ class AppGeocoding implements GeocodingRepository {
     final existing = _forwardInFlight[key];
     if (existing != null) return existing;
 
-    final generation = ++_forwardGeneration;
     final future = _forwardFromApi(normalized);
     _forwardInFlight[key] = future;
     try {
       final result = await future;
-      if (generation != _forwardGeneration) return null;
       _forwardCache[key] = _CachedValue(result);
       return result;
     } finally {
@@ -55,12 +51,10 @@ class AppGeocoding implements GeocodingRepository {
     final existing = _reverseInFlight[key];
     if (existing != null) return existing;
 
-    final generation = ++_reverseGeneration;
     final future = _reverseFromApi(point);
     _reverseInFlight[key] = future;
     try {
       final result = await future;
-      if (generation != _reverseGeneration) return null;
       _reverseCache[key] = _CachedValue(result);
       return result;
     } finally {

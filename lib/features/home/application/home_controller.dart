@@ -63,7 +63,10 @@ class HomeLocationController extends ChangeNotifier {
   final double? Function() _readCompass;
   final void Function() _stopCompass;
 
-  final StaleGuard _geoGuard = StaleGuard();
+  final StaleGuard _normaliseGuard = StaleGuard();
+  final StaleGuard _pointGuard = StaleGuard();
+  final StaleGuard _placeGuard = StaleGuard();
+  final StaleGuard _detectGuard = StaleGuard();
   StreamSubscription<Position>? _positionSub;
   Timer? _headingTimer;
   Timer? _pulseTimer;
@@ -84,25 +87,25 @@ class HomeLocationController extends ChangeNotifier {
   Future<String> normaliseAddress(String input) async {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
-    final generation = _geoGuard.next();
+    final generation = _normaliseGuard.next();
     final result = await geocoding.geocodeAddress(clean);
-    if (!_geoGuard.isCurrent(generation)) return clean;
+    if (!_normaliseGuard.isCurrent(generation)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
         : clean;
   }
 
   Future<LatLng?> geocodeLatLng(String address) async {
-    final generation = _geoGuard.next();
+    final generation = _pointGuard.next();
     final result = await geocoding.geocodeAddress(address);
-    if (!_geoGuard.isCurrent(generation) || result == null) return null;
+    if (!_pointGuard.isCurrent(generation) || result == null) return null;
     return LatLng(result.point.latitude, result.point.longitude);
   }
 
   Future<({LatLng point, String address})?> geocodePlace(String address) async {
-    final generation = _geoGuard.next();
+    final generation = _placeGuard.next();
     final result = await geocoding.geocodeAddress(address);
-    if (!_geoGuard.isCurrent(generation) || result == null) return null;
+    if (!_placeGuard.isCurrent(generation) || result == null) return null;
     return (
       point: LatLng(result.point.latitude, result.point.longitude),
       address: result.address.trim().isNotEmpty
@@ -147,12 +150,12 @@ class HomeLocationController extends ChangeNotifier {
           timeLimit: Duration(seconds: 15),
         ),
       );
-      final generation = _geoGuard.next();
+      final generation = _detectGuard.next();
       final detected = await geocoding.reverseGeocodeAddress(
         position.latitude,
         position.longitude,
       );
-      if (!_geoGuard.isCurrent(generation)) {
+      if (!_detectGuard.isCurrent(generation)) {
         return DetectedLocation(
           target: LatLng(position.latitude, position.longitude),
           address: 'Current location',
@@ -362,7 +365,10 @@ class HomeLocationController extends ChangeNotifier {
     _headingTimer?.cancel();
     _headingTimer = null;
     _pulseTimer?.cancel();
-    _geoGuard.dispose();
+    _normaliseGuard.dispose();
+    _pointGuard.dispose();
+    _placeGuard.dispose();
+    _detectGuard.dispose();
     _stopCompass();
     _compassStarted = false;
     _headingStartInFlight = null;

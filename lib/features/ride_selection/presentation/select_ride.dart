@@ -10,6 +10,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
@@ -218,6 +219,7 @@ class _SelectRideState extends State<SelectRide>
         paymentStore: AppScope.instance.defaultPayment,
       );
   bool _mapReady = false;
+  Stopwatch? _nextMapReadyWatch;
   bool _mapMountScheduled = false;
   bool _mapParked = false;
   bool _overlayOn = false;
@@ -238,6 +240,7 @@ class _SelectRideState extends State<SelectRide>
     super.initState();
     _pickupAddress = widget.pickupAddress;
     _pickupPosition = widget.pickupPosition;
+    _nextMapReadyWatch = Stopwatch()..start();
     _pickupConfirmed = widget.pickupAlreadyConfirmed;
     _sheetSlide = AnimationController(
       vsync: this,
@@ -285,7 +288,10 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _mountMapWhenRouteSettles() async {
+    final navigationBarrierWatch = Stopwatch()..start();
     await waitForCurrentRouteToSettle(context);
+    navigationBarrierWatch.stop();
+    RouteTransitionMetrics.navigationBarrier(navigationBarrierWatch.elapsed);
     if (!mounted) return;
     setState(() => _mapReady = true);
   }
@@ -938,6 +944,14 @@ class _SelectRideState extends State<SelectRide>
                       tiltGesturesEnabled: false,
                       rotateGesturesEnabled: false,
                       onMapCreated: (controller) {
+                        final nextMapReadyWatch = _nextMapReadyWatch;
+                        if (nextMapReadyWatch != null) {
+                          nextMapReadyWatch.stop();
+                          RouteTransitionMetrics.nextMapReady(
+                            nextMapReadyWatch.elapsed,
+                          );
+                          _nextMapReadyWatch = null;
+                        }
                         _mapController = controller;
                         AppScope.instance.maps.attach(
                           controller,
