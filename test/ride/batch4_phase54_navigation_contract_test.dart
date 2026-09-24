@@ -410,6 +410,10 @@ void main() {
 
       // Drive the real mock lifecycle through pickup, trip, payment and rating.
       realtime.markArrivedForTest();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text("I'm on the way"), findsOneWidget);
+      await tester.tap(find.text("I'm on the way"));
+      await tester.pump();
       for (
         var i = 0;
         i < 30 && find.byType(RideCompleted).evaluate().isEmpty;
