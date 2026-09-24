@@ -76,6 +76,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   bool _mapMountScheduled = false;
   bool _moving = false;
   String? _pickupError;
+  bool _hasUsablePickupCoordinates = true;
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
@@ -89,6 +90,13 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     super.initState();
     _center = widget.initialPosition;
     _address = widget.initialAddress;
+    _hasUsablePickupCoordinates =
+        widget.initialPosition.latitude.isFinite &&
+        widget.initialPosition.longitude.isFinite &&
+        widget.initialPosition.latitude >= -90 &&
+        widget.initialPosition.latitude <= 90 &&
+        widget.initialPosition.longitude >= -180 &&
+        widget.initialPosition.longitude <= 180;
     _search.text = widget.initialAddress;
     setWebOverlayOpen(false);
   }
@@ -150,6 +158,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     }
     setState(() {
       _center = position;
+      _hasUsablePickupCoordinates = true;
       _address = 'Current location';
       _search.text = _address;
     });
@@ -169,6 +178,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     if (!mounted || found == null) return;
     setState(() {
       _center = found.position;
+      _hasUsablePickupCoordinates = true;
       _address = found.address ?? query;
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(_center));
@@ -350,13 +360,15 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     width: double.infinity,
                     height: 54,
                     child: FilledButton(
-                      onPressed: () => Navigator.pop(
-                        context,
-                        ConfirmPickupResult(
-                          position: _center,
-                          address: _address,
-                        ),
-                      ),
+                      onPressed: _hasUsablePickupCoordinates
+                          ? () => Navigator.pop(
+                                context,
+                                ConfirmPickupResult(
+                                  position: _center,
+                                  address: _address,
+                                ),
+                              )
+                          : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF11181D),
                         shape: RoundedRectangleBorder(
