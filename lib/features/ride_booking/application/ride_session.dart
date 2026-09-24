@@ -51,8 +51,29 @@ class RideSession {
     int? version,
     DateTime? updatedAt,
   }) {
+    final incomingRideId = id?.trim();
+    final currentRideId = rideId?.trim();
     final isNewRide =
-        id != null && rideId != null && id != rideId;
+        incomingRideId != null &&
+        incomingRideId.isNotEmpty &&
+        currentRideId != null &&
+        currentRideId.isNotEmpty &&
+        incomingRideId != currentRideId;
+
+    // A realtime/resync projection for another ride must never take ownership
+    // of an active session. A completed/terminal session may legitimately be
+    // replaced by the next ride.
+    if (isNewRide && status != RideStatus.idle && !status.isTerminal) {
+      AppLog.warning(
+        'ride.restore.wrong_ride',
+        extra: {
+          'currentRideId': currentRideId,
+          'incomingRideId': incomingRideId,
+          'status': backendStatus.name,
+        },
+      );
+      return false;
+    }
 
     if (isNewRide) {
       authoritativeVersion = null;
@@ -74,28 +95,10 @@ class RideSession {
       return false;
     }
 
-    final incomingRideId = id?.trim();
-    final currentRideId = rideId?.trim();
-    final establishingAuthoritativeState =
-        status == RideStatus.idle &&
-        incomingRideId != null &&
-        incomingRideId.isNotEmpty &&
-        (currentRideId == null ||
-            currentRideId.isEmpty ||
-            currentRideId == incomingRideId);
-    if (status != backendStatus &&
-        !establishingAuthoritativeState &&
-        !canTransition(status, backendStatus)) {
-      AppLog.info(
-        'ride.restore.rejected_jump',
-        extra: {
-          'from': status.name,
-          'to': backendStatus.name,
-          'rideId': id ?? rideId,
-        },
-      );
-      return false;
-    }
+    // Deliberately do not apply the local transition graph here. Backend
+    // projections are authoritative and may skip client-only intermediate
+    // states (for example driverArriving -> paymentFinalized after reconnect).
+    // Ordering and ride identity are the safety boundaries for this path.
 
     rideId = id ?? rideId;
     status = backendStatus;
