@@ -835,7 +835,28 @@ class _SelectRideState extends State<SelectRide>
           );
           return;
         }
-        if (FindingDriverController.active != null) return;
+
+        final existingOwner = FindingDriverController.active;
+        if (existingOwner != null) {
+          final authoritativeRideId = await (widget.booking ?? BookingController())
+              .reconcileCreatedFinding(rideId);
+          if (!mounted) {
+            if (authoritativeRideId == rideId) {
+              await RideRestoreCoordinator.instance.recoverCreatedFinding(
+                rideId,
+                realtime: widget.realtime,
+              );
+            }
+            return;
+          }
+
+          final ownerAfterReconcile = FindingDriverController.active;
+          if (authoritativeRideId != rideId ||
+              ownerAfterReconcile?.ownedRideId == rideId) {
+            return;
+          }
+        }
+
         SheetCoordinator.instance.open(RideSheet.finding);
         try {
           await Navigator.push(
