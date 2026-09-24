@@ -11,6 +11,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -50,6 +51,9 @@ class SelectRide extends StatefulWidget {
     this.note,
     this.reservations,
     this.onScheduled,
+    this.selection,
+    this.booking,
+    this.realtime,
     this.pickupAlreadyConfirmed = false,
   });
 
@@ -110,6 +114,12 @@ class SelectRide extends StatefulWidget {
   final ReservationController? reservations;
   final Future<void> Function(BuildContext context, String reservationId)?
   onScheduled;
+
+  /// Optional seams are used by behavioral certification; production keeps
+  /// the same AppScope-backed defaults.
+  final RideSelectionController? selection;
+  final BookingController? booking;
+  final RideRealtime? realtime;
   final bool pickupAlreadyConfirmed;
 
   @override
@@ -198,11 +208,14 @@ class _SelectRideState extends State<SelectRide>
   }
 
   _RideFilter _filter = _RideFilter.recommended;
-  late final RideSelectionController _selection = RideSelectionController(
-    bookingMode: widget.bookingMode,
-    lockBookingMode: widget.lockBookingMode,
-    paymentStore: AppScope.instance.defaultPayment,
-  );
+  late final bool _ownsSelection = widget.selection == null;
+  late final RideSelectionController _selection =
+      widget.selection ??
+      RideSelectionController(
+        bookingMode: widget.bookingMode,
+        lockBookingMode: widget.lockBookingMode,
+        paymentStore: AppScope.instance.defaultPayment,
+      );
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _mapParked = false;
@@ -288,7 +301,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
-    _selection.dispose();
+    if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
     _mapController = null;
@@ -780,7 +793,7 @@ class _SelectRideState extends State<SelectRide>
 
         String rideId;
         try {
-          rideId = await BookingController().submitFinding(
+          rideId = await (widget.booking ?? BookingController()).submitFinding(
             pickupAddress: _pickupAddress,
             destinationAddress: widget.destinationAddress,
             pickupLat: _pickupPosition.latitude,
@@ -830,6 +843,7 @@ class _SelectRideState extends State<SelectRide>
                 price: authoritativePrice,
                 paymentMethod: payment.name,
                 notes: _notes,
+                realtime: widget.realtime,
               ),
               settings: const RouteSettings(name: AppRoutes.findingDriver),
             ),
