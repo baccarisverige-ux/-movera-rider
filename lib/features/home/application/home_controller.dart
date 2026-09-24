@@ -22,6 +22,16 @@ enum HomeLocationFailure {
   unavailable,
 }
 
+enum HomeLocationState {
+  initializing,
+  permissionRequired,
+  servicesDisabled,
+  acquiringFix,
+  live,
+  temporarilyUnavailable,
+  recovering,
+}
+
 class DetectedLocation {
   const DetectedLocation({
     required this.target,
@@ -80,6 +90,7 @@ class HomeLocationController extends ChangeNotifier {
   LatLng lastMapTarget = const LatLng(59.3293, 18.0686);
   bool pulseExpanded = false;
   bool _livePaused = false;
+  HomeLocationState state = HomeLocationState.initializing;
   Set<Marker> markers = {};
   Set<Circle> locationCircles = {};
   Set<Polygon> locationDirection = {};
@@ -114,9 +125,17 @@ class HomeLocationController extends ChangeNotifier {
     );
   }
 
+  void _setState(HomeLocationState next) {
+    if (state == next) return;
+    state = next;
+    notifyListeners();
+  }
+
   Future<DetectedLocation> detectCurrent() async {
+    _setState(HomeLocationState.initializing);
     try {
       if (!await location.isLocationServiceEnabled()) {
+        _setState(HomeLocationState.servicesDisabled);
         return const DetectedLocation(
           target: null,
           address: 'Current location',
@@ -129,6 +148,7 @@ class HomeLocationController extends ChangeNotifier {
         permission = await location.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
+        _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
           address: 'Current location',
@@ -137,6 +157,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       if (permission == LocationPermission.denied) {
+        _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
           address: 'Current location',
@@ -144,6 +165,7 @@ class HomeLocationController extends ChangeNotifier {
           failure: HomeLocationFailure.permissionDenied,
         );
       }
+      _setState(HomeLocationState.acquiringFix);
       final position = await location.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -170,12 +192,14 @@ class HomeLocationController extends ChangeNotifier {
       heading = position.heading.isFinite && position.heading >= 0
           ? position.heading
           : 0;
+      _setState(HomeLocationState.live);
       return DetectedLocation(
         target: LatLng(position.latitude, position.longitude),
         address: address,
         heading: heading,
       );
     } catch (_) {
+      _setState(HomeLocationState.temporarilyUnavailable);
       return const DetectedLocation(
         target: null,
         address: 'Current location',
@@ -201,6 +225,7 @@ class HomeLocationController extends ChangeNotifier {
         .listen(
           (position) {
             if (!isMounted() || _livePaused) return;
+            _setState(HomeLocationState.live);
             final pose = motion.ingest(
               LocationPoint(
                 point: GeoPoint(position.latitude, position.longitude),
@@ -222,8 +247,7 @@ class HomeLocationController extends ChangeNotifier {
             onFix(latLng, heading);
           },
           onError: (Object _) {
-            // A temporary GPS stream failure must not crash Home. A later
-            // lifecycle resume/rebind can recover the live stream.
+            _setState(HomeLocationState.temporarilyUnavailable);
             _positionSub?.cancel();
             _positionSub = null;
           },
@@ -382,5 +406,14 @@ class HomeLocationController extends ChangeNotifier {
 
   void resumeLiveUpdates() {
     _livePaused = false;
+  }
+
+  void recoverLiveLocation({
+    required bool Function() isMounted,
+    required void Function(LatLng latLng, double heading) onFix,
+  }) {
+    if (_livePaused) return;
+    _setState(HomeLocationState.recovering);
+    startTracking(isMounted: isMounted, onFix: onFix);
   }
 }
