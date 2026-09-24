@@ -409,15 +409,27 @@ void main() {
       expect(AppScope.instance.ride.rideId, rideId);
 
       // Drive the real mock lifecycle through pickup, trip, payment and rating.
+      // Arrival intentionally opens a root modal route. Certify that handoff
+      // without coupling this lifecycle test to smooth_sheets' visual offset.
+      final routesBeforeArrival = observer.pushed.length;
       realtime.markArrivedForTest();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text("I'm on the way"), findsOneWidget);
-      await tester.tap(find.text("I'm on the way"));
       await tester.pump();
       for (
         var i = 0;
-        i < 30 && find.byType(RideCompleted).evaluate().isEmpty;
+        i < 25 && observer.pushed.length == routesBeforeArrival;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(observer.pushed.length, greaterThan(routesBeforeArrival));
+      expect(observer.pushed.last.settings.name, isNull);
+
+      // Close exactly the arrival child route, then let the live ride resume.
+      moveraNavigatorKey.currentState!.pop();
+      await tester.pump(const Duration(milliseconds: 400));
+      for (
+        var i = 0;
+        i < 35 && find.byType(RideCompleted).evaluate().isEmpty;
         i++
       ) {
         await tester.pump(const Duration(milliseconds: 100));
