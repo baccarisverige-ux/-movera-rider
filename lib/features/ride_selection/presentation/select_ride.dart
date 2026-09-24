@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -820,6 +821,7 @@ class _SelectRideState extends State<SelectRide>
                 paymentMethod: payment.name,
                 notes: _notes,
               ),
+              settings: const RouteSettings(name: AppRoutes.findingDriver),
             ),
           );
         } finally {
