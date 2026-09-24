@@ -15,6 +15,13 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
+import 'package:movera_rider/features/booking/data/booking_repository.dart';
+import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/booking/application/booking_controller.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -284,6 +291,30 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       final observer = _RecordingObserver();
+      final transport = InProcessMockClient();
+      final api = ApiClient(client: transport);
+      final selection = RideSelectionController(
+        quotes: ApiQuoteRepository(api: api),
+        flags: const FeatureFlags(),
+      );
+      final booking = BookingController(
+        store: BookingRepository(
+          coordinator: BookingCoordinator(api: api),
+        ),
+      );
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        boardAfter: const Duration(milliseconds: 40),
+        tripTick: const Duration(milliseconds: 40),
+        tripTicks: 2,
+        paymentProcessingAfter: const Duration(milliseconds: 40),
+        paymentFinalizedAfter: const Duration(milliseconds: 40),
+        ratingPendingAfter: const Duration(milliseconds: 40),
+        api: api,
+      );
+      addTearDown(realtime.dispose);
+      addTearDown(selection.dispose);
+
       await tester.pumpWidget(
         MaterialApp(
           navigatorKey: moveraNavigatorKey,
@@ -309,6 +340,9 @@ void main() {
                             59.6519,
                             17.9186,
                           ),
+                          selection: selection,
+                          booking: booking,
+                          realtime: realtime,
                         ),
                         settings: const RouteSettings(
                           name: AppRoutes.selectRide,
@@ -357,9 +391,7 @@ void main() {
       expect(rideId, isNotNull);
       expect(AppScope.instance.ride.status, RideStatus.findingDriver);
 
-      final realtime = AppScope.instance.rideRealtime;
-      expect(realtime, isA<MockRideRealtime>());
-      (realtime as MockRideRealtime).assignNow();
+      realtime.assignNow();
       await tester.pump();
       for (
         var i = 0;
@@ -376,9 +408,16 @@ void main() {
 
       // Drive the real mock lifecycle through pickup, trip, payment and rating.
       realtime.markArrivedForTest();
-      await tester.pump(const Duration(seconds: 9));
-      await tester.pump(const Duration(seconds: 20));
-      await tester.pump(const Duration(seconds: 2));
+      for (
+        var i = 0;
+        i < 30 && find.byType(RideCompleted).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // Completion opens on tripCompleted; allow payment/rating events to
+      // reach the same completion presenter before asserting feedback state.
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(RideCompleted), findsOneWidget);
       expect(find.byType(WaitingForDriver), findsNothing);
