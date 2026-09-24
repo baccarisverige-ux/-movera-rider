@@ -143,7 +143,10 @@ class MockRideRealtime implements RideRealtime {
 
     await _persistAssignment(rideId);
 
-    if (cancelled || disposed || _rideId != rideId) {
+    if (cancelled ||
+        disposed ||
+        _rideId != rideId ||
+        lastStatus != RideStatus.findingDriver) {
       _assignmentInFlight = false;
       return;
     }
@@ -446,7 +449,9 @@ class MockRideRealtime implements RideRealtime {
       try {
         final json = await client.get('/api/v1/rides/$rideId');
         final raw = json['ride'];
-        if (raw is Map && raw['status'] is String) {
+        if (raw is Map &&
+            raw['id']?.toString() == rideId &&
+            raw['status'] is String) {
           status = RideStatus.values.firstWhere(
             (value) => value.name == raw['status'],
             orElse: () => status,
@@ -465,7 +470,7 @@ class MockRideRealtime implements RideRealtime {
     // lastStatus. emit() guards against events after a terminal status; writing
     // the incoming terminal status first would therefore make the event block
     // itself and disappear from the Rider stream.
-    if (!cancelled && !disposed) {
+    if (!cancelled && !disposed && _rideId == rideId) {
       _emit(status);
     }
   }
