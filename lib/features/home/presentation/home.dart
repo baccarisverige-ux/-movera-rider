@@ -1295,18 +1295,22 @@ class _HomeState extends State<Home> {
     }
 
     if (draft == null || !mounted) return;
-    final pickup = await _normaliseAddress(draft['pickup'] as String? ?? '');
-    final destination = await _normaliseAddress(
-      draft['destination'] as String? ?? '',
-    );
+    final rawPickup = draft['pickup'] as String? ?? '';
+    final rawDestination = draft['destination'] as String? ?? '';
     final rawStops = (draft['stops'] as List<dynamic>? ?? <dynamic>[])
         .whereType<String>()
         .toList();
-    final stops = <String>[];
-    for (final stop in rawStops) {
-      final resolved = await _normaliseAddress(stop);
-      if (resolved.isNotEmpty) stops.add(resolved);
-    }
+    final normalizedRoute = await Future.wait<String>([
+      _normaliseAddress(rawPickup),
+      _normaliseAddress(rawDestination),
+      ...rawStops.map(_normaliseAddress),
+    ]);
+    final pickup = normalizedRoute[0];
+    final destination = normalizedRoute[1];
+    final stops = normalizedRoute
+        .skip(2)
+        .where((address) => address.isNotEmpty)
+        .toList();
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;
