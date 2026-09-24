@@ -412,10 +412,19 @@ class _DriverCard extends StatelessWidget {
                 ? null
                 : AssetImage(driver.photoAsset!),
             child: driver.photoAsset == null
-                ? Text(
-                    driver.firstName.substring(0, 1).toUpperCase(),
-                    style: reservationText(18, weight: FontWeight.w700),
-                  )
+                ? (driver.initial.isEmpty
+                      ? const Icon(
+                          Icons.person_outline_rounded,
+                          size: 20,
+                          color: kReservationMuted,
+                        )
+                      : Text(
+                          driver.initial,
+                          style: reservationText(
+                            18,
+                            weight: FontWeight.w700,
+                          ),
+                        ))
                 : null,
           ),
           const SizedBox(width: 12),
@@ -424,7 +433,7 @@ class _DriverCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  driver.firstName,
+                  driver.displayFirstName,
                   style: reservationText(16, weight: FontWeight.w700),
                 ),
                 if (driver.vehicle != null)

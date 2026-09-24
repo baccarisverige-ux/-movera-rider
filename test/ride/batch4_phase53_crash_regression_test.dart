@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -11,7 +23,16 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  Widget host(MatchedDriver driver) {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    AppScope.instance.ride
+      ..rideId = null
+      ..suppressRestore = false
+      ..restoreFromBackend(RideStatus.idle);
+  });
+
+  Widget waitingCardHost(MatchedDriver driver) {
     return MaterialApp(
       home: Scaffold(
         body: WaitingDriverCard(
@@ -29,11 +50,14 @@ void main() {
     'Waiting driver card does not crash when matching supplies an empty firstName',
     (tester) async {
       await tester.pumpWidget(
-        host(const MatchedDriver(id: 'driver-empty', firstName: '')),
+        waitingCardHost(
+          const MatchedDriver(id: 'driver-empty', firstName: ''),
+        ),
       );
 
       expect(tester.takeException(), isNull);
       expect(find.byType(WaitingDriverCard), findsOneWidget);
+      expect(find.text('Driver'), findsOneWidget);
     },
   );
 
@@ -41,11 +65,152 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      host(const MatchedDriver(id: 'driver-amina', firstName: 'Amina')),
+      waitingCardHost(
+        const MatchedDriver(id: 'driver-amina', firstName: 'Amina'),
+      ),
     );
 
     expect(tester.takeException(), isNull);
     expect(find.text('Amina'), findsOneWidget);
     expect(find.text('A'), findsOneWidget);
   });
+
+  test('driver domain models safely represent direct empty names', () {
+    const matched = MatchedDriver(id: 'direct-empty', firstName: '');
+    const scheduled = ReservationDriver(firstName: '');
+
+    expect(matched.displayFirstName, 'Driver');
+    expect(matched.initial, isEmpty);
+    expect(scheduled.displayFirstName, 'Driver');
+    expect(scheduled.initial, isEmpty);
+  });
+
+  testWidgets(
+    'upcoming reservation driver card does not crash with an empty direct name',
+    (tester) async {
+      final controller = ReservationController(
+        store: LocalReservationRepository(
+          storage: MemoryReservationStorage(),
+          nextId: () => 'phase53-reservation',
+        ),
+      );
+      final created = await controller.create(
+        ReservationDraft(
+          scheduledPickupAt: DateTime(2026, 9, 24, 12),
+          pickup: const ReservationPlace(
+            label: 'Stockholm Central',
+            lat: 59.3300,
+            lng: 18.0590,
+          ),
+          destination: const ReservationPlace(
+            label: 'Arlanda Airport',
+            lat: 59.6519,
+            lng: 17.9186,
+          ),
+          categoryId: 'movera',
+          categoryName: 'Movera',
+          categoryImage: 'assets/images/rides/movera.webp',
+          price: 349,
+          paymentMethod: 'Apple Pay',
+        ),
+      );
+      await controller.assignMockDriver(
+        created.reservationId,
+        driver: const ReservationDriver(firstName: ''),
+      );
+      await controller.update(
+        created.reservationId,
+        const ReservationPatch(status: ReservationStatus.driverEnRoute),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          onGenerateInitialRoutes: (_) => [
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: 'phase53-upcoming'),
+              builder: (_) => UpcomingReservationPage(
+                reservationId: created.reservationId,
+                controller: controller,
+              ),
+            ),
+            MaterialPageRoute<void>(
+              settings: const RouteSettings(name: 'phase53-cover'),
+              builder: (_) => const Scaffold(body: Text('phase53-cover')),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byType(UpcomingReservationPage, skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(find.text('Driver', skipOffstage: false), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'unmounting Waiting during driver-cancel recovery has no context exception',
+    (tester) async {
+      const rideId = 'phase53-unmount-driver-cancel';
+      await RideSnapshotStore.save(
+        RideSnapshot(
+          status: RideStatus.driverAssigned,
+          savedAt: DateTime(2026, 9, 24, 7),
+          pickupAddress: 'Stockholm pickup',
+          destinationAddress: 'Stockholm destination',
+          pickupLat: 59.3293,
+          pickupLng: 18.0686,
+          destinationLat: 59.3326,
+          destinationLng: 18.0649,
+          rideType: 'Movera',
+          price: 259,
+          paymentMethod: 'Apple Pay',
+          rideId: rideId,
+        ),
+      );
+      AppScope.instance.ride.restoreFromBackend(
+        RideStatus.driverAssigned,
+        id: rideId,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WaitingForDriver(
+            pickupAddress: 'Stockholm pickup',
+            destinationAddress: 'Stockholm destination',
+            pickupPosition: LatLng(59.3293, 18.0686),
+            destinationPosition: LatLng(59.3326, 18.0649),
+            rideType: 'Movera',
+            price: 259,
+            paymentMethod: 'Apple Pay',
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
+      realtime.holdAssignment();
+      realtime.emit(RideStatus.cancelledByDriver);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.text('Keep searching'), findsOneWidget);
+      await tester.tap(find.text('Keep searching'));
+
+      // The recovery is asynchronous (sheet exit -> map park -> redispatch).
+      // Remove the whole Waiting subtree while that chain is still unwinding.
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('phase53-unmounted'))),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('phase53-unmounted'), findsOneWidget);
+      realtime.holdAssignment();
+    },
+  );
 }

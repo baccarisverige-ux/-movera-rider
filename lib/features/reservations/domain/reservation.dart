@@ -67,6 +67,18 @@ class ReservationDriver {
   final String? plate;
   final String? photoAsset;
 
+  String get normalizedFirstName => firstName.trim();
+
+  bool get hasFirstName => normalizedFirstName.isNotEmpty;
+
+  String get displayFirstName =>
+      hasFirstName ? normalizedFirstName : 'Driver';
+
+  String get initial {
+    final name = normalizedFirstName;
+    return name.isEmpty ? '' : name.substring(0, 1).toUpperCase();
+  }
+
   Map<String, dynamic> toJson() => {
     'firstName': firstName,
     if (rating != null) 'rating': rating,

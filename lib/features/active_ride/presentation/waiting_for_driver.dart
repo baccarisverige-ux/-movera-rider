@@ -160,7 +160,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }) {
     final headline = eta?.headline(status: status) ?? 'Driver found';
     final subtitle =
-        eta?.subtitle(firstName: driver?.firstName, status: status) ?? '';
+        eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
     return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}';
   }
 
@@ -338,9 +338,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // Keep searching.
     final redispatchRideId = _rideId;
     await _ride.resumeSearchingAfterDriverCancel(rideId: redispatchRideId);
+    if (!mounted) {
+      _researching = false;
+      return;
+    }
     _realtime.researchAfterDriverCancel();
     _leaving = true;
-    if (mounted) setState(() {});
+    setState(() {});
 
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
@@ -549,10 +553,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final eta = _tracking.eta;
     final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
     final subtitle =
-        eta?.subtitle(firstName: driver?.firstName, status: _tracking.status) ??
+        eta?.subtitle(firstName: driver?.displayFirstName, status: _tracking.status) ??
         (driver == null
             ? 'Driver details will appear when matching confirms them.'
-            : 'Leave now to meet ${driver.firstName}');
+            : 'Leave now to meet ${driver.displayFirstName}');
     final media = MediaQuery.of(context);
     return PopScope(
       canPop: _leaving,

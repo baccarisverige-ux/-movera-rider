@@ -28,6 +28,18 @@ class MatchedDriver {
   final List<String> languages;
   final int? yearsOnMovera;
 
+  String get normalizedFirstName => firstName.trim();
+
+  bool get hasFirstName => normalizedFirstName.isNotEmpty;
+
+  String get displayFirstName =>
+      hasFirstName ? normalizedFirstName : 'Driver';
+
+  String get initial {
+    final name = normalizedFirstName;
+    return name.isEmpty ? '' : name.substring(0, 1).toUpperCase();
+  }
+
   String get vehicleLabel {
     final parts = [
       if (vehicleColor != null && vehicleColor!.isNotEmpty) vehicleColor,
@@ -68,7 +80,7 @@ class MatchedDriver {
     if (json == null) return null;
     final id = json['id'] as String? ?? '';
     final firstName =
-        json['firstName'] as String? ?? json['name'] as String? ?? '';
+        (json['firstName'] as String? ?? json['name'] as String? ?? '').trim();
     if (id.isEmpty || firstName.isEmpty) return null;
     final langs = json['languages'];
     return MatchedDriver(
