@@ -331,6 +331,16 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
 
     // Same ride, same price, same addresses — only the driver changes.
+    // Re-open the shared session before restarting dispatch. The tracking
+    // controller already reconciled the driver-drop event as terminal, and
+    // without this explicit reversible dispatch transition the parked Finding
+    // route observes a stale cancelledByDriver session after the rider chooses
+    // Keep searching.
+    final rideId = _rideId;
+    final session = AppScope.instance.ride;
+    if (rideId != null && rideId.trim().isNotEmpty) {
+      session.restoreFromBackend(RideStatus.findingDriver, id: rideId);
+    }
     _realtime.researchAfterDriverCancel();
     _leaving = true;
     if (mounted) setState(() {});
