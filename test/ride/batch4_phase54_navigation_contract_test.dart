@@ -759,6 +759,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
+      expect(realtime.lastStatus, RideStatus.cancelledByDriver);
+      expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
       expect(find.text('Keep searching'), findsOneWidget);
 
       await tester.tap(find.text('Keep searching'));
