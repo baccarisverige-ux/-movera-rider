@@ -24,6 +24,7 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -827,7 +828,13 @@ class _SelectRideState extends State<SelectRide>
           return;
         }
 
-        if (!mounted) return;
+        if (!mounted) {
+          await RideRestoreCoordinator.instance.recoverCreatedFinding(
+            rideId,
+            realtime: widget.realtime,
+          );
+          return;
+        }
         if (FindingDriverController.active != null) return;
         SheetCoordinator.instance.open(RideSheet.finding);
         try {
