@@ -44,7 +44,7 @@ void main() {
     });
     final api = ApiClient(
       client: httpClient,
-      env: AppEnv.test(apiBaseUrl: 'https://api.movera.test'),
+      env: const AppEnv(flavor: AppFlavor.test, apiBaseUrl: 'https://api.movera.test', mapsEnabled: true),
       tokens: _Tokens(),
     );
     final geocoding = AppGeocoding(api: api);
