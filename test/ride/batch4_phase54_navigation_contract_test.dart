@@ -769,9 +769,15 @@ void main() {
       expect(realtime.lastStatus, RideStatus.cancelledByDriver);
       expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
       expect(find.byType(DriverCancelledSheet), findsOneWidget);
-      expect(find.text('Keep searching'), findsOneWidget);
+      final keepSearching = find.widgetWithText(
+        FilledButton,
+        'Keep searching',
+      );
+      expect(keepSearching, findsOneWidget);
+      await tester.ensureVisible(keepSearching);
+      await tester.pump();
 
-      await tester.tap(find.text('Keep searching'));
+      await tester.tap(keepSearching);
       for (
         var i = 0;
         i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
