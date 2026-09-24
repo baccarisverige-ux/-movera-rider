@@ -11,6 +11,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
@@ -158,4 +159,83 @@ void main() {
       expect(transport.rideCreateCalls, 1);
     },
   );
+  test(
+    'a Finding owner appearing during create keeps its ride and stands down the duplicate',
+    () async {
+      final transport = _GateRideCreateClient();
+      final api = ApiClient(client: transport);
+      final coordinator = BookingCoordinator(api: api);
+
+      final creating = coordinator.submitFinding(
+        pickupAddress: 'Stockholm Central',
+        destinationAddress: 'Arlanda Airport',
+        pickupLat: 59.3300,
+        pickupLng: 18.0590,
+        destinationLat: 59.6519,
+        destinationLng: 17.9186,
+        rideType: 'movera',
+        price: 259,
+        paymentMethod: 'apple_pay',
+        rideTypeLabel: 'Movera',
+        paymentMethodLabel: 'Apple Pay',
+      );
+      await transport.rideCreateStarted.future;
+
+      const existingRideId = 'phase55-existing-finding';
+      AppScope.instance.ride
+        ..rideId = existingRideId
+        ..status = RideStatus.findingDriver
+        ..suppressRestore = false
+        ..authoritativeVersion = null
+        ..authoritativeUpdatedAt = null;
+
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+        api: api,
+      );
+      final active = FindingDriverController(
+        realtime: realtime,
+        api: api,
+      );
+      addTearDown(() {
+        active.dispose();
+        realtime.dispose();
+      });
+      active.startFrom(
+        pickupAddress: 'Existing pickup',
+        destinationAddress: 'Existing destination',
+        pickupLat: 59.32,
+        pickupLng: 18.06,
+        destinationLat: 59.34,
+        destinationLng: 18.08,
+        rideType: 'Movera',
+        price: 259,
+        paymentMethod: 'Apple Pay',
+        onTick: (_) {},
+        onMatched: () {},
+      );
+
+      expect(FindingDriverController.active, same(active));
+      transport.allowRideCreate.complete();
+      final resolvedRideId = await creating;
+
+      expect(
+        resolvedRideId,
+        existingRideId,
+        reason: 'the mounted Finding owner remains the authoritative ride',
+      );
+      expect(AppScope.instance.ride.rideId, existingRideId);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+
+      expect(transport.rides, hasLength(1));
+      final duplicate = transport.rides.values.single;
+      expect(
+        duplicate['status'],
+        RideStatus.cancelledByRider.name,
+        reason:
+            'the newly created race loser must be explicitly stood down, never left searching invisibly',
+      );
+    },
+  );
+
 }
