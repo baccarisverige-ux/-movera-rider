@@ -199,7 +199,8 @@ class RideSnapshot {
           : null,
       cancellationReason: json['cancellationReason'] as String?,
     );
-  }}
+  }
+}
 
 class RideSnapshotStore {
   /// SharedPreferences key. On Flutter web this is `flutter.movera_active_ride`.
