@@ -369,6 +369,11 @@ class MockRideRealtime implements RideRealtime {
   /// The driver is at pickup; carry the ride through to completion so the
   /// rider reaches the finished-ride screen instead of waiting forever.
   void _startTrip() {
+    // The pickup-approach GPS loop belongs only to the pre-trip stage.
+    // Test-driven arrival can bypass the normal GPS distance threshold, so
+    // stop it here as well to avoid an orphan periodic timer after boarding.
+    _gps?.cancel();
+    _gps = null;
     _board?.cancel();
     _board = Timer(boardAfter, () {
       if (cancelled || disposed || _rideId == null) return;
