@@ -43,7 +43,14 @@ void main() {
       waiting,
       contains('final completed = RideCompleted(status: status, rideId: rideId);'),
     );
-    expect(waiting, contains('RideStageTransition(completed)'));
+    expect(
+      waiting,
+      contains('RideStageTransition(\n        completed,'),
+    );
+    expect(
+      waiting,
+      contains('settings: const RouteSettings(name: AppRoutes.rideCompleted)'),
+    );
   });
 
 
