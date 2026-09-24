@@ -330,14 +330,19 @@ class _CompletionHero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            spec.message,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: MoveraTokens.muted,
-              height: 1.45,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 76),
+            child: Center(
+              child: Text(
+                spec.message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: MoveraTokens.muted,
+                  height: 1.45,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
