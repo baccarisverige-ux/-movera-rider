@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -136,6 +137,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _onLiveTick() {
     if (!mounted) return;
     final status = _tracking.status;
+
+    // A driver drop is a reversible dispatch event, not the end of the
+    // rider's trip. Handle it on the active Waiting owner immediately instead
+    // of routing it through the generic terminal queue. The generic queue is
+    // intentionally gated on route-current state; that can strand this
+    // transient event when Waiting has just replaced the matching stage.
+    if (status == RideStatus.cancelledByDriver) {
+      if (!_leaving && !_completedOpened) {
+        unawaited(_researchAfterDriverCancel());
+      }
+      return;
+    }
+
     if (status.isTerminal && !status.isCompletedSurface) {
       _queueStageNavigation(status);
       return;
@@ -379,7 +393,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _researching = false;
     Navigator.pushReplacement(
       context,
-      RideStageTransition(finding),
+      RideStageTransition(
+        finding,
+        settings: const RouteSettings(name: AppRoutes.findingDriver),
+      ),
     );
   }
 
@@ -387,21 +404,34 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!mounted || _leaving || _completedOpened) return;
     _completedOpened = true;
     final rideId = _rideId;
-    _tracking.dispose();
 
     final customCompleted = widget.onCompleted;
     if (customCompleted != null) {
+      _tracking.dispose();
       await _parkMapForStageChange();
       if (!mounted) return;
       await customCompleted(context, status);
       return;
     }
 
+    // Keep the live subscription through the navigation barrier. Payment and
+    // rating events can arrive while the active map is parking; disposing the
+    // tracker before that barrier creates a blind window and can strand the
+    // completion UI at tripCompleted.
     await _ride.markCompleted(status);
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;
-    final completed = RideCompleted(status: status, rideId: rideId);
+    final trackedStatus = _tracking.status;
+    final completionStatus = trackedStatus.isCompletedSurface
+        ? trackedStatus
+        : status;
+    final completed = RideCompleted(
+      status: completionStatus,
+      rideId: rideId,
+      realtime: widget.realtime,
+      showConnectionBanner: widget.realtime == null,
+    );
     final navigator = Navigator.of(context);
 
     // A cold restore renders Waiting inside RideRestoreGate on the Navigator
@@ -420,7 +450,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // Normal Book Now has Home/Finding underneath Waiting, so replacement is
     // correct here and avoids keeping the active-ride route in the stack.
     navigator.pushReplacement(
-      RideStageTransition(completed),
+      RideStageTransition(
+        completed,
+        settings: const RouteSettings(name: AppRoutes.rideCompleted),
+      ),
     );
   }
 

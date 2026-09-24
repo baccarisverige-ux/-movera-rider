@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_ride_realtime.dart';
@@ -79,7 +80,7 @@ abstract final class ReservationLiveRide {
           reason: reasonId ?? 'rider_cancelled_live',
         );
         if (!context.mounted) return;
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
       },
       onDriverCancelled: (context) async {
         if (!context.mounted) return;
@@ -89,7 +90,7 @@ abstract final class ReservationLiveRide {
       },
       onTerminal: (context, status) async {
         if (!context.mounted) return;
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
       },
       onCompleted: (context, status) async {
         if (!context.mounted) return;
@@ -104,14 +105,16 @@ abstract final class ReservationLiveRide {
               rideId: ride.reservationId,
               realtime: completionRealtime,
               persistOnDemandState: false,
+              feedbackAvailableOnCompletion: true,
               showConnectionBanner: false,
               onClose: (completionContext) async {
                 if (!completionContext.mounted) return;
                 Navigator.of(
                   completionContext,
-                ).popUntil((route) => route.isFirst);
+                ).popUntil(AppRoutes.isHomeRoute);
               },
             ),
+            settings: const RouteSettings(name: AppRoutes.rideCompleted),
           ),
         );
       },
@@ -126,6 +129,7 @@ abstract final class ReservationLiveRide {
   }) {
     final route = BottomToTopTransition(
       pageFor(ride, controller: controller),
+      settings: const RouteSettings(name: AppRoutes.reservationLive),
     );
     if (replace) {
       return Navigator.of(context).pushReplacement(route);

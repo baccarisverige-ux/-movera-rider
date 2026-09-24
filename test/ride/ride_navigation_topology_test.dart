@@ -39,11 +39,22 @@ void main() {
     expect(home, contains('RideStageTransition(\n          SelectRide('));
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));
+    expect(waiting, contains('final completed = RideCompleted('));
+    expect(waiting, contains('status: completionStatus,'));
+    expect(waiting, contains('rideId: rideId,'));
+    expect(waiting, contains('realtime: widget.realtime,'));
     expect(
       waiting,
-      contains('final completed = RideCompleted(status: status, rideId: rideId);'),
+      contains('showConnectionBanner: widget.realtime == null,'),
     );
-    expect(waiting, contains('RideStageTransition(completed)'));
+    expect(
+      waiting,
+      contains('RideStageTransition(\n        completed,'),
+    );
+    expect(
+      waiting,
+      contains('settings: const RouteSettings(name: AppRoutes.rideCompleted)'),
+    );
   });
 
 
@@ -96,6 +107,37 @@ void main() {
       ),
       reason: 'background Select Ride must not remount its map while being popped',
     );
+  });
+
+  test('Home map parking uses one outer guard and lifecycle barrier', () {
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+
+    final helper = home.indexOf('Future<T?> _withParkedHomeMap<T>');
+    final guardEnter = home.indexOf('_mapParkingGuard.enter()', helper);
+    final detach = home.indexOf(
+      'AppScope.instance.maps.detach(owner: MapOwners.home)',
+      helper,
+    );
+    final barrier = home.indexOf(
+      'await WidgetsBinding.instance.endOfFrame',
+      detach,
+    );
+    final action = home.indexOf('return await action();', barrier);
+    final guardExit = home.indexOf('_mapParkingGuard.exit()', action);
+    final resume = home.indexOf(
+      'AppScope.instance.mapLifecycle.resume()',
+      guardExit,
+    );
+
+    expect(helper, greaterThanOrEqualTo(0));
+    expect(guardEnter, greaterThan(helper));
+    expect(detach, greaterThan(guardEnter));
+    expect(barrier, greaterThan(detach));
+    expect(action, greaterThan(barrier));
+    expect(guardExit, greaterThan(action));
+    expect(resume, greaterThan(guardExit));
   });
 
   test('matching map is parked before active ride map is mounted', () {
@@ -277,7 +319,7 @@ void main() {
     ).readAsStringSync();
 
     final completionStart = waiting.indexOf(
-      'final completed = RideCompleted(status: status, rideId: rideId);',
+      'final completed = RideCompleted(',
     );
     final rootGuard = waiting.indexOf('if (!navigator.canPop())', completionStart);
     final gateSwap = waiting.indexOf('RestoredSurface.complete', rootGuard);

@@ -11,12 +11,14 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
@@ -118,6 +120,7 @@ class _HomeState extends State<Home> {
 
   GoogleMapController? _mapController;
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
+  final MapParkingGuard _mapParkingGuard = MapParkingGuard();
   bool get _homeMapParked => _mapParked.value;
   Set<Marker> get _markers => _locationCtl.markers;
   set _markers(Set<Marker> value) => _locationCtl.markers = value;
@@ -486,30 +489,31 @@ class _HomeState extends State<Home> {
               replace: true,
             ),
           ),
+          settings: const RouteSettings(name: AppRoutes.selectRide),
         ),
       );
     });
   }
 
   Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
-    final parkedNow = !_homeMapParked;
-    if (parkedNow) {
-      setWebOverlayOpen(false);
-      _mapParked.value = true;
-      _locationCtl.pauseLiveUpdates();
-      AppScope.instance.mapLifecycle.park();
-      AppScope.instance.maps.detach(owner: MapOwners.home);
-      _mapController = null;
-      // Let Flutter remove the platform map for one rendered frame before the
-      // next map-heavy ride screen mounts. A fixed blank delay made navigation
-      // feel like a crash on fast devices.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) return null;
-    }
+    final parkedNow = _mapParkingGuard.enter();
     try {
+      if (parkedNow) {
+        setWebOverlayOpen(false);
+        _mapParked.value = true;
+        _locationCtl.pauseLiveUpdates();
+        AppScope.instance.mapLifecycle.park();
+        AppScope.instance.maps.detach(owner: MapOwners.home);
+        _mapController = null;
+        // Let Flutter remove the platform map for one rendered frame before
+        // the next map-heavy ride screen mounts.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return null;
+      }
       return await action();
     } finally {
-      if (parkedNow && mounted) {
+      final resumeNow = _mapParkingGuard.exit();
+      if (resumeNow && mounted) {
         AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
         _locationCtl.resumeLiveUpdates();
@@ -1366,6 +1370,7 @@ class _HomeState extends State<Home> {
                 replace: true,
               ),
             ),
+            settings: const RouteSettings(name: AppRoutes.selectRide),
           ),
         );
       });
@@ -2035,7 +2040,10 @@ class _HomeState extends State<Home> {
     await _withParkedHomeMap(() {
       return Navigator.push(
         context,
-        BottomToTopTransition(const ScheduleRide()),
+        BottomToTopTransition(
+          const ScheduleRide(),
+          settings: const RouteSettings(name: AppRoutes.schedule),
+        ),
       );
     });
   }

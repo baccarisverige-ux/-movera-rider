@@ -32,7 +32,7 @@ void main() {
     maps.detach(owner: MapOwners.home);
     expect(maps.activeOwner, MapOwners.pickup);
     maps.detach(owner: MapOwners.pickup);
-    expect(maps.activeOwner, MapOwners.home);
+    expect(maps.activeOwner, isNull);
     maps.detach(owner: MapOwners.home);
     expect(maps.activeOwner, isNull);
   });
@@ -94,7 +94,7 @@ void main() {
     maps.detach(owner: MapOwners.selectRide);
     expect(maps.activeOwner, MapOwners.home);
     maps.detach(owner: MapOwners.home);
-    expect(maps.activeOwner, MapOwners.selectRide);
+    expect(maps.activeOwner, isNull);
   });
 
   test('dispose drops owners and never needs a plugin controller', () {
@@ -104,6 +104,34 @@ void main() {
     maps.dispose();
     expect(maps.activeOwner, isNull);
     expect(maps.controller, isNull);
+  });
+
+  test('detached background owners never resurrect after active map leaves', () {
+    final maps = GoogleMapProvider();
+    final ownerChanges = <String?>[];
+    maps.onOwnerDebug = (owner, _) => ownerChanges.add(owner);
+
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.finding);
+    maps.debugAttach(MapOwners.waiting);
+    expect(maps.activeOwner, MapOwners.waiting);
+
+    // Home/Finding can dispose after Waiting has already become current. Their
+    // controllers are gone at that point and must be removed from ownership,
+    // not left underneath Waiting to become active again later.
+    maps.detach(owner: MapOwners.home);
+    maps.detach(owner: MapOwners.finding);
+    expect(maps.activeOwner, MapOwners.waiting);
+
+    maps.detach(owner: MapOwners.waiting);
+
+    expect(maps.activeOwner, isNull);
+    expect(maps.ownerStack, isEmpty);
+    expect(
+      ownerChanges.where((owner) => owner == null).length,
+      1,
+      reason: 'the final live controller must be released exactly once',
+    );
   });
 
   test('older nested screen disposing later cannot steal the current owner', () {
@@ -121,7 +149,39 @@ void main() {
     expect(maps.activeOwner, MapOwners.waiting);
     expect(maps.generation, generation);
     maps.detach(owner: MapOwners.waiting);
-    expect(maps.activeOwner, MapOwners.finding);
+    expect(maps.activeOwner, isNull);
+  });
+
+  test('ride-stage handoffs never expose overlapping map owners', () {
+    final maps = GoogleMapProvider();
+
+    void attachOnly(String owner) {
+      maps.debugAttach(owner);
+      expect(maps.ownerStack, [owner]);
+      expect(maps.activeOwner, owner);
+    }
+
+    void release(String owner) {
+      maps.detach(owner: owner);
+      expect(maps.ownerStack, isEmpty);
+      expect(maps.activeOwner, isNull);
+    }
+
+    attachOnly(MapOwners.home);
+    release(MapOwners.home);
+
+    attachOnly(MapOwners.finding);
+    release(MapOwners.finding);
+
+    attachOnly(MapOwners.waiting);
+    release(MapOwners.waiting);
+
+    // Driver-cancel recovery remounts the already-existing Finding surface.
+    attachOnly(MapOwners.finding);
+    release(MapOwners.finding);
+
+    // Returning from the full ride stack lets Home create one fresh map owner.
+    attachOnly(MapOwners.home);
   });
 
   test('facade coordinates marker and route state', () {

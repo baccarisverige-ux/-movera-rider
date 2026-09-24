@@ -5,11 +5,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -49,6 +51,9 @@ class SelectRide extends StatefulWidget {
     this.note,
     this.reservations,
     this.onScheduled,
+    this.selection,
+    this.booking,
+    this.realtime,
     this.pickupAlreadyConfirmed = false,
   });
 
@@ -109,6 +114,12 @@ class SelectRide extends StatefulWidget {
   final ReservationController? reservations;
   final Future<void> Function(BuildContext context, String reservationId)?
   onScheduled;
+
+  /// Optional seams are used by behavioral certification; production keeps
+  /// the same AppScope-backed defaults.
+  final RideSelectionController? selection;
+  final BookingController? booking;
+  final RideRealtime? realtime;
   final bool pickupAlreadyConfirmed;
 
   @override
@@ -197,11 +208,14 @@ class _SelectRideState extends State<SelectRide>
   }
 
   _RideFilter _filter = _RideFilter.recommended;
-  late final RideSelectionController _selection = RideSelectionController(
-    bookingMode: widget.bookingMode,
-    lockBookingMode: widget.lockBookingMode,
-    paymentStore: AppScope.instance.defaultPayment,
-  );
+  late final bool _ownsSelection = widget.selection == null;
+  late final RideSelectionController _selection =
+      widget.selection ??
+      RideSelectionController(
+        bookingMode: widget.bookingMode,
+        lockBookingMode: widget.lockBookingMode,
+        paymentStore: AppScope.instance.defaultPayment,
+      );
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _mapParked = false;
@@ -287,7 +301,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
-    _selection.dispose();
+    if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetSlide.dispose();
     _mapController = null;
@@ -711,6 +725,16 @@ class _SelectRideState extends State<SelectRide>
     if (mounted) setState(() {});
   }
 
+  void _releaseRouteWork() {
+    _bookingInFlight = false;
+    _selection.cancelPendingQuotes();
+  }
+
+  void _onRoutePop(bool didPop, Object? _) {
+    if (!didPop) return;
+    _releaseRouteWork();
+  }
+
   void _book() {
     if (_bookingInFlight) return;
 
@@ -769,7 +793,7 @@ class _SelectRideState extends State<SelectRide>
 
         String rideId;
         try {
-          rideId = await BookingController().submitFinding(
+          rideId = await (widget.booking ?? BookingController()).submitFinding(
             pickupAddress: _pickupAddress,
             destinationAddress: widget.destinationAddress,
             pickupLat: _pickupPosition.latitude,
@@ -819,7 +843,9 @@ class _SelectRideState extends State<SelectRide>
                 price: authoritativePrice,
                 paymentMethod: payment.name,
                 notes: _notes,
+                realtime: widget.realtime,
               ),
+              settings: const RouteSettings(name: AppRoutes.findingDriver),
             ),
           );
         } finally {
@@ -836,9 +862,11 @@ class _SelectRideState extends State<SelectRide>
     final media = MediaQuery.of(context);
     final showLiveMap = _mapReady && !_mapParked;
     final minSheet = _minSheet(media);
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F1),
-      body: Stack(
+    return PopScope(
+      onPopInvokedWithResult: _onRoutePop,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F5F1),
+        body: Stack(
         children: [
           Positioned(
             top: 0,
@@ -1023,7 +1051,8 @@ class _SelectRideState extends State<SelectRide>
               );
             },
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

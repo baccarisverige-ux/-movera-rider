@@ -75,14 +75,16 @@ class RideCompletedDriverInfo extends StatelessWidget {
           ),
           24.height,
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TextWidget(
-                text: 'Trip completed',
-                color: AppColor.title,
-                fontSize: 14,
-                fontWeight: fwMedium,
+              Expanded(
+                child: TextWidget(
+                  text: 'Trip completed',
+                  color: AppColor.title,
+                  fontSize: 14,
+                  fontWeight: fwMedium,
+                ),
               ),
+              const SizedBox(width: 12),
               // A raw ride id is for support, not for the rider, and a full
               // one ran straight through its own label. Show a short reference.
               Flexible(
@@ -98,19 +100,25 @@ class RideCompletedDriverInfo extends StatelessWidget {
           ),
           8.height,
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextWidget(
-                text: 'Date & Time',
-                color: AppColor.title,
-                fontSize: 14,
-                fontWeight: fwMedium,
+              Expanded(
+                child: TextWidget(
+                  text: 'Date & Time',
+                  color: AppColor.title,
+                  fontSize: 14,
+                  fontWeight: fwMedium,
+                ),
               ),
-              TextWidget(
-                text: driver.completedAt,
-                color: AppColor.subtitle,
-                fontSize: 14,
-                fontWeight: fwMedium,
+              const SizedBox(width: 12),
+              Flexible(
+                child: TextWidget(
+                  text: driver.completedAt,
+                  color: AppColor.subtitle,
+                  fontSize: 14,
+                  fontWeight: fwMedium,
+                  textAlign: TextAlign.right,
+                ),
               ),
             ],
           ),

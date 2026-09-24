@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -50,6 +51,7 @@ class ConfirmPickupSpot extends StatefulWidget {
         hint: hint,
         confirmLabel: confirmLabel,
       ),
+      settings: const RouteSettings(name: AppRoutes.confirmPickup),
     );
     final result = await Navigator.of(context).push<ConfirmPickupResult>(route);
     await route.completed;

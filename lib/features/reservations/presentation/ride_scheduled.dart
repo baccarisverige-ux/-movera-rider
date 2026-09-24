@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -28,9 +29,10 @@ class RideScheduledPage extends StatefulWidget {
   }) {
     final route = BottomToTopTransition(
       RideScheduledPage(reservationId: reservationId, controller: controller),
+      settings: const RouteSettings(name: AppRoutes.reservationScheduled),
     );
     if (untilHome) {
-      return Navigator.pushAndRemoveUntil(context, route, (r) => r.isFirst);
+      return Navigator.pushAndRemoveUntil(context, route, AppRoutes.isHomeRoute);
     }
     if (replace) {
       return Navigator.pushReplacement(context, route);
@@ -67,7 +69,7 @@ class _RideScheduledPageState extends State<RideScheduledPage> {
   }
 
   void _closeHome() {
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
   }
 
   Future<void> _editReservation(Reservation ride) async {

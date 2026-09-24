@@ -22,6 +22,7 @@ class RideCompleted extends StatefulWidget {
     this.rideId,
     this.realtime,
     this.persistOnDemandState = true,
+    this.feedbackAvailableOnCompletion = false,
     this.showConnectionBanner = true,
     this.onClose,
   });
@@ -33,11 +34,33 @@ class RideCompleted extends StatefulWidget {
   /// uses the same RideRealtime seam as the active-ride screen.
   final RideRealtime? realtime;
   final bool persistOnDemandState;
+
+  /// Scheduled rides do not currently expose payment lifecycle states, but
+  /// completion itself is authoritative. This flag lets that flow offer
+  /// optional rating/tip without fabricating paymentProcessing,
+  /// paymentFinalized, or ratingPending events.
+  final bool feedbackAvailableOnCompletion;
+
   final bool showConnectionBanner;
   final Future<void> Function(BuildContext context)? onClose;
 
   @override
   State<RideCompleted> createState() => _RideCompletedState();
+}
+
+int _completionRank(RideStatus status) {
+  switch (status) {
+    case RideStatus.tripCompleted:
+      return 1;
+    case RideStatus.paymentProcessing:
+      return 2;
+    case RideStatus.paymentFinalized:
+      return 3;
+    case RideStatus.ratingPending:
+      return 4;
+    default:
+      return 0;
+  }
 }
 
 class _RideCompletedState extends State<RideCompleted> {
@@ -53,13 +76,27 @@ class _RideCompletedState extends State<RideCompleted> {
     final rideId = widget.rideId?.trim();
     if (rideId == null || rideId.isEmpty) return;
 
+    // Waiting stays subscribed until the replacement route is actually
+    // disposed. If payment/rating advances during that handoff, RideSession
+    // already has the newer authoritative completion state before this screen
+    // gets its first frame. Start from that state instead of regressing to the
+    // status captured when navigation began.
+    if (widget.persistOnDemandState) {
+      final session = AppScope.instance.ride;
+      if (session.rideId?.trim() == rideId &&
+          session.status.isCompletedSurface &&
+          _completionRank(session.status) > _completionRank(_status)) {
+        _status = session.status;
+      }
+    }
+
     final realtime = widget.realtime ?? AppScope.instance.rideRealtime;
     _completionSub = realtime.subscribe(rideId).listen((event) {
       final status = event.status;
       if (!mounted ||
           _leaving ||
           !status.isCompletedSurface ||
-          status == _status) {
+          _completionRank(status) <= _completionRank(_status)) {
         return;
       }
       if (widget.persistOnDemandState) {
@@ -100,7 +137,10 @@ class _RideCompletedState extends State<RideCompleted> {
   @override
   Widget build(BuildContext context) {
     final spec = _spec;
-    final canRate = _status == RideStatus.ratingPending;
+    final canRate =
+        _status == RideStatus.ratingPending ||
+        (widget.feedbackAvailableOnCompletion &&
+            _status == RideStatus.tripCompleted);
     final showFeedbackSurface = widget.persistOnDemandState || canRate;
 
     return PopScope(
