@@ -75,6 +75,13 @@ class FindingDriverController {
   RideSession get ride => _ride ?? AppScope.instance.ride;
   ApiClient get api => _api ?? AppScope.instance.api;
 
+  /// Stable identity captured when this Finding owner started. Unlike the
+  /// process-wide RideSession, this cannot be overwritten by a concurrent
+  /// booking response before ownership is reconciled.
+  String? get ownedRideId => _snapshot?.rideId?.trim();
+
+  RideSnapshot? get ownershipSnapshot => _snapshot;
+
   int get matchCount => _assigned ? 1 : 0;
   bool get editInFlight => _editInFlight;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
