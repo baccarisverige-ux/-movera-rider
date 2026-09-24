@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -486,6 +487,7 @@ class _HomeState extends State<Home> {
               replace: true,
             ),
           ),
+          settings: const RouteSettings(name: AppRoutes.selectRide),
         ),
       );
     });
@@ -1366,6 +1368,7 @@ class _HomeState extends State<Home> {
                 replace: true,
               ),
             ),
+            settings: const RouteSettings(name: AppRoutes.selectRide),
           ),
         );
       });
@@ -2035,7 +2038,10 @@ class _HomeState extends State<Home> {
     await _withParkedHomeMap(() {
       return Navigator.push(
         context,
-        BottomToTopTransition(const ScheduleRide()),
+        BottomToTopTransition(
+          const ScheduleRide(),
+          settings: const RouteSettings(name: AppRoutes.schedule),
+        ),
       );
     });
   }
