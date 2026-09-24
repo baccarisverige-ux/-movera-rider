@@ -26,6 +26,9 @@ class _DeniedLocation extends LocationRepository {
   int permissionRequests = 0;
 
   @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
   Future<LocationPermission> checkPermission() async => LocationPermission.denied;
 
   @override
