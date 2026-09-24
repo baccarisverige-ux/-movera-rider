@@ -29,8 +29,12 @@ class AppGeocoding implements GeocodingRepository {
     final cached = _forwardCache[key];
     if (cached != null && cached.isFresh(cacheTtl)) return cached.value;
 
+    final existing = _forwardInFlight[key];
+    if (existing != null) return existing;
+
     final generation = ++_forwardGeneration;
-    final future = _forwardInFlight[key] ??= _forwardFromApi(normalized);
+    final future = _forwardFromApi(normalized);
+    _forwardInFlight[key] = future;
     try {
       final result = await future;
       if (generation != _forwardGeneration) return null;
@@ -48,8 +52,12 @@ class AppGeocoding implements GeocodingRepository {
     final cached = _reverseCache[key];
     if (cached != null && cached.isFresh(cacheTtl)) return cached.value;
 
+    final existing = _reverseInFlight[key];
+    if (existing != null) return existing;
+
     final generation = ++_reverseGeneration;
-    final future = _reverseInFlight[key] ??= _reverseFromApi(point);
+    final future = _reverseFromApi(point);
+    _reverseInFlight[key] = future;
     try {
       final result = await future;
       if (generation != _reverseGeneration) return null;
