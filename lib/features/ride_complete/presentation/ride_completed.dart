@@ -331,7 +331,7 @@ class _CompletionHero extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 57),
+            constraints: const BoxConstraints(minHeight: 76),
             child: Center(
               child: Text(
                 spec.message,
