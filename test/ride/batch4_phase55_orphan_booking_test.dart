@@ -238,4 +238,98 @@ void main() {
     },
   );
 
+
+  testWidgets(
+    'rapid double Book creates one authoritative ride and one Finding lifecycle',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final transport = _GateRideCreateClient();
+      final api = ApiClient(client: transport);
+      final selection = RideSelectionController(
+        quotes: ApiQuoteRepository(api: api),
+        flags: const FeatureFlags(),
+      );
+      addTearDown(selection.dispose);
+      final booking = BookingController(
+        store: BookingRepository(
+          coordinator: BookingCoordinator(api: api),
+        ),
+      );
+      final observer = _RecordingObserver();
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(375, 812),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => MaterialApp(
+            navigatorKey: moveraNavigatorKey,
+            navigatorObservers: [observer],
+            home: const Scaffold(
+              body: Center(child: Text('phase55-double-home')),
+            ),
+          ),
+        ),
+      );
+
+      moveraNavigatorKey.currentState!.push(
+        RideStageTransition(
+          SelectRide(
+            pickupAddress: 'Stockholm Central',
+            destinationAddress: 'Arlanda Airport',
+            pickupPosition: const LatLng(59.3300, 18.0590),
+            destinationPosition: const LatLng(59.6519, 17.9186),
+            pickupAlreadyConfirmed: true,
+            selection: selection,
+            booking: booking,
+          ),
+          settings: const RouteSettings(name: AppRoutes.selectRide),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+
+      final book = find.text('Select Movera');
+      expect(book, findsOneWidget);
+
+      await tester.tap(book);
+      await tester.pump();
+      await transport.rideCreateStarted.future;
+
+      // A second physical tap while the first mutation is pending must not
+      // create a second backend ride or a second Finding presentation.
+      await tester.tap(book);
+      await tester.pump();
+      expect(transport.rideCreateCalls, 1);
+
+      transport.allowRideCreate.complete();
+      for (
+        var i = 0;
+        i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(transport.rideCreateCalls, 1);
+      expect(transport.rides, hasLength(1));
+
+      final findingPushes = observer.pushed
+          .where((route) => route.settings.name == AppRoutes.findingDriver)
+          .length;
+      expect(findingPushes, 1);
+
+      final onlyRideId = transport.rides.keys.single;
+      expect(AppScope.instance.ride.rideId, onlyRideId);
+      final snapshot = await RideSnapshotStore.read();
+      expect(snapshot?.rideId, onlyRideId);
+      expect(snapshot?.status, RideStatus.findingDriver);
+    },
+  );
+
 }
