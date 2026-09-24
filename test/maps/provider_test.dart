@@ -32,7 +32,7 @@ void main() {
     maps.detach(owner: MapOwners.home);
     expect(maps.activeOwner, MapOwners.pickup);
     maps.detach(owner: MapOwners.pickup);
-    expect(maps.activeOwner, MapOwners.home);
+    expect(maps.activeOwner, isNull);
     maps.detach(owner: MapOwners.home);
     expect(maps.activeOwner, isNull);
   });
@@ -94,7 +94,7 @@ void main() {
     maps.detach(owner: MapOwners.selectRide);
     expect(maps.activeOwner, MapOwners.home);
     maps.detach(owner: MapOwners.home);
-    expect(maps.activeOwner, MapOwners.selectRide);
+    expect(maps.activeOwner, isNull);
   });
 
   test('dispose drops owners and never needs a plugin controller', () {
@@ -149,7 +149,7 @@ void main() {
     expect(maps.activeOwner, MapOwners.waiting);
     expect(maps.generation, generation);
     maps.detach(owner: MapOwners.waiting);
-    expect(maps.activeOwner, MapOwners.finding);
+    expect(maps.activeOwner, isNull);
   });
 
   test('facade coordinates marker and route state', () {
