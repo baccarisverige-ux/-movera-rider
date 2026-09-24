@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -57,14 +58,10 @@ void main() {
     expect(body['detail'], 'Fare total looks wrong');
   });
 
-  testWidgets('receipt dispute entry is bound to an authoritative ride record', (tester) async {
-    // The receipt deliberately hides all actions when there is no real receipt;
-    // that honest empty-state contract predates Phase 48. Verify the production
-    // wiring statically here instead of manufacturing a fake completed ride in
-    // a widget test.
-    final source = await DefaultAssetBundle.of(
-      tester.element(find.byType(MaterialApp)),
-    ).loadString('lib/features/ride_complete/presentation/trip_detail.dart');
+  test('receipt dispute entry requires both a real receipt and authoritative ride id', () {
+    final source = File(
+      'lib/features/ride_complete/presentation/trip_detail.dart',
+    ).readAsStringSync();
     expect(source, contains("ValueKey<String>('receipt-report-issue')"));
     expect(source, contains("rideId != null && rideId!.trim().isNotEmpty"));
   });
