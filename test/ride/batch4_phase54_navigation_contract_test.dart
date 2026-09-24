@@ -689,7 +689,9 @@ void main() {
       AppScope.instance.ride
         ..rideId = rideId
         ..status = RideStatus.findingDriver
-        ..suppressRestore = false;
+        ..suppressRestore = false
+        ..authoritativeVersion = null
+        ..authoritativeUpdatedAt = null;
 
       final realtime = MockRideRealtime(
         assignAfter: const Duration(days: 1),
