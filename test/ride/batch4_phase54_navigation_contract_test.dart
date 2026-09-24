@@ -5,6 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -22,6 +32,14 @@ class _RecordingObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     pushed.add(route);
+  }
+
+  @override
+  void didReplace({
+    Route<dynamic>? newRoute,
+    Route<dynamic>? oldRoute,
+  }) {
+    if (newRoute != null) pushed.add(newRoute);
   }
 }
 
@@ -47,6 +65,15 @@ void main() {
 
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+    FindingDriverController.active = null;
+    AppScope.instance.ride
+      ..rideId = null
+      ..status = RideStatus.idle;
   });
 
   testWidgets('Select Ride transition carries its stable route name', (
@@ -247,5 +274,144 @@ void main() {
     await tester.pump();
     expect(observer.pushed.last.settings.name, AppRoutes.confirmPickup);
   });
+
+  testWidgets(
+    'on-demand journey keeps one visible ride stage and returns Home after feedback',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final observer = _RecordingObserver();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: moveraNavigatorKey,
+          navigatorObservers: [observer],
+          home: Builder(
+            builder: (homeContext) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () async {
+                    final pickup = await ConfirmPickupSpot.open(
+                      homeContext,
+                      initialPosition: const LatLng(59.3300, 18.0590),
+                      initialAddress: 'Stockholm Central',
+                    );
+                    if (pickup == null || !homeContext.mounted) return;
+                    await Navigator.of(homeContext).push<void>(
+                      RideStageTransition(
+                        SelectRide(
+                          pickupAddress: pickup.address,
+                          destinationAddress: 'Arlanda Airport',
+                          pickupPosition: pickup.position,
+                          destinationPosition: const LatLng(
+                            59.6519,
+                            17.9186,
+                          ),
+                        ),
+                        settings: const RouteSettings(
+                          name: AppRoutes.selectRide,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('phase54-start-on-demand'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('phase54-start-on-demand'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(ConfirmPickupSpot), findsOneWidget);
+      expect(observer.pushed.last.settings.name, AppRoutes.confirmPickup);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Confirm pickup'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.byType(SelectRide), findsOneWidget);
+      expect(observer.pushed.last.settings.name, AppRoutes.selectRide);
+
+      // Allow the authoritative quote batch to settle before booking.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('Select Movera'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(find.byType(SelectRide), findsNothing);
+      expect(observer.pushed.last.settings.name, AppRoutes.findingDriver);
+      final rideId = AppScope.instance.ride.rideId;
+      expect(rideId, isNotNull);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+
+      final realtime = AppScope.instance.rideRealtime;
+      expect(realtime, isA<MockRideRealtime>());
+      (realtime as MockRideRealtime).assignNow();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(find.byType(FindingDrivers), findsNothing);
+      expect(observer.pushed.last.settings.name, AppRoutes.waitingForDriver);
+      expect(AppScope.instance.ride.rideId, rideId);
+
+      // Drive the real mock lifecycle through pickup, trip, payment and rating.
+      realtime.markArrivedForTest();
+      await tester.pump(const Duration(seconds: 9));
+      await tester.pump(const Duration(seconds: 20));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.byType(RideCompleted), findsOneWidget);
+      expect(find.byType(WaitingForDriver), findsNothing);
+      expect(observer.pushed.last.settings.name, AppRoutes.rideCompleted);
+      expect(AppScope.instance.ride.rideId, rideId);
+
+      final feedbackLock = tester.widget<IgnorePointer>(
+        find.byKey(const ValueKey('completion-feedback-lock')),
+      );
+      expect(feedbackLock.ignoring, isFalse);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('ride-completed-done')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('phase54-start-on-demand'), findsOneWidget);
+      expect(find.byType(SelectRide), findsNothing);
+      expect(find.byType(FindingDrivers), findsNothing);
+      expect(find.byType(WaitingForDriver), findsNothing);
+      expect(find.byType(RideCompleted), findsNothing);
+      expect(AppScope.instance.ride.status, RideStatus.closed);
+
+      final lifecycleNames = observer.pushed
+          .map((route) => route.settings.name)
+          .whereType<String>()
+          .where(
+            (name) => <String>{
+              AppRoutes.confirmPickup,
+              AppRoutes.selectRide,
+              AppRoutes.findingDriver,
+              AppRoutes.waitingForDriver,
+              AppRoutes.rideCompleted,
+            }.contains(name),
+          )
+          .toList();
+      expect(
+        lifecycleNames,
+        containsAllInOrder(<String>[
+          AppRoutes.confirmPickup,
+          AppRoutes.selectRide,
+          AppRoutes.findingDriver,
+          AppRoutes.waitingForDriver,
+          AppRoutes.rideCompleted,
+        ]),
+      );
+    },
+  );
 
 }
