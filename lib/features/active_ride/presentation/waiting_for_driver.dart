@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -379,7 +380,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _researching = false;
     Navigator.pushReplacement(
       context,
-      RideStageTransition(finding),
+      RideStageTransition(
+        finding,
+        settings: const RouteSettings(name: AppRoutes.findingDriver),
+      ),
     );
   }
 
@@ -420,7 +424,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // Normal Book Now has Home/Finding underneath Waiting, so replacement is
     // correct here and avoids keeping the active-ride route in the stack.
     navigator.pushReplacement(
-      RideStageTransition(completed),
+      RideStageTransition(
+        completed,
+        settings: const RouteSettings(name: AppRoutes.rideCompleted),
+      ),
     );
   }
 
