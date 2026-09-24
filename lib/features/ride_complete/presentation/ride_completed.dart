@@ -40,6 +40,21 @@ class RideCompleted extends StatefulWidget {
   State<RideCompleted> createState() => _RideCompletedState();
 }
 
+int _completionRank(RideStatus status) {
+  switch (status) {
+    case RideStatus.tripCompleted:
+      return 1;
+    case RideStatus.paymentProcessing:
+      return 2;
+    case RideStatus.paymentFinalized:
+      return 3;
+    case RideStatus.ratingPending:
+      return 4;
+    default:
+      return 0;
+  }
+}
+
 class _RideCompletedState extends State<RideCompleted> {
   final RideCompleteController _controller = RideCompleteController();
   StreamSubscription<RideRealtimeEvent>? _completionSub;
@@ -53,13 +68,27 @@ class _RideCompletedState extends State<RideCompleted> {
     final rideId = widget.rideId?.trim();
     if (rideId == null || rideId.isEmpty) return;
 
+    // Waiting stays subscribed until the replacement route is actually
+    // disposed. If payment/rating advances during that handoff, RideSession
+    // already has the newer authoritative completion state before this screen
+    // gets its first frame. Start from that state instead of regressing to the
+    // status captured when navigation began.
+    if (widget.persistOnDemandState) {
+      final session = AppScope.instance.ride;
+      if (session.rideId?.trim() == rideId &&
+          session.status.isCompletedSurface &&
+          _completionRank(session.status) > _completionRank(_status)) {
+        _status = session.status;
+      }
+    }
+
     final realtime = widget.realtime ?? AppScope.instance.rideRealtime;
     _completionSub = realtime.subscribe(rideId).listen((event) {
       final status = event.status;
       if (!mounted ||
           _leaving ||
           !status.isCompletedSurface ||
-          status == _status) {
+          _completionRank(status) <= _completionRank(_status)) {
         return;
       }
       if (widget.persistOnDemandState) {
