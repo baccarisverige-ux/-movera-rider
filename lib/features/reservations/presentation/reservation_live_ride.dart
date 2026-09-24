@@ -105,6 +105,7 @@ abstract final class ReservationLiveRide {
               rideId: ride.reservationId,
               realtime: completionRealtime,
               persistOnDemandState: false,
+              feedbackAvailableOnCompletion: true,
               showConnectionBanner: false,
               onClose: (completionContext) async {
                 if (!completionContext.mounted) return;
