@@ -351,10 +351,7 @@ class WaitingDriverCard extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       BottomToTopTransition(
-                        Chat(
-                          driverName: d.displayFirstName,
-                          rideId: rideId,
-                        ),
+                        Chat(driverName: d.displayFirstName, rideId: rideId),
                       ),
                     ),
                     borderRadius: BorderRadius.circular(14),
