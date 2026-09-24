@@ -315,8 +315,19 @@ class MockRideRealtime implements RideRealtime {
   @override
   void researchAfterDriverCancel() {
     final rideId = _rideId;
-    if (rideId == null || disposed) return;
-    if (cancelled || lastStatus != RideStatus.cancelledByDriver) return;
+    if (rideId == null) return;
+
+    // Waiting intentionally disposes its tracking subscription before showing
+    // the driver-cancel sheet. That must not dispose the shared transport:
+    // redispatch is the same live ride. Re-arm only this transport lifecycle
+    // when the last authoritative dispatch outcome is driver cancellation.
+    if (lastStatus != RideStatus.cancelledByDriver) return;
+    if (disposed) {
+      disposed = false;
+      cancelled = false;
+      connection.markConnected();
+    }
+    if (cancelled) return;
 
     // The previous assignment may still be unwinding an async persistence
     // request. Its generation was invalidated by cancelByDriver(), so it must
