@@ -229,10 +229,19 @@ class WaitingDriverCard extends StatelessWidget {
                           : null,
                       backgroundColor: const Color(0xFFF3F6FB),
                       child: d.photoAsset == null
-                          ? Text(
-                              d.firstName[0],
-                              style: waitingText(18, weight: FontWeight.w700),
-                            )
+                          ? (d.initial.isEmpty
+                                ? const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 22,
+                                    color: Color(0xFF6E7881),
+                                  )
+                                : Text(
+                                    d.initial,
+                                    style: waitingText(
+                                      18,
+                                      weight: FontWeight.w700,
+                                    ),
+                                  ))
                           : null,
                     ),
                     if (d.ratingLabel != null)
@@ -268,7 +277,7 @@ class WaitingDriverCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        d.firstName,
+                        d.displayFirstName,
                         style: waitingText(18, weight: FontWeight.w700),
                       ),
                       if (d.tripsLabel != null)
@@ -342,7 +351,7 @@ class WaitingDriverCard extends StatelessWidget {
                     onTap: () => Navigator.push(
                       context,
                       BottomToTopTransition(
-                        Chat(driverName: d.firstName, rideId: rideId),
+                        Chat(driverName: d.displayFirstName, rideId: rideId),
                       ),
                     ),
                     borderRadius: BorderRadius.circular(14),
