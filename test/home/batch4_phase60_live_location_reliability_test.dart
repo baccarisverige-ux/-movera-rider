@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
@@ -58,13 +59,19 @@ class _Location extends LocationRepository {
       stream.stream;
 }
 
+class _Geocoding extends GeocodingRepository {
+  @override
+  Future<String?> reverseGeocodeAddress(double latitude, double longitude) async =>
+      'Test address';
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   HomeLocationController controller(_Location location, {double? Function()? compass}) =>
       HomeLocationController(
         location: location,
-        geocoding: AppGeocoding(),
+        geocoding: AppGeocoding(repository: _Geocoding()),
         motion: MotionEngine(),
         startCompass: () async => compass != null,
         readCompass: compass,
