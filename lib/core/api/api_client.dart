@@ -98,12 +98,11 @@ class ApiClient {
         },
       );
       if (response.statusCode >= 400) {
-        throw ApiError(
-          code: 'HTTP_${response.statusCode}',
-          message: 'Request failed',
-          requestId: requestId,
-          statusCode: response.statusCode,
-        );
+        final error = _errorFromResponse(response, requestId);
+        if (error.isAuthenticationFailure) {
+          await _tokens?.clear();
+        }
+        throw error;
       }
       if (response.body.isEmpty) return {'requestId': requestId};
       final decoded = jsonDecode(response.body);
@@ -117,6 +116,32 @@ class ApiClient {
         requestId: requestId,
       );
     }
+  }
+
+  ApiError _errorFromResponse(http.Response response, String requestId) {
+    String code = 'HTTP_${response.statusCode}';
+    String message = 'Request failed';
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final rawCode = decoded['code'] ?? decoded['error'];
+        final rawMessage = decoded['message'];
+        if (rawCode is String && rawCode.trim().isNotEmpty) code = rawCode.trim();
+        if (rawMessage is String && rawMessage.trim().isNotEmpty) {
+          message = rawMessage.trim();
+        }
+      }
+    } catch (_) {
+      // Non-JSON error bodies still retain the HTTP status and request id.
+    }
+    final retrySeconds = int.tryParse(response.headers['retry-after'] ?? '');
+    return ApiError(
+      code: code,
+      message: message,
+      requestId: requestId,
+      statusCode: response.statusCode,
+      retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
+    );
   }
 
   Future<http.Response> _getWithRetry(
