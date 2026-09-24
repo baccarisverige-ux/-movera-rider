@@ -752,7 +752,10 @@ void main() {
       expect(observer.pushed.last.settings.name, AppRoutes.waitingForDriver);
       expect(AppScope.instance.ride.rideId, rideId);
 
-      realtime.cancelByDriver();
+      // Model the production contract: Waiting reacts to the authoritative
+      // cancelledByDriver realtime event. The mock helper's internal timer
+      // bookkeeping is not part of the navigation contract under test.
+      realtime.emit(RideStatus.cancelledByDriver);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
