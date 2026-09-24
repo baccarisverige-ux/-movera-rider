@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
-import 'package:movera_rider/core/utils/stale_guard.dart';
 
 class AppGeocoding implements GeocodingRepository {
   AppGeocoding({
@@ -15,12 +14,12 @@ class AppGeocoding implements GeocodingRepository {
   final ApiClient? _api;
   final Duration cacheTtl;
   final Duration requestTimeout;
-  final stale = StaleGuard();
-
   final Map<String, _CachedValue<PlaceResult?>> _forwardCache = {};
   final Map<String, _CachedValue<String?>> _reverseCache = {};
   final Map<String, Future<PlaceResult?>> _forwardInFlight = {};
   final Map<String, Future<String?>> _reverseInFlight = {};
+  int _forwardGeneration = 0;
+  int _reverseGeneration = 0;
 
   @override
   Future<PlaceResult?> forward(String query) async {
@@ -30,11 +29,11 @@ class AppGeocoding implements GeocodingRepository {
     final cached = _forwardCache[key];
     if (cached != null && cached.isFresh(cacheTtl)) return cached.value;
 
-    final generation = stale.next();
+    final generation = ++_forwardGeneration;
     final future = _forwardInFlight[key] ??= _forwardFromApi(normalized);
     try {
       final result = await future;
-      if (!stale.isCurrent(generation)) return null;
+      if (generation != _forwardGeneration) return null;
       _forwardCache[key] = _CachedValue(result);
       return result;
     } finally {
@@ -49,11 +48,11 @@ class AppGeocoding implements GeocodingRepository {
     final cached = _reverseCache[key];
     if (cached != null && cached.isFresh(cacheTtl)) return cached.value;
 
-    final generation = stale.next();
+    final generation = ++_reverseGeneration;
     final future = _reverseInFlight[key] ??= _reverseFromApi(point);
     try {
       final result = await future;
-      if (!stale.isCurrent(generation)) return null;
+      if (generation != _reverseGeneration) return null;
       _reverseCache[key] = _CachedValue(result);
       return result;
     } finally {
