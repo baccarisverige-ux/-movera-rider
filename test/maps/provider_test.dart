@@ -152,6 +152,38 @@ void main() {
     expect(maps.activeOwner, isNull);
   });
 
+  test('ride-stage handoffs never expose overlapping map owners', () {
+    final maps = GoogleMapProvider();
+
+    void attachOnly(String owner) {
+      maps.debugAttach(owner);
+      expect(maps.ownerStack, [owner]);
+      expect(maps.activeOwner, owner);
+    }
+
+    void release(String owner) {
+      maps.detach(owner: owner);
+      expect(maps.ownerStack, isEmpty);
+      expect(maps.activeOwner, isNull);
+    }
+
+    attachOnly(MapOwners.home);
+    release(MapOwners.home);
+
+    attachOnly(MapOwners.finding);
+    release(MapOwners.finding);
+
+    attachOnly(MapOwners.waiting);
+    release(MapOwners.waiting);
+
+    // Driver-cancel recovery remounts the already-existing Finding surface.
+    attachOnly(MapOwners.finding);
+    release(MapOwners.finding);
+
+    // Returning from the full ride stack lets Home create one fresh map owner.
+    attachOnly(MapOwners.home);
+  });
+
   test('facade coordinates marker and route state', () {
     final maps = GoogleMapProvider();
     final facade = MapFacade(
