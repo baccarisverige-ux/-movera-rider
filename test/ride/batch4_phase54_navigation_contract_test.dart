@@ -6,6 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -707,7 +708,7 @@ void main() {
           splitScreenMode: true,
           builder: (_, __) => MaterialApp(
             navigatorKey: navigatorKey,
-            navigatorObservers: [observer],
+            navigatorObservers: [observer, HomeHistoryObserver()],
             home: const Scaffold(
               body: Center(child: Text('phase54-driver-cancel-home')),
             ),
@@ -746,7 +747,7 @@ void main() {
       }
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 160));
+      await tester.pump(const Duration(milliseconds: 250));
       expect(find.byType(FindingDrivers), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.waitingForDriver);
       expect(AppScope.instance.ride.rideId, rideId);
