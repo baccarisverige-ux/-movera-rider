@@ -12,5 +12,8 @@ abstract final class AppRoutes {
   static const support = '/support';
   static const messages = '/messages';
   static const schedule = '/schedule';
+  static const reservationScheduled = '/reservation/scheduled';
+  static const reservationUpcoming = '/reservation/upcoming';
+  static const reservationLive = '/reservation/live';
   static const profile = '/profile';
 }
