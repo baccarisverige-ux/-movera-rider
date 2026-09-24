@@ -109,6 +109,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _mapParked = false;
   bool _modalHandoffInProgress = false;
   RideStatus? _pendingStageStatus;
+  bool _stageDrainScheduled = false;
   String _sheetSignature = '';
 
   RideRealtime get _realtime =>
@@ -231,6 +232,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!mounted || _leaving || _completedOpened) return;
     _pendingStageStatus = status;
     _drainStageNavigation();
+
+    // Realtime can land on the same frame a ride-stage push is finishing.
+    // In that frame ModalRoute.isCurrent may not yet be usable for a safe
+    // modal/navigation handoff. Keep the terminal/completion event queued and
+    // retry once the frame commits instead of silently stranding the rider on
+    // Waiting until another navigation event happens.
+    if (_pendingStageStatus != null && !_stageDrainScheduled) {
+      _stageDrainScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _stageDrainScheduled = false;
+        if (!mounted) return;
+        _drainStageNavigation();
+      });
+    }
   }
 
   void _drainStageNavigation() {
