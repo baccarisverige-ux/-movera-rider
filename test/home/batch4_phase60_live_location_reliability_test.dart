@@ -113,6 +113,7 @@ void main() {
 
     expect((await ctl.detectCurrent()).target, isNull);
     location
+      ..serviceEnabled = true
       ..permission = LocationPermission.always
       ..requestedPermission = LocationPermission.always;
 
