@@ -21,6 +21,7 @@ abstract final class OnDemandRideHistoryStore {
   static const key = 'movera_on_demand_ride_history_v1';
   static const maxRecords = 100;
   static const retention = Duration(days: 180);
+  static Future<void> _writeQueue = Future<void>.value();
 
   static Future<List<Reservation>> read() async {
     final prefs = await PreferencesStore.load();
@@ -84,6 +85,24 @@ abstract final class OnDemandRideHistoryStore {
     required RideStatus terminalStatus,
     DateTime? endedAt,
     String? cancellationReason,
+  }) {
+    final operation = _writeQueue.then(
+      (_) => _archiveSerialized(
+        snapshot,
+        terminalStatus: terminalStatus,
+        endedAt: endedAt,
+        cancellationReason: cancellationReason,
+      ),
+    );
+    _writeQueue = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  static Future<void> _archiveSerialized(
+    RideSnapshot snapshot, {
+    required RideStatus terminalStatus,
+    DateTime? endedAt,
+    String? cancellationReason,
   }) async {
     final rideId = snapshot.rideId?.trim();
     if (rideId == null || rideId.isEmpty) {
@@ -106,8 +125,8 @@ abstract final class OnDemandRideHistoryStore {
     final ended = endedAt ?? DateTime.now();
     final record = Reservation(
       reservationId: 'ondemand-$rideId',
-      createdAt: snapshot.savedAt,
-      scheduledPickupAt: ended,
+      createdAt: snapshot.createdAt.toUtc(),
+      scheduledPickupAt: ended.toUtc(),
       pickup: ReservationPlace(
         label: snapshot.pickupAddress,
         lat: snapshot.pickupLat,
