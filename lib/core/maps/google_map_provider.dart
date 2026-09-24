@@ -44,12 +44,18 @@ class GoogleMapProvider implements MapProvider {
     _notifyOwner();
   }
 
-  /// Only the current owner may detach. Older stacked maps stay put.
+  /// Release this owner's controller wherever it sits in the stack.
+  ///
+  /// A background route can dispose after a newer map has become current.
+  /// Keeping that stale owner underneath the live map lets its dead controller
+  /// become active again when the newer map later detaches.
   void detach({String owner = 'map'}) {
     if (_owners.isEmpty) return;
-    if (_owners.last.owner != owner) return;
-    _owners.removeLast();
-    _notifyOwner();
+    final activeBefore = activeOwner;
+    final before = _owners.length;
+    _owners.removeWhere((item) => item.owner == owner);
+    if (_owners.length == before) return;
+    if (activeOwner != activeBefore) _notifyOwner();
   }
 
   @override
