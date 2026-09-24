@@ -336,11 +336,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // without this explicit reversible dispatch transition the parked Finding
     // route observes a stale cancelledByDriver session after the rider chooses
     // Keep searching.
-    final rideId = _rideId;
-    final session = AppScope.instance.ride;
-    if (rideId != null && rideId.trim().isNotEmpty) {
-      session.restoreFromBackend(RideStatus.findingDriver, id: rideId);
-    }
+    await _ride.resumeSearchingAfterDriverCancel(rideId: _rideId);
     _realtime.researchAfterDriverCancel();
     _leaving = true;
     if (mounted) setState(() {});
