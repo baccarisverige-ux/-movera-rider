@@ -269,24 +269,28 @@ class MockRideRealtime implements RideRealtime {
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
-    lastStatus = RideStatus.cancelledByDriver;
+    // Driver drop is a dispatch event, not a terminal ride transition.
+    // Keep the rider's ride in the legal matching graph and start a fresh
+    // assignment attempt without publishing cancelledByDriver -> findingDriver.
+    lastStatus = RideStatus.findingDriver;
     _sequence += 1;
-
-    // Published straight to the stream rather than through emit(): emit treats
-    // any terminal status as the end of the ride and tears the subscription
-    // down, which is right for a rider's own cancellation and wrong here —
-    // this ride carries on with someone else driving it.
+    final now = DateTime.now().toUtc();
     _controller.add(
       RideRealtimeEvent(
         tripId: rideId,
-        eventId: '$rideId:$_sequence:${RideStatus.cancelledByDriver.name}',
-        status: RideStatus.cancelledByDriver,
+        eventId: '$rideId:$_sequence:${RideStatus.findingDriver.name}',
+        status: RideStatus.findingDriver,
         sequence: _sequence,
         version: _sequence,
-        occurredAt: DateTime.now().toUtc(),
-        serverTime: DateTime.now().toUtc(),
+        occurredAt: now,
+        serverTime: now,
       ),
     );
+    _assign?.cancel();
+    _assign = Timer(assignAfter, () {
+      if (cancelled || disposed || held || _rideId != rideId) return;
+      assignNow();
+    });
   }
 
   /// Search again for the same ride after a driver dropped it.
@@ -294,12 +298,8 @@ class MockRideRealtime implements RideRealtime {
   void researchAfterDriverCancel() {
     final rideId = _rideId;
     if (rideId == null || disposed) return;
-    if (lastStatus != RideStatus.cancelledByDriver) return;
-
-    cancelled = false;
-    lastStatus = RideStatus.findingDriver;
-    _emit(RideStatus.findingDriver);
-    _assign?.cancel();
+    if (cancelled || lastStatus != RideStatus.findingDriver) return;
+    if (_assign != null || _assignmentInFlight) return;
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
       assignNow();
