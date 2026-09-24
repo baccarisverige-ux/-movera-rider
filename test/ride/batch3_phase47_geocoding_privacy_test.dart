@@ -15,7 +15,7 @@ class _Tokens implements TokenStore {
   @override
   Future<String?> readRefresh() async => null;
   @override
-  Future<void> write({required String access, required String refresh}) async {}
+  Future<void> save({required String access, required String refresh}) async {}
   @override
   Future<void> clear() async {}
 }
@@ -44,7 +44,11 @@ void main() {
     });
     final api = ApiClient(
       client: httpClient,
-      env: const AppEnv(flavor: AppFlavor.test, apiBaseUrl: 'https://api.movera.test', mapsEnabled: true),
+      env: const AppEnv(
+        flavor: AppFlavor.test,
+        apiBaseUrl: 'https://api.movera.test',
+        mapsEnabled: true,
+      ),
       tokens: _Tokens(),
     );
     final geocoding = AppGeocoding(api: api);
@@ -64,7 +68,11 @@ void main() {
     });
     final api = ApiClient(
       client: httpClient,
-      env: const AppEnv.test(apiBaseUrl: 'https://api.movera.test'),
+      env: const AppEnv(
+        flavor: AppFlavor.test,
+        apiBaseUrl: 'https://api.movera.test',
+        mapsEnabled: true,
+      ),
       tokens: _Tokens(),
     );
     final geocoding = AppGeocoding(api: api);
