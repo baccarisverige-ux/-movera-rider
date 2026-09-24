@@ -712,6 +712,16 @@ class _SelectRideState extends State<SelectRide>
     if (mounted) setState(() {});
   }
 
+  void _releaseRouteWork() {
+    _bookingInFlight = false;
+    _selection.cancelPendingQuotes();
+  }
+
+  void _onRoutePop(bool didPop, Object? _) {
+    if (!didPop) return;
+    _releaseRouteWork();
+  }
+
   void _book() {
     if (_bookingInFlight) return;
 
@@ -838,9 +848,11 @@ class _SelectRideState extends State<SelectRide>
     final media = MediaQuery.of(context);
     final showLiveMap = _mapReady && !_mapParked;
     final minSheet = _minSheet(media);
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F5F1),
-      body: Stack(
+    return PopScope(
+      onPopInvokedWithResult: _onRoutePop,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F5F1),
+        body: Stack(
         children: [
           Positioned(
             top: 0,
@@ -1025,7 +1037,8 @@ class _SelectRideState extends State<SelectRide>
               );
             },
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
