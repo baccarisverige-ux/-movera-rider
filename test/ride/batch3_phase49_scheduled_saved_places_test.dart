@@ -7,7 +7,7 @@ import 'package:movera_rider/features/saved_places/data/saved_places_repository.
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 
 void main() {
-  test('unknown persisted scheduled lifecycle is rejected, not resurrected as scheduled', () {
+  test('unknown explicit lifecycle is rejected without breaking legacy missing status', () {
     final raw = <String, dynamic>{
       'reservationId': 'rsv-49',
       'createdAt': '2026-09-24T00:00:00Z',
@@ -24,6 +24,9 @@ void main() {
 
     expect(ReservationStatus.tryParse('future_backend_status'), isNull);
     expect(Reservation.tryParse(raw), isNull);
+
+    final legacy = Map<String, dynamic>.from(raw)..remove('status');
+    expect(Reservation.tryParse(legacy)?.status, ReservationStatus.scheduled);
   });
 
   test('saved place shortcuts survive repository restart without seeded demo data', () async {
