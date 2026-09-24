@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 
 Position _position({
@@ -61,8 +61,10 @@ class _Location extends LocationRepository {
 
 class _Geocoding extends GeocodingRepository {
   @override
-  Future<String?> reverseGeocodeAddress(double latitude, double longitude) async =>
-      'Test address';
+  Future<PlaceResult?> forward(String query) async => null;
+
+  @override
+  Future<String?> reverse(GeoPoint point) async => 'Test address';
 }
 
 void main() {
@@ -71,7 +73,7 @@ void main() {
   HomeLocationController controller(_Location location, {double? Function()? compass}) =>
       HomeLocationController(
         location: location,
-        geocoding: AppGeocoding(repository: _Geocoding()),
+        geocoding: _Geocoding(),
         motion: MotionEngine(),
         startCompass: () async => compass != null,
         readCompass: compass,
