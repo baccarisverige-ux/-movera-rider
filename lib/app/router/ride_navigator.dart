@@ -67,7 +67,7 @@ abstract final class RideNavigator {
     // on Flutter web that leaves the old ride in history, so Home bounces back.
     void popToRoot() {
       if (nav.canPop()) {
-        nav.popUntil((route) => route.isFirst);
+        nav.popUntil(AppRoutes.isHomeRoute);
       }
       finish();
     }
