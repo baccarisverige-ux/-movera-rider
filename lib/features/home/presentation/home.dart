@@ -65,7 +65,7 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with WidgetsBindingObserver {
   final SheetController _homeSheetController = SheetController();
   final PanelController _profilePanelController = PanelController();
   Timer? _sheetIdleTimer;
@@ -227,6 +227,7 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     reportHomeBuilt();
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
@@ -259,7 +260,32 @@ class _HomeState extends State<Home> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _locationCtl.pauseLiveUpdates();
+      return;
+    }
+    if (state != AppLifecycleState.resumed) return;
+    _locationCtl.resumeLiveUpdates();
+    if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
+      _locationCtl.recoverLiveLocation(
+        isMounted: () => mounted,
+        onFix: (latLng, heading) {
+          _currentLatLng = latLng;
+          _locationHeading = heading;
+          _updateLocationVisuals();
+        },
+      );
+    } else if (_currentLatLng == null) {
+      _detectCurrentAddress();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sheetIdleTimer?.cancel();
     _locationCtl.dispose();
     _puckCompactImage?.dispose();
