@@ -385,6 +385,7 @@ void main() {
       }
 
       expect(find.byType(FindingDrivers), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 160));
       expect(find.byType(SelectRide), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.findingDriver);
       final rideId = AppScope.instance.ride.rideId;
@@ -402,6 +403,7 @@ void main() {
       }
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 160));
       expect(find.byType(FindingDrivers), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.waitingForDriver);
       expect(AppScope.instance.ride.rideId, rideId);
@@ -420,6 +422,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.byType(RideCompleted), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 160));
       expect(find.byType(WaitingForDriver), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.rideCompleted);
       expect(AppScope.instance.ride.rideId, rideId);
