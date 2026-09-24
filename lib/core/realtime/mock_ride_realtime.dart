@@ -266,34 +266,32 @@ class MockRideRealtime implements RideRealtime {
     if (lastStatus.isCompletedSurface || lastStatus.isTerminal) return;
 
     _stopMotion();
+    _assign?.cancel();
+    _assign = null;
     _assignmentAttempt += 1;
     lastDriver = null;
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
-    // Driver drop is a dispatch event, not a terminal ride transition.
-    // Keep the rider's ride in the legal matching graph and start a fresh
-    // assignment attempt without publishing cancelledByDriver -> findingDriver.
-    lastStatus = RideStatus.findingDriver;
+
+    // Publish the driver-drop outcome exactly once so Waiting can explain it.
+    // Do not tear the transport down: this terminal-looking dispatch event is
+    // reversible for the same ride and researchAfterDriverCancel owns restart.
+    lastStatus = RideStatus.cancelledByDriver;
     _sequence += 1;
     final now = DateTime.now().toUtc();
     _controller.add(
       RideRealtimeEvent(
         tripId: rideId,
-        eventId: '$rideId:$_sequence:${RideStatus.findingDriver.name}',
-        status: RideStatus.findingDriver,
+        eventId: '$rideId:$_sequence:${RideStatus.cancelledByDriver.name}',
+        status: RideStatus.cancelledByDriver,
         sequence: _sequence,
         version: _sequence,
         occurredAt: now,
         serverTime: now,
       ),
     );
-    _assign?.cancel();
-    _assign = Timer(assignAfter, () {
-      if (cancelled || disposed || held || _rideId != rideId) return;
-      assignNow();
-    });
   }
 
   /// Search again for the same ride after a driver dropped it.
@@ -301,8 +299,10 @@ class MockRideRealtime implements RideRealtime {
   void researchAfterDriverCancel() {
     final rideId = _rideId;
     if (rideId == null || disposed) return;
-    if (cancelled || lastStatus != RideStatus.findingDriver) return;
+    if (cancelled || lastStatus != RideStatus.cancelledByDriver) return;
     if (_assign != null || _assignmentInFlight) return;
+    lastStatus = RideStatus.findingDriver;
+    _emit(RideStatus.findingDriver);
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
       assignNow();
