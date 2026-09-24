@@ -15,18 +15,30 @@ import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
 
+enum HomeLocationFailure {
+  servicesDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  unavailable,
+}
+
 class DetectedLocation {
   const DetectedLocation({
     required this.target,
     required this.address,
     required this.heading,
-    this.denied = false,
+    this.failure,
   });
 
   final LatLng? target;
   final String address;
   final double heading;
-  final bool denied;
+  final HomeLocationFailure? failure;
+
+  bool get denied =>
+      failure == HomeLocationFailure.permissionDenied ||
+      failure == HomeLocationFailure.permissionDeniedForever;
+  bool get unavailable => failure != null;
 }
 
 /// Owns GPS, motion, heading blend, reverse geocode, and map overlay sets.
@@ -100,50 +112,74 @@ class HomeLocationController extends ChangeNotifier {
   }
 
   Future<DetectedLocation> detectCurrent() async {
-    var permission = await location.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await location.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    try {
+      if (!await location.isLocationServiceEnabled()) {
+        return const DetectedLocation(
+          target: null,
+          address: 'Current location',
+          heading: 0,
+          failure: HomeLocationFailure.servicesDisabled,
+        );
+      }
+      var permission = await location.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await location.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        return const DetectedLocation(
+          target: null,
+          address: 'Current location',
+          heading: 0,
+          failure: HomeLocationFailure.permissionDeniedForever,
+        );
+      }
+      if (permission == LocationPermission.denied) {
+        return const DetectedLocation(
+          target: null,
+          address: 'Current location',
+          heading: 0,
+          failure: HomeLocationFailure.permissionDenied,
+        );
+      }
+      final position = await location.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      final generation = _geoGuard.next();
+      final detected = await geocoding.reverseGeocodeAddress(
+        position.latitude,
+        position.longitude,
+      );
+      if (!_geoGuard.isCurrent(generation)) {
+        return DetectedLocation(
+          target: LatLng(position.latitude, position.longitude),
+          address: 'Current location',
+          heading: position.heading.isFinite && position.heading >= 0
+              ? position.heading
+              : 0,
+        );
+      }
+      final address = detected?.trim().isNotEmpty == true
+          ? detected!.trim()
+          : 'Current location';
+      heading = position.heading.isFinite && position.heading >= 0
+          ? position.heading
+          : 0;
+      return DetectedLocation(
+        target: LatLng(position.latitude, position.longitude),
+        address: address,
+        heading: heading,
+      );
+    } catch (_) {
       return const DetectedLocation(
         target: null,
         address: 'Current location',
         heading: 0,
-        denied: true,
+        failure: HomeLocationFailure.unavailable,
       );
     }
-    final position = await location.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 15),
-      ),
-    );
-    final generation = _geoGuard.next();
-    final detected = await geocoding.reverseGeocodeAddress(
-      position.latitude,
-      position.longitude,
-    );
-    if (!_geoGuard.isCurrent(generation)) {
-      return DetectedLocation(
-        target: LatLng(position.latitude, position.longitude),
-        address: 'Current location',
-        heading: position.heading.isFinite && position.heading >= 0
-            ? position.heading
-            : 0,
-      );
-    }
-    final address = detected?.trim().isNotEmpty == true
-        ? detected!.trim()
-        : 'Current location';
-    heading = position.heading.isFinite && position.heading >= 0
-        ? position.heading
-        : 0;
-    return DetectedLocation(
-      target: LatLng(position.latitude, position.longitude),
-      address: address,
-      heading: heading,
-    );
   }
 
   void startTracking({
