@@ -1,8 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 void main() {
+  test('driver redispatch reopens only the same cancelled ride', () async {
+    final shared = AppScope.instance.ride;
+    shared
+      ..rideId = null
+      ..authoritativeVersion = null
+      ..authoritativeUpdatedAt = null
+      ..backendReconcile(RideStatus.cancelledByDriver, id: 'redispatch-r1');
+
+    await ActiveRideController().resumeSearchingAfterDriverCancel(
+      rideId: 'redispatch-r1',
+    );
+    expect(shared.status, RideStatus.findingDriver);
+    expect(shared.rideId, 'redispatch-r1');
+
+    shared.backendReconcile(RideStatus.cancelledByDriver, id: 'redispatch-r1');
+    await ActiveRideController().resumeSearchingAfterDriverCancel(
+      rideId: 'wrong-r2',
+    );
+    expect(shared.status, RideStatus.cancelledByDriver);
+    expect(shared.rideId, 'redispatch-r1');
+  });
+
   test('authoritative backend may skip client-only intermediate states', () {
     final ride = RideSession()..rideId = 'r1';
     expect(
