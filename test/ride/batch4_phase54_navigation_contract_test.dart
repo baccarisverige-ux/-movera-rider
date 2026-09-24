@@ -746,6 +746,7 @@ void main() {
       }
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 160));
       expect(find.byType(FindingDrivers), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.waitingForDriver);
       expect(AppScope.instance.ride.rideId, rideId);
