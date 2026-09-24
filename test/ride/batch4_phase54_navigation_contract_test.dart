@@ -332,7 +332,9 @@ void main() {
 
       await tester.tap(find.widgetWithText(FilledButton, 'Confirm pickup'));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 700));
+      for (var i = 0; i < 20 && find.byType(SelectRide).evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(find.byType(SelectRide), findsOneWidget);
       expect(observer.pushed.last.settings.name, AppRoutes.selectRide);
 
