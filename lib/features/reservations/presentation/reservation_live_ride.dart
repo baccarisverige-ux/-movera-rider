@@ -80,7 +80,7 @@ abstract final class ReservationLiveRide {
           reason: reasonId ?? 'rider_cancelled_live',
         );
         if (!context.mounted) return;
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
       },
       onDriverCancelled: (context) async {
         if (!context.mounted) return;
@@ -90,7 +90,7 @@ abstract final class ReservationLiveRide {
       },
       onTerminal: (context, status) async {
         if (!context.mounted) return;
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        Navigator.of(context).popUntil(AppRoutes.isHomeRoute);
       },
       onCompleted: (context, status) async {
         if (!context.mounted) return;
@@ -110,7 +110,7 @@ abstract final class ReservationLiveRide {
                 if (!completionContext.mounted) return;
                 Navigator.of(
                   completionContext,
-                ).popUntil((route) => route.isFirst);
+                ).popUntil(AppRoutes.isHomeRoute);
               },
             ),
             settings: const RouteSettings(name: AppRoutes.rideCompleted),
