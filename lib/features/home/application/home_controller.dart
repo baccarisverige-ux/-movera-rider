@@ -96,7 +96,7 @@ class HomeLocationController extends ChangeNotifier {
     final generation = _geoGuard.next();
     final result = await geocoding.geocodeAddress(address);
     if (!_geoGuard.isCurrent(generation) || result == null) return null;
-    return LatLng(result.latitude, result.longitude);
+    return LatLng(result.point.latitude, result.point.longitude);
   }
 
   Future<({LatLng point, String address})?> geocodePlace(String address) async {
@@ -104,7 +104,7 @@ class HomeLocationController extends ChangeNotifier {
     final result = await geocoding.geocodeAddress(address);
     if (!_geoGuard.isCurrent(generation) || result == null) return null;
     return (
-      point: LatLng(result.latitude, result.longitude),
+      point: LatLng(result.point.latitude, result.point.longitude),
       address: result.address.trim().isNotEmpty
           ? result.address.trim()
           : address,
