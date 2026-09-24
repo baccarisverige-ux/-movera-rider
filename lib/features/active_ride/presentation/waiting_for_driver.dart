@@ -307,16 +307,26 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (mounted) {
       await showDriverCancelledSheet(context, driverName: lostDriver?.firstName);
     }
-    if (!mounted) return;
+    if (!mounted) {
+      _researching = false;
+      return;
+    }
 
     await _parkMapForStageChange();
-    if (!mounted) return;
+    if (!mounted) {
+      _researching = false;
+      return;
+    }
 
     final customDriverCancelled = widget.onDriverCancelled;
     if (customDriverCancelled != null) {
       _leaving = true;
       setState(() {});
-      await customDriverCancelled(context);
+      try {
+        await customDriverCancelled(context);
+      } finally {
+        _researching = false;
+      }
       return;
     }
 
@@ -330,6 +340,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // Normal forward path already has the parked Finding route directly
       // underneath this screen. Return to it instead of stacking another
       // Finding route every time a driver drops the ride.
+      _researching = false;
       navigator.pop(true);
       return;
     }
@@ -349,10 +360,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
     final coordinator = RideRestoreCoordinator.instance;
     if (coordinator.replaceRootSurface(finding, RestoredSurface.finding)) {
+      _researching = false;
       return;
     }
 
     // Widget tests or isolated hosts may not have RideRestoreGate installed.
+    _researching = false;
     Navigator.pushReplacement(
       context,
       RideStageTransition(finding),
