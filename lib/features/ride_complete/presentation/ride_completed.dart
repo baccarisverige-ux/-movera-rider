@@ -22,6 +22,7 @@ class RideCompleted extends StatefulWidget {
     this.rideId,
     this.realtime,
     this.persistOnDemandState = true,
+    this.feedbackAvailableOnCompletion = false,
     this.showConnectionBanner = true,
     this.onClose,
   });
@@ -33,6 +34,13 @@ class RideCompleted extends StatefulWidget {
   /// uses the same RideRealtime seam as the active-ride screen.
   final RideRealtime? realtime;
   final bool persistOnDemandState;
+
+  /// Scheduled rides do not currently expose payment lifecycle states, but
+  /// completion itself is authoritative. This flag lets that flow offer
+  /// optional rating/tip without fabricating paymentProcessing,
+  /// paymentFinalized, or ratingPending events.
+  final bool feedbackAvailableOnCompletion;
+
   final bool showConnectionBanner;
   final Future<void> Function(BuildContext context)? onClose;
 
@@ -129,7 +137,10 @@ class _RideCompletedState extends State<RideCompleted> {
   @override
   Widget build(BuildContext context) {
     final spec = _spec;
-    final canRate = _status == RideStatus.ratingPending;
+    final canRate =
+        _status == RideStatus.ratingPending ||
+        (widget.feedbackAvailableOnCompletion &&
+            _status == RideStatus.tripCompleted);
     final showFeedbackSurface = widget.persistOnDemandState || canRate;
 
     return PopScope(
