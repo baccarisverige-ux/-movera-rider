@@ -109,6 +109,37 @@ void main() {
     );
   });
 
+  test('Home map parking uses one outer guard and lifecycle barrier', () {
+    final home = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+
+    final helper = home.indexOf('Future<T?> _withParkedHomeMap<T>');
+    final guardEnter = home.indexOf('_mapParkingGuard.enter()', helper);
+    final detach = home.indexOf(
+      'AppScope.instance.maps.detach(owner: MapOwners.home)',
+      helper,
+    );
+    final barrier = home.indexOf(
+      'await WidgetsBinding.instance.endOfFrame',
+      detach,
+    );
+    final action = home.indexOf('return await action();', barrier);
+    final guardExit = home.indexOf('_mapParkingGuard.exit()', action);
+    final resume = home.indexOf(
+      'AppScope.instance.mapLifecycle.resume()',
+      guardExit,
+    );
+
+    expect(helper, greaterThanOrEqualTo(0));
+    expect(guardEnter, greaterThan(helper));
+    expect(detach, greaterThan(guardEnter));
+    expect(barrier, greaterThan(detach));
+    expect(action, greaterThan(barrier));
+    expect(guardExit, greaterThan(action));
+    expect(resume, greaterThan(guardExit));
+  });
+
   test('matching map is parked before active ride map is mounted', () {
     final finding = File(
       'lib/features/finding_driver/presentation/finding_drivers.dart',
