@@ -318,7 +318,10 @@ class Reservation {
         map['scheduledPickupAt'] as String? ?? map['pickupAt'] as String? ?? '',
       );
       if (created == null || pickupAt == null) return null;
-      final status = ReservationStatus.tryParse(map['status'] as String?);
+      final rawStatus = map['status'] as String?;
+      final status = rawStatus == null
+          ? ReservationStatus.scheduled
+          : ReservationStatus.tryParse(rawStatus);
       if (status == null) return null;
       return Reservation(
         reservationId: id,
