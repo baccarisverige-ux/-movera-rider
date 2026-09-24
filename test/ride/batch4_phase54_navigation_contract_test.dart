@@ -3,6 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
+import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -55,4 +59,68 @@ void main() {
 
     expect(observer.pushed.last.settings.name, AppRoutes.selectRide);
   });
+  testWidgets(
+    'Ride Scheduled Done returns to named Home instead of assuming first route',
+    (tester) async {
+      final controller = ReservationController(
+        store: LocalReservationRepository(
+          storage: MemoryReservationStorage(),
+          nextId: () => 'phase54-scheduled-home',
+        ),
+      );
+      final created = await controller.create(
+        ReservationDraft(
+          scheduledPickupAt: DateTime(2026, 9, 24, 18),
+          pickup: const ReservationPlace(
+            label: 'Stockholm Central',
+            lat: 59.3300,
+            lng: 18.0590,
+          ),
+          destination: const ReservationPlace(
+            label: 'Arlanda Airport',
+            lat: 59.6519,
+            lng: 17.9186,
+          ),
+          categoryId: 'movera',
+          categoryName: 'Movera',
+          categoryImage: 'assets/images/rides/movera.webp',
+          price: 349,
+          paymentMethod: 'Apple Pay',
+        ),
+      );
+
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          home: const Scaffold(body: Text('phase54-shell')),
+        ),
+      );
+
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: AppRoutes.home),
+          builder: (_) => const Scaffold(body: Text('phase54-home')),
+        ),
+      );
+      navigatorKey.currentState!.push(
+        BottomToTopTransition<void>(
+          RideScheduledPage(
+            reservationId: created.reservationId,
+            controller: controller,
+          ),
+          settings: const RouteSettings(name: AppRoutes.reservationScheduled),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Your ride is scheduled'), findsOneWidget);
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('phase54-home'), findsOneWidget);
+      expect(find.text('phase54-shell'), findsNothing);
+    },
+  );
+
 }
