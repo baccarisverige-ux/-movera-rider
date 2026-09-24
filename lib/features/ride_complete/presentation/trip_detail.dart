@@ -3,14 +3,20 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RideCompletedTripDetail extends StatelessWidget {
-  const RideCompletedTripDetail({super.key, this.controller});
+  const RideCompletedTripDetail({
+    super.key,
+    this.controller,
+    this.rideId,
+  });
 
   final RideCompleteController? controller;
+  final String? rideId;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +65,18 @@ class RideCompletedTripDetail extends StatelessWidget {
                   8.height,
                   _detailRow('Payment method', trip.method),
                   8.height,
+                  if (rideId != null && rideId!.trim().isNotEmpty) ...[
+                    const Divider(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const ValueKey<String>('receipt-report-issue'),
+                        onPressed: () => _openDispute(context),
+                        icon: const Icon(Icons.report_gmailerrorred_outlined),
+                        label: const Text('Report an issue with this receipt'),
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -66,6 +84,100 @@ class RideCompletedTripDetail extends StatelessWidget {
         ],
       ),
     );
+  }
+
+
+  Future<void> _openDispute(BuildContext context) async {
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return;
+    final controller = this.controller ?? RideCompleteController();
+    final detail = TextEditingController();
+    var submitting = false;
+    String? error;
+    await MoveraSheet.show<void>(
+      context: context,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setState) {
+          Future<void> submit() async {
+            if (submitting) return;
+            setState(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              await controller.submitDispute(
+                rideId: id,
+                reason: 'receipt_issue',
+                detail: detail.text,
+              );
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Issue submitted for review.')),
+                );
+              }
+            } catch (_) {
+              if (sheetContext.mounted) {
+                setState(() {
+                  submitting = false;
+                  error = 'Could not submit the issue. Please try again.';
+                });
+              }
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              20 + MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Report receipt issue',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                const Text('Tell us what looks wrong. Your ride record will be reviewed.'),
+                const SizedBox(height: 14),
+                TextField(
+                  key: const ValueKey<String>('receipt-dispute-detail'),
+                  controller: detail,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    hintText: 'What is wrong with the receipt?',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    key: const ValueKey<String>('receipt-dispute-error'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    key: const ValueKey<String>('receipt-dispute-submit'),
+                    onPressed: submitting ? null : submit,
+                    child: Text(submitting ? 'Submitting…' : 'Submit issue'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    detail.dispose();
   }
 
   Widget _detailRow(String label, String value) {

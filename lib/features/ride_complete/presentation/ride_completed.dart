@@ -198,7 +198,10 @@ class _RideCompletedState extends State<RideCompleted> {
                       ),
                       const SizedBox(height: 14),
                       _SurfaceCard(
-                        child: const RideCompletedTripDetail(),
+                        child: RideCompletedTripDetail(
+                          controller: _controller,
+                          rideId: widget.rideId,
+                        ),
                       ),
                       const SizedBox(height: 18),
                     ],
