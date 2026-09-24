@@ -160,8 +160,8 @@ void main() {
     expect(ctl.hasCompassHeading, isTrue);
     final compassHeading = ctl.heading;
 
-    location.stream.add(_position(heading: 20));
     ctl.startTracking(isMounted: () => true, onFix: (_, __) {});
+    location.stream.add(_position(heading: 20));
     await Future<void>.delayed(Duration.zero);
     expect(ctl.heading, compassHeading);
   });
