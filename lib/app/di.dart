@@ -53,7 +53,6 @@ class AppScope {
       permissions = PermissionService(),
       search = PlaceSearchService(),
       location = LocationRepository(),
-      geocoding = AppGeocoding(),
       push = NoopPushService(),
       crashes = const CrashReporter(),
       pickup = PickupSession(),
@@ -62,6 +61,7 @@ class AppScope {
       reservations = ReservationController(),
       profile = ProfileController() {
     api = ApiClient(tokens: tokens);
+    geocoding = AppGeocoding(api: api);
     routing = RoutingService(api: api);
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = MockRideRealtime(api: api, connection: realtime);
@@ -106,7 +106,7 @@ class AppScope {
   final PermissionService permissions;
   final PlaceSearchService search;
   final LocationRepository location;
-  final AppGeocoding geocoding;
+  late final AppGeocoding geocoding;
   final PushService push;
   final CrashReporter crashes;
   final PickupSession pickup;
