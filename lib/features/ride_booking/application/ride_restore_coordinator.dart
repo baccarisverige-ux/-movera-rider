@@ -335,12 +335,12 @@ class _RideRecoveryBarrier extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
-      color: Color(0xFFF6F5F1),
+    return ColoredBox(
+      color: const Color(0xFFF6F5F1),
       child: Center(
         child: Semantics(
           label: 'Restoring active ride',
-          child: CircularProgressIndicator(),
+          child: const CircularProgressIndicator(),
         ),
       ),
     );
