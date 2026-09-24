@@ -119,6 +119,7 @@ class _HomeState extends State<Home> {
 
   GoogleMapController? _mapController;
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
+  final MapParkingGuard _mapParkingGuard = MapParkingGuard();
   bool get _homeMapParked => _mapParked.value;
   Set<Marker> get _markers => _locationCtl.markers;
   set _markers(Set<Marker> value) => _locationCtl.markers = value;
@@ -494,24 +495,24 @@ class _HomeState extends State<Home> {
   }
 
   Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
-    final parkedNow = !_homeMapParked;
-    if (parkedNow) {
-      setWebOverlayOpen(false);
-      _mapParked.value = true;
-      _locationCtl.pauseLiveUpdates();
-      AppScope.instance.mapLifecycle.park();
-      AppScope.instance.maps.detach(owner: MapOwners.home);
-      _mapController = null;
-      // Let Flutter remove the platform map for one rendered frame before the
-      // next map-heavy ride screen mounts. A fixed blank delay made navigation
-      // feel like a crash on fast devices.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) return null;
-    }
+    final parkedNow = _mapParkingGuard.enter();
     try {
+      if (parkedNow) {
+        setWebOverlayOpen(false);
+        _mapParked.value = true;
+        _locationCtl.pauseLiveUpdates();
+        AppScope.instance.mapLifecycle.park();
+        AppScope.instance.maps.detach(owner: MapOwners.home);
+        _mapController = null;
+        // Let Flutter remove the platform map for one rendered frame before
+        // the next map-heavy ride screen mounts.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return null;
+      }
       return await action();
     } finally {
-      if (parkedNow && mounted) {
+      final resumeNow = _mapParkingGuard.exit();
+      if (resumeNow && mounted) {
         AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
         _locationCtl.resumeLiveUpdates();
