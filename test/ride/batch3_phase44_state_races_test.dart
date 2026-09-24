@@ -50,28 +50,28 @@ void main() {
     expect(ride.authoritativeVersion, 5);
   });
 
-  test('projection for another ride cannot replace an active session', () {
+  test('new ride id starts a fresh authoritative ordering domain', () {
     final ride = RideSession()..rideId = 'r1';
     expect(
       ride.backendReconcile(
-        RideStatus.findingDriver,
+        RideStatus.driverWaiting,
         id: 'r1',
-        version: 3,
+        version: 99,
         updatedAt: DateTime.utc(2026, 9, 24, 12),
       ),
       isTrue,
     );
     expect(
       ride.backendReconcile(
-        RideStatus.driverAssigned,
+        RideStatus.findingDriver,
         id: 'r2',
-        version: 99,
-        updatedAt: DateTime.utc(2026, 9, 24, 12, 1),
+        version: 1,
+        updatedAt: DateTime.utc(2026, 9, 24, 11),
       ),
-      isFalse,
+      isTrue,
     );
-    expect(ride.rideId, 'r1');
+    expect(ride.rideId, 'r2');
     expect(ride.status, RideStatus.findingDriver);
-    expect(ride.authoritativeVersion, 3);
+    expect(ride.authoritativeVersion, 1);
   });
 }
