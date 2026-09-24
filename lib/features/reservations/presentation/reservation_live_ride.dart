@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_ride_realtime.dart';
@@ -112,6 +113,7 @@ abstract final class ReservationLiveRide {
                 ).popUntil((route) => route.isFirst);
               },
             ),
+            settings: const RouteSettings(name: AppRoutes.rideCompleted),
           ),
         );
       },
@@ -126,6 +128,7 @@ abstract final class ReservationLiveRide {
   }) {
     final route = BottomToTopTransition(
       pageFor(ride, controller: controller),
+      settings: const RouteSettings(name: AppRoutes.reservationLive),
     );
     if (replace) {
       return Navigator.of(context).pushReplacement(route);
