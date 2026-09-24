@@ -5,6 +5,28 @@ import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/features/pickup/data/pickup_repository.dart';
 
+enum PickupLocationFailure {
+  servicesDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  unavailable,
+}
+
+class PickupCurrentPositionResult {
+  const PickupCurrentPositionResult._({this.position, this.failure});
+
+  const PickupCurrentPositionResult.success(LatLng position)
+      : this._(position: position);
+
+  const PickupCurrentPositionResult.failure(PickupLocationFailure failure)
+      : this._(failure: failure);
+
+  final LatLng? position;
+  final PickupLocationFailure? failure;
+
+  bool get hasPosition => position != null;
+}
+
 class PickupMapFix {
   const PickupMapFix({required this.position, this.address});
   final LatLng position;
@@ -40,20 +62,41 @@ class PickupMapController {
     return address;
   }
 
-  Future<LatLng?> currentPosition() async {
-    if (!await location.isLocationServiceEnabled()) return null;
-    var permission = await location.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await location.requestPermission();
+  Future<PickupCurrentPositionResult> currentPosition() async {
+    try {
+      if (!await location.isLocationServiceEnabled()) {
+        return const PickupCurrentPositionResult.failure(
+          PickupLocationFailure.servicesDisabled,
+        );
+      }
+      var permission = await location.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await location.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        return const PickupCurrentPositionResult.failure(
+          PickupLocationFailure.permissionDeniedForever,
+        );
+      }
+      if (permission == LocationPermission.denied) {
+        return const PickupCurrentPositionResult.failure(
+          PickupLocationFailure.permissionDenied,
+        );
+      }
+      final current = await location.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+      return PickupCurrentPositionResult.success(
+        LatLng(current.latitude, current.longitude),
+      );
+    } catch (_) {
+      return const PickupCurrentPositionResult.failure(
+        PickupLocationFailure.unavailable,
+      );
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return null;
-    }
-    final current = await location.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
-    return LatLng(current.latitude, current.longitude);
   }
 
   Future<PickupMapFix?> search(String query) async {

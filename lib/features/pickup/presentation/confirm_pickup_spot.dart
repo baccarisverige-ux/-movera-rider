@@ -75,6 +75,8 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
+  String? _pickupError;
+  bool _hasUsablePickupCoordinates = true;
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
@@ -88,6 +90,13 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     super.initState();
     _center = widget.initialPosition;
     _address = widget.initialAddress;
+    _hasUsablePickupCoordinates =
+        widget.initialPosition.latitude.isFinite &&
+        widget.initialPosition.longitude.isFinite &&
+        widget.initialPosition.latitude >= -90 &&
+        widget.initialPosition.latitude <= 90 &&
+        widget.initialPosition.longitude >= -180 &&
+        widget.initialPosition.longitude <= 180;
     _search.text = widget.initialAddress;
     setWebOverlayOpen(false);
   }
@@ -126,6 +135,42 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     });
   }
 
+  Future<void> _useCurrentLocation() async {
+    setState(() => _pickupError = null);
+    final result = await _pickup.currentPosition();
+    if (!mounted) return;
+    final position = result.position;
+    if (position == null) {
+      setState(() {
+        _pickupError = switch (result.failure) {
+          PickupLocationFailure.servicesDisabled =>
+            'Turn on Location Services, then try again.',
+          PickupLocationFailure.permissionDenied =>
+            'Location permission is needed to use your current pickup.',
+          PickupLocationFailure.permissionDeniedForever =>
+            'Location permission is blocked. Enable it in Settings or choose the pickup on the map.',
+          PickupLocationFailure.unavailable =>
+            'Current location is unavailable. Try again or choose the pickup on the map.',
+          null => 'Current location is unavailable.',
+        };
+      });
+      return;
+    }
+    setState(() {
+      _center = position;
+      _hasUsablePickupCoordinates = true;
+      _address = 'Current location';
+      _search.text = _address;
+    });
+    await _map?.animateCamera(CameraUpdate.newLatLng(position));
+    final address = await _pickup.reverse(position);
+    if (!mounted || address == null || address.trim().isEmpty) return;
+    setState(() {
+      _address = address.trim();
+      _search.text = _address;
+    });
+  }
+
   Future<void> _lookup() async {
     final query = _search.text.trim();
     if (query.isEmpty) return;
@@ -133,6 +178,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     if (!mounted || found == null) return;
     setState(() {
       _center = found.position;
+      _hasUsablePickupCoordinates = true;
       _address = found.address ?? query;
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(_center));
@@ -282,6 +328,25 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _useCurrentLocation,
+                  icon: const Icon(Icons.my_location_rounded, size: 18),
+                  label: const Text('Use current location'),
+                ),
+                if (_pickupError != null) ...[
+                  const SizedBox(height: 4),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _pickupError!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.5,
+                        color: const Color(0xFF9A3412),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
                 Text(
                   _address,
                   style: GoogleFonts.poppins(
@@ -295,13 +360,15 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     width: double.infinity,
                     height: 54,
                     child: FilledButton(
-                      onPressed: () => Navigator.pop(
-                        context,
-                        ConfirmPickupResult(
-                          position: _center,
-                          address: _address,
-                        ),
-                      ),
+                      onPressed: _hasUsablePickupCoordinates
+                          ? () => Navigator.pop(
+                                context,
+                                ConfirmPickupResult(
+                                  position: _center,
+                                  address: _address,
+                                ),
+                              )
+                          : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF11181D),
                         shape: RoundedRectangleBorder(
