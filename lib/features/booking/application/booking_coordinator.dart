@@ -430,6 +430,13 @@ class BookingCoordinator {
     );
     final id = _requireRideId(json);
     Analytics.bookingSubmitted(rideId: id);
+
+    final collisionBeforeCommit = await _standDownIfFindingOwned(
+      createdRideId: id,
+      attempt: attempt,
+    );
+    if (collisionBeforeCommit != null) return collisionBeforeCommit;
+
     AppScope.instance.ride.backendReconcile(
       RideStatus.findingDriver,
       id: id,
@@ -453,7 +460,52 @@ class BookingCoordinator {
         notes: notes,
       ),
     );
+
+    // The snapshot save crosses an async boundary. A Finding surface can
+    // become authoritative while persistence is in flight, so close that
+    // second race window before returning the created id to presentation.
+    final collisionAfterCommit = await _standDownIfFindingOwned(
+      createdRideId: id,
+      attempt: attempt,
+    );
+    if (collisionAfterCommit != null) return collisionAfterCommit;
+
     return id;
+  }
+
+  Future<String?> _standDownIfFindingOwned({
+    required String createdRideId,
+    required BookingAttempt attempt,
+  }) async {
+    final owner = FindingDriverController.active;
+    if (owner == null) return null;
+
+    final ownerId = owner.ownedRideId;
+    final ownerSnapshot = owner.ownershipSnapshot;
+    if (ownerId == null ||
+        ownerId.isEmpty ||
+        ownerSnapshot == null ||
+        ownerId == createdRideId) {
+      return ownerId == createdRideId ? createdRideId : null;
+    }
+
+    // A visible Finding surface already owns another ride. The race-losing
+    // backend ride must be explicitly stood down; never leave two live rides.
+    await _client.post(
+      '/api/v1/rides/$createdRideId/cancel',
+      idempotencyKey: '${attempt.idempotencyKey}:duplicate-cancel',
+    );
+
+    // Restore the visible owner's identity after the duplicate create response
+    // may have temporarily projected the new id into the process-wide session.
+    AppScope.instance.ride.backendReconcile(
+      ownerSnapshot.status,
+      id: ownerId,
+    );
+    await RideSnapshotStore.save(
+      ownerSnapshot.copyWith(savedAt: DateTime.now()),
+    );
+    return ownerId;
   }
 
   Future<void> cancel({required String rideId, required String key}) {
