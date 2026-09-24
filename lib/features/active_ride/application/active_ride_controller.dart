@@ -39,6 +39,31 @@ class ActiveRideController {
     }
   }
 
+  Future<void> resumeSearchingAfterDriverCancel({String? rideId}) async {
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return;
+    final ride = AppScope.instance.ride;
+    if (ride.rideId?.trim() != id ||
+        ride.status != RideStatus.cancelledByDriver) {
+      return;
+    }
+
+    // cancelledByDriver is a reversible dispatch outcome: the rider still owns
+    // the same ride and explicitly chose Keep searching. This is application
+    // state, not a presentation mutation, so reconcile it at the controller
+    // boundary before realtime starts the replacement-driver search.
+    ride.backendReconcile(RideStatus.findingDriver, id: id);
+
+    final snapshot = await _store.historyCandidate();
+    if (snapshot == null || snapshot.rideId?.trim() != id) return;
+    await _store.save(
+      snapshot.copyWith(
+        status: RideStatus.findingDriver,
+        savedAt: DateTime.now(),
+      ),
+    );
+  }
+
   Future<void> markExternalTerminal(RideStatus status) async {
     if (!status.isTerminal ||
         status.isCompletedSurface ||
