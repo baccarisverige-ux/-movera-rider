@@ -113,15 +113,22 @@ class RideSelectionController {
     return completer.future;
   }
 
-  void dispose() {
+  void cancelPendingQuotes() {
     if (_disposed) return;
-    _disposed = true;
     _quoteGeneration += 1;
     final cancels = _cancelQuoteTimeouts.toList(growable: false);
     _cancelQuoteTimeouts.clear();
     for (final cancel in cancels) {
       cancel();
     }
+  }
+
+  bool get hasPendingQuoteRequests => _cancelQuoteTimeouts.isNotEmpty;
+
+  void dispose() {
+    if (_disposed) return;
+    cancelPendingQuotes();
+    _disposed = true;
   }
 
   Future<void> loadQuotes({
