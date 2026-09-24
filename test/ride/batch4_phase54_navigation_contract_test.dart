@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
@@ -209,6 +210,42 @@ void main() {
     expect(find.text('phase54-select-parent'), findsOneWidget);
     expect(find.byType(SelectRide), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Confirm pickup carries the on-demand journey route identity', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    final observer = _RecordingObserver();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        navigatorObservers: [observer],
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () {
+                ConfirmPickupSpot.open(
+                  context,
+                  initialPosition: const LatLng(59.3300, 18.0590),
+                  initialAddress: 'Stockholm Central',
+                );
+              },
+              child: const Text('open-confirm-pickup'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open-confirm-pickup'));
+    await tester.pump();
+    expect(observer.pushed.last.settings.name, '/ride/pickup-confirm');
   });
 
 }
