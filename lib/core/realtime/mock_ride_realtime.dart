@@ -127,6 +127,7 @@ class MockRideRealtime implements RideRealtime {
     if (lastStatus.isMatched) return;
 
     _assignmentInFlight = true;
+    final assignmentAttempt = _assignmentAttempt;
     _assign?.cancel();
     _assign = null;
     _pickupLat ??= 59.3293;
@@ -146,6 +147,7 @@ class MockRideRealtime implements RideRealtime {
     if (cancelled ||
         disposed ||
         _rideId != rideId ||
+        assignmentAttempt != _assignmentAttempt ||
         lastStatus != RideStatus.findingDriver) {
       _assignmentInFlight = false;
       return;
@@ -300,11 +302,26 @@ class MockRideRealtime implements RideRealtime {
     final rideId = _rideId;
     if (rideId == null || disposed) return;
     if (cancelled || lastStatus != RideStatus.cancelledByDriver) return;
-    if (_assign != null || _assignmentInFlight) return;
+
+    // The previous assignment may still be unwinding an async persistence
+    // request. Its generation was invalidated by cancelByDriver(), so it must
+    // not block the rider-visible redispatch state. Reopen searching now; the
+    // stale assignment's post-await guard cannot publish because its captured
+    // attempt no longer matches.
     lastStatus = RideStatus.findingDriver;
     _emit(RideStatus.findingDriver);
+    _assign?.cancel();
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
+      if (_assignmentInFlight) {
+        // Let the invalidated persistence unwind, then retry through the same
+        // guarded scheduling path instead of dropping redispatch completely.
+        _assign = Timer(const Duration(milliseconds: 1), () {
+          if (cancelled || disposed || held || _rideId != rideId) return;
+          assignNow();
+        });
+        return;
+      }
       assignNow();
     });
   }
