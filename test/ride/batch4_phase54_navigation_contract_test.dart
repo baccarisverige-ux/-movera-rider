@@ -442,15 +442,25 @@ void main() {
       ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      // Completion opens on tripCompleted; allow payment/rating events to
-      // reach the same completion presenter before asserting feedback state.
-      await tester.pump(const Duration(milliseconds: 300));
-
       expect(find.byType(RideCompleted), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 160));
       expect(find.byType(WaitingForDriver), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.rideCompleted);
       expect(AppScope.instance.ride.rideId, rideId);
+
+      // Completion opens at tripCompleted. Post-trip statuses are backend
+      // authored and each one schedules the next timer only after it fires, so
+      // advance in small steps until the real transport reaches ratingPending
+      // instead of assuming one fixed delay can flush the entire chain.
+      for (
+        var i = 0;
+        i < 30 && realtime.lastStatus != RideStatus.ratingPending;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(realtime.lastStatus, RideStatus.ratingPending);
+      await tester.pump();
 
       final feedbackLock = tester.widget<IgnorePointer>(
         find.byKey(const ValueKey('completion-feedback-lock')),
