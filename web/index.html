@@ -88,13 +88,9 @@
       Promise.allSettled(tasks).catch(function() {});
     })();
 
-    // Address lookup is intentionally independent from the Google Maps JS
-    // Geocoder. The production Maps key renders the map but is currently not
-    // authorised for Google's Geocoding service. Calling that service caused
-    // address confirmation to fail on the live Rider site. Keep a small
-    // in-memory cache and use the OpenStreetMap Nominatim endpoint instead.
-    window.moveraGeoCache = window.moveraGeoCache || new Map();
-
+    // Keep browser fetches fresh. Geocoding itself is performed by Flutter
+    // through the authenticated Movera API; this helper remains for non-sensitive
+    // web transport and preserves the established no-stale-cache contract.
     window.moveraFetchJson = async function(url) {
       var controller = new AbortController();
       var timer = setTimeout(function() { controller.abort(); }, 8000);
@@ -115,16 +111,9 @@
       }
     };
 
-    window.moveraReverseGeocode = async function(latitude, longitude) {
-      var key = 'reverse:' + Number(latitude).toFixed(5) + ':' + Number(longitude).toFixed(5);
-      if (window.moveraGeoCache.has(key)) return window.moveraGeoCache.get(key);
-      var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=0&accept-language=en&lat=' +
-        encodeURIComponent(latitude) + '&lon=' + encodeURIComponent(longitude);
-      var data = await window.moveraFetchJson(url);
-      var value = data && data.display_name ? String(data.display_name) : null;
-      if (value) window.moveraGeoCache.set(key, value);
-      return value;
-    };
+    // Geocoding is performed by Flutter through the authenticated Movera API.
+    // Do not expose rider addresses or coordinates to public browser-side
+    // geocoding services from this shell.
 
     window.moveraDeviceHeading = null;
     window.moveraHeadingStarted = false;
