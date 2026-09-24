@@ -13,6 +13,7 @@ import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
@@ -45,6 +46,7 @@ class FindingDrivers extends StatefulWidget {
     required this.price,
     required this.paymentMethod,
     this.notes = RideNotes.empty,
+    this.realtime,
   });
 
   final String pickupAddress;
@@ -55,6 +57,7 @@ class FindingDrivers extends StatefulWidget {
   final double price;
   final String paymentMethod;
   final RideNotes notes;
+  final RideRealtime? realtime;
 
   @override
   State<FindingDrivers> createState() => _FindingDriversState();
@@ -63,7 +66,9 @@ class FindingDrivers extends StatefulWidget {
 class _FindingDriversState extends State<FindingDrivers> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
-  final FindingDriverController _match = FindingDriverController();
+  late final FindingDriverController _match = FindingDriverController(
+    realtime: widget.realtime,
+  );
   bool _mapParked = false;
   bool _mapReady = false;
   bool _leaving = false;
@@ -295,6 +300,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           paymentMethod: widget.paymentMethod,
           notes: widget.notes,
           driver: _match.matchedDriver,
+          realtime: widget.realtime,
         ),
         settings: const RouteSettings(name: AppRoutes.waitingForDriver),
       ),
