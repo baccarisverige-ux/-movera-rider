@@ -103,7 +103,7 @@ class PickupMapController {
     final result = await geocoding.geocodeAddress(query);
     if (result == null) return null;
     return PickupMapFix(
-      position: LatLng(result.latitude, result.longitude),
+      position: LatLng(result.point.latitude, result.point.longitude),
       address: result.address,
     );
   }
