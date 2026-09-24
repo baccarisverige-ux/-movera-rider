@@ -138,6 +138,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void _onLiveTick() {
     if (!mounted) return;
     final status = _tracking.status;
+
+    // A driver drop is a reversible dispatch event, not the end of the
+    // rider's trip. Handle it on the active Waiting owner immediately instead
+    // of routing it through the generic terminal queue. The generic queue is
+    // intentionally gated on route-current state; that can strand this
+    // transient event when Waiting has just replaced the matching stage.
+    if (status == RideStatus.cancelledByDriver) {
+      if (!_leaving && !_completedOpened) {
+        unawaited(_researchAfterDriverCancel());
+      }
+      return;
+    }
+
     if (status.isTerminal && !status.isCompletedSurface) {
       _queueStageNavigation(status);
       return;
