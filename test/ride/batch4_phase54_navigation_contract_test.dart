@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -316,45 +317,52 @@ void main() {
       addTearDown(selection.dispose);
 
       await tester.pumpWidget(
-        MaterialApp(
-          navigatorKey: moveraNavigatorKey,
-          navigatorObservers: [observer],
-          home: Builder(
-            builder: (homeContext) => Scaffold(
-              body: Center(
-                child: TextButton(
-                  onPressed: () async {
-                    final pickup = await ConfirmPickupSpot.open(
-                      homeContext,
-                      initialPosition: const LatLng(59.3300, 18.0590),
-                      initialAddress: 'Stockholm Central',
-                    );
-                    if (pickup == null || !homeContext.mounted) return;
-                    await Navigator.of(homeContext).push<void>(
-                      RideStageTransition(
-                        SelectRide(
-                          pickupAddress: pickup.address,
-                          destinationAddress: 'Arlanda Airport',
-                          pickupPosition: pickup.position,
-                          destinationPosition: const LatLng(
-                            59.6519,
-                            17.9186,
+        ScreenUtilInit(
+          designSize: const Size(375, 812),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) {
+            return MaterialApp(
+              navigatorKey: moveraNavigatorKey,
+              navigatorObservers: [observer],
+              home: Builder(
+                builder: (homeContext) => Scaffold(
+                  body: Center(
+                    child: TextButton(
+                      onPressed: () async {
+                        final pickup = await ConfirmPickupSpot.open(
+                          homeContext,
+                          initialPosition: const LatLng(59.3300, 18.0590),
+                          initialAddress: 'Stockholm Central',
+                        );
+                        if (pickup == null || !homeContext.mounted) return;
+                        await Navigator.of(homeContext).push<void>(
+                          RideStageTransition(
+                            SelectRide(
+                              pickupAddress: pickup.address,
+                              destinationAddress: 'Arlanda Airport',
+                              pickupPosition: pickup.position,
+                              destinationPosition: const LatLng(
+                                59.6519,
+                                17.9186,
+                              ),
+                              selection: selection,
+                              booking: booking,
+                              realtime: realtime,
+                            ),
+                            settings: const RouteSettings(
+                              name: AppRoutes.selectRide,
+                            ),
                           ),
-                          selection: selection,
-                          booking: booking,
-                          realtime: realtime,
-                        ),
-                        settings: const RouteSettings(
-                          name: AppRoutes.selectRide,
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('phase54-start-on-demand'),
+                        );
+                      },
+                      child: const Text('phase54-start-on-demand'),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
 
