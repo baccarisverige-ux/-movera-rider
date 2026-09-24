@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
@@ -673,6 +674,119 @@ void main() {
         controller.byId(created.reservationId)?.reservationId,
         created.reservationId,
       );
+    },
+  );
+
+  testWidgets(
+    'driver cancellation returns Waiting to the existing Finding route without duplicating stages',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      const rideId = 'phase54-driver-cancel-research';
+      AppScope.instance.ride
+        ..rideId = rideId
+        ..status = RideStatus.findingDriver
+        ..suppressRestore = false;
+
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(days: 1),
+      );
+      addTearDown(realtime.dispose);
+
+      final observer = _RecordingObserver();
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(375, 812),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => MaterialApp(
+            navigatorKey: navigatorKey,
+            navigatorObservers: [observer],
+            home: const Scaffold(
+              body: Center(child: Text('phase54-driver-cancel-home')),
+            ),
+          ),
+        ),
+      );
+
+      navigatorKey.currentState!.push(
+        RideStageTransition(
+          FindingDrivers(
+            pickupAddress: 'Stockholm Central',
+            destinationAddress: 'Arlanda Airport',
+            pickupPosition: const LatLng(59.3300, 18.0590),
+            destinationPosition: const LatLng(59.6519, 17.9186),
+            rideType: 'Movera',
+            price: 349,
+            paymentMethod: 'Apple Pay',
+            realtime: realtime,
+          ),
+          settings: const RouteSettings(name: AppRoutes.findingDriver),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(observer.pushed.last.settings.name, AppRoutes.findingDriver);
+
+      realtime.assignNow();
+      for (
+        var i = 0;
+        i < 30 && find.byType(WaitingForDriver).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(find.byType(FindingDrivers), findsNothing);
+      expect(observer.pushed.last.settings.name, AppRoutes.waitingForDriver);
+      expect(AppScope.instance.ride.rideId, rideId);
+
+      realtime.cancelByDriver();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('Keep searching'), findsOneWidget);
+
+      await tester.tap(find.text('Keep searching'));
+      for (
+        var i = 0;
+        i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump(const Duration(milliseconds: 160));
+
+      expect(find.byType(WaitingForDriver), findsNothing);
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(find.text('phase54-driver-cancel-home'), findsNothing);
+      expect(AppScope.instance.ride.rideId, rideId);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+      expect(realtime.lastStatus, RideStatus.findingDriver);
+
+      final findingPushes = observer.pushed
+          .where((route) => route.settings.name == AppRoutes.findingDriver)
+          .length;
+      final waitingPushes = observer.pushed
+          .where((route) => route.settings.name == AppRoutes.waitingForDriver)
+          .length;
+      expect(findingPushes, 1);
+      expect(waitingPushes, 1);
+
+      final stored = await RideSnapshotStore.read();
+      expect(stored?.rideId, rideId);
+      expect(await OnDemandRideHistoryStore.read(), isEmpty);
+
+      realtime.holdAssignment();
+      navigatorKey.currentState!.popUntil((route) => route.isFirst);
+      await tester.pumpAndSettle();
     },
   );
 
