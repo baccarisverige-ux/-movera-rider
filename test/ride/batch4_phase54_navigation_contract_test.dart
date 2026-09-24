@@ -342,7 +342,13 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.tap(find.text('Select Movera'));
       await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+      for (
+        var i = 0;
+        i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(find.byType(FindingDrivers), findsOneWidget);
       expect(find.byType(SelectRide), findsNothing);
@@ -355,7 +361,13 @@ void main() {
       expect(realtime, isA<MockRideRealtime>());
       (realtime as MockRideRealtime).assignNow();
       await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+      for (
+        var i = 0;
+        i < 30 && find.byType(WaitingForDriver).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(find.byType(WaitingForDriver), findsOneWidget);
       expect(find.byType(FindingDrivers), findsNothing);
