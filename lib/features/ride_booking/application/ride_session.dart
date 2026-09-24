@@ -60,21 +60,10 @@ class RideSession {
         currentRideId.isNotEmpty &&
         incomingRideId != currentRideId;
 
-    // A realtime/resync projection for another ride must never take ownership
-    // of an active session. A completed/terminal session may legitimately be
-    // replaced by the next ride.
-    if (isNewRide && status != RideStatus.idle && !status.isTerminal) {
-      AppLog.warning(
-        'ride.restore.wrong_ride',
-        extra: {
-          'currentRideId': currentRideId,
-          'incomingRideId': incomingRideId,
-          'status': backendStatus.name,
-        },
-      );
-      return false;
-    }
-
+    // A new ride id establishes a fresh authoritative ordering domain.
+    // Wrong-ride realtime events are filtered by the subscription/controller
+    // that owns the expected ride id; RideSession also serves restore/rebook
+    // flows where replacing the previous ride id is intentional.
     if (isNewRide) {
       authoritativeVersion = null;
       authoritativeUpdatedAt = null;
