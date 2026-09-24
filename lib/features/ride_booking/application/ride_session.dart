@@ -74,7 +74,18 @@ class RideSession {
       return false;
     }
 
-    if (status != backendStatus && !canTransition(status, backendStatus)) {
+    final incomingRideId = id?.trim();
+    final currentRideId = rideId?.trim();
+    final establishingAuthoritativeState =
+        status == RideStatus.idle &&
+        incomingRideId != null &&
+        incomingRideId.isNotEmpty &&
+        (currentRideId == null ||
+            currentRideId.isEmpty ||
+            currentRideId == incomingRideId);
+    if (status != backendStatus &&
+        !establishingAuthoritativeState &&
+        !canTransition(status, backendStatus)) {
       AppLog.info(
         'ride.restore.rejected_jump',
         extra: {
