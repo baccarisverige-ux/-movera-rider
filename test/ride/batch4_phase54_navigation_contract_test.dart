@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +10,9 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class _RecordingObserver extends NavigatorObserver {
@@ -16,6 +21,23 @@ class _RecordingObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     pushed.add(route);
+  }
+}
+
+
+class _NeverQuotes implements QuoteRepository {
+  int calls = 0;
+
+  @override
+  Future<RideQuote> quote({
+    required String rideType,
+    required int distanceMeters,
+    int durationSeconds = 600,
+    String? pickup,
+    String? destination,
+  }) {
+    calls += 1;
+    return Completer<RideQuote>().future;
   }
 }
 
@@ -122,5 +144,70 @@ void main() {
       expect(find.text('phase54-shell'), findsNothing);
     },
   );
+
+  test(
+    'Select Ride quote cancellation releases an in-flight quote batch',
+    () async {
+      final quotes = _NeverQuotes();
+      final selection = RideSelectionController(quotes: quotes);
+      final generation = selection.beginQuotes();
+
+      final pending = selection.loadQuotes(
+        generation: generation,
+        pickup: 'Stockholm Central',
+        destination: 'Arlanda Airport',
+        parallelism: 1,
+        timeout: const Duration(minutes: 5),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      expect(quotes.calls, 1);
+      expect(selection.hasPendingQuoteRequests, isTrue);
+
+      selection.cancelPendingQuotes();
+      await pending.timeout(const Duration(seconds: 1));
+
+      expect(selection.hasPendingQuoteRequests, isFalse);
+      selection.dispose();
+    },
+  );
+
+  testWidgets('Back from Select Ride returns cleanly with no route exception', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: Text('phase54-select-parent')),
+      ),
+    );
+
+    navigatorKey.currentState!.push(
+      RideStageTransition(
+        const SelectRide(
+          pickupAddress: 'Stockholm Central',
+          destinationAddress: 'Arlanda Airport',
+          pickupPosition: LatLng(59.3300, 18.0590),
+          destinationPosition: LatLng(59.6519, 17.9186),
+        ),
+        settings: const RouteSettings(name: AppRoutes.selectRide),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(SelectRide), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('phase54-select-parent'), findsOneWidget);
+    expect(find.byType(SelectRide), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
 }
