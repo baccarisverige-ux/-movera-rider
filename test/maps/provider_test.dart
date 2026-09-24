@@ -106,6 +106,34 @@ void main() {
     expect(maps.controller, isNull);
   });
 
+  test('detached background owners never resurrect after active map leaves', () {
+    final maps = GoogleMapProvider();
+    final ownerChanges = <String?>[];
+    maps.onOwnerDebug = (owner, _) => ownerChanges.add(owner);
+
+    maps.debugAttach(MapOwners.home);
+    maps.debugAttach(MapOwners.finding);
+    maps.debugAttach(MapOwners.waiting);
+    expect(maps.activeOwner, MapOwners.waiting);
+
+    // Home/Finding can dispose after Waiting has already become current. Their
+    // controllers are gone at that point and must be removed from ownership,
+    // not left underneath Waiting to become active again later.
+    maps.detach(owner: MapOwners.home);
+    maps.detach(owner: MapOwners.finding);
+    expect(maps.activeOwner, MapOwners.waiting);
+
+    maps.detach(owner: MapOwners.waiting);
+
+    expect(maps.activeOwner, isNull);
+    expect(maps.ownerStack, isEmpty);
+    expect(
+      ownerChanges.where((owner) => owner == null).length,
+      1,
+      reason: 'the final live controller must be released exactly once',
+    );
+  });
+
   test('older nested screen disposing later cannot steal the current owner', () {
     final maps = GoogleMapProvider();
     maps.debugAttach(MapOwners.home);
