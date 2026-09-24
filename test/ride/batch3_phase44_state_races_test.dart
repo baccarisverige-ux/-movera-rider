@@ -3,7 +3,21 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 void main() {
-  test('authoritative reconciliation rejects illegal state jumps', () {
+  test('authoritative bootstrap may restore a later backend stage from idle', () {
+    final ride = RideSession()..rideId = 'r1';
+    expect(
+      ride.backendReconcile(
+        RideStatus.driverArriving,
+        id: 'r1',
+        version: 1,
+        updatedAt: DateTime.utc(2026, 9, 24, 11),
+      ),
+      isTrue,
+    );
+    expect(ride.status, RideStatus.driverArriving);
+  });
+
+  test('authoritative reconciliation rejects illegal live state jumps', () {
     final ride = RideSession()..rideId = 'r1';
     expect(
       ride.backendReconcile(
