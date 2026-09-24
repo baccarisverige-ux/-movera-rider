@@ -195,28 +195,36 @@ class HomeLocationController extends ChangeNotifier {
     );
     _positionSub = location
         .getPositionStream(locationSettings: settings)
-        .listen((position) {
-          if (!isMounted() || _livePaused) return;
-          final pose = motion.ingest(
-            LocationPoint(
-              point: GeoPoint(position.latitude, position.longitude),
-              timestamp: position.timestamp,
-              accuracyMeters: position.accuracy,
-              speedMps: position.speed,
-              heading: position.heading,
-            ),
-          );
-          final latLng = pose == null
-              ? LatLng(position.latitude, position.longitude)
-              : LatLng(pose.position.latitude, pose.position.longitude);
-          if (!hasCompassHeading &&
-              position.heading.isFinite &&
-              position.heading >= 0) {
-            heading = position.heading;
-            reportPuckHeading(heading, compass: false);
-          }
-          onFix(latLng, heading);
-        });
+        .listen(
+          (position) {
+            if (!isMounted() || _livePaused) return;
+            final pose = motion.ingest(
+              LocationPoint(
+                point: GeoPoint(position.latitude, position.longitude),
+                timestamp: position.timestamp,
+                accuracyMeters: position.accuracy,
+                speedMps: position.speed,
+                heading: position.heading,
+              ),
+            );
+            final latLng = pose == null
+                ? LatLng(position.latitude, position.longitude)
+                : LatLng(pose.position.latitude, pose.position.longitude);
+            if (!hasCompassHeading &&
+                position.heading.isFinite &&
+                position.heading >= 0) {
+              heading = position.heading;
+              reportPuckHeading(heading, compass: false);
+            }
+            onFix(latLng, heading);
+          },
+          onError: (Object _) {
+            // A temporary GPS stream failure must not crash Home. A later
+            // lifecycle resume/rebind can recover the live stream.
+            _positionSub?.cancel();
+            _positionSub = null;
+          },
+        );
   }
 
   /// Requests compass permission, then polls heading. Returns whether the
