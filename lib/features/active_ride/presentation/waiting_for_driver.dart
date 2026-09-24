@@ -7,6 +7,7 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
@@ -145,6 +146,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // intentionally gated on route-current state; that can strand this
     // transient event when Waiting has just replaced the matching stage.
     if (status == RideStatus.cancelledByDriver) {
+      AppLog.info(
+        'ride.waiting.driver_cancel_tick',
+        extra: {
+          'leaving': _leaving,
+          'completedOpened': _completedOpened,
+          'researching': _researching,
+        },
+      );
       if (!_leaving && !_completedOpened) {
         unawaited(_researchAfterDriverCancel());
       }
@@ -334,7 +343,9 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _tracking.dispose();
 
     if (mounted) {
+      AppLog.info('ride.waiting.driver_cancel_sheet_opening');
       await showDriverCancelledSheet(context, driverName: lostDriver?.firstName);
+      AppLog.info('ride.waiting.driver_cancel_sheet_closed');
     }
     if (!mounted) {
       _researching = false;
