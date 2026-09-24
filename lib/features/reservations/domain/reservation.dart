@@ -318,6 +318,11 @@ class Reservation {
         map['scheduledPickupAt'] as String? ?? map['pickupAt'] as String? ?? '',
       );
       if (created == null || pickupAt == null) return null;
+      final rawStatus = map['status'] as String?;
+      final status = rawStatus == null
+          ? ReservationStatus.scheduled
+          : ReservationStatus.tryParse(rawStatus);
+      if (status == null) return null;
       return Reservation(
         reservationId: id,
         createdAt: created,
@@ -336,7 +341,7 @@ class Reservation {
         price: (map['price'] as num?)?.toDouble() ?? 0,
         currency: (map['currency'] as String?) ?? 'SEK',
         paymentMethod: (map['paymentMethod'] as String?) ?? 'Apple Pay',
-        status: ReservationStatus.parse(map['status'] as String?),
+        status: status,
         driver: ReservationDriver.tryParse(map['driver']),
         note: map['note'] as String?,
         cancellationReason: map['cancellationReason'] as String?,

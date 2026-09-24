@@ -37,10 +37,13 @@ enum ReservationStatus {
   bool get isDriverOnTheWay =>
       this == driverEnRoute || this == driverArrived || this == inProgress;
 
-  static ReservationStatus parse(String? name) {
+  static ReservationStatus? tryParse(String? name) {
     for (final value in ReservationStatus.values) {
       if (value.name == name) return value;
     }
-    return ReservationStatus.scheduled;
+    return null;
   }
+
+  static ReservationStatus parse(String? name) =>
+      tryParse(name) ?? ReservationStatus.scheduled;
 }

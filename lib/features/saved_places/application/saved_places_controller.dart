@@ -9,4 +9,10 @@ class SavedPlacesController {
 
   List<SavedPlacesModel> options() => _store.options();
   List<PlaceShortcut> shortcuts() => _store.shortcuts();
+
+  Future<void> hydrate() => _store.hydrate();
+
+  Future<void> save(PlaceShortcut place) => _store.save(place);
+
+  Future<void> removeKind(String kind) => _store.removeKind(kind);
 }
