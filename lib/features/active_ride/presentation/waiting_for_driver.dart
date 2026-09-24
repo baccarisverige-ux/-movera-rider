@@ -336,7 +336,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // without this explicit reversible dispatch transition the parked Finding
     // route observes a stale cancelledByDriver session after the rider chooses
     // Keep searching.
-    await _ride.resumeSearchingAfterDriverCancel(rideId: _rideId);
+    final redispatchRideId = _rideId;
+    await _ride.resumeSearchingAfterDriverCancel(rideId: redispatchRideId);
     _realtime.researchAfterDriverCancel();
     _leaving = true;
     if (mounted) setState(() {});
