@@ -76,13 +76,14 @@ class RideSession {
 
     if (status != backendStatus && !canTransition(status, backendStatus)) {
       AppLog.info(
-        'ride.restore.jump',
+        'ride.restore.rejected_jump',
         extra: {
           'from': status.name,
           'to': backendStatus.name,
           'rideId': id ?? rideId,
         },
       );
+      return false;
     }
 
     rideId = id ?? rideId;
