@@ -391,22 +391,30 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!mounted || _leaving || _completedOpened) return;
     _completedOpened = true;
     final rideId = _rideId;
-    _tracking.dispose();
 
     final customCompleted = widget.onCompleted;
     if (customCompleted != null) {
+      _tracking.dispose();
       await _parkMapForStageChange();
       if (!mounted) return;
       await customCompleted(context, status);
       return;
     }
 
+    // Keep the live subscription through the navigation barrier. Payment and
+    // rating events can arrive while the active map is parking; disposing the
+    // tracker before that barrier creates a blind window and can strand the
+    // completion UI at tripCompleted.
     await _ride.markCompleted(status);
     if (!mounted) return;
     await _parkMapForStageChange();
     if (!mounted) return;
+    final trackedStatus = _tracking.status;
+    final completionStatus = trackedStatus.isCompletedSurface
+        ? trackedStatus
+        : status;
     final completed = RideCompleted(
-      status: status,
+      status: completionStatus,
       rideId: rideId,
       realtime: widget.realtime,
       showConnectionBanner: widget.realtime == null,
