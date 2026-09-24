@@ -642,6 +642,7 @@ void main() {
       }
 
       expect(find.byType(RideCompleted), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 160));
       expect(find.byType(WaitingForDriver), findsNothing);
       expect(observer.pushed.last.settings.name, AppRoutes.rideCompleted);
       final completed = tester.widget<RideCompleted>(
