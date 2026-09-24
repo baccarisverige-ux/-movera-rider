@@ -75,6 +75,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
+  String? _pickupError;
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
@@ -123,6 +124,41 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     setState(() {
       _address = address;
       _search.text = address;
+    });
+  }
+
+  Future<void> _useCurrentLocation() async {
+    setState(() => _pickupError = null);
+    final result = await _pickup.currentPosition();
+    if (!mounted) return;
+    final position = result.position;
+    if (position == null) {
+      setState(() {
+        _pickupError = switch (result.failure) {
+          PickupLocationFailure.servicesDisabled =>
+            'Turn on Location Services, then try again.',
+          PickupLocationFailure.permissionDenied =>
+            'Location permission is needed to use your current pickup.',
+          PickupLocationFailure.permissionDeniedForever =>
+            'Location permission is blocked. Enable it in Settings or choose the pickup on the map.',
+          PickupLocationFailure.unavailable =>
+            'Current location is unavailable. Try again or choose the pickup on the map.',
+          null => 'Current location is unavailable.',
+        };
+      });
+      return;
+    }
+    setState(() {
+      _center = position;
+      _address = 'Current location';
+      _search.text = _address;
+    });
+    await _map?.animateCamera(CameraUpdate.newLatLng(position));
+    final address = await _pickup.reverse(position);
+    if (!mounted || address == null || address.trim().isEmpty) return;
+    setState(() {
+      _address = address.trim();
+      _search.text = _address;
     });
   }
 
@@ -282,6 +318,25 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _useCurrentLocation,
+                  icon: const Icon(Icons.my_location_rounded, size: 18),
+                  label: const Text('Use current location'),
+                ),
+                if (_pickupError != null) ...[
+                  const SizedBox(height: 4),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _pickupError!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12.5,
+                        color: const Color(0xFF9A3412),
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
                 Text(
                   _address,
                   style: GoogleFonts.poppins(
