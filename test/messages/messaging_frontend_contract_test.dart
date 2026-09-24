@@ -27,7 +27,7 @@ void main() {
 
     expect(card.contains('Chat('), isTrue);
     expect(
-      card.contains('Chat(driverName: d.firstName, rideId: rideId)'),
+      card.contains('Chat(driverName: d.displayFirstName, rideId: rideId)'),
       isTrue,
       reason: 'active ride chat must stay scoped to the current ride',
     );
