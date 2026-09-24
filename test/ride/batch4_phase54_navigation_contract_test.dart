@@ -15,6 +15,7 @@ import 'package:movera_rider/features/history/data/on_demand_ride_history_store.
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/di.dart';
@@ -757,10 +758,17 @@ void main() {
       // bookkeeping is not part of the navigation contract under test.
       realtime.emit(RideStatus.cancelledByDriver);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      for (
+        var i = 0;
+        i < 20 && find.byType(DriverCancelledSheet).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(realtime.lastStatus, RideStatus.cancelledByDriver);
       expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
+      expect(find.byType(DriverCancelledSheet), findsOneWidget);
       expect(find.text('Keep searching'), findsOneWidget);
 
       await tester.tap(find.text('Keep searching'));
