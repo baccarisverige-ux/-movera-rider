@@ -769,13 +769,17 @@ void main() {
       expect(realtime.lastStatus, RideStatus.cancelledByDriver);
       expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
       expect(find.byType(DriverCancelledSheet), findsOneWidget);
+
+      // The sheet can first become discoverable on the same pump that starts
+      // its 380 ms entrance transition. Let that real transition complete
+      // before hit-testing the CTA; ensureVisible cannot move a route that is
+      // still being translated in from below the viewport.
+      await tester.pump(const Duration(milliseconds: 430));
       final keepSearching = find.widgetWithText(
         FilledButton,
         'Keep searching',
       );
       expect(keepSearching, findsOneWidget);
-      await tester.ensureVisible(keepSearching);
-      await tester.pump();
 
       await tester.tap(keepSearching);
       for (
