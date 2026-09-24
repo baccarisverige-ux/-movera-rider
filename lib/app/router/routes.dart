@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 /// Screens still push with existing transitions; names are the contract.
 abstract final class AppRoutes {
   static const home = '/';
+  static const confirmPickup = '/ride/pickup-confirm';
   static const selectRide = '/ride/select';
   static const findingDriver = '/ride/finding';
   static const waitingForDriver = '/ride/waiting';
