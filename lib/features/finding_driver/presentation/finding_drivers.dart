@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -295,6 +296,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           notes: widget.notes,
           driver: _match.matchedDriver,
         ),
+        settings: const RouteSettings(name: AppRoutes.waitingForDriver),
       ),
     );
     if (!mounted || researchDriver != true) return;
