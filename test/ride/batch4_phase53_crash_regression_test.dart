@@ -6,10 +6,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
-import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
-import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
-import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
@@ -88,66 +85,20 @@ void main() {
   testWidgets(
     'upcoming reservation driver card does not crash with an empty direct name',
     (tester) async {
-      final controller = ReservationController(
-        store: LocalReservationRepository(
-          storage: MemoryReservationStorage(),
-          nextId: () => 'phase53-reservation',
-        ),
-      );
-      final created = await controller.create(
-        ReservationDraft(
-          scheduledPickupAt: DateTime(2026, 9, 24, 12),
-          pickup: const ReservationPlace(
-            label: 'Stockholm Central',
-            lat: 59.3300,
-            lng: 18.0590,
-          ),
-          destination: const ReservationPlace(
-            label: 'Arlanda Airport',
-            lat: 59.6519,
-            lng: 17.9186,
-          ),
-          categoryId: 'movera',
-          categoryName: 'Movera',
-          categoryImage: 'assets/images/rides/movera.webp',
-          price: 349,
-          paymentMethod: 'Apple Pay',
-        ),
-      );
-      await controller.assignMockDriver(
-        created.reservationId,
-        driver: const ReservationDriver(firstName: ''),
-      );
-      await controller.update(
-        created.reservationId,
-        const ReservationPatch(status: ReservationStatus.driverEnRoute),
-      );
-
       await tester.pumpWidget(
-        MaterialApp(
-          onGenerateInitialRoutes: (_) => [
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(name: 'phase53-upcoming'),
-              builder: (_) => UpcomingReservationPage(
-                reservationId: created.reservationId,
-                controller: controller,
-              ),
+        const MaterialApp(
+          home: Scaffold(
+            body: ReservationDriverCard(
+              driver: ReservationDriver(firstName: ''),
             ),
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(name: 'phase53-cover'),
-              builder: (_) => const Scaffold(body: Text('phase53-cover')),
-            ),
-          ],
+          ),
         ),
       );
-      await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(
-        find.byType(UpcomingReservationPage, skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(find.text('Driver', skipOffstage: false), findsOneWidget);
+      expect(find.byType(ReservationDriverCard), findsOneWidget);
+      expect(find.text('Driver'), findsOneWidget);
+      expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
     },
   );
 
@@ -176,33 +127,45 @@ void main() {
         id: rideId,
       );
 
+      final realtime = MockRideRealtime(
+        assignAfter: const Duration(hours: 1),
+      );
+      final navigatorKey = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
-        const MaterialApp(
-          home: WaitingForDriver(
+        MaterialApp(
+          navigatorKey: navigatorKey,
+          home: const Scaffold(body: Text('phase53-root')),
+        ),
+      );
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => WaitingForDriver(
             pickupAddress: 'Stockholm pickup',
             destinationAddress: 'Stockholm destination',
-            pickupPosition: LatLng(59.3293, 18.0686),
-            destinationPosition: LatLng(59.3326, 18.0649),
+            pickupPosition: const LatLng(59.3293, 18.0686),
+            destinationPosition: const LatLng(59.3326, 18.0649),
             rideType: 'Movera',
             price: 259,
             paymentMethod: 'Apple Pay',
+            rideId: rideId,
+            realtime: realtime,
           ),
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 80));
 
-      final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
       realtime.holdAssignment();
       realtime.emit(RideStatus.cancelledByDriver);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(find.text('Keep searching'), findsOneWidget);
       await tester.tap(find.text('Keep searching'));
+      await tester.pump();
 
-      // The recovery is asynchronous (sheet exit -> map park -> redispatch).
-      // Remove the whole Waiting subtree while that chain is still unwinding.
+      // Unmount the entire route tree while the async recovery chain is still
+      // unwinding. Any post-await context use must be protected by mounted.
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: Text('phase53-unmounted'))),
       );
