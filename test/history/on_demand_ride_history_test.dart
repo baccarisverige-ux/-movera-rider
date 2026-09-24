@@ -148,7 +148,8 @@ void main() {
     final history = await OnDemandRideHistoryStore.read();
     expect(history, hasLength(1));
     expect(history.single.reservationId, 'ondemand-ride-retry');
-    expect(history.single.scheduledPickupAt, secondEnd);
+    // Persistence is UTC now, so compare the same instant in UTC.
+    expect(history.single.scheduledPickupAt, secondEnd.toUtc());
   });
 
   test('archive refuses to invent an id when rideId is missing', () async {

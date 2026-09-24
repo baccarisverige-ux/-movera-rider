@@ -21,7 +21,10 @@ abstract final class OnDemandRideHistoryStore {
   static const key = 'movera_on_demand_ride_history_v1';
   static const maxRecords = 100;
   static const retention = Duration(days: 180);
-  static Future<void> _writeQueue = Future<void>.value();
+
+  /// How many times a write re-reads and retries before giving up on proving
+  /// its own record survived a concurrent archive.
+  static const _maxWriteAttempts = 6;
 
   static Future<List<Reservation>> read() async {
     final prefs = await PreferencesStore.load();
@@ -85,24 +88,6 @@ abstract final class OnDemandRideHistoryStore {
     required RideStatus terminalStatus,
     DateTime? endedAt,
     String? cancellationReason,
-  }) {
-    final operation = _writeQueue.then(
-      (_) => _archiveSerialized(
-        snapshot,
-        terminalStatus: terminalStatus,
-        endedAt: endedAt,
-        cancellationReason: cancellationReason,
-      ),
-    );
-    _writeQueue = operation.catchError((Object _) {});
-    return operation;
-  }
-
-  static Future<void> _archiveSerialized(
-    RideSnapshot snapshot, {
-    required RideStatus terminalStatus,
-    DateTime? endedAt,
-    String? cancellationReason,
   }) async {
     final rideId = snapshot.rideId?.trim();
     if (rideId == null || rideId.isEmpty) {
@@ -152,19 +137,46 @@ abstract final class OnDemandRideHistoryStore {
       cancellationReason: cancellationReason ?? snapshot.cancellationReason,
     );
 
-    final rides = await read();
-    final updated = <Reservation>[
-      record,
-      ...rides.where((ride) => ride.reservationId != record.reservationId),
-    ]..sort((a, b) => b.scheduledPickupAt.compareTo(a.scheduledPickupAt));
+    // Two archives finishing at once both read, prepend and write, so the
+    // slower reader can overwrite the faster writer's record. Rather than queue
+    // writes behind a shared future — where one write that never settles wedges
+    // every later archive and rides silently stop reaching History — each write
+    // re-reads and retries until its own record is proven stored, the same
+    // compare-and-verify shape the live snapshot store uses.
+    for (var attempt = 1; attempt <= _maxWriteAttempts; attempt++) {
+      final rides = await read();
+      final updated = <Reservation>[
+        record,
+        ...rides.where((ride) => ride.reservationId != record.reservationId),
+      ]..sort((a, b) => b.scheduledPickupAt.compareTo(a.scheduledPickupAt));
+      final retained = updated.take(maxRecords).toList(growable: false);
 
-    final prefs = await PreferencesStore.load();
-    await prefs.setString(
-      key,
-      jsonEncode(
-        updated.take(maxRecords).map((ride) => ride.toJson()).toList(),
-      ),
-    );
+      final prefs = await PreferencesStore.load();
+      await prefs.setString(
+        key,
+        jsonEncode(retained.map((ride) => ride.toJson()).toList()),
+      );
+
+      // A record trimmed by maxRecords or already past retention was never
+      // meant to be readable, so only verify the writes that claim a slot.
+      final claimsSlot =
+          retained.any((ride) => ride.reservationId == record.reservationId) &&
+          record.scheduledPickupAt.isAfter(
+            DateTime.now().subtract(retention),
+          );
+      if (!claimsSlot) return;
+
+      final stored = await read();
+      if (stored.any((ride) => ride.reservationId == record.reservationId)) {
+        return;
+      }
+      if (attempt == _maxWriteAttempts) {
+        throw StateError(
+          'History archive for ${record.reservationId} kept losing its slot to '
+          'a concurrent write after $_maxWriteAttempts attempts.',
+        );
+      }
+    }
   }
 
   static Future<void> clear() async {
