@@ -40,7 +40,7 @@ void main() {
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));
     expect(waiting, contains('final completed = RideCompleted('));
-    expect(waiting, contains('status: status,'));
+    expect(waiting, contains('status: completionStatus,'));
     expect(waiting, contains('rideId: rideId,'));
     expect(waiting, contains('realtime: widget.realtime,'));
     expect(
