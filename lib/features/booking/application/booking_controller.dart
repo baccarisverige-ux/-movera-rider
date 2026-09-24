@@ -43,4 +43,8 @@ class BookingController {
       notes: notes,
     );
   }
+  Future<String> reconcileCreatedFinding(String createdRideId) {
+    return _store.reconcileCreatedFinding(createdRideId);
+  }
+
 }

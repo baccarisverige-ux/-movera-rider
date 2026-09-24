@@ -45,4 +45,8 @@ class BookingRepository {
       notes: notes,
     );
   }
+  Future<String> reconcileCreatedFinding(String createdRideId) {
+    return _coordinator.reconcileCreatedFinding(createdRideId);
+  }
+
 }

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -215,6 +218,80 @@ class RideRestoreCoordinator {
     }
   }
 
+  /// Immediately gives a newly created on-demand ride a visible owner when
+  /// the Select Ride surface disappears before it can push Finding.
+  ///
+  /// This is a post-create recovery path, not normal resume. The backend ride
+  /// already exists, so silently waiting for a later app lifecycle event would
+  /// leave a live orphan ride.
+  Future<bool> recoverCreatedFinding(
+    String rideId, {
+    RideRealtime? realtime,
+  }) async {
+    final expectedId = rideId.trim();
+    if (expectedId.isEmpty) return false;
+
+    final snapshot = await _reader();
+    if (snapshot == null ||
+        snapshot.rideId?.trim() != expectedId ||
+        snapshot.status.isTerminal ||
+        !snapshot.isFresh) {
+      return false;
+    }
+
+    AppScope.instance.ride.backendReconcile(
+      snapshot.status,
+      id: expectedId,
+    );
+
+    final finding = FindingDrivers(
+      pickupAddress: snapshot.pickupAddress,
+      destinationAddress: snapshot.destinationAddress,
+      pickupPosition: LatLng(snapshot.pickupLat, snapshot.pickupLng),
+      destinationPosition: LatLng(
+        snapshot.destinationLat,
+        snapshot.destinationLng,
+      ),
+      rideType: snapshot.rideType,
+      price: snapshot.price,
+      paymentMethod: snapshot.paymentMethod,
+      notes: snapshot.notes,
+      realtime: realtime,
+    );
+
+    final nav = moveraNavigatorKey.currentState;
+    final replace = onReplaceRoot;
+    if (replace != null) {
+      // Default app topology: remove Home's platform map for one full frame
+      // before the recovered Finding map mounts.
+      showing = RestoredSurface.finding;
+      reportRestoreSurface('recoveringFinding');
+      replace(const _RideRecoveryBarrier());
+      if (nav != null && nav.canPop()) {
+        nav.popUntil((route) => route.isFirst);
+      }
+      await WidgetsBinding.instance.endOfFrame;
+      replace(finding);
+      reportRestoreSurface(RestoredSurface.finding.name);
+      return true;
+    }
+
+    // Isolated hosts/tests may not mount RideRestoreGate. The navigator is
+    // still a valid immediate recovery owner in that topology.
+    if (nav == null) return false;
+    showing = RestoredSurface.finding;
+    reportRestoreSurface(RestoredSurface.finding.name);
+    unawaited(
+      nav.push<void>(
+        RideStageTransition(
+          finding,
+          settings: const RouteSettings(name: AppRoutes.findingDriver),
+        ),
+      ),
+    );
+    return true;
+  }
+
   Future<Widget?> resumeIfNeeded() async {
     if (_skipRestore()) {
       unawaited(RideSnapshotStore.clear());
@@ -251,3 +328,21 @@ class RideRestoreCoordinator {
 }
 
 typedef RideSnapshotStoreReader = Future<RideSnapshot?> Function();
+
+
+class _RideRecoveryBarrier extends StatelessWidget {
+  const _RideRecoveryBarrier();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFFF6F5F1),
+      child: Center(
+        child: Semantics(
+          label: 'Restoring active ride',
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    );
+  }
+}
