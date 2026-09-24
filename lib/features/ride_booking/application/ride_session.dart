@@ -51,9 +51,19 @@ class RideSession {
     int? version,
     DateTime? updatedAt,
   }) {
+    final incomingRideId = id?.trim();
+    final currentRideId = rideId?.trim();
     final isNewRide =
-        id != null && rideId != null && id != rideId;
+        incomingRideId != null &&
+        incomingRideId.isNotEmpty &&
+        currentRideId != null &&
+        currentRideId.isNotEmpty &&
+        incomingRideId != currentRideId;
 
+    // A new ride id establishes a fresh authoritative ordering domain.
+    // Wrong-ride realtime events are filtered by the subscription/controller
+    // that owns the expected ride id; RideSession also serves restore/rebook
+    // flows where replacing the previous ride id is intentional.
     if (isNewRide) {
       authoritativeVersion = null;
       authoritativeUpdatedAt = null;
@@ -74,16 +84,10 @@ class RideSession {
       return false;
     }
 
-    if (status != backendStatus && !canTransition(status, backendStatus)) {
-      AppLog.info(
-        'ride.restore.jump',
-        extra: {
-          'from': status.name,
-          'to': backendStatus.name,
-          'rideId': id ?? rideId,
-        },
-      );
-    }
+    // Deliberately do not apply the local transition graph here. Backend
+    // projections are authoritative and may skip client-only intermediate
+    // states (for example driverArriving -> paymentFinalized after reconnect).
+    // Ordering and ride identity are the safety boundaries for this path.
 
     rideId = id ?? rideId;
     status = backendStatus;

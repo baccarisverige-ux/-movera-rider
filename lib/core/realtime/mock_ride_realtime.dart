@@ -127,6 +127,7 @@ class MockRideRealtime implements RideRealtime {
     if (lastStatus.isMatched) return;
 
     _assignmentInFlight = true;
+    final assignmentAttempt = _assignmentAttempt;
     _assign?.cancel();
     _assign = null;
     _pickupLat ??= 59.3293;
@@ -143,8 +144,27 @@ class MockRideRealtime implements RideRealtime {
 
     await _persistAssignment(rideId);
 
-    if (cancelled || disposed || _rideId != rideId) {
+    if (cancelled ||
+        disposed ||
+        _rideId != rideId ||
+        assignmentAttempt != _assignmentAttempt ||
+        lastStatus != RideStatus.findingDriver) {
       _assignmentInFlight = false;
+      // A driver drop can invalidate this attempt while its persistence call
+      // is in flight. If the rider already chose Keep searching, guarantee a
+      // fresh attempt instead of leaving redispatch without a timer.
+      if (!cancelled &&
+          !disposed &&
+          !held &&
+          _rideId == rideId &&
+          lastStatus == RideStatus.findingDriver &&
+          assignmentAttempt != _assignmentAttempt) {
+        _assign?.cancel();
+        _assign = Timer(assignAfter, () {
+          if (cancelled || disposed || held || _rideId != rideId) return;
+          assignNow();
+        });
+      }
       return;
     }
 
@@ -263,19 +283,21 @@ class MockRideRealtime implements RideRealtime {
     if (lastStatus.isCompletedSurface || lastStatus.isTerminal) return;
 
     _stopMotion();
+    _assign?.cancel();
+    _assign = null;
     _assignmentAttempt += 1;
     lastDriver = null;
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
+
+    // Publish the driver-drop outcome exactly once so Waiting can explain it.
+    // Do not tear the transport down: this terminal-looking dispatch event is
+    // reversible for the same ride and researchAfterDriverCancel owns restart.
     lastStatus = RideStatus.cancelledByDriver;
     _sequence += 1;
-
-    // Published straight to the stream rather than through emit(): emit treats
-    // any terminal status as the end of the ride and tears the subscription
-    // down, which is right for a rider's own cancellation and wrong here —
-    // this ride carries on with someone else driving it.
+    final now = DateTime.now().toUtc();
     _controller.add(
       RideRealtimeEvent(
         tripId: rideId,
@@ -283,8 +305,8 @@ class MockRideRealtime implements RideRealtime {
         status: RideStatus.cancelledByDriver,
         sequence: _sequence,
         version: _sequence,
-        occurredAt: DateTime.now().toUtc(),
-        serverTime: DateTime.now().toUtc(),
+        occurredAt: now,
+        serverTime: now,
       ),
     );
   }
@@ -293,15 +315,37 @@ class MockRideRealtime implements RideRealtime {
   @override
   void researchAfterDriverCancel() {
     final rideId = _rideId;
-    if (rideId == null || disposed) return;
-    if (lastStatus != RideStatus.cancelledByDriver) return;
+    if (rideId == null) return;
 
+    // Waiting disposes its tracking subscription before the driver-cancel
+    // sheet, but that must not dispose this shared transport: redispatch is
+    // the same live ride. emit() also latches `cancelled` for every terminal
+    // status, including this reversible driver drop. Clear that latch here
+    // whether or not the transport itself was disposed.
+    if (lastStatus != RideStatus.cancelledByDriver) return;
+    disposed = false;
     cancelled = false;
+    connection.markConnected();
+
+    // The previous assignment may still be unwinding an async persistence
+    // request. Its generation was invalidated by cancelByDriver(), so it must
+    // not block the rider-visible redispatch state. Reopen searching now; the
+    // stale assignment's post-await guard cannot publish because its captured
+    // attempt no longer matches.
     lastStatus = RideStatus.findingDriver;
     _emit(RideStatus.findingDriver);
     _assign?.cancel();
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
+      if (_assignmentInFlight) {
+        // Let the invalidated persistence unwind, then retry through the same
+        // guarded scheduling path instead of dropping redispatch completely.
+        _assign = Timer(const Duration(milliseconds: 1), () {
+          if (cancelled || disposed || held || _rideId != rideId) return;
+          assignNow();
+        });
+        return;
+      }
       assignNow();
     });
   }
@@ -446,7 +490,9 @@ class MockRideRealtime implements RideRealtime {
       try {
         final json = await client.get('/api/v1/rides/$rideId');
         final raw = json['ride'];
-        if (raw is Map && raw['status'] is String) {
+        if (raw is Map &&
+            raw['id']?.toString() == rideId &&
+            raw['status'] is String) {
           status = RideStatus.values.firstWhere(
             (value) => value.name == raw['status'],
             orElse: () => status,
@@ -465,7 +511,7 @@ class MockRideRealtime implements RideRealtime {
     // lastStatus. emit() guards against events after a terminal status; writing
     // the incoming terminal status first would therefore make the event block
     // itself and disappear from the Rider stream.
-    if (!cancelled && !disposed) {
+    if (!cancelled && !disposed && _rideId == rideId) {
       _emit(status);
     }
   }

@@ -99,5 +99,6 @@ class DriverTrackingController {
 
   void dispose() {
     _sub?.cancel();
+    _sub = null;
   }
 }

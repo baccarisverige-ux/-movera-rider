@@ -39,6 +39,25 @@ class ActiveRideController {
     }
   }
 
+  Future<void> resumeSearchingAfterDriverCancel({String? rideId}) async {
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return;
+    final ride = AppScope.instance.ride;
+    if (ride.rideId?.trim() != id ||
+        ride.status != RideStatus.cancelledByDriver) {
+      return;
+    }
+
+    // cancelledByDriver is a reversible dispatch outcome: the rider still owns
+    // the same ride and explicitly chose Keep searching. Reconcile shared
+    // application state synchronously before navigation can reveal the parked
+    // Finding route. Snapshot persistence is deliberately not on this critical
+    // path: DriverTracking never persisted the terminal driver-drop snapshot,
+    // so the existing active snapshot already remains the correct recovery
+    // record until realtime publishes the replacement search/assignment.
+    ride.backendReconcile(RideStatus.findingDriver, id: id);
+  }
+
   Future<void> markExternalTerminal(RideStatus status) async {
     if (!status.isTerminal ||
         status.isCompletedSurface ||

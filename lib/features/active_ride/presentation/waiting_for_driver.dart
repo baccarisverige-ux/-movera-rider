@@ -307,20 +307,37 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (mounted) {
       await showDriverCancelledSheet(context, driverName: lostDriver?.firstName);
     }
-    if (!mounted) return;
+    if (!mounted) {
+      _researching = false;
+      return;
+    }
 
     await _parkMapForStageChange();
-    if (!mounted) return;
+    if (!mounted) {
+      _researching = false;
+      return;
+    }
 
     final customDriverCancelled = widget.onDriverCancelled;
     if (customDriverCancelled != null) {
       _leaving = true;
       setState(() {});
-      await customDriverCancelled(context);
+      try {
+        await customDriverCancelled(context);
+      } finally {
+        _researching = false;
+      }
       return;
     }
 
     // Same ride, same price, same addresses — only the driver changes.
+    // Re-open the shared session before restarting dispatch. The tracking
+    // controller already reconciled the driver-drop event as terminal, and
+    // without this explicit reversible dispatch transition the parked Finding
+    // route observes a stale cancelledByDriver session after the rider chooses
+    // Keep searching.
+    final redispatchRideId = _rideId;
+    await _ride.resumeSearchingAfterDriverCancel(rideId: redispatchRideId);
     _realtime.researchAfterDriverCancel();
     _leaving = true;
     if (mounted) setState(() {});
@@ -330,6 +347,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       // Normal forward path already has the parked Finding route directly
       // underneath this screen. Return to it instead of stacking another
       // Finding route every time a driver drops the ride.
+      _researching = false;
       navigator.pop(true);
       return;
     }
@@ -349,10 +367,12 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
     final coordinator = RideRestoreCoordinator.instance;
     if (coordinator.replaceRootSurface(finding, RestoredSurface.finding)) {
+      _researching = false;
       return;
     }
 
     // Widget tests or isolated hosts may not have RideRestoreGate installed.
+    _researching = false;
     Navigator.pushReplacement(
       context,
       RideStageTransition(finding),

@@ -173,6 +173,7 @@ void main() {
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
     final realtime = AppScope.instance.rideRealtime as MockRideRealtime;
     expect(realtime.lastStatus, RideStatus.findingDriver);
+    expect(AppScope.instance.ride.status, RideStatus.findingDriver);
     // researchAfterDriverCancel intentionally starts the next assignment timer.
     // This test only certifies the reverse route topology, so stop that future
     // mock assignment before Flutter verifies there are no leaked timers.
