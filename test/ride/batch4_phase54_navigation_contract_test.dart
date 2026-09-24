@@ -304,7 +304,7 @@ void main() {
       );
       final realtime = MockRideRealtime(
         assignAfter: const Duration(days: 1),
-        boardAfter: const Duration(milliseconds: 40),
+        boardAfter: const Duration(seconds: 2),
         tripTick: const Duration(milliseconds: 40),
         tripTicks: 2,
         paymentProcessingAfter: const Duration(milliseconds: 40),
@@ -411,13 +411,7 @@ void main() {
       // Drive the real mock lifecycle through pickup, trip, payment and rating.
       realtime.markArrivedForTest();
       await tester.pump();
-      for (
-        var i = 0;
-        i < 20 && find.text("I'm on the way").evaluate().isEmpty;
-        i++
-      ) {
-        await tester.pump(const Duration(milliseconds: 10));
-      }
+      await tester.pump(const Duration(milliseconds: 600));
       expect(find.text("I'm on the way"), findsOneWidget);
       await tester.tap(find.text("I'm on the way"));
       await tester.pump();
