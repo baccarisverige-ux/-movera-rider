@@ -38,7 +38,7 @@ class _Location extends LocationRepository {
   LocationPermission permission;
   LocationPermission requestedPermission;
   Position current;
-  final StreamController<Position> stream = StreamController<Position>();
+  StreamController<Position> stream = StreamController<Position>.broadcast();
 
   @override
   Future<bool> isLocationServiceEnabled() async => serviceEnabled;
@@ -74,7 +74,7 @@ void main() {
     final location = _Location(serviceEnabled: false);
     final ctl = controller(location);
     addTearDown(ctl.dispose);
-    addTearDown(location.stream.close);
+    addTearDown(() => location.stream.close());
 
     final detected = await ctl.detectCurrent();
 
@@ -109,7 +109,7 @@ void main() {
     );
     final ctl = controller(location);
     addTearDown(ctl.dispose);
-    addTearDown(location.stream.close);
+    addTearDown(() => location.stream.close());
 
     expect((await ctl.detectCurrent()).target, isNull);
     location
@@ -125,7 +125,7 @@ void main() {
     final location = _Location();
     final ctl = controller(location);
     addTearDown(ctl.dispose);
-    addTearDown(location.stream.close);
+    addTearDown(() => location.stream.close());
     final fixes = <LatLng>[];
 
     ctl.startTracking(
@@ -153,7 +153,7 @@ void main() {
     final location = _Location(current: _position(heading: 40));
     final ctl = controller(location, compass: () => compass);
     addTearDown(ctl.dispose);
-    addTearDown(location.stream.close);
+    addTearDown(() => location.stream.close());
 
     await ctl.startHeading(isMounted: () => true, onHeading: (_) {});
     ctl.pollHeading();
@@ -170,7 +170,7 @@ void main() {
     final location = _Location(current: _position(heading: 75));
     final ctl = controller(location);
     addTearDown(ctl.dispose);
-    addTearDown(location.stream.close);
+    addTearDown(() => location.stream.close());
 
     ctl.startTracking(isMounted: () => true, onFix: (_, __) {});
     location.stream.add(_position(heading: 75));
