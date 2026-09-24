@@ -232,7 +232,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 if (ride.revealsDriver && ride.driver != null) ...[
                   const SizedBox(height: 14),
-                  _DriverCard(driver: ride.driver!),
+                  ReservationDriverCard(driver: ride.driver!),
                 ] else if (ride.driverAssigned) ...[
                   const SizedBox(height: 14),
                   Text(
@@ -390,8 +390,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   }
 }
 
-class _DriverCard extends StatelessWidget {
-  const _DriverCard({required this.driver});
+class ReservationDriverCard extends StatelessWidget {
+  const ReservationDriverCard({super.key, required this.driver});
 
   final ReservationDriver driver;
 
