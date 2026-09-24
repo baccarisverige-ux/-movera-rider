@@ -39,9 +39,13 @@ void main() {
     expect(home, contains('RideStageTransition(\n          SelectRide('));
     expect(select, contains('RideStageTransition(\n            FindingDrivers('));
     expect(finding, contains('RideStageTransition(\n        WaitingForDriver('));
+    expect(waiting, contains('final completed = RideCompleted('));
+    expect(waiting, contains('status: status,'));
+    expect(waiting, contains('rideId: rideId,'));
+    expect(waiting, contains('realtime: widget.realtime,'));
     expect(
       waiting,
-      contains('final completed = RideCompleted(status: status, rideId: rideId);'),
+      contains('showConnectionBanner: widget.realtime == null,'),
     );
     expect(
       waiting,
@@ -284,7 +288,7 @@ void main() {
     ).readAsStringSync();
 
     final completionStart = waiting.indexOf(
-      'final completed = RideCompleted(status: status, rideId: rideId);',
+      'final completed = RideCompleted(',
     );
     final rootGuard = waiting.indexOf('if (!navigator.canPop())', completionStart);
     final gateSwap = waiting.indexOf('RestoredSurface.complete', rootGuard);
