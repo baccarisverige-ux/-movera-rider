@@ -6,6 +6,15 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
+class _RecordingObserver extends NavigatorObserver {
+  final List<Route<dynamic>> pushed = <Route<dynamic>>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushed.add(route);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -22,9 +31,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final navigatorKey = GlobalKey<NavigatorState>();
+    final observer = _RecordingObserver();
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
+        navigatorObservers: [observer],
         home: const Scaffold(body: Text('phase54-home')),
       ),
     );
@@ -41,7 +52,6 @@ void main() {
     );
     await tester.pump();
 
-    final route = ModalRoute.of(tester.element(find.byType(SelectRide)));
-    expect(route?.settings.name, AppRoutes.selectRide);
+    expect(observer.pushed.last.settings.name, AppRoutes.selectRide);
   });
 }
