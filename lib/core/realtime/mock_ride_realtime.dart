@@ -317,17 +317,15 @@ class MockRideRealtime implements RideRealtime {
     final rideId = _rideId;
     if (rideId == null) return;
 
-    // Waiting intentionally disposes its tracking subscription before showing
-    // the driver-cancel sheet. That must not dispose the shared transport:
-    // redispatch is the same live ride. Re-arm only this transport lifecycle
-    // when the last authoritative dispatch outcome is driver cancellation.
+    // Waiting disposes its tracking subscription before the driver-cancel
+    // sheet, but that must not dispose this shared transport: redispatch is
+    // the same live ride. emit() also latches `cancelled` for every terminal
+    // status, including this reversible driver drop. Clear that latch here
+    // whether or not the transport itself was disposed.
     if (lastStatus != RideStatus.cancelledByDriver) return;
-    if (disposed) {
-      disposed = false;
-      cancelled = false;
-      connection.markConnected();
-    }
-    if (cancelled) return;
+    disposed = false;
+    cancelled = false;
+    connection.markConnected();
 
     // The previous assignment may still be unwinding an async persistence
     // request. Its generation was invalidated by cancelByDriver(), so it must
