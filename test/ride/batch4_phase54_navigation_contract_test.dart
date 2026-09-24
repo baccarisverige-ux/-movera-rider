@@ -200,6 +200,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 160));
 
     expect(find.byType(SelectRide), findsOneWidget);
     await tester.tap(find.byTooltip('Back'));
