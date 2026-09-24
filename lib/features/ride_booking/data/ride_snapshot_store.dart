@@ -8,9 +8,12 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class RideSnapshot {
+  static const currentSchemaVersion = 2;
+
   const RideSnapshot({
     required this.status,
     required this.savedAt,
+    DateTime? createdAt,
     required this.pickupAddress,
     required this.destinationAddress,
     required this.pickupLat,
@@ -24,10 +27,11 @@ class RideSnapshot {
     this.notes = RideNotes.empty,
     this.driver,
     this.cancellationReason,
-  });
+  }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
   final DateTime savedAt;
+  final DateTime createdAt;
   final String pickupAddress;
   final String destinationAddress;
   final double pickupLat;
@@ -62,6 +66,7 @@ class RideSnapshot {
   RideSnapshot copyWith({
     RideStatus? status,
     DateTime? savedAt,
+    DateTime? createdAt,
     String? pickupAddress,
     String? destinationAddress,
     double? pickupLat,
@@ -79,6 +84,7 @@ class RideSnapshot {
     return RideSnapshot(
       status: status ?? this.status,
       savedAt: savedAt ?? this.savedAt,
+      createdAt: createdAt ?? this.createdAt,
       pickupAddress: pickupAddress ?? this.pickupAddress,
       destinationAddress: destinationAddress ?? this.destinationAddress,
       pickupLat: pickupLat ?? this.pickupLat,
@@ -96,8 +102,10 @@ class RideSnapshot {
   }
 
   Map<String, dynamic> toJson() => {
+    'schemaVersion': currentSchemaVersion,
     'status': status.name,
-    'savedAt': savedAt.toIso8601String(),
+    'savedAt': savedAt.toUtc().toIso8601String(),
+    'createdAt': createdAt.toUtc().toIso8601String(),
     'pickupAddress': pickupAddress,
     'destinationAddress': destinationAddress,
     'pickupLat': pickupLat,
@@ -114,24 +122,71 @@ class RideSnapshot {
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
-    final statusName = json['status'] as String?;
-    final status = RideStatus.values.where((value) => value.name == statusName);
-    if (status.isEmpty) return null;
+    final schemaVersion = (json['schemaVersion'] as num?)?.toInt() ?? 1;
+    if (schemaVersion < 1 || schemaVersion > currentSchemaVersion) return null;
+
+    final statusName = json['status'];
+    if (statusName is! String) return null;
+    RideStatus? parsedStatus;
+    for (final value in RideStatus.values) {
+      if (value.name == statusName) {
+        parsedStatus = value;
+        break;
+      }
+    }
+    if (parsedStatus == null) return null;
+
+    final savedRaw = json['savedAt'];
+    if (savedRaw is! String) return null;
+    final savedParsed = DateTime.tryParse(savedRaw);
+    if (savedParsed == null) return null;
+    final savedAt = savedParsed.toUtc();
+
+    final createdRaw = json['createdAt'];
+    final createdParsed = createdRaw is String ? DateTime.tryParse(createdRaw) : null;
+    // v1 did not persist creation time. Preserve its original persisted time
+    // rather than manufacturing a new timestamp during migration.
+    final createdAt = (createdParsed ?? savedParsed).toUtc();
+
+    final pickupAddress = json['pickupAddress'];
+    final destinationAddress = json['destinationAddress'];
+    final pickupLat = json['pickupLat'];
+    final pickupLng = json['pickupLng'];
+    final destinationLat = json['destinationLat'];
+    final destinationLng = json['destinationLng'];
+    final rideType = json['rideType'];
+    final price = json['price'];
+    final paymentMethod = json['paymentMethod'];
+    if (pickupAddress is! String ||
+        destinationAddress is! String ||
+        pickupLat is! num ||
+        pickupLng is! num ||
+        destinationLat is! num ||
+        destinationLng is! num ||
+        rideType is! String ||
+        price is! num ||
+        paymentMethod is! String) {
+      return null;
+    }
+
+    final rideIdRaw = json['rideId'];
+    final rideId = rideIdRaw is String ? rideIdRaw.trim() : null;
+    if (rideIdRaw != null && (rideId == null || rideId.isEmpty)) return null;
+
     return RideSnapshot(
-      status: status.first,
-      savedAt:
-          DateTime.tryParse(json['savedAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
-      pickupAddress: json['pickupAddress'] as String? ?? '',
-      destinationAddress: json['destinationAddress'] as String? ?? '',
-      pickupLat: (json['pickupLat'] as num?)?.toDouble() ?? 0,
-      pickupLng: (json['pickupLng'] as num?)?.toDouble() ?? 0,
-      destinationLat: (json['destinationLat'] as num?)?.toDouble() ?? 0,
-      destinationLng: (json['destinationLng'] as num?)?.toDouble() ?? 0,
-      rideType: json['rideType'] as String? ?? 'Movera',
-      price: (json['price'] as num?)?.toDouble() ?? 0,
-      paymentMethod: json['paymentMethod'] as String? ?? 'Apple Pay',
-      rideId: json['rideId'] as String?,
+      status: parsedStatus,
+      savedAt: savedAt,
+      createdAt: createdAt,
+      pickupAddress: pickupAddress,
+      destinationAddress: destinationAddress,
+      pickupLat: pickupLat.toDouble(),
+      pickupLng: pickupLng.toDouble(),
+      destinationLat: destinationLat.toDouble(),
+      destinationLng: destinationLng.toDouble(),
+      rideType: rideType,
+      price: price.toDouble(),
+      paymentMethod: paymentMethod,
+      rideId: rideId,
       notes: RideNotes.fromJson(
         json['notes'] is Map
             ? Map<String, dynamic>.from(json['notes'] as Map)
@@ -144,8 +199,7 @@ class RideSnapshot {
           : null,
       cancellationReason: json['cancellationReason'] as String?,
     );
-  }
-}
+  }}
 
 class RideSnapshotStore {
   /// SharedPreferences key. On Flutter web this is `flutter.movera_active_ride`.
