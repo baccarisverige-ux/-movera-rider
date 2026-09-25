@@ -250,7 +250,7 @@ class _SelectRideState extends State<SelectRide>
     _sheetSlide.addListener(_syncSheetOverlay);
     _syncSheetOverlay();
     if (widget.initialRideId != null) {
-      final ride = _selection.rideById(widget.initialRideId!);
+      final ride = _selection.rideByIdOrNull(widget.initialRideId!);
       if (ride != null) {
         _selection.selectRide(ride.id, ride.price);
       }
@@ -1030,8 +1030,11 @@ class _SelectRideState extends State<SelectRide>
               final sheetHeight =
                   minSheet + (maxSheet - minSheet) * _sheetSlide.value;
               final collapsed = _sheetSlide.value < 0.38;
+              final selectedRide = _selectedRideOrNull;
               final visibleRides = collapsed
-                  ? <_RideOption>[_selectedRide]
+                  ? selectedRide == null
+                        ? <_RideOption>[]
+                        : <_RideOption>[selectedRide]
                   : _visibleRides;
               return Positioned(
                 left: 0,
