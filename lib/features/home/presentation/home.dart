@@ -84,26 +84,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   static const double _sheetMaxHeight = 294;
 
   bool _destinationSheetOpen = false;
-  bool _findingLocation = true;
-
   bool get _locationPulseExpanded => _locationCtl.pulseExpanded;
-  set _locationPulseExpanded(bool value) => _locationCtl.pulseExpanded = value;
   double get _locationHeading => _locationCtl.heading;
   set _locationHeading(double value) => _locationCtl.heading = value;
-  bool get _hasCompassHeading => _locationCtl.hasCompassHeading;
   set _hasCompassHeading(bool value) => _locationCtl.hasCompassHeading = value;
-  double get _lastMapZoom => _locationCtl.lastMapZoom;
   set _lastMapZoom(double value) => _locationCtl.lastMapZoom = value;
-  LatLng get _lastMapTarget => _locationCtl.lastMapTarget;
   set _lastMapTarget(LatLng value) => _locationCtl.lastMapTarget = value;
   String? get _pickupAddress => _places.pickupAddress;
   set _pickupAddress(String? value) => _places.pickupAddress = value;
   String? get _destinationAddress => _places.destinationAddress;
   set _destinationAddress(String? value) => _places.destinationAddress = value;
   String? get _homeAddress => _places.homeAddress;
-  set _homeAddress(String? value) => _places.homeAddress = value;
   String? get _workAddress => _places.workAddress;
-  set _workAddress(String? value) => _places.workAddress = value;
   List<String> get _routeStops => _places.routeStops;
   set _routeStops(List<String> value) => _places.routeStops = value;
   LatLng? get _currentLatLng => _places.currentLatLng;
@@ -111,24 +103,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   LatLng? get _tripPickupLatLng => _places.tripPickupLatLng;
   set _tripPickupLatLng(LatLng? value) => _places.tripPickupLatLng = value;
   List<String> get _recentAddresses => _places.recentAddresses;
-  set _recentAddresses(List<String> value) => _places.recentAddresses = value;
   List<_SavedPlaceData> get _savedPlaces => _places.savedPlaces;
-  set _savedPlaces(List<_SavedPlaceData> value) => _places.savedPlaces = value;
 
   static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
-  GoogleMapController? _mapController;
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
   final MapParkingGuard _mapParkingGuard = MapParkingGuard();
-  bool get _homeMapParked => _mapParked.value;
-  Set<Marker> get _markers => _locationCtl.markers;
-  set _markers(Set<Marker> value) => _locationCtl.markers = value;
-  Set<Circle> get _locationCircles => _locationCtl.locationCircles;
-  set _locationCircles(Set<Circle> value) =>
-      _locationCtl.locationCircles = value;
-  Set<Polygon> get _locationDirection => _locationCtl.locationDirection;
-  set _locationDirection(Set<Polygon> value) =>
-      _locationCtl.locationDirection = value;
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
@@ -306,14 +286,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Future<void> _persistAddressData() => _places.persist();
 
   Future<void> _detectCurrentAddress() async {
-    if (mounted) setState(() => _findingLocation = true);
+    if (mounted) setState(() {});
     try {
       final detected = await _locationCtl.detectCurrent();
       if (!mounted) return;
       if (detected.denied) {
         setState(() {
-          _findingLocation = false;
-          _pickupAddress ??= 'Current location';
+              _pickupAddress ??= 'Current location';
         });
         return;
       }
@@ -322,8 +301,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       setState(() {
         _pickupAddress = detected.address;
         _currentLatLng = target;
-        _findingLocation = false;
-        _locationCtl.clearOverlays();
+          _locationCtl.clearOverlays();
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
@@ -348,8 +326,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _findingLocation = false;
-        _pickupAddress ??= 'Current location';
+          _pickupAddress ??= 'Current location';
       });
     }
   }
@@ -530,8 +507,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _locationCtl.pauseLiveUpdates();
         AppScope.instance.mapLifecycle.park();
         AppScope.instance.maps.detach(owner: MapOwners.home);
-        _mapController = null;
-        // Let Flutter remove the platform map for one rendered frame before
+            // Let Flutter remove the platform map for one rendered frame before
         // the next map-heavy ride screen mounts.
         await WidgetsBinding.instance.endOfFrame;
         parkingWatch.stop();
@@ -1890,7 +1866,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     if (data == null) return null;
-    return BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+    return BitmapDescriptor.bytes(data.buffer.asUint8List());
   }
 
   void _updateLocationVisuals() {
@@ -2137,7 +2113,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         mapStyle: _premiumMapStyle,
                         onCameraMove: _handleMapCameraMove,
                         onMapCreated: (GoogleMapController controller) {
-                          _mapController = controller;
                           AppScope.instance.maps.attach(
                             controller,
                             owner: MapOwners.home,
