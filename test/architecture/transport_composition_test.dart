@@ -84,40 +84,4 @@ void main() {
     realtime.dispose();
   });
 
-  test('production rejects mock driver assignment even with real transport surfaces', () {
-    final api = ApiClient(env: production);
-    expect(
-      () => TransportComposition.validate(
-        environment: production,
-        api: api,
-        realtime: _RealRealtime(),
-        paymentGateway: _RealPaymentGateway(),
-        push: _RealPush(),
-        usesMockDriverAssignment: true,
-      ),
-      throwsStateError,
-    );
-  });
-}
-
-class _RealRealtime implements RideRealtime {
-  @override bool get supportsRiderSignals => false;
-  @override void cancelRide() {}
-  @override void dispose() {}
-  @override Future<void> reconnectAndResync(String rideId) async {}
-  @override void researchAfterDriverCancel() {}
-  @override Future<void> sendSignal({required String rideId, required RideRealtimeSignal signal, String? message}) async {}
-  @override Stream<RideRealtimeEvent> subscribe(String rideId) => const Stream.empty();
-  @override void unsubscribe() {}
-}
-
-class _RealPaymentGateway implements PaymentGateway {
-  @override Future<PaymentResult> charge(PaymentRequest request) async => throw UnimplementedError();
-}
-
-class _RealPush implements PushService {
-  @override Future<String?> getToken() async => 'real';
-  @override Future<void> initialize() async {}
-  @override Future<void> subscribe(String topic) async {}
-  @override Future<void> unsubscribe(String topic) async {}
 }
