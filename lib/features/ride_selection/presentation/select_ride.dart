@@ -1469,7 +1469,7 @@ class _SelectRideState extends State<SelectRide>
                   color: _cta,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
-                    onTap: _bookingInFlight || selected == null ? null : _book,
+                    onTap: _bookingInFlight ? null : selected == null ? null : _book,
                     borderRadius: BorderRadius.circular(18),
                     child: SizedBox(
                       height: 54,
