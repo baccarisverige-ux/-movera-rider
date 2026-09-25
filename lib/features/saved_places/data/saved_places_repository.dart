@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/shared/models/saved_places.dart';
 
@@ -80,8 +81,14 @@ class SavedPlacesRepository {
       _shortcuts
         ..clear()
         ..addAll(restored);
-    } catch (_) {
-      // Corrupt local convenience data must not replace the current session.
+    } catch (error, stackTrace) {
+      // Corrupt local convenience data must not replace the current session,
+      // but it must remain observable for diagnosis.
+      AppLog.error(
+        'saved_places.hydrate_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
