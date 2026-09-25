@@ -79,4 +79,12 @@ class _Location implements LocationRepository {
   @override
   Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
       const Stream.empty();
+
+  @override
+  double distanceBetween(
+    double startLatitude,
+    double startLongitude,
+    double endLatitude,
+    double endLongitude,
+  ) => 0;
 }
