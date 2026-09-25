@@ -4,9 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 
 class BottomToTopTransition<T> extends PageRouteBuilder<T> {
-  BottomToTopTransition(Widget page, {RouteSettings? settings})
+  BottomToTopTransition(Widget page, {super.settings})
       : super(
-          settings: settings,
           pageBuilder: (context, animation, secondary) => page,
           transitionDuration: MoveraDurations.large,
           reverseTransitionDuration: MoveraDurations.normal,
@@ -17,9 +16,8 @@ class BottomToTopTransition<T> extends PageRouteBuilder<T> {
 }
 
 class TopToBottomTransition<T> extends PageRouteBuilder<T> {
-  TopToBottomTransition(Widget page, {RouteSettings? settings})
+  TopToBottomTransition(Widget page, {super.settings})
       : super(
-          settings: settings,
           pageBuilder: (context, animation, secondary) => page,
           transitionDuration: MoveraDurations.large,
           reverseTransitionDuration: MoveraDurations.normal,
@@ -51,9 +49,8 @@ class TopToBottomTransition<T> extends PageRouteBuilder<T> {
 /// look like a crash. Forward navigation gets a short fade; unwinding the ride
 /// stack back to Home is instantaneous so intermediate stages never flash.
 class RideStageTransition<T> extends PageRouteBuilder<T> {
-  RideStageTransition(Widget page, {RouteSettings? settings})
+  RideStageTransition(Widget page, {super.settings})
       : super(
-          settings: settings,
           pageBuilder: (context, animation, secondary) => page,
           transitionDuration: const Duration(milliseconds: 120),
           reverseTransitionDuration: Duration.zero,
@@ -90,9 +87,8 @@ class RideStageTransition<T> extends PageRouteBuilder<T> {
 }
 
 class SwitchTransition<T> extends PageRouteBuilder<T> {
-  SwitchTransition(Widget page, {RouteSettings? settings})
+  SwitchTransition(Widget page, {super.settings})
       : super(
-          settings: settings,
           pageBuilder: (context, animation, secondary) => page,
           transitionDuration: MoveraDurations.normal,
           reverseTransitionDuration: MoveraDurations.micro,
@@ -109,9 +105,8 @@ class SwitchTransition<T> extends PageRouteBuilder<T> {
 }
 
 class LeftToRightTransition<T> extends PageRouteBuilder<T> {
-  LeftToRightTransition(Widget page, {RouteSettings? settings})
+  LeftToRightTransition(Widget page, {super.settings})
       : super(
-          settings: settings,
           pageBuilder: (context, animation, secondary) => page,
           transitionDuration: MoveraDurations.normal,
           reverseTransitionDuration: MoveraDurations.micro,
@@ -122,9 +117,8 @@ class LeftToRightTransition<T> extends PageRouteBuilder<T> {
 }
 
 class RightToLeftTransition<T> extends PageRouteBuilder<T> {
-  RightToLeftTransition(Widget page, {RouteSettings? settings})
+  RightToLeftTransition(Widget page, {super.settings})
       : super(
-          settings: settings,
           pageBuilder: (context, animation, secondary) => page,
           transitionDuration: MoveraDurations.normal,
           reverseTransitionDuration: MoveraDurations.micro,
