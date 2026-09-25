@@ -23,6 +23,7 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
@@ -66,7 +67,11 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with WidgetsBindingObserver {
   final SheetController _homeSheetController = SheetController();
   final PanelController _profilePanelController = PanelController();
-  Timer? _sheetIdleTimer;
+  late final HomeSheetController _sheetCtl = HomeSheetController(
+    controller: _homeSheetController,
+    minPixels: () => _sheetMinPixels,
+    midPixels: () => _sheetMidPixels,
+  );
   late final HomeLocationController _locationCtl = HomeLocationController(
     location: AppScope.instance.location,
     geocoding: AppScope.instance.geocoding,
@@ -1955,36 +1960,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
 
-  bool get _isSheetAtMiddle {
-    if (!_homeSheetController.hasClient) return false;
-    final offset = _homeSheetController.metrics?.offset;
-    if (offset == null) return false;
-    return (offset - _sheetMidPixels).abs() <= ResSize.h * 1.5;
-  }
+  bool get _isSheetAtMiddle => _sheetCtl.isAtMiddle;
 
-  void _cancelSheetIdleTimer() {
-    _sheetIdleTimer?.cancel();
-    _sheetIdleTimer = null;
-  }
+  void _cancelSheetIdleTimer() => _sheetCtl.cancelIdleTimer();
 
   void _scheduleSheetIdleClose() {
-    final accessibleNavigation =
-        MediaQuery.maybeOf(context)?.accessibleNavigation ?? false;
-    if (accessibleNavigation ||
-        !_isSheetAtMiddle ||
-        _sheetIdleTimer?.isActive == true) {
-      _cancelSheetIdleTimer();
-      return;
-    }
-    _sheetIdleTimer = Timer(const Duration(seconds: 3), () {
-      _sheetIdleTimer = null;
-      if (!mounted || !_isSheetAtMiddle) return;
-      _animateHomeSheetTo(
-        SheetOffset.absolute(_sheetMinPixels),
-        duration: MoveraDurations.large,
-        curve: MoveraCurves.close,
-      );
-    });
+    _sheetCtl.scheduleIdleClose(
+      accessibleNavigation:
+          MediaQuery.maybeOf(context)?.accessibleNavigation ?? false,
+      isMounted: () => mounted,
+    );
   }
 
   void _syncHomeSheetState() {
@@ -2010,45 +1995,21 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     SheetOffset target, {
     Duration duration = MoveraDurations.large,
     Curve curve = MoveraCurves.open,
-  }) async {
-    if (!_homeSheetController.hasClient) return;
-    await _homeSheetController.animateTo(
-      target,
-      duration: duration,
-      curve: curve,
-    );
-  }
+  }) => _sheetCtl.animateTo(target, duration: duration, curve: curve);
 
   Future<void> _openDestinationSheet() async {
-    if (!_destinationSheetOpen) {
-      setState(() => _destinationSheetOpen = true);
-    }
-
-    await _animateHomeSheetTo(const SheetOffset(1));
+    if (!_destinationSheetOpen) setState(() => _destinationSheetOpen = true);
+    await _sheetCtl.open();
   }
 
   void _closeDestinationSheet() {
-    if (_destinationSheetOpen) {
-      setState(() => _destinationSheetOpen = false);
-    }
-    _animateHomeSheetTo(SheetOffset.absolute(_sheetMinPixels));
+    if (_destinationSheetOpen) setState(() => _destinationSheetOpen = false);
+    _sheetCtl.close();
   }
 
-  void _toggleHomeSheet() {
-    final offset = _homeSheetController.hasClient
-        ? (_homeSheetController.metrics?.offset ?? _sheetMinPixels)
-        : _sheetMinPixels;
-    final midpoint = (_sheetMinPixels + _sheetMidPixels) / 2;
-    final SheetOffset target;
-    if (offset > _sheetMidPixels + ResSize.h * 8) {
-      target = SheetOffset.absolute(_sheetMidPixels);
-    } else if (offset > midpoint) {
-      target = SheetOffset.absolute(_sheetMinPixels);
-    } else {
-      target = SheetOffset.absolute(_sheetMidPixels);
-    }
-    _animateHomeSheetTo(target, duration: MoveraDurations.large);
-  }
+  void _toggleHomeSheet() => _sheetCtl.toggle(
+    expandedThreshold: ResSize.h * 8,
+  );
 
   Future<void> _openSchedule() async {
     await _withParkedHomeMap(() {
