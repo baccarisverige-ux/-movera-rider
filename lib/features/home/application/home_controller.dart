@@ -95,12 +95,18 @@ class HomeLocationController extends ChangeNotifier {
   Set<Circle> locationCircles = {};
   Set<Polygon> locationDirection = {};
 
-  Future<String> normaliseAddress(String input) async {
+  /// Opens one staleness scope for every address normalisation belonging to a
+  /// single user action. Concurrent calls share one generation so siblings do
+  /// not invalidate each other, while a newer route confirmation invalidates
+  /// the whole older batch.
+  int beginNormalisationBatch() => _normaliseGuard.next();
+
+  Future<String> normaliseAddress(String input, {int? generation}) async {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
-    final generation = _normaliseGuard.next();
+    final scope = generation ?? _normaliseGuard.next();
     final result = await geocoding.forward(clean);
-    if (!_normaliseGuard.isCurrent(generation)) return clean;
+    if (!_normaliseGuard.isCurrent(scope)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
         : clean;
