@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -47,7 +48,8 @@ abstract final class OnDemandRideHistoryStore {
       final rides = byId.values.toList()
         ..sort((a, b) => b.scheduledPickupAt.compareTo(a.scheduledPickupAt));
       return rides.take(maxRecords).toList(growable: false);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error('history.read_failed', error: error, stackTrace: stackTrace);
       return const [];
     }
   }
@@ -78,7 +80,14 @@ abstract final class OnDemandRideHistoryStore {
             cancellationReason: reasonId,
           );
         }
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        AppLog.error(
+          'history.cancel_archive_failed',
+          error: error,
+          stackTrace: stackTrace,
+          extra: {'rideId': rideId},
+        );
+      }
     }
     await RideSnapshotStore.clear();
   }
