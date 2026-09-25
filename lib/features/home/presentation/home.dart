@@ -269,7 +269,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _sheetIdleTimer?.cancel();
+    _sheetCtl.dispose();
     _locationCtl.dispose();
     _puckCompactImage?.dispose();
     _puckExpandedImage?.dispose();
