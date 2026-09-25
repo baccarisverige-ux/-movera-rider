@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:movera_rider/l10n/generated/app_localizations.dart';
 import 'package:get/get.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
@@ -20,11 +21,13 @@ class MoveraApp extends StatelessWidget {
       ensureScreenSize: true,
       builder: (_, child) {
         return GetMaterialApp(
-          title: 'Movera',
+          onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
           navigatorKey: moveraNavigatorKey,
           navigatorObservers: [_homeHistoryObserver],
           locale: const Locale('en'),
           fallbackLocale: const Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           debugShowCheckedModeBanner: false,
           theme: moveraTheme(),
           home: RideRestoreGate(key: RideRestoreGate.gateKey),
