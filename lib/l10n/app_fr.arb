@@ -1,0 +1,8 @@
+{
+  "@@locale": "fr",
+  "appTitle": "Movera",
+  "whereTo": "Où allez-vous ?",
+  "currentLocation": "Position actuelle",
+  "findingDriver": "Recherche de votre chauffeur",
+  "cancelRide": "Annuler la course"
+}
