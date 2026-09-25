@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsAction, SemanticsFlag;
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
