@@ -13,7 +13,7 @@ class _SlowGeo extends AppGeocoding {
   String resolved = 'Resolved address';
 
   @override
-  Future<PlaceResult?> geocodeAddress(String address) async {
+  Future<PlaceResult?> forward(String address) async {
     await Future<void>.delayed(delay);
     return PlaceResult(
       point: const GeoPoint(59.33, 18.06),
