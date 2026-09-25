@@ -73,7 +73,7 @@ void main() {
           tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
       expect(data.label, label, reason: label);
       expect(
-        data.hasFlag(SemanticsFlag.isButton),
+        data.flagsCollection.contains(SemanticsFlag.isButton),
         isTrue,
         reason: '$label should be a button',
       );
