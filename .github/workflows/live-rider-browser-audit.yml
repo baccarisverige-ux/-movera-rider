@@ -2,10 +2,15 @@ name: Audit live Rider in Chromium
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/live-rider-browser-audit.yml'
+      - '.github/live-audit-trigger.txt'
   push:
     branches: [main]
     paths:
       - '.github/workflows/live-rider-browser-audit.yml'
+      - '.github/live-audit-trigger.txt'
 
 permissions:
   contents: read
