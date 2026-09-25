@@ -36,3 +36,6 @@ windows/flutter/generated_plugins.cmake
 *.iml
 .DS_Store
 .vscode/
+
+# Flutter localization generated output
+lib/l10n/generated/
