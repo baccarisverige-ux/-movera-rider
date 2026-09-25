@@ -15,12 +15,18 @@ void main() {
   });
 
   test('automatic sheet collapse is disabled for accessible navigation', () {
-    final source = File(
+    final homeSource = File(
       'lib/features/home/presentation/home.dart',
     ).readAsStringSync();
+    final sheetSource = File(
+      'lib/features/home/application/home_sheet_controller.dart',
+    ).readAsStringSync();
 
-    expect(source, contains('MediaQuery.maybeOf(context)?.accessibleNavigation'));
-    expect(source, contains('if (accessibleNavigation ||'));
+    expect(
+      homeSource,
+      contains('MediaQuery.maybeOf(context)?.accessibleNavigation'),
+    );
+    expect(sheetSource, contains('if (accessibleNavigation ||'));
   });
 
   test('Home sheet handle is keyboard-focusable and semantic', () {
