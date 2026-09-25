@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
@@ -16,6 +17,10 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   installWebRidePagehide(RideRestoreCoordinator.instance.onPageHide);
   // Public web gets one navigation-only bridge for Safety. It exposes no
   // ride seeding, matching controls, or Safety mutations.
