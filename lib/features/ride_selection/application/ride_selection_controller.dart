@@ -56,7 +56,18 @@ class RideSelectionController {
 
   List<RideCatalogItem> rides() => _store.rides();
 
-  RideCatalogItem? rideById(String id) {
+  RideCatalogItem rideById(String id) {
+    final catalog = rides();
+    if (catalog.isEmpty) {
+      throw StateError('ride catalog is empty');
+    }
+    for (final ride in catalog) {
+      if (ride.id == id) return ride;
+    }
+    return catalog.first;
+  }
+
+  RideCatalogItem? rideByIdOrNull(String id) {
     for (final ride in rides()) {
       if (ride.id == id) return ride;
     }
@@ -66,7 +77,7 @@ class RideSelectionController {
   RideCatalogItem? ensureCatalogSelection() {
     final catalog = rides();
     if (catalog.isEmpty) return null;
-    final current = rideById(selectedRideId);
+    final current = rideByIdOrNull(selectedRideId);
     if (current != null) return current;
     final fallback = catalog.first;
     selectedRideId = fallback.id;
