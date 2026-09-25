@@ -6,10 +6,14 @@ import 'package:movera_rider/features/reservations/domain/reservation_status.dar
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 
 class ReservationController extends ChangeNotifier {
-  ReservationController({ReservationRepository? store})
-    : _store = store ?? LocalReservationRepository();
+  ReservationController({
+    ReservationRepository? store,
+    DateTime Function()? clock,
+  }) : _store = store ?? LocalReservationRepository(),
+       _clock = clock ?? DateTime.now;
 
   final ReservationRepository _store;
+  final DateTime Function() _clock;
 
   List<Reservation> get all => _store.cached;
 
@@ -89,22 +93,16 @@ class ReservationController extends ChangeNotifier {
   }
 
   Future<void> startLiveIfDue({DateTime? now}) async {
-    final clock = now ?? DateTime.now();
+    final currentTime = now ?? _clock();
     var changed = false;
     for (final ride in upcoming()) {
-      if (ride.revealsDriver) continue;
-      if (ride.scheduledPickupAt.difference(clock).inMinutes > 2) continue;
-      if (ride.driver == null) {
-        if (ride.status != ReservationStatus.driverAssignmentPending) {
-          await _store.assignDriver(ride.reservationId);
-          changed = true;
-        }
-        continue;
-      }
-      await _store.updateReservation(
-        ride.reservationId,
-        const ReservationPatch(status: ReservationStatus.driverEnRoute),
-      );
+      // The clock may begin assignment shortly before pickup, but it must
+      // never fabricate a driver or advance a driver-assigned reservation
+      // into a live state. Phase 62/realtime owns those transitions.
+      if (ride.status != ReservationStatus.scheduled) continue;
+      final untilPickup = ride.scheduledPickupAt.difference(currentTime);
+      if (untilPickup > const Duration(minutes: 2)) continue;
+      await _store.assignDriver(ride.reservationId);
       changed = true;
     }
     if (changed) notifyListeners();
