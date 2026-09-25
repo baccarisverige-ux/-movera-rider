@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
-import 'package:movera_rider/core/location/app_geocoding.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/location_point.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -20,6 +20,16 @@ enum HomeLocationFailure {
   permissionDenied,
   permissionDeniedForever,
   unavailable,
+}
+
+enum HomeLocationState {
+  initializing,
+  permissionRequired,
+  servicesDisabled,
+  acquiringFix,
+  live,
+  temporarilyUnavailable,
+  recovering,
 }
 
 class DetectedLocation {
@@ -57,7 +67,7 @@ class HomeLocationController extends ChangeNotifier {
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking;
 
   final LocationRepository location;
-  final AppGeocoding geocoding;
+  final GeocodingRepository geocoding;
   final MotionEngine motion;
   final Future<bool> Function() _startCompass;
   final double? Function() _readCompass;
@@ -80,6 +90,7 @@ class HomeLocationController extends ChangeNotifier {
   LatLng lastMapTarget = const LatLng(59.3293, 18.0686);
   bool pulseExpanded = false;
   bool _livePaused = false;
+  HomeLocationState state = HomeLocationState.initializing;
   Set<Marker> markers = {};
   Set<Circle> locationCircles = {};
   Set<Polygon> locationDirection = {};
@@ -88,7 +99,7 @@ class HomeLocationController extends ChangeNotifier {
     final clean = input.trim();
     if (clean.isEmpty || clean == 'Current location') return clean;
     final generation = _normaliseGuard.next();
-    final result = await geocoding.geocodeAddress(clean);
+    final result = await geocoding.forward(clean);
     if (!_normaliseGuard.isCurrent(generation)) return clean;
     return result?.address.trim().isNotEmpty == true
         ? result!.address.trim()
@@ -97,14 +108,14 @@ class HomeLocationController extends ChangeNotifier {
 
   Future<LatLng?> geocodeLatLng(String address) async {
     final generation = _pointGuard.next();
-    final result = await geocoding.geocodeAddress(address);
+    final result = await geocoding.forward(address);
     if (!_pointGuard.isCurrent(generation) || result == null) return null;
     return LatLng(result.point.latitude, result.point.longitude);
   }
 
   Future<({LatLng point, String address})?> geocodePlace(String address) async {
     final generation = _placeGuard.next();
-    final result = await geocoding.geocodeAddress(address);
+    final result = await geocoding.forward(address);
     if (!_placeGuard.isCurrent(generation) || result == null) return null;
     return (
       point: LatLng(result.point.latitude, result.point.longitude),
@@ -114,9 +125,17 @@ class HomeLocationController extends ChangeNotifier {
     );
   }
 
+  void _setState(HomeLocationState next) {
+    if (state == next) return;
+    state = next;
+    notifyListeners();
+  }
+
   Future<DetectedLocation> detectCurrent() async {
+    _setState(HomeLocationState.initializing);
     try {
       if (!await location.isLocationServiceEnabled()) {
+        _setState(HomeLocationState.servicesDisabled);
         return const DetectedLocation(
           target: null,
           address: 'Current location',
@@ -129,6 +148,7 @@ class HomeLocationController extends ChangeNotifier {
         permission = await location.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
+        _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
           address: 'Current location',
@@ -137,6 +157,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       if (permission == LocationPermission.denied) {
+        _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
           address: 'Current location',
@@ -144,6 +165,7 @@ class HomeLocationController extends ChangeNotifier {
           failure: HomeLocationFailure.permissionDenied,
         );
       }
+      _setState(HomeLocationState.acquiringFix);
       final position = await location.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -151,9 +173,8 @@ class HomeLocationController extends ChangeNotifier {
         ),
       );
       final generation = _detectGuard.next();
-      final detected = await geocoding.reverseGeocodeAddress(
-        position.latitude,
-        position.longitude,
+      final detected = await geocoding.reverse(
+        GeoPoint(position.latitude, position.longitude),
       );
       if (!_detectGuard.isCurrent(generation)) {
         return DetectedLocation(
@@ -170,12 +191,14 @@ class HomeLocationController extends ChangeNotifier {
       heading = position.heading.isFinite && position.heading >= 0
           ? position.heading
           : 0;
+      _setState(HomeLocationState.live);
       return DetectedLocation(
         target: LatLng(position.latitude, position.longitude),
         address: address,
         heading: heading,
       );
     } catch (_) {
+      _setState(HomeLocationState.temporarilyUnavailable);
       return const DetectedLocation(
         target: null,
         address: 'Current location',
@@ -201,6 +224,7 @@ class HomeLocationController extends ChangeNotifier {
         .listen(
           (position) {
             if (!isMounted() || _livePaused) return;
+            _setState(HomeLocationState.live);
             final pose = motion.ingest(
               LocationPoint(
                 point: GeoPoint(position.latitude, position.longitude),
@@ -222,8 +246,7 @@ class HomeLocationController extends ChangeNotifier {
             onFix(latLng, heading);
           },
           onError: (Object _) {
-            // A temporary GPS stream failure must not crash Home. A later
-            // lifecycle resume/rebind can recover the live stream.
+            _setState(HomeLocationState.temporarilyUnavailable);
             _positionSub?.cancel();
             _positionSub = null;
           },
@@ -382,5 +405,14 @@ class HomeLocationController extends ChangeNotifier {
 
   void resumeLiveUpdates() {
     _livePaused = false;
+  }
+
+  void recoverLiveLocation({
+    required bool Function() isMounted,
+    required void Function(LatLng latLng, double heading) onFix,
+  }) {
+    if (_livePaused) return;
+    _setState(HomeLocationState.recovering);
+    startTracking(isMounted: isMounted, onFix: onFix);
   }
 }

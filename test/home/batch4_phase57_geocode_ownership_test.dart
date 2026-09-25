@@ -33,7 +33,7 @@ class _ControlledGeo extends AppGeocoding {
   final Completer<void> releaseSlow = Completer<void>();
 
   @override
-  Future<PlaceResult?> geocodeAddress(String address) async {
+  Future<PlaceResult?> forward(String address) async {
     if (address == 'Slow pickup') {
       if (!slowStarted.isCompleted) slowStarted.complete();
       await releaseSlow.future;

@@ -2,6 +2,7 @@ import 'package:geolocator/geolocator.dart';
 
 /// Screens talk to this, never to Geolocator.
 class LocationRepository {
+  const LocationRepository();
   Future<bool> isLocationServiceEnabled() {
     return Geolocator.isLocationServiceEnabled();
   }
