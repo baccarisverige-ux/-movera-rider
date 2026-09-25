@@ -89,6 +89,25 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
+  /// Applies an authoritative driver assignment from backend/realtime.
+  ///
+  /// This is intentionally separate from [assignMockDriver]: production
+  /// transports may call this method, while local/demo code remains gated by
+  /// the app environment.
+  Future<Reservation> applyDriverAssignment(
+    String reservationId, {
+    required ReservationDriver driver,
+  }) async {
+    final updated = await _store.assignDriver(reservationId, driver: driver);
+    notifyListeners();
+    return updated;
+  }
+
+  /// Applies an authoritative driver cancellation from backend/realtime.
+  Future<Reservation> applyDriverCancellation(String reservationId) {
+    return driverCancelled(reservationId);
+  }
+
   Future<Reservation> assignMockDriver(
     String reservationId, {
     ReservationDriver? driver,
