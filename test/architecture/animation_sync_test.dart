@@ -10,7 +10,11 @@ void main() {
 
     expect(source, isNot(contains('Duration(milliseconds: 360)')));
     expect(source, contains('await _openDestinationSheet();'));
-    expect(source, contains('await _animateHomeSheetTo(const SheetOffset(1));'));
+    final sheetSource = File(
+      'lib/features/home/application/home_sheet_controller.dart',
+    ).readAsStringSync();
+    expect(source, contains('await _sheetCtl.open();'));
+    expect(sheetSource, contains('Future<void> open() => animateTo(const SheetOffset(1));'));
   });
 
   test('first-frame notification uses frame completion instead of fixed delay', () {
