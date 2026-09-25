@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 class WalletPaymentSettings {
   WalletPaymentSettings({
@@ -49,7 +50,13 @@ class WalletStore {
               ),
             )
             .toList();
-      } catch (_) {}
+      } catch (error, stackTrace) {
+        AppLog.error(
+          'wallet.payment_methods_decode_failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
     return WalletPaymentSettings(
       defaultMethod: prefs.getString('movera_default_payment') ?? 'apple',

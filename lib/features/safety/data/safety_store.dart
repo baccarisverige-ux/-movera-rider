@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
@@ -56,9 +57,14 @@ class SafetyStore {
       _cache.contacts = contacts;
       _cache.rideCheck = policy;
       await _local.save(_cache);
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Offline: cached display data only. PIN/events remain server-authoritative
-      // when the real backend is connected.
+      // when the real backend is connected. Keep the degraded mode observable.
+      AppLog.error(
+        'safety.remote_load_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     if (_cache.pin.pin.isEmpty || !RegExp(r'^\d{4}$').hasMatch(_cache.pin.pin)) {
       _cache.pin = RidePin.generate();
@@ -277,7 +283,13 @@ class SafetyStore {
         await _local.save(_cache);
       }
       return live ?? _cache.shares[rideId];
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'safety.share_refresh_failed',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'rideId': rideId},
+      );
       return _cache.shares[rideId];
     }
   }

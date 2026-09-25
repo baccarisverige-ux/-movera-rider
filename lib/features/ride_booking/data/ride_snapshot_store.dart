@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -322,7 +323,7 @@ class RideSnapshotStore {
     }
 
     final writeId = ++_writeSerial;
-    decoded['savedAt'] = DateTime.now().toIso8601String();
+    decoded['savedAt'] = DateTime.now().toUtc().toIso8601String();
     decoded[_writeIdField] = writeId;
     final encoded = jsonEncode(decoded);
 
@@ -367,7 +368,12 @@ class RideSnapshotStore {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
       return RideSnapshot.fromJson(decoded);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'ride_snapshot.read_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return null;
     }
   }
