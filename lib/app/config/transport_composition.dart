@@ -13,6 +13,7 @@ abstract final class TransportComposition {
     required RideRealtime realtime,
     required PaymentGateway paymentGateway,
     required PushService push,
+    required bool usesMockDriverAssignment,
   }) {
     if (environment.allowsMockTransport) return;
 
@@ -21,6 +22,7 @@ abstract final class TransportComposition {
       if (realtime is MockRideRealtime) 'realtime',
       if (paymentGateway is MockPaymentGateway) 'payments',
       if (push is NoopPushService) 'push',
+      if (usesMockDriverAssignment) 'driverAssignment',
     ];
 
     if (mockSurfaces.isNotEmpty) {
