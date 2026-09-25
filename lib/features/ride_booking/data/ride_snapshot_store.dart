@@ -322,7 +322,7 @@ class RideSnapshotStore {
     }
 
     final writeId = ++_writeSerial;
-    decoded['savedAt'] = DateTime.now().toIso8601String();
+    decoded['savedAt'] = DateTime.now().toUtc().toIso8601String();
     decoded[_writeIdField] = writeId;
     final encoded = jsonEncode(decoded);
 
