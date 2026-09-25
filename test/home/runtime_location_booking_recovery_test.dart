@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
@@ -12,7 +11,7 @@ import 'package:movera_rider/features/home/application/home_controller.dart';
 
 void main() {
   test('Pages mock implements forward and reverse geocoding contracts', () async {
-    final api = ApiClient(baseUrl: 'https://mock.local', client: InProcessMockClient());
+    final api = ApiClient(client: InProcessMockClient());
     final geocoding = AppGeocoding(api: api);
 
     final place = await geocoding.forward('Stockholm Central');
