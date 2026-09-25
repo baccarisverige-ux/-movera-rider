@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
@@ -9,11 +10,16 @@ class ReservationController extends ChangeNotifier {
   ReservationController({
     ReservationRepository? store,
     DateTime Function()? clock,
+    AppEnv environment = AppEnv.current,
   }) : _store = store ?? LocalReservationRepository(),
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _environment = environment;
 
   final ReservationRepository _store;
   final DateTime Function() _clock;
+  final AppEnv _environment;
+
+  bool get usesMockDriverAssignment => _environment.allowsMockTransport;
 
   List<Reservation> get all => _store.cached;
 
@@ -83,10 +89,34 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
+  /// Applies an authoritative driver assignment from backend/realtime.
+  ///
+  /// This is intentionally separate from [assignMockDriver]: production
+  /// transports may call this method, while local/demo code remains gated by
+  /// the app environment.
+  Future<Reservation> applyDriverAssignment(
+    String reservationId, {
+    required ReservationDriver driver,
+  }) async {
+    final updated = await _store.assignDriver(reservationId, driver: driver);
+    notifyListeners();
+    return updated;
+  }
+
+  /// Applies an authoritative driver cancellation from backend/realtime.
+  Future<Reservation> applyDriverCancellation(String reservationId) {
+    return driverCancelled(reservationId);
+  }
+
   Future<Reservation> assignMockDriver(
     String reservationId, {
     ReservationDriver? driver,
   }) async {
+    if (!_environment.allowsMockTransport) {
+      throw StateError(
+        'Mock driver assignment is forbidden for ${_environment.flavor.name}.',
+      );
+    }
     final updated = await _store.assignDriver(reservationId, driver: driver);
     notifyListeners();
     return updated;

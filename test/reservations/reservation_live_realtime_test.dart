@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/driver_arriving/application/driver_tracking_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_ride_realtime.dart';
@@ -189,6 +190,54 @@ void main() {
     );
     await flush();
     expect(events.last, RideStatus.driverArriving);
+  });
+
+  test('authoritative assignment updates Rider without reload and replacement stays on same reservation', () async {
+    final (controller, created) = await seeded(id: 'scheduled-authoritative');
+    await controller.startLiveIfDue(
+      now: created.scheduledPickupAt.subtract(const Duration(minutes: 1)),
+    );
+
+    final realtime = ReservationRideRealtime(
+      controller: controller,
+      reservationId: created.reservationId,
+    );
+    addTearDown(realtime.dispose);
+
+    final events = <RideRealtimeEvent>[];
+    final sub = realtime.subscribe(created.reservationId).listen(events.add);
+    addTearDown(sub.cancel);
+    await flush();
+    expect(events.last.status, RideStatus.findingDriver);
+    expect(events.last.driver, isNull);
+
+    final assigned = await controller.applyDriverAssignment(
+      created.reservationId,
+      driver: driverA,
+    );
+    await flush();
+    expect(assigned.reservationId, created.reservationId);
+    expect(assigned.status, ReservationStatus.driverAssigned);
+    expect(events.last.status, RideStatus.driverAssigned);
+    expect(events.last.driver?.firstName, 'Amina');
+
+    final pending = await controller.applyDriverCancellation(created.reservationId);
+    await flush();
+    expect(pending.reservationId, created.reservationId);
+    expect(pending.status, ReservationStatus.driverAssignmentPending);
+    expect(pending.driver, isNull);
+    expect(events.last.status, RideStatus.cancelledByDriver);
+    expect(events.last.driver, isNull);
+
+    final replacement = await controller.applyDriverAssignment(
+      created.reservationId,
+      driver: driverB,
+    );
+    await flush();
+    expect(replacement.reservationId, created.reservationId);
+    expect(replacement.status, ReservationStatus.driverAssigned);
+    expect(events.last.status, RideStatus.driverAssigned);
+    expect(events.last.driver?.firstName, 'Nora');
   });
 
   test('unsolicited scheduled cancellation is external, not invented rider action', () async {

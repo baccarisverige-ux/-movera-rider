@@ -56,6 +56,7 @@ void main() {
           realtime: realtime,
           paymentGateway: MockPaymentGateway(),
           push: NoopPushService(),
+          usesMockDriverAssignment: true,
         ),
         throwsStateError,
       );
@@ -75,10 +76,12 @@ void main() {
         realtime: realtime,
         paymentGateway: MockPaymentGateway(),
         push: NoopPushService(),
+        usesMockDriverAssignment: true,
       ),
       returnsNormally,
     );
 
     realtime.dispose();
   });
+
 }
