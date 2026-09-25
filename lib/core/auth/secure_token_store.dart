@@ -46,7 +46,8 @@ class SecureTokenStore implements TokenStore {
     }
     try {
       await _active.save(access: access, refresh: refresh);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error('auth.token.secure_save_failed', error: error, stackTrace: stackTrace);
       await _memory.save(access: access, refresh: refresh);
     }
   }
@@ -55,7 +56,8 @@ class SecureTokenStore implements TokenStore {
   Future<String?> readAccess() async {
     try {
       return await _active.readAccess();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error('auth.token.secure_read_access_failed', error: error, stackTrace: stackTrace);
       return _memory.readAccess();
     }
   }
@@ -64,7 +66,8 @@ class SecureTokenStore implements TokenStore {
   Future<String?> readRefresh() async {
     try {
       return await _active.readRefresh();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error('auth.token.secure_read_refresh_failed', error: error, stackTrace: stackTrace);
       return _memory.readRefresh();
     }
   }
@@ -73,7 +76,8 @@ class SecureTokenStore implements TokenStore {
   Future<void> clear() async {
     try {
       await _active.clear();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error('auth.token.secure_clear_failed', error: error, stackTrace: stackTrace);
       await _memory.clear();
     }
   }
