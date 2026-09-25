@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -674,7 +675,7 @@ class _SupportScaffold extends StatelessWidget {
 
 Widget _exit(BuildContext context) {
   return TextButton(
-    onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+    onPressed: () => Navigator.popUntil(context, AppRoutes.isHomeRoute),
     child: Text(
       'Exit',
       style: SupportHome.text(
