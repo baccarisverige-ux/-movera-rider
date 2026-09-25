@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/data/reservation_policy_catalog.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
@@ -22,7 +23,8 @@ class PrefsReservationStorage implements ReservationStorage {
     try {
       final prefs = await PreferencesStore.load();
       return prefs.getString(key);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error('reservation.storage.read_failed', error: error, stackTrace: stackTrace);
       return null;
     }
   }
@@ -32,7 +34,10 @@ class PrefsReservationStorage implements ReservationStorage {
     try {
       final prefs = await PreferencesStore.load();
       await prefs.setString(key, json);
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLog.error('reservation.storage.write_failed', error: error, stackTrace: stackTrace);
+      rethrow;
+    }
   }
 }
 
