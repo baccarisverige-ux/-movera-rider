@@ -57,10 +57,32 @@ class RideSelectionController {
   List<RideCatalogItem> rides() => _store.rides();
 
   RideCatalogItem rideById(String id) {
-    return rides().firstWhere(
-      (ride) => ride.id == id,
-      orElse: () => rides().first,
-    );
+    final catalog = rides();
+    if (catalog.isEmpty) {
+      throw StateError('ride catalog is empty');
+    }
+    for (final ride in catalog) {
+      if (ride.id == id) return ride;
+    }
+    return catalog.first;
+  }
+
+  RideCatalogItem? rideByIdOrNull(String id) {
+    for (final ride in rides()) {
+      if (ride.id == id) return ride;
+    }
+    return null;
+  }
+
+  RideCatalogItem? ensureCatalogSelection() {
+    final catalog = rides();
+    if (catalog.isEmpty) return null;
+    final current = rideByIdOrNull(selectedRideId);
+    if (current != null) return current;
+    final fallback = catalog.first;
+    selectedRideId = fallback.id;
+    offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
+    return fallback;
   }
 
   List<RidePaymentItem> payments() {
