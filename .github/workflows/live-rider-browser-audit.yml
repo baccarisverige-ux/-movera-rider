@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/live-rider-browser-audit.yml'
+      - '.github/live-audit-trigger.txt'
 
 permissions:
   contents: read
