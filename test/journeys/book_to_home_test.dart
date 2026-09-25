@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,12 +45,15 @@ void main() {
       ),
     );
 
+    final realtime = MockRideRealtime();
+    addTearDown(realtime.dispose);
     moveraNavigatorKey.currentState!.push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: AppRoutes.rideCompleted),
-        builder: (_) => const RideCompleted(
+        builder: (_) => RideCompleted(
           status: RideStatus.ratingPending,
           rideId: 'journey-book-1',
+          realtime: realtime,
           showConnectionBanner: false,
         ),
       ),
