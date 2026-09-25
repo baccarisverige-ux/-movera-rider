@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 
 class ProfileRepository {
@@ -40,7 +41,9 @@ class ProfileRepository {
           await prefs.setString(storageKey, jsonEncode(sanitized.toJson()));
         }
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLog.error('profile.hydrate_failed', error: error, stackTrace: stackTrace);
+    }
   }
 
   Future<RiderProfileData> save(RiderProfileData next) async {
@@ -48,7 +51,10 @@ class ProfileRepository {
     try {
       final prefs = await PreferencesStore.load();
       await prefs.setString(storageKey, jsonEncode(next.toJson()));
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLog.error('profile.save_failed', error: error, stackTrace: stackTrace);
+      rethrow;
+    }
     return _profile;
   }
 
