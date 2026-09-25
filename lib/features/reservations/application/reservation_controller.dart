@@ -96,14 +96,28 @@ class ReservationController extends ChangeNotifier {
     final currentTime = now ?? _clock();
     var changed = false;
     for (final ride in upcoming()) {
-      // The clock may begin assignment shortly before pickup, but it must
-      // never fabricate a driver or advance a driver-assigned reservation
-      // into a live state. Phase 62/realtime owns those transitions.
-      if (ride.status != ReservationStatus.scheduled) continue;
       final untilPickup = ride.scheduledPickupAt.difference(currentTime);
       if (untilPickup > const Duration(minutes: 2)) continue;
-      await _store.assignDriver(ride.reservationId);
-      changed = true;
+
+      if (ride.status == ReservationStatus.scheduled) {
+        // Starting assignment is a lifecycle transition; a missing payload
+        // stays pending and never invents driver identity.
+        await _store.assignDriver(ride.reservationId);
+        changed = true;
+        continue;
+      }
+
+      if (ride.status == ReservationStatus.driverAssigned &&
+          ride.driver != null) {
+        // Preserve the established contract: a real assigned driver becomes
+        // en-route when the pickup window opens. The clock changes status
+        // only; it never creates identity, movement or cancellation.
+        await _store.updateReservation(
+          ride.reservationId,
+          const ReservationPatch(status: ReservationStatus.driverEnRoute),
+        );
+        changed = true;
+      }
     }
     if (changed) notifyListeners();
   }
