@@ -361,8 +361,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   String? _existingAddressFor(String target) => _places.existingFor(target);
 
-  Future<String> _normaliseAddress(String input) {
-    return _locationCtl.normaliseAddress(input);
+  Future<String> _normaliseAddress(String input, {int? generation}) {
+    return _locationCtl.normaliseAddress(input, generation: generation);
   }
 
   Future<void> _moveMapToAddress(String address) async {
@@ -1310,10 +1310,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         .whereType<String>()
         .toList();
     final routePreparationWatch = Stopwatch()..start();
+    final normaliseBatch = _locationCtl.beginNormalisationBatch();
     final normalizedRoute = await Future.wait<String>([
-      _normaliseAddress(rawPickup),
-      _normaliseAddress(rawDestination),
-      ...rawStops.map(_normaliseAddress),
+      _normaliseAddress(rawPickup, generation: normaliseBatch),
+      _normaliseAddress(rawDestination, generation: normaliseBatch),
+      ...rawStops.map(
+        (stop) => _normaliseAddress(stop, generation: normaliseBatch),
+      ),
     ]);
     routePreparationWatch.stop();
     RouteTransitionMetrics.routePreparation(
