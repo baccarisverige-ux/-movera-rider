@@ -46,7 +46,6 @@ void main() {
     );
 
     final realtime = MockRideRealtime();
-    addTearDown(realtime.dispose);
     moveraNavigatorKey.currentState!.push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: AppRoutes.rideCompleted),
@@ -88,5 +87,11 @@ void main() {
     expect(find.text('journey-home'), findsOneWidget);
     expect(moveraNavigatorKey.currentState!.canPop(), isFalse);
     expect(AppScope.instance.ride.status, RideStatus.closed);
+
+    // This journey owns the injected transport. Dispose it inside the fake
+    // async test body so its assignment timer is cancelled before Flutter's
+    // end-of-test timer invariant runs; addTearDown is too late for that check.
+    realtime.dispose();
+    await tester.pump();
   });
 }
