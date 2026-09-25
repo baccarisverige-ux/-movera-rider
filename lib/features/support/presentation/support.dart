@@ -674,7 +674,7 @@ class _SupportScaffold extends StatelessWidget {
 
 Widget _exit(BuildContext context) {
   return TextButton(
-    onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+    onPressed: () => Navigator.popUntil(context, AppRoutes.isHomeRoute),
     child: Text(
       'Exit',
       style: SupportHome.text(
