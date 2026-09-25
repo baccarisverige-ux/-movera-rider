@@ -173,9 +173,16 @@ class HomeLocationController extends ChangeNotifier {
         ),
       );
       final generation = _detectGuard.next();
-      final detected = await geocoding.reverse(
-        GeoPoint(position.latitude, position.longitude),
-      );
+      String? detected;
+      try {
+        detected = await geocoding.reverse(
+          GeoPoint(position.latitude, position.longitude),
+        );
+      } catch (_) {
+        // Address enrichment must never invalidate an already acquired GPS fix.
+        // The rider puck and live stream are coordinate-driven, not geocoder-driven.
+        detected = null;
+      }
       if (!_detectGuard.isCurrent(generation)) {
         return DetectedLocation(
           target: LatLng(position.latitude, position.longitude),

@@ -59,7 +59,52 @@ class InProcessMockClient extends http.BaseClient {
     var status = 200;
     final parts = path.split('/');
 
-    if (path == '/api/v1/auth/otp/request' && method == 'POST') {
+    if (path == '/api/v1/locations/reverse-geocode' && method == 'POST') {
+      final latitude = body['latitude'];
+      final longitude = body['longitude'];
+      if (latitude is! num || longitude is! num) {
+        status = 400;
+        payload = {'code': 'INVALID_COORDINATES', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'data': {
+            'latitude': latitude.toDouble(),
+            'longitude': longitude.toDouble(),
+            // The in-process transport has no external geocoder. Preserve the
+            // real device coordinates and expose a neutral label instead of
+            // failing the entire location pipeline.
+            'address': 'Current location',
+          },
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/locations/geocode' && method == 'POST') {
+      final query = body['query'];
+      if (query is! String || query.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_QUERY', 'requestId': requestId};
+      } else {
+        final normalized = query.trim();
+        final hash = normalized.toLowerCase().codeUnits.fold<int>(
+          0,
+          (value, unit) => ((value * 31) + unit) & 0x7fffffff,
+        );
+        // Deterministic demo coordinates keep the frontend booking contract
+        // operational on GitHub Pages until the real geocoder is connected.
+        final latitude = 59.3293 + (((hash % 1201) - 600) / 100000.0);
+        final longitude = 18.0686 + ((((hash ~/ 1201) % 1601) - 800) / 100000.0);
+        payload = {
+          'code': 'OK',
+          'data': {
+            'address': normalized,
+            'latitude': latitude,
+            'longitude': longitude,
+          },
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/auth/otp/request' && method == 'POST') {
       final phone = body['phone'];
       if (phone is! String || phone.trim().isEmpty) {
         status = 400;
