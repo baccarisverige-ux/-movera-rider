@@ -81,6 +81,7 @@ class AppScope {
       realtime: rideRealtime,
       paymentGateway: paymentGateway,
       push: push,
+      usesMockDriverAssignment: reservations.usesMockDriverAssignment,
     );
   }
 
