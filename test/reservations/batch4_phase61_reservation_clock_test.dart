@@ -94,12 +94,14 @@ void main() {
     );
   });
 
-  test('clock never fabricates driver-en-route from a locally assigned driver', () async {
+  test('real assigned driver advances en-route without changing identity', () async {
     await controller.assignMockDriver('phase61', driver: driver);
     clock = pickupAt.add(const Duration(minutes: 5));
 
     await controller.startLiveIfDue();
 
-    expect(controller.byId('phase61')!.status, ReservationStatus.driverAssigned);
+    final ride = controller.byId('phase61')!;
+    expect(ride.status, ReservationStatus.driverEnRoute);
+    expect(ride.driver?.firstName, 'Amina');
   });
 }
