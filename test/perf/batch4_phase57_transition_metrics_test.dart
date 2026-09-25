@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 

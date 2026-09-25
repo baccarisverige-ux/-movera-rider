@@ -1,4 +1,4 @@
-import 'dart:ui' show SemanticsAction, SemanticsFlag;
+import 'dart:ui' show SemanticsAction;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,7 +73,7 @@ void main() {
           tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
       expect(data.label, label, reason: label);
       expect(
-        data.hasFlag(SemanticsFlag.isButton),
+        data.flagsCollection.isButton,
         isTrue,
         reason: '$label should be a button',
       );
