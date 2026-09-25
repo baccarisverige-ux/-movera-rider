@@ -251,8 +251,11 @@ class _SelectRideState extends State<SelectRide>
     _syncSheetOverlay();
     if (widget.initialRideId != null) {
       final ride = _selection.rideById(widget.initialRideId!);
-      _selection.selectRide(ride.id, ride.price);
+      if (ride != null) {
+        _selection.selectRide(ride.id, ride.price);
+      }
     }
+    _selection.ensureCatalogSelection();
     final paymentName =
         widget.initialPaymentMethod ??
         (widget.editingReservationId == null
@@ -324,21 +327,34 @@ class _SelectRideState extends State<SelectRide>
     setWebOverlayOpen(cover);
   }
 
-  _RideOption get _selectedRide =>
-      _allRides.firstWhere((ride) => ride.id == _selection.selectedRideId);
+  _RideOption? get _selectedRideOrNull {
+    final id = _selection.selectedRideId;
+    for (final ride in _allRides) {
+      if (ride.id == id) return ride;
+    }
+    return null;
+  }
 
   double _priceFor(_RideOption ride) =>
       _selection.priceFor(ride.id, ride.price);
 
   void _selectRide(String id) {
-    final catalog = _allRides.firstWhere((ride) => ride.id == id).price;
+    _RideOption? selected;
+    for (final ride in _allRides) {
+      if (ride.id == id) {
+        selected = ride;
+        break;
+      }
+    }
+    if (selected == null) return;
     setState(() {
-      _selection.selectRide(id, catalog);
+      _selection.selectRide(selected!.id, selected.price);
     });
   }
 
   void _nudgePrice(int delta) {
-    final ride = _selectedRide;
+    final ride = _selectedRideOrNull;
+    if (ride == null) return;
     final current = _priceFor(ride);
     final next = _selection.changeOffer(
       id: ride.id,
@@ -745,7 +761,13 @@ class _SelectRideState extends State<SelectRide>
   void _book() {
     if (_bookingInFlight) return;
 
-    final selected = _selectedRide;
+    final selected = _selectedRideOrNull;
+    if (selected == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No ride category is available. Try again.')),
+      );
+      return;
+    }
     if (!_selection.quoteIsAvailable(selected.id)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -766,7 +788,11 @@ class _SelectRideState extends State<SelectRide>
   }
 
   void _bookNow() {
-    final selected = _selectedRide;
+    final selected = _selectedRideOrNull;
+    if (selected == null) {
+      _releaseBookingLock();
+      return;
+    }
     final quote = _selection.quoteForBooking(selected.id);
     final authoritativePrice = _selection.authoritativePriceFor(selected.id);
     if (quote == null ||
@@ -1141,7 +1167,8 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _priceStepper() {
-    final ride = _selectedRide;
+    final ride = _selectedRideOrNull;
+    if (ride == null) return const SizedBox.shrink();
     final price = _priceFor(ride);
     final minimum = (ride.price * 0.65).roundToDouble();
     final maximum = (ride.price * 1.8).roundToDouble();
@@ -1418,7 +1445,7 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _footer(double bottomInset) {
-    final selected = _selectedRide;
+    final selected = _selectedRideOrNull;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(16, 8, 16, 12 + bottomInset),
@@ -1439,13 +1466,15 @@ class _SelectRideState extends State<SelectRide>
                   color: _cta,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
-                    onTap: _bookingInFlight ? null : _book,
+                    onTap: _bookingInFlight || selected == null ? null : _book,
                     borderRadius: BorderRadius.circular(18),
                     child: SizedBox(
                       height: 54,
                       child: Center(
                         child: Text(
-                          _selection.bookingMode.ctaLabel(selected.name),
+                          selected == null
+                              ? 'No rides available'
+                              : _selection.bookingMode.ctaLabel(selected.name),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _text(
