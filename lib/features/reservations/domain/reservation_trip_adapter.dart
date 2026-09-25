@@ -7,7 +7,7 @@ extension ReservationTripAdapter on Reservation {
   Trip toTripContract() {
     return Trip(
       tripId: reservationId,
-      status: _tripStatus(status),
+      status: _tripStatus(status, cancellationActor),
       categoryId: categoryId,
       paymentMethodId: paymentMethod,
       createdAt: createdAt,
@@ -27,7 +27,10 @@ extension ReservationTripAdapter on Reservation {
   }
 }
 
-TripStatus _tripStatus(ReservationStatus status) {
+TripStatus _tripStatus(
+  ReservationStatus status,
+  TripCancellationActor? cancellationActor,
+) {
   switch (status) {
     case ReservationStatus.scheduled:
       return TripStatus.requested;
@@ -44,6 +47,16 @@ TripStatus _tripStatus(ReservationStatus status) {
     case ReservationStatus.completed:
       return TripStatus.completed;
     case ReservationStatus.cancelled:
-      return TripStatus.cancelledByRider;
+      switch (cancellationActor) {
+        case TripCancellationActor.driver:
+          return TripStatus.cancelledByDriver;
+        case TripCancellationActor.admin:
+          return TripStatus.cancelledByAdmin;
+        case TripCancellationActor.system:
+          return TripStatus.failed;
+        case TripCancellationActor.rider:
+        case null:
+          return TripStatus.cancelledByRider;
+      }
   }
 }

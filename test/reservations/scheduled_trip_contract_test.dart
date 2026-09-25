@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_trip_adapter.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
 import 'package:movera_rider/features/trips/domain/trip_status.dart';
 
@@ -78,4 +79,40 @@ void main() {
     expect(item?.cancellationReason, 'duplicate');
     expect(item?.cancelledAt, fixedNow);
   });
+  test('scheduled Trip convergence preserves every cancellation actor', () {
+    Reservation cancelledBy(TripCancellationActor actor) => Reservation(
+      reservationId: 'scheduled-${actor.name}',
+      createdAt: fixedNow,
+      scheduledPickupAt: fixedNow.add(const Duration(hours: 2)),
+      pickup: const ReservationPlace(label: 'A'),
+      destination: const ReservationPlace(label: 'B'),
+      categoryId: 'movera',
+      categoryName: 'Movera',
+      categoryImage: 'assets/images/rides/movera.webp',
+      price: 259,
+      paymentMethod: 'apple',
+      status: ReservationStatus.cancelled,
+      cancellationActor: actor,
+      cancellationReason: 'cancelled',
+      cancelledAt: fixedNow,
+    );
+
+    expect(
+      cancelledBy(TripCancellationActor.rider).toTripContract().status,
+      TripStatus.cancelledByRider,
+    );
+    expect(
+      cancelledBy(TripCancellationActor.driver).toTripContract().status,
+      TripStatus.cancelledByDriver,
+    );
+    expect(
+      cancelledBy(TripCancellationActor.admin).toTripContract().status,
+      TripStatus.cancelledByAdmin,
+    );
+    expect(
+      cancelledBy(TripCancellationActor.system).toTripContract().status,
+      TripStatus.failed,
+    );
+  });
+
 }
