@@ -8,6 +8,13 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
@@ -30,6 +37,158 @@ void main() {
       ..rideId = 'journey-book-1'
       ..status = RideStatus.ratingPending;
   });
+
+  testWidgets(
+    'Phase 85 continuous Home -> destination -> quote -> Book -> Finding -> assigned -> Waiting -> trip -> Complete -> rating/tip -> Home',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      FindingDriverController.active = null;
+      AppScope.instance.ride
+        ..rideId = null
+        ..status = RideStatus.idle
+        ..suppressRestore = false
+        ..authoritativeVersion = null
+        ..authoritativeUpdatedAt = null;
+
+      final realtime = AppScope.instance.rideRealtime;
+      expect(realtime, isA<MockRideRealtime>());
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => MaterialApp(
+            navigatorKey: moveraNavigatorKey,
+            home: const Home(),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 800));
+
+      expect(find.byType(Home), findsOneWidget);
+      expect(find.text('Where to?'), findsOneWidget);
+
+      await tester.tap(find.text('Where to?'));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final routeFields = find.byType(TextField);
+      expect(routeFields, findsAtLeastNWidgets(2));
+      await tester.enterText(routeFields.at(0), 'Stockholm Central');
+      await tester.enterText(routeFields.at(1), 'Arlanda Airport');
+      await tester.pump();
+
+      final next = find.text('Next');
+      expect(next, findsOneWidget);
+      await tester.ensureVisible(next);
+      await tester.tap(next);
+      await tester.pump(const Duration(milliseconds: 700));
+
+      expect(find.byType(ConfirmPickupSpot), findsOneWidget);
+      final confirmPickup = find.text('Confirm pickup');
+      expect(confirmPickup, findsOneWidget);
+      await tester.ensureVisible(confirmPickup);
+      await tester.tap(confirmPickup);
+
+      // The route sheet closes, both addresses are normalized in parallel, and
+      // the production category selector is pushed.
+      for (var i = 0; i < 30 && find.byType(SelectRide).evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SelectRide), findsOneWidget);
+
+      // Quotes are backend-authored even in demo/test composition. Wait for
+      // the category CTA to become actionable instead of bypassing selection.
+      Finder selectMovera = find.text('Select Movera');
+      for (var i = 0; i < 40 && selectMovera.evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        selectMovera = find.text('Select Movera');
+      }
+      expect(selectMovera, findsOneWidget);
+      await tester.ensureVisible(selectMovera);
+      await tester.tap(selectMovera);
+
+      for (var i = 0;
+          i < 40 && find.byType(FindingDrivers).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(FindingDrivers), findsOneWidget);
+      expect(AppScope.instance.ride.status, RideStatus.findingDriver);
+      final rideId = AppScope.instance.ride.rideId;
+      expect(rideId, isNotNull);
+      expect(rideId!.trim(), isNotEmpty);
+
+      final mock = realtime as MockRideRealtime;
+      mock.assignNow();
+      for (var i = 0;
+          i < 50 && find.byType(WaitingForDriver).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(WaitingForDriver), findsOneWidget);
+      expect(AppScope.instance.ride.rideId, rideId);
+      expect(AppScope.instance.ride.status.isMatched, isTrue);
+
+      mock.markArrivedForTest();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(seconds: 9));
+      for (var i = 0; i < 7; i++) {
+        await tester.pump(const Duration(seconds: 3));
+      }
+      await tester.pump(const Duration(seconds: 2));
+
+      for (var i = 0;
+          i < 30 && find.byType(RideCompleted).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(RideCompleted), findsOneWidget);
+      expect(AppScope.instance.ride.rideId, rideId);
+
+      // Let the backend-authored post-trip payment/rating statuses settle.
+      for (var i = 0;
+          i < 30 && find.text('How was your trip').evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('How was your trip'), findsOneWidget);
+      expect(find.text('Tip your driver'), findsOneWidget);
+
+      final star = find.byIcon(Icons.star_rounded).first;
+      await tester.ensureVisible(star);
+      await tester.tap(star);
+      await tester.pump();
+
+      final tip = find.text('20 kr').first;
+      await tester.ensureVisible(tip);
+      await tester.tap(tip);
+      await tester.pump();
+      expect(find.text('20 kr selected.'), findsOneWidget);
+
+      final done = find.byKey(const ValueKey<String>('ride-completed-done'));
+      await tester.ensureVisible(done);
+      await tester.tap(done);
+
+      for (var i = 0; i < 50 && find.byType(Home).evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(Home), findsOneWidget);
+      expect(moveraNavigatorKey.currentState!.canPop(), isFalse);
+      expect(AppScope.instance.ride.status, RideStatus.closed);
+      expect(AppScope.instance.ride.rideId, rideId);
+      expect(await RideSnapshotStore.read(), isNull);
+
+      // No delayed assignment or stage timer may leak out of this one journey.
+      mock.unsubscribe();
+      await tester.pump();
+    },
+  );
 
   testWidgets('completed ride -> rating/tip surface -> Done -> Home', (
     tester,
