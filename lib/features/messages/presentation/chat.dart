@@ -33,36 +33,20 @@ class _ChatState extends State<Chat> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final MessagesController _chat;
-  bool showSendIcon = false;
 
   @override
   void initState() {
     super.initState();
     _chat = widget.controller ?? MessagesController.forRide(widget.rideId);
     _chat.markAllRead();
-    _messageController.addListener(_onMessageChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd(jump: true));
-  }
-
-  void _onMessageChanged() {
-    final canSend = _messageController.text.trim().isNotEmpty;
-    if (canSend == showSendIcon) return;
-    setState(() => showSendIcon = canSend);
   }
 
   @override
   void dispose() {
-    _messageController.removeListener(_onMessageChanged);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _sendMessage() {
-    if (!_chat.send(_messageController.text)) return;
-    setState(() {});
-    _messageController.clear();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
   void _scrollToEnd({bool jump = false}) {
@@ -117,60 +101,88 @@ class _ChatState extends State<Chat> {
                   ),
           ),
           Container(
-            height: ResSize.h * 100,
             width: double.infinity,
             color: AppColor.white,
-            padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-            alignment: Alignment.center,
-            child: SizedBox(
-              height: ResSize.h * 48,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: customTextfield(
-                      borderColor: Colors.transparent,
-                      borderWidth: 0,
-                      textColor: AppColor.black,
-                      controller: _messageController,
-                      fontSize: 14,
-                      hint: 'Send message...',
-                      fillColor: const Color(0xffF6F6F6),
-                      borderRadius: 32,
-                      hintTextColor: const Color(0xff969696),
-                      contentHorizPadding: 14,
-                      contentVertPadding: 14,
+            padding: EdgeInsets.fromLTRB(
+              screenHorizPadding,
+              10,
+              screenHorizPadding,
+              12,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6F7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    MessagesController.sendUnavailableMessage,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF5C656C),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  10.width,
-                  Semantics(
-                    button: true,
-                    enabled: showSendIcon,
-                    label: 'Send message',
-                    onTap: showSendIcon ? _sendMessage : null,
-                    child: ExcludeSemantics(
-                      child: Material(
-                        color: const Color(0xffF6F6F6),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          onTap: showSendIcon ? _sendMessage : null,
-                          customBorder: const CircleBorder(),
-                          child: SizedBox(
-                            height: ResSize.h * 48,
-                            width: ResSize.w * 48,
-                            child: Padding(
-                              padding: EdgeInsets.all(ResSize.w * 12),
-                              child: Image.asset(
-                                AppAssets.send,
-                                excludeFromSemantics: true,
+                ),
+                8.height,
+                SizedBox(
+                  height: ResSize.h * 48,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: customTextfield(
+                          borderColor: Colors.transparent,
+                          borderWidth: 0,
+                          textColor: AppColor.black,
+                          controller: _messageController,
+                          fontSize: 14,
+                          hint: 'Send message...',
+                          fillColor: const Color(0xffF6F6F6),
+                          borderRadius: 32,
+                          hintTextColor: const Color(0xff969696),
+                          contentHorizPadding: 14,
+                          contentVertPadding: 14,
+                        ),
+                      ),
+                      10.width,
+                      Semantics(
+                        button: true,
+                        enabled: false,
+                        label: 'Send message unavailable',
+                        child: ExcludeSemantics(
+                          child: Material(
+                            color: const Color(0xffF6F6F6),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: null,
+                              customBorder: const CircleBorder(),
+                              child: SizedBox(
+                                height: ResSize.h * 48,
+                                width: ResSize.w * 48,
+                                child: Padding(
+                                  padding: EdgeInsets.all(ResSize.w * 12),
+                                  child: Image.asset(
+                                    AppAssets.send,
+                                    excludeFromSemantics: true,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
