@@ -6,6 +6,7 @@ class AccountSecurityCapabilities {
     this.twoStep = false,
     this.recoveryPhone = false,
     this.connectedAccounts = false,
+    this.reauthentication = false,
     this.signOutOtherDevices = false,
   });
 
@@ -15,6 +16,7 @@ class AccountSecurityCapabilities {
   final bool twoStep;
   final bool recoveryPhone;
   final bool connectedAccounts;
+  final bool reauthentication;
   final bool signOutOtherDevices;
 
   factory AccountSecurityCapabilities.fromJson(Map<String, dynamic> json) {
@@ -25,6 +27,7 @@ class AccountSecurityCapabilities {
       twoStep: json['twoStep'] == true,
       recoveryPhone: json['recoveryPhone'] == true,
       connectedAccounts: json['connectedAccounts'] == true,
+      reauthentication: json['reauthentication'] == true,
       signOutOtherDevices: json['signOutOtherDevices'] == true,
     );
   }
