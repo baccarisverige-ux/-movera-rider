@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
@@ -45,7 +46,7 @@ void main() {
       ),
       throwsA(isA<PaymentUnavailableException>()),
     );
-    expect(scope.push, isNot(isA<NoopPushService>()));
+    expect(scope.push, isA<FirebasePushService>());
     expect(scope.emergencyDialer, isNot(isA<RecordingEmergencyDialer>()));
     expect(Observability.logger, isNot(isA<NoopLoggerSink>()));
     expect(Observability.analytics, isNot(isA<NoopAnalyticsSink>()));

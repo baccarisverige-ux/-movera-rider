@@ -6,12 +6,22 @@ class AppEnv {
     required this.apiBaseUrl,
     required this.mapsEnabled,
     this.authRequired = false,
+    this.firebaseApiKey = '',
+    this.firebaseAppId = '',
+    this.firebaseMessagingSenderId = '',
+    this.firebaseProjectId = '',
+    this.firebaseVapidKey = '',
   });
 
   final AppFlavor flavor;
   final String apiBaseUrl;
   final bool mapsEnabled;
   final bool authRequired;
+  final String firebaseApiKey;
+  final String firebaseAppId;
+  final String firebaseMessagingSenderId;
+  final String firebaseProjectId;
+  final String firebaseVapidKey;
 
   static const _flavorName = String.fromEnvironment(
     'MOVERA_FLAVOR',
@@ -40,6 +50,13 @@ class AppEnv {
       'MOVERA_AUTH_REQUIRED',
       defaultValue: false,
     ),
+    firebaseApiKey: String.fromEnvironment('MOVERA_FIREBASE_API_KEY'),
+    firebaseAppId: String.fromEnvironment('MOVERA_FIREBASE_APP_ID'),
+    firebaseMessagingSenderId: String.fromEnvironment(
+      'MOVERA_FIREBASE_MESSAGING_SENDER_ID',
+    ),
+    firebaseProjectId: String.fromEnvironment('MOVERA_FIREBASE_PROJECT_ID'),
+    firebaseVapidKey: String.fromEnvironment('MOVERA_FIREBASE_VAPID_KEY'),
   );
 
   static AppFlavor parseFlavor(String value) {
@@ -52,6 +69,12 @@ class AppEnv {
   bool get isProduction => flavor == AppFlavor.production;
   bool get isReleaseLike =>
       flavor == AppFlavor.staging || flavor == AppFlavor.production;
+
+  bool get hasFirebaseConfig =>
+      firebaseApiKey.trim().isNotEmpty &&
+      firebaseAppId.trim().isNotEmpty &&
+      firebaseMessagingSenderId.trim().isNotEmpty &&
+      firebaseProjectId.trim().isNotEmpty;
 
   bool get allowsMockTransport =>
       flavor == AppFlavor.demo ||

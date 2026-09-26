@@ -1,0 +1,144 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/notifications/firebase_push_service.dart';
+
+class _FakeGateway implements FirebasePushGateway {
+  final StreamController<String> refresh = StreamController<String>.broadcast();
+  PushAuthorizationStatus authorization = PushAuthorizationStatus.authorized;
+  String? token = 'fcm-token-a';
+  int initializeCalls = 0;
+  int deleteCalls = 0;
+
+  @override
+  Future<void> initialize(AppEnv environment) async {
+    initializeCalls += 1;
+  }
+
+  @override
+  Future<PushAuthorizationStatus> requestPermission() async => authorization;
+
+  @override
+  Future<void> ensureAppleTransportReady() async {}
+
+  @override
+  Future<String?> getToken({String? vapidKey}) async => token;
+
+  @override
+  Stream<String> get onTokenRefresh => refresh.stream;
+
+  @override
+  Future<void> deleteToken() async {
+    deleteCalls += 1;
+  }
+
+  Future<void> dispose() => refresh.close();
+}
+
+const _production = AppEnv(
+  flavor: AppFlavor.production,
+  apiBaseUrl: 'https://api.movera.example',
+  mapsEnabled: true,
+  firebaseApiKey: 'api-key',
+  firebaseAppId: 'app-id',
+  firebaseMessagingSenderId: 'sender-id',
+  firebaseProjectId: 'project-id',
+);
+
+void main() {
+  test('Phase 78 registers, rotates and unregisters the authoritative push token',
+      () async {
+    final backend = InProcessMockClient();
+    final gateway = _FakeGateway();
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: backend),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+
+    await service.register();
+
+    expect(gateway.initializeCalls, 1);
+    expect(backend.pushDevices['fcm-token-a']?['platform'], isNotEmpty);
+
+    gateway.refresh.add('fcm-token-b');
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(backend.pushDevices.containsKey('fcm-token-a'), isFalse);
+    expect(backend.pushDevices['fcm-token-b']?['provider'], 'fcm');
+
+    await service.unregister();
+
+    expect(backend.pushDevices, isEmpty);
+    expect(gateway.deleteCalls, 1);
+  });
+
+  test('Phase 78 fails closed when notification permission is denied', () async {
+    final backend = InProcessMockClient();
+    final gateway = _FakeGateway()
+      ..authorization = PushAuthorizationStatus.denied;
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: backend),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+
+    await expectLater(
+      service.register(),
+      throwsA(isA<PushPermissionDeniedException>()),
+    );
+
+    expect(backend.pushDevices, isEmpty);
+  });
+
+  test('Phase 78 release push rejects missing Firebase configuration', () async {
+    const missing = AppEnv(
+      flavor: AppFlavor.production,
+      apiBaseUrl: 'https://api.movera.example',
+      mapsEnabled: true,
+    );
+    final gateway = _FakeGateway();
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: missing, client: InProcessMockClient()),
+      environment: missing,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+
+    await expectLater(
+      service.register(),
+      throwsA(isA<PushConfigurationException>()),
+    );
+    expect(gateway.initializeCalls, 0);
+  });
+
+  test('Phase 78 deletes the local FCM token when server unregister fails',
+      () async {
+    final backend = InProcessMockClient();
+    final gateway = _FakeGateway();
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: backend),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+
+    await service.register();
+    backend.failNext = true;
+
+    await expectLater(service.unregister(), throwsA(anything));
+
+    expect(gateway.deleteCalls, 1);
+  });
+
+}

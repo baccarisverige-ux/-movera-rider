@@ -16,6 +16,7 @@ import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
 import 'package:movera_rider/core/observability/observability.dart';
@@ -63,9 +64,6 @@ class AppScope {
         permissions = PermissionService(),
         search = PlaceSearchService(),
         location = LocationRepository(),
-        push = environment.allowsMockTransport
-            ? NoopPushService()
-            : const UnavailablePushService(),
         crashes = const CrashReporter(),
         pickup = PickupSession(),
         destination = DestinationSession(),
@@ -73,6 +71,9 @@ class AppScope {
         reservations = ReservationController(environment: environment),
         profile = ProfileController() {
     api = ApiClient(env: environment, tokens: tokens);
+    push = environment.allowsMockTransport
+        ? NoopPushService()
+        : FirebasePushService(api: api, environment: environment);
 
     if (environment.isReleaseLike) {
       final sink = HttpObservabilitySink(baseUrl: environment.apiBaseUrl);
@@ -148,7 +149,7 @@ class AppScope {
   final PlaceSearchService search;
   final LocationRepository location;
   late final AppGeocoding geocoding;
-  final PushService push;
+  late final PushService push;
   final CrashReporter crashes;
   final PickupSession pickup;
   final DestinationSession destination;
