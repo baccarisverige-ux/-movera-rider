@@ -13,19 +13,6 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-int _matchingParen(String src, int openIdx) {
-  var depth = 0;
-  for (var i = openIdx; i < src.length; i++) {
-    final ch = src[i];
-    if (ch == '(') depth++;
-    if (ch == ')') {
-      depth--;
-      if (depth == 0) return i;
-    }
-  }
-  return -1;
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
