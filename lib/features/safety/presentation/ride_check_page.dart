@@ -42,7 +42,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
           const Center(child: SafetyMark(SafetyMarks.rideCheck, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'Movera can check on you when a ride appears to stop unexpectedly or move significantly off route.',
+            'Choose whether to receive RideCheck alerts when live monitoring becomes available.',
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
@@ -95,7 +95,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Live route monitoring is not connected to a production backend yet. Turning this on saves your preference so Movera can use it when RideCheck is fully active.',
+                  'Live route monitoring is not active yet. Turning this on saves your preference; it does not monitor this ride or send automatic alerts today.',
                   style: SafetyUi.text(
                     13.5,
                     color: SafetyUi.muted,

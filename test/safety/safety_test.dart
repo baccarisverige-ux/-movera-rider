@@ -288,6 +288,74 @@ void main() {
     expect(live.status, RideCheckStatus.pending);
   });
 
+  testWidgets('Safety Kit shows a server RideCheck alert and sends resolution', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final ctl = SafetyController(session: store);
+    await ctl.load();
+    final alert = await ctl.rideCheck.unexpectedStop(rideId: 'ride_alert');
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_alert', controller: ctl,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('RideCheck alert'), findsOneWidget);
+    await tester.tap(find.text("I'm okay"));
+    await tester.pumpAndSettle();
+    expect(find.text('RideCheck alert'), findsNothing);
+
+    final confirmed = await ctl.rideCheck.refresh('ride_alert');
+    expect(confirmed.single.eventId, alert.eventId);
+    expect(confirmed.single.status, RideCheckStatus.resolved);
+  });
+
+  test('failed SOS is not recorded as registered', () async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final ctl = SafetyController(session: store);
+    await ctl.load();
+    expect(await ctl.sos(), isFalse);
+    store.failNextWrite = true;
+    await expectLater(ctl.sos(rideId: 'ride_sos_failure'), throwsA(isA<SafetyException>()));
+    expect(ctl.events.where((event) => event.kind == SafetyKind.sos), isEmpty);
+    expect(await ctl.rideCheck.refresh('ride_sos_failure'), isEmpty);
+  });
+
+  testWidgets('Safety Kit distinguishes opened dialer from failed SOS registration', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final dialer = RecordingEmergencyDialer();
+    final ctl = SafetyController(
+      session: store,
+      emergency: EmergencyCallService(dialer: dialer),
+    );
+    await ctl.load();
+    store.failNextWrite = true;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_failed_sos', controller: ctl,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Contact 112'));
+    await tester.pumpAndSettle();
+    expect(dialer.calls, ['112']);
+    expect(find.text('Phone dialer opened, but Movera could not register your SOS.'),
+        findsOneWidget);
+  });
+
   test('emergency call is never automatic', () async {
     final dialer = RecordingEmergencyDialer();
     final service = EmergencyCallService(dialer: dialer);

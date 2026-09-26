@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/domain/ride_check.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
@@ -121,12 +122,25 @@ class RideSafetyKitSheet extends StatefulWidget {
 class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   late final SafetyController _ctl = widget.controller ?? SafetyController.shared;
   String? _audioNote;
+  bool _eventsAvailable = false;
 
   @override
   void initState() {
     super.initState();
     _ctl.addListener(_onChange);
-    _ctl.load();
+    _loadSafety();
+  }
+
+  Future<void> _loadSafety() async {
+    await _ctl.load();
+    final rideId = widget.rideId;
+    if (rideId == null || rideId.isEmpty) return;
+    try {
+      await _ctl.refreshRideCheckEvents(rideId);
+      if (mounted) setState(() => _eventsAvailable = true);
+    } catch (_) {
+      // The Safety Kit remains usable; do not show cached alerts as live.
+    }
   }
 
   @override
@@ -154,10 +168,31 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   Future<void> _call112() async {
     try {
       await _ctl.emergency.callEmergencyNumber();
-      await _ctl.sos(rideId: widget.rideId);
+      try {
+        final registered = await _ctl.sos(rideId: widget.rideId);
+        if (!mounted) return;
+        MoveraToast.show(context, registered
+            ? 'Phone dialer opened. Movera registered your SOS.'
+            : 'Phone dialer opened. In-app SOS needs an active ride.');
+      } catch (_) {
+        if (!mounted) return;
+        MoveraToast.show(context,
+            'Phone dialer opened, but Movera could not register your SOS.');
+      }
     } on EmergencyCallException catch (error) {
       if (!mounted) return;
       MoveraToast.show(context, error.message);
+    }
+  }
+
+  Future<void> _resolveRideCheck(RideCheckEvent event) async {
+    try {
+      await _ctl.resolveRideCheck(event);
+      if (!mounted) return;
+      MoveraToast.show(context, 'Your RideCheck response was sent.');
+    } catch (_) {
+      if (!mounted) return;
+      MoveraToast.show(context, 'Could not send your response. Please try again.');
     }
   }
 
@@ -224,6 +259,9 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
     final recording = _ctl.audio.isRecording;
+    final pendingAlerts = !_eventsAvailable || widget.rideId == null
+        ? <RideCheckEvent>[]
+        : _ctl.pendingRideCheckEvents(widget.rideId!);
     return PointerInterceptor(
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
@@ -251,6 +289,30 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
             const SizedBox(height: 4),
             Text('Safety tools', style: _text(22, weight: FontWeight.w700)),
             const SizedBox(height: 16),
+            if (pendingAlerts.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8ED),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFECCB93)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('RideCheck alert', style: _text(14, weight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text('Are you okay? Movera noticed something unusual with this ride.',
+                        style: _text(12, color: _muted)),
+                    TextButton(
+                      onPressed: () => _resolveRideCheck(pendingAlerts.first),
+                      child: const Text("I'm okay"),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(
