@@ -5,6 +5,7 @@ import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 
 abstract final class TransportComposition {
   static void validate({
@@ -13,6 +14,7 @@ abstract final class TransportComposition {
     required RideRealtime realtime,
     required PaymentGateway paymentGateway,
     required PushService push,
+    required EmergencyDialer emergencyDialer,
     required bool usesMockDriverAssignment,
   }) {
     if (environment.allowsMockTransport) return;
@@ -22,6 +24,7 @@ abstract final class TransportComposition {
       if (realtime is MockRideRealtime) 'realtime',
       if (paymentGateway is MockPaymentGateway) 'payments',
       if (push is NoopPushService) 'push',
+      if (emergencyDialer is RecordingEmergencyDialer) 'emergencyDialer',
       if (usesMockDriverAssignment) 'driverAssignment',
     ];
 
