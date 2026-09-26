@@ -203,7 +203,7 @@ class _SecurityPageState extends State<SecurityPage> {
               child: AccountTile(
                 title: 'Sign out other devices',
                 body: !caps.signOutOtherDevices
-                    ? 'Unavailable until session revocation is supported'
+                    ? 'Unavailable until reauthentication is connected'
                     : !caps.reauthentication
                         ? 'Unavailable until reauthentication is connected'
                         : !security.hasFreshReauthentication
