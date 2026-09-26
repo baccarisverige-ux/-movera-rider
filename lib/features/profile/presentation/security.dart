@@ -1,33 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/features/profile/application/profile_controller.dart';
-import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
+import 'package:movera_rider/features/profile/domain/account_security.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
-import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
 
 class SecurityPage extends StatefulWidget {
-  const SecurityPage({super.key, this.controller});
+  const SecurityPage({super.key, this.securityController});
 
-  final ProfileController? controller;
+  final AccountSecurityController? securityController;
 
   @override
   State<SecurityPage> createState() => _SecurityPageState();
 }
 
 class _SecurityPageState extends State<SecurityPage> {
-  late final ProfileController _profile;
+  late final AccountSecurityController _security;
 
   @override
   void initState() {
     super.initState();
-    _profile = widget.controller ?? AppScope.instance.profile;
-    _profile.addListener(_refresh);
+    _security = widget.securityController ?? AppScope.instance.accountSecurity;
+    _security.addListener(_refresh);
+    if (_security.state == null && !_security.loading) {
+      unawaited(_security.load());
+    }
   }
 
   @override
   void dispose() {
-    _profile.removeListener(_refresh);
+    _security.removeListener(_refresh);
     super.dispose();
   }
 
@@ -35,29 +39,51 @@ class _SecurityPageState extends State<SecurityPage> {
     if (mounted) setState(() {});
   }
 
-  String _passwordLine(DateTime when) {
-    if (when.millisecondsSinceEpoch == 0) return 'Not set';
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return 'Last changed ${when.day} ${months[when.month - 1]} ${when.year}';
+  String _passwordLine(DateTime? when, bool supported) {
+    if (!supported) return 'Unavailable until secure account service is connected';
+    if (when == null) return 'Not set';
+    return 'Last changed ${when.day}/${when.month}/${when.year}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final ride = _profile.profile;
-    final hasOtherLogin = ride.logins.any((item) => !item.current);
+    final security = _security.state;
+    if (_security.loading && security == null) {
+      return const AccountScaffold(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_security.available || security == null) {
+      return AccountScaffold(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
+          children: [
+            const AccountHeadline(
+              'Security',
+              body: 'How you sign in to Movera.',
+            ),
+            const SizedBox(height: 18),
+            AccountGroup(
+              children: [
+                AccountTile(
+                  mark: const AccountIcon(Icons.shield_outlined),
+                  title: 'Security controls unavailable',
+                  body: _security.errorMessage ??
+                      'Movera could not verify account security with the server.',
+                  showDivider: false,
+                  onTap: _security.loading
+                      ? null
+                      : () => unawaited(_security.load()),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final caps = security.capabilities;
+    final hasOtherLogin = security.sessions.any((item) => !item.current);
     return AccountScaffold(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 36),
@@ -69,83 +95,43 @@ class _SecurityPageState extends State<SecurityPage> {
               AccountTile(
                 mark: const AccountIcon(Icons.key_outlined),
                 title: 'Passkeys',
-                body: ride.passkeyEnabled
-                    ? 'Ready on this device'
-                    : 'Face ID or a device passkey',
-                onTap: () {
-                  _profile.update(
-                    ride.copyWith(passkeyEnabled: !ride.passkeyEnabled),
-                  );
-                },
+                body: caps.passkeys
+                    ? (security.passkeyEnabled
+                        ? 'Ready on this device'
+                        : 'No passkey configured')
+                    : 'Unavailable until secure account service is connected',
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.password_outlined),
                 title: 'Password',
-                body: _passwordLine(ride.passwordUpdatedAt),
-                onTap: () async {
-                  final next = await showAccountTextEditor(
-                    context,
-                    title: 'New password',
-                    value: '',
-                  );
-                  if (next != null && next.length >= 8) {
-                    await _profile.update(
-                      ride.copyWith(passwordUpdatedAt: DateTime.now()),
-                    );
-                  }
-                },
+                body: _passwordLine(
+                  security.passwordUpdatedAt,
+                  caps.password,
+                ),
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.phonelink_lock_outlined),
                 title: 'Authenticator',
-                body: ride.authenticatorEnabled
-                    ? 'One-time codes are on'
-                    : 'Add codes from an authenticator app',
-                onTap: () {
-                  _profile.update(
-                    ride.copyWith(
-                      authenticatorEnabled: !ride.authenticatorEnabled,
-                    ),
-                  );
-                },
+                body: caps.authenticator
+                    ? (security.authenticatorEnabled
+                        ? 'One-time codes are on'
+                        : 'Not configured')
+                    : 'Unavailable until secure account service is connected',
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.security_outlined),
                 title: '2-step verification',
-                body: ride.twoStepEnabled
-                    ? 'On  ·  extra check after password'
-                    : 'Off  ·  add an extra check after password',
-                trailing: Switch.adaptive(
-                  value: ride.twoStepEnabled,
-                  activeThumbColor: adaptiveSwitchThumbColor(
-                    context,
-                    kAccountAccent,
-                  ),
-                  activeTrackColor: adaptiveSwitchTrackColor(
-                    context,
-                    kAccountAccent,
-                  ),
-                  onChanged: (on) {
-                    _profile.update(ride.copyWith(twoStepEnabled: on));
-                  },
-                ),
+                body: caps.twoStep
+                    ? (security.twoStepEnabled ? 'On' : 'Off')
+                    : 'Unavailable until secure account service is connected',
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.phone_iphone_outlined),
                 title: 'Recovery phone',
-                body: ride.recoveryPhone ?? 'Add a backup number',
+                body: caps.recoveryPhone
+                    ? (security.recoveryPhone ?? 'Not configured')
+                    : 'Unavailable until secure account service is connected',
                 showDivider: false,
-                onTap: () async {
-                  final next = await showAccountTextEditor(
-                    context,
-                    title: 'Recovery phone',
-                    value: ride.recoveryPhone ?? ride.phone,
-                    keyboard: TextInputType.phone,
-                  );
-                  if (next != null && next.isNotEmpty) {
-                    await _profile.update(ride.copyWith(recoveryPhone: next));
-                  }
-                },
               ),
             ],
           ),
@@ -166,35 +152,17 @@ class _SecurityPageState extends State<SecurityPage> {
               AccountTile(
                 mark: Image.asset(AppAssets.google, height: 20),
                 title: 'Google',
-                body: ride.googleConnected ? 'Connected' : 'Not connected',
-                trailing: TextButton(
-                  onPressed: () {
-                    _profile.update(
-                      ride.copyWith(googleConnected: !ride.googleConnected),
-                    );
-                  },
-                  child: Text(
-                    ride.googleConnected ? 'Disconnect' : 'Connect',
-                    style: accountText(13.5, weight: FontWeight.w600),
-                  ),
-                ),
+                body: caps.connectedAccounts
+                    ? (security.googleConnected ? 'Connected' : 'Not connected')
+                    : 'Unavailable until secure account service is connected',
               ),
               AccountTile(
                 mark: Image.asset(AppAssets.apple, height: 20),
                 title: 'Apple',
-                body: ride.appleConnected ? 'Connected' : 'Not connected',
+                body: caps.connectedAccounts
+                    ? (security.appleConnected ? 'Connected' : 'Not connected')
+                    : 'Unavailable until secure account service is connected',
                 showDivider: false,
-                trailing: TextButton(
-                  onPressed: () {
-                    _profile.update(
-                      ride.copyWith(appleConnected: !ride.appleConnected),
-                    );
-                  },
-                  child: Text(
-                    ride.appleConnected ? 'Disconnect' : 'Connect',
-                    style: accountText(13.5, weight: FontWeight.w600),
-                  ),
-                ),
               ),
             ],
           ),
@@ -211,20 +179,20 @@ class _SecurityPageState extends State<SecurityPage> {
             ),
           ),
           AccountGroup(
-            children: ride.logins.isEmpty
+            children: security.sessions.isEmpty
                 ? const [
                     AccountTile(
                       mark: AccountIcon(Icons.devices_outlined),
-                      title: 'No login activity available',
-                      body: 'Sign-in history will appear here when available.',
+                      title: 'No server session activity available',
+                      body: 'Movera has no session records to show.',
                       showDivider: false,
                     ),
                   ]
                 : [
-                    for (var i = 0; i < ride.logins.length; i++)
+                    for (var i = 0; i < security.sessions.length; i++)
                       _LoginTile(
-                        session: ride.logins[i],
-                        showDivider: i != ride.logins.length - 1,
+                        session: security.sessions[i],
+                        showDivider: i != security.sessions.length - 1,
                       ),
                   ],
           ),
@@ -234,22 +202,32 @@ class _SecurityPageState extends State<SecurityPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: AccountTile(
                 title: 'Sign out other devices',
-                body: 'Keeps this browser signed in.',
+                body: caps.signOutOtherDevices
+                    ? 'Server will revoke every session except this one.'
+                    : 'Unavailable until session revocation is supported',
                 showDivider: false,
-                onTap: () async {
-                  final confirm = await showAccountChoice(
-                    context,
-                    title: 'Sign out other devices?',
-                    options: const ['Sign out others', 'Cancel'],
-                    selected: '',
-                  );
-                  if (confirm != 'Sign out others') return;
-                  await _profile.update(
-                    ride.copyWith(
-                      logins: ride.logins.where((item) => item.current).toList(),
-                    ),
-                  );
-                },
+                onTap: caps.signOutOtherDevices && !_security.loading
+                    ? () async {
+                        final confirm = await showAccountChoice(
+                          context,
+                          title: 'Sign out other devices?',
+                          options: const ['Sign out others', 'Cancel'],
+                          selected: '',
+                        );
+                        if (confirm != 'Sign out others') return;
+                        await _security.signOutOtherDevices();
+                      }
+                    : null,
+              ),
+            ),
+          ],
+          if (_security.errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _security.errorMessage!,
+                style: accountText(13, color: const Color(0xFFB42318)),
               ),
             ),
           ],
@@ -262,7 +240,7 @@ class _SecurityPageState extends State<SecurityPage> {
 class _LoginTile extends StatelessWidget {
   const _LoginTile({required this.session, required this.showDivider});
 
-  final LoginSession session;
+  final AccountSession session;
   final bool showDivider;
 
   @override
