@@ -35,7 +35,9 @@ class ProfileRepository {
         final loaded = RiderProfileData.fromJson(
           Map<String, dynamic>.from(decoded),
         );
-        final sanitized = _sanitizeLegacyDemoProfile(loaded);
+        final sanitized = _presentationOnly(
+          _sanitizeLegacyDemoProfile(loaded),
+        );
         _profile = sanitized;
         if (!_sameProfile(loaded, sanitized)) {
           await prefs.setString(storageKey, jsonEncode(sanitized.toJson()));
@@ -47,15 +49,29 @@ class ProfileRepository {
   }
 
   Future<RiderProfileData> save(RiderProfileData next) async {
-    _profile = next;
+    final sanitized = _presentationOnly(next);
+    _profile = sanitized;
     try {
       final prefs = await PreferencesStore.load();
-      await prefs.setString(storageKey, jsonEncode(next.toJson()));
+      await prefs.setString(storageKey, jsonEncode(sanitized.toJson()));
     } catch (error, stackTrace) {
       AppLog.error('profile.save_failed', error: error, stackTrace: stackTrace);
       rethrow;
     }
     return _profile;
+  }
+
+  RiderProfileData _presentationOnly(RiderProfileData source) {
+    return source.copyWith(
+      passkeyEnabled: false,
+      twoStepEnabled: false,
+      authenticatorEnabled: false,
+      passwordUpdatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      googleConnected: false,
+      appleConnected: false,
+      logins: const [],
+      clearRecovery: true,
+    );
   }
 
   RiderProfileData _sanitizeLegacyDemoProfile(RiderProfileData source) {
