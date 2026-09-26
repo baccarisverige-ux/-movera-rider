@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
+import 'package:movera_rider/features/notifications/domain/notifications.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -15,20 +16,7 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<NotificationItem> notifications = NotificationsController()
-        .feed()
-        .map((item) {
-          return NotificationItem(
-            icon: item.kind == 'check'
-                ? Icons.check_circle_outline
-                : Icons.directions_car,
-            title: item.title,
-            subtitle: item.subtitle,
-            time: item.time,
-            isRead: item.read,
-          );
-        })
-        .toList();
+    final controller = NotificationsController();
 
     return Scaffold(
       backgroundColor: AppColor.secondary,
@@ -40,9 +28,7 @@ class NotificationScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => Navigator.pop(context),
                   tooltip: 'Back',
                   icon: Icon(
                     Icons.arrow_back_rounded,
@@ -67,25 +53,36 @@ class NotificationScreen extends StatelessWidget {
             ),
             12.height,
             Expanded(
-              child: notifications.isEmpty
-                  ? const MoveraEmptyState(
+              child: StreamBuilder<List<AppNotification>>(
+                stream: controller.watch(),
+                initialData: controller.feed(),
+                builder: (context, snapshot) {
+                  final notifications = snapshot.data ?? const <AppNotification>[];
+                  if (notifications.isEmpty) {
+                    return const MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
                       title: "You're all caught up.",
                       message:
                           'Ride and account updates will appear here when they arrive.',
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenHorizPadding,
-                      ),
-                      itemCount: notifications.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(bottom: ResSize.h * 16),
-                          child: _buildNotificationCard(notifications[index]),
-                        );
-                      },
-                    ),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = notifications[index];
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: ResSize.h * 16),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => controller.markRead(notification.messageId),
+                          child: _buildNotificationCard(notification),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -93,7 +90,7 @@ class NotificationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNotificationCard(NotificationItem notification) {
+  Widget _buildNotificationCard(AppNotification notification) {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: ResSize.w * 4,
@@ -150,50 +147,29 @@ class NotificationScreen extends StatelessWidget {
             ),
           ),
           8.width,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Row(
-                children: [
-                  TextWidget(
-                    text: notification.time,
-                    fontSize: 12,
-                    fontWeight: fwNormal,
-                    color: AppColor.subtitle,
-                  ),
-                  if (!notification.isRead) ...[
-                    4.width,
-                    Container(
-                      width: ResSize.w * 8,
-                      height: ResSize.w * 8,
-                      decoration: BoxDecoration(
-                        color: AppColor.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ],
-                ],
+              TextWidget(
+                text: notification.time,
+                fontSize: 12,
+                fontWeight: fwNormal,
+                color: AppColor.subtitle,
               ),
+              if (!notification.read) ...[
+                4.width,
+                Container(
+                  width: ResSize.w * 8,
+                  height: ResSize.w * 8,
+                  decoration: BoxDecoration(
+                    color: AppColor.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
             ],
           ),
         ],
       ),
     );
   }
-}
-
-class NotificationItem {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String time;
-  final bool isRead;
-
-  NotificationItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.isRead,
-  });
 }
