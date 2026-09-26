@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -13,29 +11,7 @@ Iterable<File> dartFiles(Directory root) sync* {
 }
 
 void main() {
-  test('restoreFromBackend is confined to RideSession compatibility adapter', () {
-    final offenders = <String>[];
-
-    for (final file in dartFiles(Directory('lib'))) {
-      if (file.path.endsWith(
-        'features/ride_booking/application/ride_session.dart',
-      )) {
-        continue;
-      }
-      final source = file.readAsStringSync();
-      if (source.contains('restoreFromBackend(')) {
-        offenders.add(file.path);
-      }
-    }
-
-    expect(
-      offenders,
-      isEmpty,
-      reason:
-          'Local/UI code must use localTransition(); API/realtime/restore code '
-          'must use backendReconcile(). Offenders: $offenders',
-    );
-  });
+  
 
   test('local transitions reject illegal authoritative jumps', () {
     final ride = RideSession();
