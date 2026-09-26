@@ -30,13 +30,47 @@ void main() {
     mapsEnabled: true,
   );
 
-  Future<AccountSecurityController> securityController() async {
+  Future<AccountSecurityController> securityController({
+    bool reauthenticationSupported = false,
+    bool freshlyReauthenticated = false,
+  }) async {
+    final client = InProcessMockClient();
+    final capabilities = Map<String, dynamic>.from(
+      client.accountSecurity['capabilities'] as Map,
+    );
+    capabilities
+      ..['reauthentication'] = reauthenticationSupported
+      ..['signOutOtherDevices'] = true;
+
+    client.accountSecurity
+      ..['phone'] = '+46701234567'
+      ..['email'] = 'rider@example.test'
+      ..['phoneVerifiedAt'] = null
+      ..['emailVerifiedAt'] = '2026-01-01T12:00:00.000Z'
+      ..['reauthenticatedAt'] = freshlyReauthenticated
+          ? DateTime.now().toUtc().toIso8601String()
+          : null
+      ..['capabilities'] = capabilities
+      ..['sessions'] = [
+        {
+          'id': 'session_current',
+          'device': 'This device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': true,
+        },
+        {
+          'id': 'session_other',
+          'device': 'Other device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': false,
+        },
+      ];
+
     final controller = AccountSecurityController(
       repository: AccountSecurityRepository(
-        api: ApiClient(
-          env: env,
-          client: InProcessMockClient(),
-        ),
+        api: ApiClient(env: env, client: client),
       ),
     );
     await controller.load();
@@ -75,6 +109,17 @@ void main() {
     expect(find.byType(Switch), findsNothing);
     expect(find.text('Connect'), findsNothing);
     expect(find.text('Disconnect'), findsNothing);
+
+    final signOut = find.text('Sign out other devices');
+    await tester.scrollUntilVisible(signOut, 300);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Unavailable until reauthentication is connected'),
+      findsOneWidget,
+    );
+    await tester.tap(signOut);
+    await tester.pumpAndSettle();
+    expect(find.text('Sign out others'), findsNothing);
   });
 
   testWidgets('Account Check uses server verification metadata', (tester) async {
@@ -88,10 +133,7 @@ void main() {
       ),
     );
 
-    expect(
-      find.text('+46701234567 · Not verified'),
-      findsOneWidget,
-    );
+    expect(find.text('+46701234567 · Not verified'), findsOneWidget);
     expect(find.text('Unavailable'), findsAtLeastNWidgets(2));
   });
 
@@ -120,16 +162,21 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('server revocation removes other sessions from Security',
+  testWidgets('fresh reauth allows server-verified session revocation',
       (tester) async {
-    final security = await securityController();
+    final security = await securityController(
+      reauthenticationSupported: true,
+      freshlyReauthenticated: true,
+    );
     await pump(
       tester,
       SecurityPage(securityController: security),
     );
 
     expect(find.text('Other device'), findsOneWidget);
-    await tester.tap(find.text('Sign out other devices'));
+    final signOut = find.text('Sign out other devices');
+    await tester.scrollUntilVisible(signOut, 300);
+    await tester.tap(signOut);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Sign out others'));
     await tester.pumpAndSettle();
