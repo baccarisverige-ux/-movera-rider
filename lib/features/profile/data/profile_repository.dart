@@ -65,8 +65,6 @@ class ProfileRepository {
 
   Map<String, dynamic> _presentationJson(RiderProfileData source) => {
         'name': source.name,
-        'email': source.email,
-        'phone': source.phone,
         'gender': source.gender,
         'language': source.language,
         'photoAsset': source.photoAsset,
