@@ -39,8 +39,10 @@ class ProfileRepository {
           _sanitizeLegacyDemoProfile(loaded),
         );
         _profile = sanitized;
-        if (!_sameProfile(loaded, sanitized)) {
-          await prefs.setString(storageKey, jsonEncode(sanitized.toJson()));
+        final persisted = _presentationJson(sanitized);
+        if (!_sameProfile(loaded, sanitized) ||
+            jsonEncode(decoded) != jsonEncode(persisted)) {
+          await prefs.setString(storageKey, jsonEncode(persisted));
         }
       }
     } catch (error, stackTrace) {
@@ -53,13 +55,25 @@ class ProfileRepository {
     _profile = sanitized;
     try {
       final prefs = await PreferencesStore.load();
-      await prefs.setString(storageKey, jsonEncode(sanitized.toJson()));
+      await prefs.setString(storageKey, jsonEncode(_presentationJson(sanitized)));
     } catch (error, stackTrace) {
       AppLog.error('profile.save_failed', error: error, stackTrace: stackTrace);
       rethrow;
     }
     return _profile;
   }
+
+  Map<String, dynamic> _presentationJson(RiderProfileData source) => {
+        'name': source.name,
+        'email': source.email,
+        'phone': source.phone,
+        'gender': source.gender,
+        'language': source.language,
+        'photoAsset': source.photoAsset,
+        'rideUpdates': source.rideUpdates,
+        'promotions': source.promotions,
+        'emailUpdates': source.emailUpdates,
+      };
 
   RiderProfileData _presentationOnly(RiderProfileData source) {
     return source.copyWith(
