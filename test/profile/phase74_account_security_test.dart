@@ -5,9 +5,16 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
+import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
 
   const env = AppEnv(
     flavor: AppFlavor.test,
@@ -67,6 +74,44 @@ void main() {
 
     expect(after.sessions, isNotEmpty);
     expect(after.sessions.every((item) => item.current), isTrue);
+  });
+
+  test('SharedPreferences cannot persist a successful security state', () async {
+    const key = 'phase74_local_profile';
+    final store = ProfileRepository(storageKey: key);
+
+    await store.save(
+      RiderProfileData.defaults().copyWith(
+        phone: '+46709999999',
+        email: 'local@example.test',
+        twoStepEnabled: true,
+        passkeyEnabled: true,
+        authenticatorEnabled: true,
+        recoveryPhone: '+46708888888',
+        googleConnected: true,
+        appleConnected: true,
+        logins: const [
+          LoginSession(
+            device: 'Fake device',
+            place: 'Local',
+            source: 'Preferences',
+          ),
+        ],
+      ),
+    );
+
+    final reloaded = ProfileRepository(storageKey: key);
+    await reloaded.hydrate();
+
+    expect(reloaded.current.phone, '+46709999999');
+    expect(reloaded.current.email, 'local@example.test');
+    expect(reloaded.current.twoStepEnabled, isFalse);
+    expect(reloaded.current.passkeyEnabled, isFalse);
+    expect(reloaded.current.authenticatorEnabled, isFalse);
+    expect(reloaded.current.recoveryPhone, isNull);
+    expect(reloaded.current.googleConnected, isFalse);
+    expect(reloaded.current.appleConnected, isFalse);
+    expect(reloaded.current.logins, isEmpty);
   });
 
   test('missing security endpoint becomes unavailable instead of local success', () async {
