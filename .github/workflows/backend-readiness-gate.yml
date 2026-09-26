@@ -72,6 +72,7 @@ jobs:
           flutter test test/architecture/release_observability_test.dart
           flutter test test/architecture/transport_composition_test.dart
           flutter test test/architecture/phase72_actual_release_composition_test.dart
+          flutter test test/auth/phase73_auth_contract_test.dart
           flutter test test/ride/realtime_contract_test.dart
           flutter test test/maps/routing_privacy_test.dart
           flutter test test/performance/performance_budget_test.dart
