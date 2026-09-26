@@ -173,7 +173,11 @@ void main() {
       SecurityPage(securityController: security),
     );
 
-    expect(find.text('Other device'), findsOneWidget);
+    final otherDevice = find.text('Other device');
+    await tester.scrollUntilVisible(otherDevice, 300);
+    await tester.pumpAndSettle();
+    expect(otherDevice, findsOneWidget);
+
     final signOut = find.text('Sign out other devices');
     await tester.scrollUntilVisible(signOut, 300);
     await tester.tap(signOut);
