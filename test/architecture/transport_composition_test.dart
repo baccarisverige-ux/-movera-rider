@@ -154,4 +154,33 @@ void main() {
     realtime.dispose();
   });
 
+  test('release composition rejects unavailable push placeholder', () {
+    final api = ApiClient(env: production);
+    final realtime = MockRideRealtime(api: api);
+
+    expect(
+      () => TransportComposition.validate(
+        environment: production,
+        api: api,
+        realtime: realtime,
+        paymentGateway: MockPaymentGateway(),
+        push: const UnavailablePushService(),
+        emergencyDialer: RecordingEmergencyDialer(),
+        logger: const NoopLoggerSink(),
+        analytics: const NoopAnalyticsSink(),
+        crashes: const NoopCrashSink(),
+        usesMockDriverAssignment: true,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('push'),
+        ),
+      ),
+    );
+
+    realtime.dispose();
+  });
+
 }
