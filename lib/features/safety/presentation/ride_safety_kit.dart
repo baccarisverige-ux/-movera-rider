@@ -109,15 +109,16 @@ Future<void> showRideSafetyKit(BuildContext context, {String? rideId}) {
 }
 
 class RideSafetyKitSheet extends StatefulWidget {
-  const RideSafetyKitSheet({super.key, this.rideId});
+  const RideSafetyKitSheet({super.key, this.rideId, this.controller});
   final String? rideId;
+  final SafetyController? controller;
 
   @override
   State<RideSafetyKitSheet> createState() => _RideSafetyKitSheetState();
 }
 
 class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
-  final SafetyController _ctl = SafetyController.shared;
+  late final SafetyController _ctl = widget.controller ?? SafetyController.shared;
   String? _audioNote;
 
   @override
@@ -186,18 +187,28 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   }
 
   Future<void> _shareTrip() async {
-    if (!_ctl.preferences.tripShareEnabled) {
+    if (!_ctl.preferences.tripShareEnabled ||
+        !_ctl.contacts.any((contact) => contact.isEnabled &&
+            (_ctl.preferences.tripShareContactIds.contains(contact.id) ||
+                contact.shareTrips))) {
       final nav = Navigator.of(context);
       await popCurrentRouteAndWaitForExit(context);
       if (!nav.mounted) return;
       await nav.push(RightToLeftTransition(TripSharePage(controller: _ctl)));
       return;
     }
-    _ctl.shareTrip(rideId: widget.rideId);
-    setState(() {
-      _audioNote =
-          'Trip sharing is ready. Live location is sent when the backend is connected.';
-    });
+    try {
+      final share = await _ctl.startShare(widget.rideId ?? '');
+      if (!mounted) return;
+      setState(() {
+        _audioNote = share.isActive && share.contactIds.isNotEmpty
+            ? 'Trip sharing started for ${share.contactIds.length} trusted contact${share.contactIds.length == 1 ? '' : 's'}.'
+            : 'Trip sharing could not be started.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _audioNote = 'Could not start trip sharing. Please try again.');
+    }
   }
 
   Future<void> _openHub() async {
