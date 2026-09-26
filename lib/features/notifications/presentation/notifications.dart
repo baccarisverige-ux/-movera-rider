@@ -24,7 +24,7 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notifications = controller ?? NotificationsController();
+    final notificationController = controller ?? NotificationsController();
 
     return Scaffold(
       backgroundColor: AppColor.secondary,
@@ -62,11 +62,11 @@ class NotificationScreen extends StatelessWidget {
             12.height,
             Expanded(
               child: StreamBuilder<List<AppNotification>>(
-                stream: notifications.watch(),
-                initialData: notifications.feed(),
+                stream: notificationController.watch(),
+                initialData: notificationController.feed(),
                 builder: (context, snapshot) {
-                  final notifications = snapshot.data ?? const <AppNotification>[];
-                  if (notifications.isEmpty) {
+                  final items = snapshot.data ?? const <AppNotification>[];
+                  if (items.isEmpty) {
                     return const MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
                       title: "You're all caught up.",
@@ -76,15 +76,15 @@ class NotificationScreen extends StatelessWidget {
                   }
                   return ListView.builder(
                     padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                    itemCount: notifications.length,
+                    itemCount: items.length,
                     itemBuilder: (context, index) {
-                      final notification = notifications[index];
+                      final notification = items[index];
                       return Padding(
                         padding: EdgeInsets.only(bottom: ResSize.h * 16),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () async {
-                            notifications.markRead(notification.messageId);
+                            notificationController.markRead(notification.messageId);
                             final rideId = notificationRideTarget(
                               rideId: notification.rideId,
                               deepLink: notification.deepLink,
