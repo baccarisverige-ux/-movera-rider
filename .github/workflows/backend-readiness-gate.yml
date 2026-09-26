@@ -51,7 +51,6 @@ jobs:
           fi
 
           if grep -R --line-number --fixed-strings \
-            --exclude='dependency_import_guard_test.dart' \
             'package:flutter_sliding_up_panel/' lib test integration_test 2>/dev/null; then
             echo 'Removed duplicate panel dependency is still imported'
             exit 1
@@ -69,12 +68,11 @@ jobs:
         run: |
           flutter test test/booking/trip_contract_projection_test.dart
           flutter test test/reservations/scheduled_trip_contract_test.dart
-          flutter test test/safety/safety_authenticated_api_test.dart
+          flutter test test/safety/safety_test.dart
           flutter test test/architecture/release_observability_test.dart
           flutter test test/architecture/transport_composition_test.dart
           flutter test test/ride/realtime_contract_test.dart
           flutter test test/maps/routing_privacy_test.dart
-          flutter test test/architecture/dependency_import_guard_test.dart
           flutter test test/performance/performance_budget_test.dart
 
       - name: Critical correctness race gates
