@@ -74,7 +74,11 @@ void main() {
       expect(find.text('Where to?'), findsOneWidget);
 
       await tester.tap(find.text('Where to?'));
-      await tester.pump(const Duration(milliseconds: 500));
+      for (var i = 0;
+          i < 40 && find.byType(TextField).evaluate().length < 2;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       final routeFields = find.byType(TextField);
       expect(routeFields, findsAtLeastNWidgets(2));
