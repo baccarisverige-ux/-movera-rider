@@ -11,6 +11,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
@@ -201,6 +202,32 @@ void main() {
 
     expect(security.state!.sessions.every((item) => item.current), isTrue);
     expect(find.text('Other device'), findsNothing);
+  });
+
+  testWidgets('Account Check ignores local contact strings for verification', (
+    tester,
+  ) async {
+    final profile = controller();
+    await profile.update(
+      RiderProfileData.defaults().copyWith(
+        phone: '+46709999999',
+        email: 'local@example.test',
+      ),
+    );
+    final security = securityController();
+
+    await pumpPhone(
+      tester,
+      AccountCheckupPage(
+        controller: profile,
+        securityController: security,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('+46701234567 · Not verified'), findsOneWidget);
+    expect(find.textContaining('+46709999999'), findsNothing);
+    expect(find.textContaining('Verified'), findsNothing);
   });
 
   testWidgets('privacy communication toggles persist', (tester) async {
