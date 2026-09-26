@@ -364,7 +364,13 @@ void main() {
   testWidgets('Safety Kit share action creates an active share for the ride', (
     tester,
   ) async {
-    final ctl = SafetyController.shared;
+    final session = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
+    );
+    final ctl = SafetyController(session: session);
     await ctl.load();
     await ctl.addContact(
       name: 'Trusted contact',
@@ -375,14 +381,19 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: RideSafetyKitSheet(rideId: 'ride_share_action')),
+        home: Scaffold(
+          body: RideSafetyKitSheet(
+            rideId: 'ride_share_action',
+            controller: ctl,
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Share trip'));
     await tester.pumpAndSettle();
 
-    final share = await SafetyStore.shared.getShare('ride_share_action');
+    final share = await session.getShare('ride_share_action');
     expect(share, isNotNull);
     expect(share!.isActive, isTrue);
     expect(share.contactIds, contains(ctl.contacts.single.id));
