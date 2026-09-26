@@ -2,6 +2,7 @@ import 'package:movera_rider/features/active_ride/application/active_ride_contro
 import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_complete_repository.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_dispute_repository.dart';
+import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class RideCompleteController {
@@ -11,20 +12,34 @@ class RideCompleteController {
     TripReceiptRepository? trips,
     TipCatalog? tips,
     RideDisputeRepository? disputes,
+    RideFeedbackRepository? feedback,
   }) : _ride = ride ?? ActiveRideController(),
        _drivers = drivers ?? const DriverRepository(),
        _trips = trips ?? const TripReceiptRepository(),
        _tips = tips ?? const TipCatalog(),
-       _disputes = disputes ?? RideDisputeRepository();
+       _disputes = disputes ?? RideDisputeRepository(),
+       _feedback = feedback ?? RideFeedbackRepository();
 
   final ActiveRideController _ride;
   final DriverRepository _drivers;
   final TripReceiptRepository _trips;
   final TipCatalog _tips;
   final RideDisputeRepository _disputes;
+  final RideFeedbackRepository _feedback;
 
   void close() => _ride.markClosed();
   Future<void> closeCompletedRide(String rideId) => _ride.closeCompletedRide(rideId);
+  Future<void> submitFeedback({
+    required String rideId,
+    double? rating,
+    int? tipMinor,
+    required String idempotencyKey,
+  }) => _feedback.submit(
+    rideId: rideId,
+    rating: rating,
+    tipMinor: tipMinor,
+    idempotencyKey: idempotencyKey,
+  );
   Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
       _ride.persistCompletedStatus(status, rideId: rideId);
   DriverProfile? driver() => _drivers.current();

@@ -9,6 +9,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,7 +62,9 @@ void main() {
           status: RideStatus.ratingPending,
           rideId: 'journey-book-1',
           realtime: realtime,
-          feedbackRepository: RideFeedbackRepository(api: ApiClient(client: backend)),
+          controller: RideCompleteController(
+            feedback: RideFeedbackRepository(api: ApiClient(client: backend)),
+          ),
           showConnectionBanner: false,
         ),
       ),

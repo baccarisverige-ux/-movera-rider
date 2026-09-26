@@ -9,7 +9,6 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
-import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
@@ -27,7 +26,7 @@ class RideCompleted extends StatefulWidget {
     this.feedbackAvailableOnCompletion = false,
     this.showConnectionBanner = true,
     this.onClose,
-    this.feedbackRepository,
+    this.controller,
   });
 
   final RideStatus status;
@@ -46,7 +45,7 @@ class RideCompleted extends StatefulWidget {
 
   final bool showConnectionBanner;
   final Future<void> Function(BuildContext context)? onClose;
-  final RideFeedbackRepository? feedbackRepository;
+  final RideCompleteController? controller;
 
   @override
   State<RideCompleted> createState() => _RideCompletedState();
@@ -68,7 +67,7 @@ int _completionRank(RideStatus status) {
 }
 
 class _RideCompletedState extends State<RideCompleted> {
-  final RideCompleteController _controller = RideCompleteController();
+  late final RideCompleteController _controller = widget.controller ?? RideCompleteController();
   StreamSubscription<RideRealtimeEvent>? _completionSub;
   late RideStatus _status;
   bool _leaving = false;
@@ -140,7 +139,7 @@ class _RideCompletedState extends State<RideCompleted> {
         if (id == null || id.trim().isEmpty) {
           throw StateError('Ride ID is missing.');
         }
-        await (widget.feedbackRepository ?? RideFeedbackRepository()).submit(
+        await _controller.submitFeedback(
           rideId: id,
           rating: _rating,
           tipMinor: _tipMinor,
