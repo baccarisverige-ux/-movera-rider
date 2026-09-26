@@ -208,7 +208,10 @@ class SafetyMockApi {
           status: 200,
           payload: {
             'code': 'OK',
-            'event': events.firstWhere((e) => e['eventId'] == event['eventId']),
+            'event': events.firstWhere(
+              (e) => e['eventId'] == event['eventId'],
+              orElse: () => event,
+            ),
           },
         );
       }
