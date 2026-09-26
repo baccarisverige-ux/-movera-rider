@@ -27,12 +27,14 @@ class FindingDriverController {
     RideRealtime? realtime,
     RideSession? ride,
     ApiClient? api,
+    OnDemandArchiveWriter? historyArchiveWriter,
     this.delayedAfter = SearchCopy.delayedAfter,
     this.searchTimeout = const Duration(minutes: 3),
   }) : _store = store ?? FindingDriverRepository(),
        _realtime = realtime ?? AppScope.instance.rideRealtime,
        _ride = ride,
-       _api = api;
+       _api = api,
+       _historyArchiveWriter = historyArchiveWriter;
 
   static FindingDriverController? active;
 
@@ -40,6 +42,7 @@ class FindingDriverController {
   final RideRealtime _realtime;
   final RideSession? _ride;
   final ApiClient? _api;
+  final OnDemandArchiveWriter? _historyArchiveWriter;
   final Duration delayedAfter;
   final Duration searchTimeout;
   final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
@@ -565,12 +568,7 @@ class FindingDriverController {
             status == RideStatus.noDriverFound ||
             status == RideStatus.paymentFailed ||
             status == RideStatus.bookingExpired)) {
-      try {
-        await OnDemandRideHistoryStore.archive(
-          snapshot,
-          terminalStatus: status,
-        );
-      } catch (_) {}
+      await _archiveTerminalRide(snapshot, status);
     }
     await _store.clear();
     _reportQa();
@@ -580,6 +578,41 @@ class FindingDriverController {
       callback(status);
     } else {
       RideNavigator.home(null, status: status);
+    }
+  }
+
+  Future<void> _archiveTerminalRide(
+    RideSnapshot snapshot,
+    RideStatus status,
+  ) async {
+    final writer = _historyArchiveWriter ??
+        (
+          RideSnapshot candidate,
+          RideStatus terminalStatus,
+          String? cancellationReason,
+        ) =>
+            OnDemandRideHistoryStore.archive(
+              candidate,
+              terminalStatus: terminalStatus,
+              cancellationReason: cancellationReason,
+            );
+
+    for (var attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await writer(snapshot, status, null);
+        return;
+      } catch (error) {
+        AppLog.warning(
+          'ride.history.archive_failed',
+          extra: {
+            'rideId': snapshot.rideId,
+            'status': status.name,
+            'attempt': attempt,
+            'error': error.toString(),
+          },
+        );
+        if (attempt == 2) return;
+      }
     }
   }
 

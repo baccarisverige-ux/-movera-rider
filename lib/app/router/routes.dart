@@ -10,7 +10,6 @@ abstract final class AppRoutes {
   static const waitingForDriver = '/ride/waiting';
   static const rideCompleted = '/ride/completed';
   static const wallet = '/wallet';
-  static const payments = '/payments';
   static const rideHistory = '/history';
   static const support = '/support';
   static const messages = '/messages';
