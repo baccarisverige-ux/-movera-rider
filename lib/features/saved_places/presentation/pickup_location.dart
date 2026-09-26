@@ -28,8 +28,16 @@ class RiderSearchPickupLocation extends StatefulWidget {
 }
 
 class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
-  SavedPlacesController get _places =>
-      widget.places ?? SavedPlacesController();
+  late final SavedPlacesController _places;
+
+  @override
+  void initState() {
+    super.initState();
+    _places = widget.places ?? SavedPlacesController();
+    _places.hydrate().then((_) {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +230,13 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
       return;
     }
     if (!widget.allowCreateShortcut) return;
-    Navigator.push(context, RightToLeftTransition(const AddPlace()));
+    Navigator.push(
+      context,
+      RightToLeftTransition(AddPlace(controller: _places)),
+    ).then((_) async {
+      await _places.hydrate();
+      if (mounted) setState(() {});
+    });
   }
 
   double _chipHeight() {
