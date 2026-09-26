@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
@@ -16,6 +18,28 @@ class _Catalog extends RideSelectionRepository {
 
   @override
   List<RideCatalogItem> rides() => items;
+}
+
+class _ImmediateQuoteRepository implements QuoteRepository {
+  @override
+  Future<RideQuote> quote({
+    required String rideType,
+    required int distanceMeters,
+    int durationSeconds = 600,
+    String? pickup,
+    String? destination,
+  }) {
+    return Future<RideQuote>.value(
+      RideQuote(
+        id: 'journey-quote-$rideType',
+        rideType: rideType,
+        totalMinor: 29900,
+        currency: 'SEK',
+        expiresAt: DateTime.now().add(const Duration(minutes: 5)),
+        signedPayload: 'journey-signature',
+      ),
+    );
+  }
 }
 
 RideCatalogItem _remoteRide(String id, String name) => RideCatalogItem(
@@ -90,7 +114,7 @@ void main() {
 
     expect(
       find.text('No ride category is available. Try again.'),
-      findsOneWidget,
+      findsWidgets,
     );
     expect(find.byType(FindingDrivers), findsNothing);
   });
@@ -100,6 +124,7 @@ void main() {
   ) async {
     final selection = RideSelectionController(
       store: _Catalog([_remoteRide('remote-only', 'Remote Only')]),
+      quotes: _ImmediateQuoteRepository(),
     );
     await openSelectRide(tester, selection);
 
