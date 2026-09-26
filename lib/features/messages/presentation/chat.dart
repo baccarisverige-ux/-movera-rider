@@ -33,36 +33,20 @@ class _ChatState extends State<Chat> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late final MessagesController _chat;
-  bool showSendIcon = false;
 
   @override
   void initState() {
     super.initState();
     _chat = widget.controller ?? MessagesController.forRide(widget.rideId);
     _chat.markAllRead();
-    _messageController.addListener(_onMessageChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd(jump: true));
-  }
-
-  void _onMessageChanged() {
-    final canSend = _messageController.text.trim().isNotEmpty;
-    if (canSend == showSendIcon) return;
-    setState(() => showSendIcon = canSend);
   }
 
   @override
   void dispose() {
-    _messageController.removeListener(_onMessageChanged);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _sendMessage() {
-    if (!_chat.send(_messageController.text)) return;
-    setState(() {});
-    _messageController.clear();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToEnd());
   }
 
   void _scrollToEnd({bool jump = false}) {
