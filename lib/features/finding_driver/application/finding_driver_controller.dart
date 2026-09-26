@@ -564,10 +564,7 @@ class FindingDriverController {
     final snapshot = _snapshot;
     if (snapshot != null &&
         (status == RideStatus.cancelledByDriver ||
-            status == RideStatus.cancelledBySystem ||
-            status == RideStatus.noDriverFound ||
-            status == RideStatus.paymentFailed ||
-            status == RideStatus.bookingExpired)) {
+            status == RideStatus.cancelledBySystem)) {
       await _archiveTerminalRide(snapshot, status);
     }
     await _store.clear();
