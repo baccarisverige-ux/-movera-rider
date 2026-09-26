@@ -134,12 +134,12 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final persisted = jsonDecode(prefs.getString(key)!) as Map<String, dynamic>;
     expect(persisted['name'], '');
-    expect(persisted['email'], '');
-    expect(persisted['phone'], '');
+    expect(persisted.containsKey('email'), isFalse);
+    expect(persisted.containsKey('phone'), isFalse);
     expect(persisted['gender'], 'Prefer not to say');
     expect(persisted['photoAsset'], '');
-    expect(persisted['appleConnected'], false);
-    expect(persisted['logins'], isEmpty);
+    expect(persisted.containsKey('appleConnected'), isFalse);
+    expect(persisted.containsKey('logins'), isFalse);
   });
 
   test('only presentation profile edits survive local hydration', () async {
