@@ -361,6 +361,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Safety Kit share action creates an active share for the ride', (
+    tester,
+  ) async {
+    final ctl = SafetyController.shared;
+    await ctl.load();
+    await ctl.addContact(
+      name: 'Trusted contact',
+      phone: '0701234567',
+      shareTrips: true,
+    );
+    await ctl.setTripShare(enabled: true);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: RideSafetyKitSheet(rideId: 'ride_share_action')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Share trip'));
+    await tester.pumpAndSettle();
+
+    final share = await SafetyStore.shared.getShare('ride_share_action');
+    expect(share, isNotNull);
+    expect(share!.isActive, isTrue);
+    expect(share.contactIds, contains(ctl.contacts.single.id));
+    expect(find.text('Trip sharing started for 1 trusted contact.'), findsOneWidget);
+  });
+
   testWidgets('Safety Kit finishes closing before Safety Hub opens', (
     tester,
   ) async {
