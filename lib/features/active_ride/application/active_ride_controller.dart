@@ -174,4 +174,20 @@ class ActiveRideController {
     AppScope.instance.ride.localTransition(RideStatus.closed);
     unawaited(_store.clear());
   }
+
+  /// Finish History archival before clearing the restorable completion record.
+  Future<void> closeCompletedRide(String rideId) async {
+    final snapshot = await _store.historyCandidate();
+    if (snapshot != null && snapshot.rideId?.trim() != rideId.trim()) {
+      throw StateError('A different ride is active.');
+    }
+    if (snapshot != null && snapshot.status.isCompletedSurface) {
+      await OnDemandRideHistoryStore.archive(
+        snapshot,
+        terminalStatus: snapshot.status,
+      );
+    }
+    AppScope.instance.ride.localTransition(RideStatus.closed);
+    await _store.clear();
+  }
 }

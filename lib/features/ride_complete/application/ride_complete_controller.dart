@@ -24,6 +24,7 @@ class RideCompleteController {
   final RideDisputeRepository _disputes;
 
   void close() => _ride.markClosed();
+  Future<void> closeCompletedRide(String rideId) => _ride.closeCompletedRide(rideId);
   Future<void> persistCompletedStatus(RideStatus status, {required String rideId}) =>
       _ride.persistCompletedStatus(status, rideId: rideId);
   DriverProfile? driver() => _drivers.current();

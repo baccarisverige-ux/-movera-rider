@@ -8,9 +8,10 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 
 class RideCompletedAddTip extends StatefulWidget {
-  const RideCompletedAddTip({super.key, this.controller});
+  const RideCompletedAddTip({super.key, this.controller, this.onTipChanged});
 
   final RideCompleteController? controller;
+  final ValueChanged<int?>? onTipChanged;
 
   @override
   State<RideCompletedAddTip> createState() => _RideCompletedAddTipState();
@@ -27,10 +28,12 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
 
   void _choose(String amount) {
     _customController.clear();
+    final selected = _selected == amount ? null : amount;
     setState(() {
       _customSelected = false;
-      _selected = _selected == amount ? null : amount;
+      _selected = selected;
     });
+    widget.onTipChanged?.call(selected == null ? null : int.parse(selected.split(' ').first) * 100);
   }
 
   void _setCustomAmount(String raw) {
@@ -39,10 +42,12 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
       if (value == null || value <= 0) {
         _customSelected = false;
         _selected = null;
+        widget.onTipChanged?.call(null);
         return;
       }
       _customSelected = true;
       _selected = '$value kr';
+      widget.onTipChanged?.call(value * 100);
     });
   }
 

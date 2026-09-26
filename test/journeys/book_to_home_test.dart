@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -46,6 +49,11 @@ void main() {
     );
 
     final realtime = MockRideRealtime();
+    final backend = InProcessMockClient();
+    backend.rides['journey-book-1'] = {
+      'id': 'journey-book-1',
+      'status': 'ratingPending',
+    };
     moveraNavigatorKey.currentState!.push(
       MaterialPageRoute<void>(
         settings: const RouteSettings(name: AppRoutes.rideCompleted),
@@ -53,6 +61,7 @@ void main() {
           status: RideStatus.ratingPending,
           rideId: 'journey-book-1',
           realtime: realtime,
+          feedbackRepository: RideFeedbackRepository(api: ApiClient(client: backend)),
           showConnectionBanner: false,
         ),
       ),
@@ -78,11 +87,23 @@ void main() {
     await tester.tap(tip);
     await tester.pump();
     expect(find.text('20 kr selected.'), findsOneWidget);
+    expect(backend.rides['journey-book-1']!['feedback'], isNull);
 
     final done = find.byKey(const ValueKey<String>('ride-completed-done'));
     await tester.ensureVisible(done);
+    backend.failNext = true;
     await tester.tap(done);
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('completion-submit-error')), findsOneWidget);
+    expect(backend.rides['journey-book-1']!['feedback'], isNull);
+    expect(AppScope.instance.ride.status, RideStatus.ratingPending);
+
+    await tester.tap(done);
+    await tester.pumpAndSettle();
+    final feedback = backend.rides['journey-book-1']!['feedback'] as Map<String, dynamic>;
+    expect(feedback['rating'], isA<num>());
+    expect(feedback['tipMinor'], 2000);
+    expect(feedback['currency'], 'SEK');
 
     expect(find.text('journey-home'), findsOneWidget);
     expect(moveraNavigatorKey.currentState!.canPop(), isFalse);
