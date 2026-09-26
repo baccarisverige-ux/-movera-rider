@@ -15,6 +15,7 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> idempotency = {};
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
+  final Map<String, Map<String, dynamic>> otpSessions = {};
   final SafetyMockApi safety = safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
@@ -110,7 +111,53 @@ class InProcessMockClient extends http.BaseClient {
         status = 400;
         payload = {'code': 'INVALID_PHONE', 'requestId': requestId};
       } else {
-        payload = {'code': 'OK', 'requestId': requestId};
+        final sessionId = 'otp_${newRequestId()}';
+        final expiresAt = DateTime.now()
+            .toUtc()
+            .add(const Duration(minutes: 5));
+        otpSessions[sessionId] = {
+          'phone': phone.trim(),
+          if (body['fullName'] is String)
+            'fullName': (body['fullName'] as String).trim(),
+          'code': '1234',
+          'expiresAt': expiresAt.toIso8601String(),
+        };
+        payload = {
+          'code': 'OK',
+          'requestId': requestId,
+          'sessionId': sessionId,
+          'expiresAt': expiresAt.toIso8601String(),
+          'retryAfterSeconds': 30,
+        };
+      }
+    } else if (path == '/api/v1/auth/otp/verify' && method == 'POST') {
+      final phone = body['phone'];
+      final sessionId = body['sessionId'];
+      final code = body['code'];
+      final session = sessionId is String ? otpSessions[sessionId] : null;
+      if (session == null ||
+          phone is! String ||
+          code is! String ||
+          session['phone'] != phone.trim()) {
+        status = 400;
+        payload = {'code': 'INVALID_OTP_SESSION', 'requestId': requestId};
+      } else {
+        final expiresAt = DateTime.tryParse('${session['expiresAt'] ?? ''}');
+        if (expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc())) {
+          status = 410;
+          payload = {'code': 'OTP_EXPIRED', 'requestId': requestId};
+        } else if (session['code'] != code.trim()) {
+          status = 401;
+          payload = {'code': 'INVALID_OTP', 'requestId': requestId};
+        } else {
+          otpSessions.remove(sessionId);
+          payload = {
+            'code': 'OK',
+            'accessToken': 'mock-access-phone-$sessionId',
+            'refreshToken': 'mock-refresh-phone-$sessionId',
+            'requestId': requestId,
+          };
+        }
       }
     } else if (path == '/api/v1/auth/provider' && method == 'POST') {
       final provider = body['provider'];

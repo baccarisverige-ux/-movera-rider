@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/checkbox.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -16,22 +17,35 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class CreateAccount extends StatefulWidget {
-  const CreateAccount({super.key});
+  const CreateAccount({super.key, this.controller});
+
+  final AuthController? controller;
 
   @override
   State<CreateAccount> createState() => _CreateAccountState();
 }
 
 class _CreateAccountState extends State<CreateAccount> {
-  String selectedCountryCode = '+92';
-  Country? selectedCountry; // Add this to store the selected country
+  String selectedCountryCode = '+46';
+  Country? selectedCountry;
+  final TextEditingController _name = TextEditingController();
+  final TextEditingController _phone = TextEditingController();
+  late final AuthController _auth;
+  bool isAccept = false;
+  bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    // Set default country (United States)
-    selectedCountry = CountryPickerUtils.getCountryByIsoCode('US');
-    selectedCountryCode = '+1';
+    _auth = widget.controller ?? AuthController();
+    selectedCountry = CountryPickerUtils.getCountryByIsoCode('SE');
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    super.dispose();
   }
 
   void updateCountryCode(String newCode, Country country) {
@@ -41,7 +55,47 @@ class _CreateAccountState extends State<CreateAccount> {
     });
   }
 
-  bool isAccept = false;
+  Future<void> _continue() async {
+    if (_submitting) return;
+    final name = _name.text.trim();
+    final digits = _phone.text.replaceAll(RegExp(r'\s+'), '').trim();
+    if (name.length < 2) {
+      MoveraToast.show(context, 'Enter your full name.');
+      return;
+    }
+    if (digits.length < 6) {
+      MoveraToast.show(context, 'Enter a valid phone number.');
+      return;
+    }
+    if (!isAccept) {
+      MoveraToast.show(context, 'Accept the Terms and Privacy Policy to continue.');
+      return;
+    }
+    final number = '$selectedCountryCode$digits';
+    setState(() => _submitting = true);
+    try {
+      final challenge = await _auth.requestOtp(
+        phone: number,
+        fullName: name,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        BottomToTopTransition(
+          PhoneVerification(
+            challenge: challenge,
+            controller: _auth,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      MoveraToast.show(context, 'Could not start phone verification.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,9 +108,7 @@ class _CreateAccountState extends State<CreateAccount> {
             Transform.translate(
               offset: Offset(ResSize.w * -10, 0),
               child: IconButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
                 tooltip: 'Back',
                 icon: Icon(
                   Icons.arrow_back_ios_rounded,
@@ -67,7 +119,7 @@ class _CreateAccountState extends State<CreateAccount> {
             ),
             18.height,
             TextWidget(
-              text: "Create account",
+              text: 'Create account',
               fontSize: 24,
               fontWeight: fwExtraBold,
             ),
@@ -75,14 +127,15 @@ class _CreateAccountState extends State<CreateAccount> {
             TextWidget(
               textAlign: TextAlign.start,
               text:
-                  "Enter a valid phone number where we will send a verification code",
+                  'Enter a valid phone number where we will send a verification code',
               color: AppColor.subtitle,
               fontSize: 16,
               fontWeight: fwMedium,
             ),
             14.height,
             customTextfield(
-              hint: "Full name",
+              controller: _name,
+              hint: 'Full name',
               prefixWidget: Icon(
                 Icons.person_outline_rounded,
                 size: ResSize.h * 25,
@@ -91,18 +144,17 @@ class _CreateAccountState extends State<CreateAccount> {
             ),
             16.height,
             customTextfield(
+              controller: _phone,
               contentHorizPadding: 0,
-              hint: "Phone number",
+              hint: 'Phone number',
               keyboardType: TextInputType.phone,
               prefixWidget: InkWell(
                 onTap: () {
                   showDialog(
                     context: context,
-                    builder: (context) {
-                      return PhoneNumberPicker(
-                        onCountryCodeSelected: updateCountryCode,
-                      );
-                    },
+                    builder: (context) => PhoneNumberPicker(
+                      onCountryCodeSelected: updateCountryCode,
+                    ),
                   );
                 },
                 child: Padding(
@@ -117,13 +169,11 @@ class _CreateAccountState extends State<CreateAccount> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Display country flag instead of country code
                         if (selectedCountry != null)
                           CountryPickerUtils.getDefaultFlagImage(
                             selectedCountry!,
                           ),
                         5.width,
-
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
                           color: AppColor.hintText,
@@ -143,11 +193,7 @@ class _CreateAccountState extends State<CreateAccount> {
                   offset: Offset(ResSize.w * -10, -7),
                   child: CustomCheckBox(
                     value: isAccept,
-                    onPressed: () {
-                      setState(() {
-                        isAccept = !isAccept;
-                      });
-                    },
+                    onPressed: () => setState(() => isAccept = !isAccept),
                   ),
                 ),
                 Expanded(
@@ -158,7 +204,7 @@ class _CreateAccountState extends State<CreateAccount> {
                       text: TextSpan(
                         children: [
                           TextSpan(
-                            text: " By continuing, I agree to the",
+                            text: ' By continuing, I agree to the',
                             style: GoogleFonts.poppins(
                               fontSize: ResSize.setSp(14),
                               fontWeight: fwNormal,
@@ -166,7 +212,7 @@ class _CreateAccountState extends State<CreateAccount> {
                             ),
                           ),
                           TextSpan(
-                            text: " Terms of Use",
+                            text: ' Terms of Use',
                             style: GoogleFonts.poppins(
                               decoration: TextDecoration.underline,
                               fontSize: ResSize.setSp(14),
@@ -175,7 +221,7 @@ class _CreateAccountState extends State<CreateAccount> {
                             ),
                           ),
                           TextSpan(
-                            text: " and",
+                            text: ' and',
                             style: GoogleFonts.poppins(
                               fontSize: ResSize.setSp(14),
                               fontWeight: fwNormal,
@@ -183,7 +229,7 @@ class _CreateAccountState extends State<CreateAccount> {
                             ),
                           ),
                           TextSpan(
-                            text: " Privacy Policy",
+                            text: ' Privacy Policy',
                             style: GoogleFonts.poppins(
                               decoration: TextDecoration.underline,
                               fontSize: ResSize.setSp(14),
@@ -208,16 +254,14 @@ class _CreateAccountState extends State<CreateAccount> {
           child: Column(
             children: [
               CustomButton(
-                centerContent: "Continue",
-                onPressed: () {
-                  AuthController().requestOtp();
-                  Navigator.push(
-                    context,
-                    // No number is collected on this screen, so verification
-                    // says a code was sent rather than naming one.
-                    BottomToTopTransition(const PhoneVerification()),
-                  );
-                },
+                centerContent: 'Continue',
+                onPressed: _submitting ? null : _continue,
+                isLoading: _submitting,
+                loader: const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             ],
           ),

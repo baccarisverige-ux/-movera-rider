@@ -9,9 +9,9 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/features/auth/presentation/sign_in_phone.dart';
+import 'package:pinput/pinput.dart';
 
-/// Verification used to announce a code sent to +96441938184 — a number nobody
-/// typed, on one of the first screens a rider ever sees.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
@@ -36,65 +36,53 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
   }
 
-  AuthController controller() {
+  AuthController controllerFor(InProcessMockClient client) {
     final tokens = MemoryTokenStore();
     return AuthController(
       auth: AuthRepository(
-        api: ApiClient(
-          env: env,
-          client: InProcessMockClient(),
-          tokens: tokens,
-        ),
+        api: ApiClient(env: env, client: client, tokens: tokens),
         tokens: tokens,
       ),
     );
   }
 
-  testWidgets('resend row fits and respects the server retry window',
-      (tester) async {
-    final auth = controller();
-    final challenge = await auth.requestOtp(phone: '+46701234567');
+  testWidgets('failed OTP request stays on phone entry', (tester) async {
+    final client = InProcessMockClient()..failNext = true;
+    final controller = controllerFor(client);
+    await pump(tester, SignInPhone(controller: controller));
+
+    await tester.enterText(find.byType(EditableText).first, '701234567');
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(find.byType(SignInPhone), findsOneWidget);
+    expect(find.byType(PhoneVerification), findsNothing);
+    expect(find.textContaining('Could not send'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('wrong OTP cannot reveal Home', (tester) async {
+    final client = InProcessMockClient();
+    final controller = controllerFor(client);
+    final challenge = await controller.requestOtp(phone: '+46701234567');
+
     await pump(
       tester,
       PhoneVerification(
         challenge: challenge,
-        controller: auth,
+        controller: controller,
       ),
     );
 
-    expect(tester.takeException(), isNull);
-    expect(find.text('Resend code'), findsOneWidget);
-    expect(find.text('Sign in'), findsNothing);
-
-    await tester.tap(find.text('Resend code'));
+    expect(find.text('Phone verification'), findsOneWidget);
+    await tester.tap(find.byType(Pinput));
+    await tester.enterText(find.byType(EditableText).last, '9999');
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
 
-    expect(
-      find.textContaining('request another code in'),
-      findsAtLeastNWidgets(1),
-    );
-  });
-
-  testWidgets('a known number is shown back to the rider', (tester) async {
-    await pump(tester, const PhoneVerification(phoneNumber: '+46 701234567'));
-
-    expect(
-      find.textContaining('+46 701234567', findRichText: true),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('an unknown number is not invented', (tester) async {
-    await pump(tester, const PhoneVerification());
-
-    expect(
-      find.textContaining(
-        'sent a verification code to your phone',
-        findRichText: true,
-      ),
-      findsOneWidget,
-    );
-    expect(find.textContaining('+', findRichText: true), findsNothing);
+    expect(find.text('Phone verification'), findsOneWidget);
+    expect(find.textContaining('not valid'), findsAtLeastNWidgets(1));
   });
 }

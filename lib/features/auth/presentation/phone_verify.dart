@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
+import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
@@ -12,11 +13,16 @@ import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:pinput/pinput.dart';
 
 class PhoneVerification extends StatefulWidget {
-  const PhoneVerification({super.key, this.phoneNumber});
+  const PhoneVerification({
+    super.key,
+    this.challenge,
+    this.phoneNumber,
+    this.controller,
+  });
 
-  /// The number the rider just entered. Null when it is not known, in which
-  /// case the screen says so rather than naming a number nobody typed.
+  final OtpChallenge? challenge;
   final String? phoneNumber;
+  final AuthController? controller;
 
   @override
   State<PhoneVerification> createState() => _PhoneVerificationState();
@@ -24,6 +30,86 @@ class PhoneVerification extends StatefulWidget {
 
 class _PhoneVerificationState extends State<PhoneVerification> {
   bool _showHome = false;
+  bool _submitting = false;
+  bool _resending = false;
+  String _pin = '';
+  late final AuthController _auth;
+  OtpChallenge? _challenge;
+  DateTime? _canResendAt;
+
+  String? get _phone => _challenge?.phone ?? widget.phoneNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth = widget.controller ?? AuthController();
+    _challenge = widget.challenge;
+    final challenge = _challenge;
+    if (challenge != null) {
+      _canResendAt = DateTime.now().toUtc().add(challenge.retryAfter);
+    }
+  }
+
+  Future<void> _resend() async {
+    if (_resending) return;
+    final phone = _phone?.trim();
+    if (phone == null || phone.isEmpty) {
+      MoveraToast.show(context, 'Enter your phone number again to request a code.');
+      return;
+    }
+    final canResendAt = _canResendAt;
+    if (canResendAt != null && DateTime.now().toUtc().isBefore(canResendAt)) {
+      final seconds = canResendAt.difference(DateTime.now().toUtc()).inSeconds + 1;
+      MoveraToast.show(context, 'You can request another code in $seconds seconds.');
+      return;
+    }
+
+    setState(() => _resending = true);
+    try {
+      final next = await _auth.requestOtp(phone: phone);
+      if (!mounted) return;
+      setState(() {
+        _challenge = next;
+        _canResendAt = DateTime.now().toUtc().add(next.retryAfter);
+        _pin = '';
+      });
+      MoveraToast.show(context, 'We sent another code to $phone.');
+    } catch (_) {
+      if (!mounted) return;
+      MoveraToast.show(context, 'Could not send another code.');
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
+  }
+
+  Future<void> _verify() async {
+    if (_submitting) return;
+    final challenge = _challenge;
+    if (challenge == null) {
+      MoveraToast.show(context, 'Request a new verification code first.');
+      return;
+    }
+    if (challenge.isExpired) {
+      MoveraToast.show(context, 'This verification code has expired. Request a new one.');
+      return;
+    }
+    if (!RegExp(r'^\d{4}$').hasMatch(_pin)) {
+      MoveraToast.show(context, 'Enter the 4-digit verification code.');
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await _auth.verifyOtp(challenge: challenge, code: _pin);
+      if (!mounted) return;
+      setState(() => _showHome = true);
+    } catch (_) {
+      if (!mounted) return;
+      MoveraToast.show(context, 'That verification code is not valid.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,10 +130,6 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Keep the real Home widget alive behind verification. This lets the
-        // Google Maps platform view, tiles and Movera styling initialize while
-        // the user is entering the verification code. When Continue is tapped
-        // we reveal this exact Home instance instead of creating a fresh map.
         IgnorePointer(ignoring: !_showHome, child: const Home()),
         if (!_showHome)
           Scaffold(
@@ -60,9 +142,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                   Transform.translate(
                     offset: Offset(ResSize.w * -10, 0),
                     child: IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: () => Navigator.pop(context),
                       tooltip: 'Back',
                       icon: Icon(
                         Icons.arrow_back_ios_rounded,
@@ -73,7 +153,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                   ),
                   18.height,
                   TextWidget(
-                    text: "Phone verification",
+                    text: 'Phone verification',
                     fontSize: 24,
                     fontWeight: fwExtraBold,
                   ),
@@ -83,7 +163,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: widget.phoneNumber == null
+                          text: _phone == null
                               ? 'We sent a verification code to your phone.'
                               : 'Verification code has been sent to',
                           style: GoogleFonts.poppins(
@@ -92,9 +172,9 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                             color: AppColor.subtitle,
                           ),
                         ),
-                        if (widget.phoneNumber != null)
+                        if (_phone != null)
                           TextSpan(
-                            text: ' ${widget.phoneNumber}.',
+                            text: ' $_phone.',
                             style: GoogleFonts.poppins(
                               decoration: TextDecoration.underline,
                               fontSize: ResSize.setSp(16),
@@ -103,7 +183,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                             ),
                           ),
                         TextSpan(
-                          text: " Enter your 4-digit code",
+                          text: ' Enter your 4-digit code',
                           style: GoogleFonts.poppins(
                             fontSize: ResSize.setSp(16),
                             fontWeight: fwNormal,
@@ -134,39 +214,25 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                             followingPinTheme: defaultPinTheme,
                             separatorBuilder: (index) => 26.width,
                             showCursor: true,
-                            onCompleted: (pin) {},
+                            onChanged: (value) => _pin = value,
+                            onCompleted: (value) => _pin = value,
                           ),
                         ),
                         14.height,
-                        // Wrap, not Row: "Didn't get a code?" plus the action
-                        // overflowed the screen by 46px at 390 wide.
                         Wrap(
                           alignment: WrapAlignment.center,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             TextWidget(
-                              text: "Didn’t get a code?",
+                              text: 'Didn’t get a code?',
                               color: AppColor.title,
                               fontSize: 15,
                               fontWeight: fwNormal,
                             ),
                             TextButton(
-                              // Was labelled "Sign in" — an answer to a
-                              // different question — and did nothing at all.
-                              onPressed: () {
-                                AuthController().requestOtp(
-                                  phone: widget.phoneNumber ?? '',
-                                );
-                                MoveraToast.show(
-                                  context,
-                                  widget.phoneNumber == null
-                                      ? 'We sent another code to your phone.'
-                                      : 'We sent another code to '
-                                            '${widget.phoneNumber}.',
-                                );
-                              },
+                              onPressed: _resending ? null : _resend,
                               child: TextWidget(
-                                text: "Resend code",
+                                text: _resending ? 'Sending…' : 'Resend code',
                                 color: AppColor.primary,
                                 fontSize: 15,
                                 fontWeight: fwNormal,
@@ -187,13 +253,14 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 child: Column(
                   children: [
                     CustomButton(
-                      centerContent: "Continue",
-                      onPressed: () {
-                        AuthController().signIn(provider: 'phone');
-                        setState(() {
-                          _showHome = true;
-                        });
-                      },
+                      centerContent: 'Continue',
+                      onPressed: _submitting ? null : _verify,
+                      isLoading: _submitting,
+                      loader: const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
                   ],
                 ),

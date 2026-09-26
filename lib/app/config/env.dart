@@ -5,11 +5,13 @@ class AppEnv {
     required this.flavor,
     required this.apiBaseUrl,
     required this.mapsEnabled,
+    this.authRequired = false,
   });
 
   final AppFlavor flavor;
   final String apiBaseUrl;
   final bool mapsEnabled;
+  final bool authRequired;
 
   static const _flavorName = String.fromEnvironment(
     'MOVERA_FLAVOR',
@@ -33,6 +35,10 @@ class AppEnv {
     mapsEnabled: bool.fromEnvironment(
       'MOVERA_MAPS_ENABLED',
       defaultValue: true,
+    ),
+    authRequired: bool.fromEnvironment(
+      'MOVERA_AUTH_REQUIRED',
+      defaultValue: false,
     ),
   );
 
