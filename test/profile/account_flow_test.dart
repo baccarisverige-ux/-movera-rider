@@ -161,8 +161,16 @@ void main() {
     expect(second.profile.phone, isEmpty);
   });
 
-  testWidgets('account hub shows honest empty profile state', (tester) async {
-    await pumpPhone(tester, AccountHomePage(controller: controller()));
+  testWidgets('account hub shows authoritative account email state', (tester) async {
+    final security = securityController();
+    await security.load();
+    await pumpPhone(
+      tester,
+      AccountHomePage(
+        controller: controller(),
+        securityController: security,
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Personal info'), findsOneWidget);
@@ -170,7 +178,7 @@ void main() {
     expect(find.text('Privacy'), findsOneWidget);
     expect(find.byIcon(Icons.person_outline_rounded), findsWidgets);
     expect(find.text('Profile not set'), findsOneWidget);
-    expect(find.text('Email not added'), findsOneWidget);
+    expect(find.text('rider@example.test · Verified'), findsOneWidget);
     expect(find.text('Name, phone, email, language'), findsOneWidget);
     expect(find.text('Ben Gleason'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
