@@ -152,55 +152,55 @@ class _ChatState extends State<Chat> {
                 SizedBox(
                   height: ResSize.h * 48,
                   child: Row(
-                children: [
-                  Expanded(
-                    child: customTextfield(
-                      borderColor: Colors.transparent,
-                      borderWidth: 0,
-                      textColor: AppColor.black,
-                      controller: _messageController,
-                      fontSize: 14,
-                      hint: 'Send message...',
-                      fillColor: const Color(0xffF6F6F6),
-                      borderRadius: 32,
-                      hintTextColor: const Color(0xff969696),
-                      contentHorizPadding: 14,
-                      contentVertPadding: 14,
-                    ),
-                  ),
-                  10.width,
-                  Semantics(
-                    button: true,
-                    enabled: false,
-                    label: 'Send message unavailable',
-                    child: ExcludeSemantics(
-                      child: Material(
-                        color: const Color(0xffF6F6F6),
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          onTap: null,
-                          customBorder: const CircleBorder(),
-                          child: SizedBox(
-                            height: ResSize.h * 48,
-                            width: ResSize.w * 48,
-                            child: Padding(
-                              padding: EdgeInsets.all(ResSize.w * 12),
-                              child: Image.asset(
-                                AppAssets.send,
-                                excludeFromSemantics: true,
+                    children: [
+                      Expanded(
+                        child: customTextfield(
+                          borderColor: Colors.transparent,
+                          borderWidth: 0,
+                          textColor: AppColor.black,
+                          controller: _messageController,
+                          fontSize: 14,
+                          hint: 'Send message...',
+                          fillColor: const Color(0xffF6F6F6),
+                          borderRadius: 32,
+                          hintTextColor: const Color(0xff969696),
+                          contentHorizPadding: 14,
+                          contentVertPadding: 14,
+                        ),
+                      ),
+                      10.width,
+                      Semantics(
+                        button: true,
+                        enabled: false,
+                        label: 'Send message unavailable',
+                        child: ExcludeSemantics(
+                          child: Material(
+                            color: const Color(0xffF6F6F6),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: null,
+                              customBorder: const CircleBorder(),
+                              child: SizedBox(
+                                height: ResSize.h * 48,
+                                width: ResSize.w * 48,
+                                child: Padding(
+                                  padding: EdgeInsets.all(ResSize.w * 12),
+                                  child: Image.asset(
+                                    AppAssets.send,
+                                    excludeFromSemantics: true,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
         ],
       ),
     );
