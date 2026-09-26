@@ -4,6 +4,39 @@ const safety = require('./modules/safety');
 
 const idempotency = new Map();
 const rides = new Map();
+const accountSecurity = {
+  phone: '',
+  email: '',
+  phoneVerifiedAt: null,
+  emailVerifiedAt: null,
+  passkeyEnabled: false,
+  twoStepEnabled: false,
+  authenticatorEnabled: false,
+  passwordUpdatedAt: null,
+  recoveryPhone: null,
+  googleConnected: false,
+  appleConnected: false,
+  reauthenticatedAt: null,
+  capabilities: {
+    passkeys: false,
+    password: false,
+    authenticator: false,
+    twoStep: false,
+    recoveryPhone: false,
+    connectedAccounts: false,
+    reauthentication: false,
+    signOutOtherDevices: false,
+  },
+  sessions: [
+    {
+      id: 'session_current',
+      device: 'This device',
+      place: '',
+      source: 'Movera',
+      current: true,
+    },
+  ],
+};
 
 function send(res, status, body, requestId) {
   res.statusCode = status;
@@ -52,6 +85,43 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/health' && method === 'GET') {
     send(res, 200, { ok: true }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/account/security' && method === 'GET') {
+    send(res, 200, { code: 'OK', security: accountSecurity }, requestId);
+    return;
+  }
+
+  if (
+    url === '/api/v1/account/security/sessions/sign-out-others' &&
+    method === 'POST'
+  ) {
+    const reauthenticatedAt = accountSecurity.reauthenticatedAt
+      ? new Date(accountSecurity.reauthenticatedAt)
+      : null;
+    const ageMs = reauthenticatedAt
+      ? Date.now() - reauthenticatedAt.getTime()
+      : Number.POSITIVE_INFINITY;
+    const fresh =
+      Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 5 * 60 * 1000;
+    if (!fresh) {
+      send(
+        res,
+        403,
+        {
+          code: 'REAUTH_REQUIRED',
+          message: 'Fresh reauthentication is required.',
+        },
+        requestId,
+      );
+      return;
+    }
+    accountSecurity.sessions = accountSecurity.sessions.filter(
+      (session) => session.current === true,
+    );
+    accountSecurity.reauthenticatedAt = null;
+    send(res, 200, { code: 'OK', security: accountSecurity }, requestId);
     return;
   }
 

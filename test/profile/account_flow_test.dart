@@ -3,9 +3,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
@@ -24,6 +30,44 @@ void main() {
   ProfileController controller({String storageKey = 'test_profile'}) {
     return ProfileController(
       store: ProfileRepository(storageKey: storageKey),
+    );
+  }
+
+  AccountSecurityController securityController() {
+    const env = AppEnv(
+      flavor: AppFlavor.test,
+      apiBaseUrl: 'https://api.test.movera.invalid',
+      mapsEnabled: true,
+    );
+    final client = InProcessMockClient();
+    client.accountSecurity
+      ..['phone'] = '+46701234567'
+      ..['email'] = 'rider@example.test'
+      ..['phoneVerifiedAt'] = null
+      ..['emailVerifiedAt'] = '2026-01-01T12:00:00.000Z'
+      ..['sessions'] = [
+        {
+          'id': 'session_current',
+          'device': 'This device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': true,
+        },
+        {
+          'id': 'session_other',
+          'device': 'Other device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': false,
+        },
+      ];
+    return AccountSecurityController(
+      repository: AccountSecurityRepository(
+        api: ApiClient(
+          env: env,
+          client: client,
+        ),
+      ),
     );
   }
 
@@ -90,15 +134,15 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final persisted = jsonDecode(prefs.getString(key)!) as Map<String, dynamic>;
     expect(persisted['name'], '');
-    expect(persisted['email'], '');
-    expect(persisted['phone'], '');
+    expect(persisted.containsKey('email'), isFalse);
+    expect(persisted.containsKey('phone'), isFalse);
     expect(persisted['gender'], 'Prefer not to say');
     expect(persisted['photoAsset'], '');
-    expect(persisted['appleConnected'], false);
-    expect(persisted['logins'], isEmpty);
+    expect(persisted.containsKey('appleConnected'), isFalse);
+    expect(persisted.containsKey('logins'), isFalse);
   });
 
-  test('real local profile edits survive hydration', () async {
+  test('only presentation profile edits survive local hydration', () async {
     const key = 'real_profile';
     final first = controller(storageKey: key);
     await first.update(
@@ -113,32 +157,49 @@ void main() {
     await second.hydrate();
 
     expect(second.profile.name, 'Real Rider');
-    expect(second.profile.email, 'real.rider@example.com');
-    expect(second.profile.phone, '+46 70 999 88 77');
+    expect(second.profile.email, isEmpty);
+    expect(second.profile.phone, isEmpty);
   });
 
-  testWidgets('account hub shows honest empty profile state', (tester) async {
-    await pumpPhone(tester, AccountHomePage(controller: controller()));
+  testWidgets('account hub shows authoritative account email state', (tester) async {
+    final security = securityController();
+    await security.load();
+    await pumpPhone(
+      tester,
+      AccountHomePage(
+        controller: controller(),
+        securityController: security,
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);
     expect(find.byIcon(Icons.person_outline_rounded), findsWidgets);
     expect(find.text('Profile not set'), findsOneWidget);
-    expect(find.text('Email not added'), findsOneWidget);
+    expect(find.text('rider@example.test · Verified'), findsOneWidget);
     expect(find.text('Name, phone, email, language'), findsOneWidget);
     expect(find.text('Ben Gleason'), findsNothing);
     expect(find.textContaining('Uber'), findsNothing);
   });
 
-  testWidgets('personal info starts honest and edits name', (tester) async {
+  testWidgets('personal info uses server contact truth and edits only presentation data', (tester) async {
     final c = controller();
-    await pumpPhone(tester, PersonalInfoPage(controller: c));
+    final security = securityController();
+    await pumpPhone(
+      tester,
+      PersonalInfoPage(
+        controller: c,
+        securityController: security,
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Name'), findsOneWidget);
     expect(find.text('Phone'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Not added'), findsNWidgets(3));
-    expect(find.textContaining('Verified'), findsNothing);
+    expect(find.text('+46701234567 · Not verified'), findsOneWidget);
+    expect(find.text('rider@example.test · Verified'), findsOneWidget);
     await tester.tap(find.text('Name'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Houssem Baccari');
@@ -147,30 +208,69 @@ void main() {
     expect(c.profile.name, 'Houssem Baccari');
   });
 
-  testWidgets('security starts without invented password or device activity', (
+  testWidgets('security is server-backed and unsupported controls are read-only', (
     tester,
   ) async {
-    final c = controller();
-    await pumpPhone(tester, SecurityPage(controller: c));
+    final security = securityController();
+    await pumpPhone(
+      tester,
+      SecurityPage(securityController: security),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Passkeys'), findsOneWidget);
     expect(find.text('2-step verification'), findsOneWidget);
-    expect(find.text('Not set'), findsOneWidget);
-    expect(c.profile.twoStepEnabled, isFalse);
-    await tester.tap(find.byType(Switch).first);
-    await tester.pump();
-    expect(c.profile.twoStepEnabled, isTrue);
-
-    final emptyActivity = find.text('No login activity available');
-    await tester.scrollUntilVisible(emptyActivity, 300);
-    await tester.pumpAndSettle();
-    expect(emptyActivity, findsOneWidget);
-    expect(find.byIcon(Icons.devices_outlined), findsOneWidget);
     expect(
-      find.text('Sign-in history will appear here when available.'),
+      find.text('Unavailable until secure account service is connected'),
+      findsWidgets,
+    );
+    expect(find.byType(Switch), findsNothing);
+
+    final otherDevice = find.text('Other device');
+    await tester.scrollUntilVisible(otherDevice, 300);
+    await tester.pumpAndSettle();
+    expect(otherDevice, findsOneWidget);
+    expect(find.textContaining('Stockholm, Sweden'), findsWidgets);
+
+    final signOut = find.text('Sign out other devices');
+    await tester.scrollUntilVisible(signOut, 300);
+    await tester.pumpAndSettle();
+    expect(signOut, findsOneWidget);
+    expect(
+      find.text('Unavailable until reauthentication is connected'),
       findsOneWidget,
     );
-    expect(find.text('Stockholm, Sweden'), findsNothing);
-    expect(find.textContaining('Uber'), findsNothing);
+
+    await tester.tap(signOut);
+    await tester.pumpAndSettle();
+    expect(find.text('Sign out others'), findsNothing);
+    expect(security.state!.sessions.any((item) => !item.current), isTrue);
+  });
+
+  testWidgets('Account Check ignores local contact strings for verification', (
+    tester,
+  ) async {
+    final profile = controller();
+    await profile.update(
+      RiderProfileData.defaults().copyWith(
+        phone: '+46709999999',
+        email: 'local@example.test',
+      ),
+    );
+    final security = securityController();
+
+    await pumpPhone(
+      tester,
+      AccountCheckupPage(
+        controller: profile,
+        securityController: security,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('+46701234567 · Not verified'), findsOneWidget);
+    expect(find.textContaining('+46709999999'), findsNothing);
+    expect(find.textContaining('Verified'), findsNothing);
   });
 
   testWidgets('privacy communication toggles persist', (tester) async {

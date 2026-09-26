@@ -1,13 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 
 class PersonalInfoPage extends StatefulWidget {
-  const PersonalInfoPage({super.key, this.controller});
+  const PersonalInfoPage({
+    super.key,
+    this.controller,
+    this.securityController,
+  });
 
   final ProfileController? controller;
+  final AccountSecurityController? securityController;
 
   @override
   State<PersonalInfoPage> createState() => _PersonalInfoPageState();
@@ -15,17 +23,24 @@ class PersonalInfoPage extends StatefulWidget {
 
 class _PersonalInfoPageState extends State<PersonalInfoPage> {
   late final ProfileController _profile;
+  late final AccountSecurityController _security;
 
   @override
   void initState() {
     super.initState();
     _profile = widget.controller ?? AppScope.instance.profile;
+    _security = widget.securityController ?? AppScope.instance.accountSecurity;
     _profile.addListener(_refresh);
+    _security.addListener(_refresh);
+    if (_security.state == null && !_security.loading) {
+      unawaited(_security.load());
+    }
   }
 
   @override
   void dispose() {
     _profile.removeListener(_refresh);
+    _security.removeListener(_refresh);
     super.dispose();
   }
 
@@ -38,9 +53,22 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     return trimmed.isEmpty ? 'Not added' : trimmed;
   }
 
+  String _serverContact(
+    String value, {
+    required bool verified,
+    required String unavailableLabel,
+  }) {
+    if (!_security.available || _security.state == null) {
+      return unavailableLabel;
+    }
+    if (value.trim().isEmpty) return 'Not added on the server';
+    return verified ? '$value · Verified' : '$value · Not verified';
+  }
+
   @override
   Widget build(BuildContext context) {
     final ride = _profile.profile;
+    final account = _security.state;
     final hasPhoto = ride.photoAsset.trim().isNotEmpty;
 
     return AccountScaffold(
@@ -104,34 +132,20 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               AccountTile(
                 mark: const AccountIcon(Icons.phone_outlined),
                 title: 'Phone',
-                body: _valueOrNotAdded(ride.phone),
-                onTap: () async {
-                  final next = await showAccountTextEditor(
-                    context,
-                    title: 'Phone',
-                    value: ride.phone,
-                    keyboard: TextInputType.phone,
-                  );
-                  if (next != null && next.isNotEmpty) {
-                    await _profile.update(ride.copyWith(phone: next));
-                  }
-                },
+                body: _serverContact(
+                  account?.phone ?? '',
+                  verified: account?.phoneVerified == true,
+                  unavailableLabel: 'Server phone status unavailable',
+                ),
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.mail_outline_rounded),
                 title: 'Email',
-                body: _valueOrNotAdded(ride.email),
-                onTap: () async {
-                  final next = await showAccountTextEditor(
-                    context,
-                    title: 'Email',
-                    value: ride.email,
-                    keyboard: TextInputType.emailAddress,
-                  );
-                  if (next != null && next.contains('@')) {
-                    await _profile.update(ride.copyWith(email: next));
-                  }
-                },
+                body: _serverContact(
+                  account?.email ?? '',
+                  verified: account?.emailVerified == true,
+                  unavailableLabel: 'Server email status unavailable',
+                ),
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.language_rounded),
@@ -152,6 +166,10 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               ),
             ],
           ),
+          if (_security.loading && account == null) ...[
+            const SizedBox(height: 14),
+            const Center(child: CircularProgressIndicator()),
+          ],
         ],
       ),
     );

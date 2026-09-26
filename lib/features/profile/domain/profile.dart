@@ -73,11 +73,6 @@ class RiderProfileData {
     return trimmed.split(' ').first;
   }
 
-  bool get phoneVerified => phone.trim().isNotEmpty;
-  bool get emailVerified => email.contains('@');
-  bool get checkupComplete =>
-      phoneVerified && twoStepEnabled && (recoveryPhone ?? '').isNotEmpty;
-
   RiderProfileData copyWith({
     String? name,
     String? email,

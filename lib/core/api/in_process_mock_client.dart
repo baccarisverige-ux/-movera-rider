@@ -16,6 +16,39 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
+  final Map<String, dynamic> accountSecurity = {
+    'phone': '',
+    'email': '',
+    'phoneVerifiedAt': null,
+    'emailVerifiedAt': null,
+    'passkeyEnabled': false,
+    'twoStepEnabled': false,
+    'authenticatorEnabled': false,
+    'passwordUpdatedAt': null,
+    'recoveryPhone': null,
+    'googleConnected': false,
+    'appleConnected': false,
+    'reauthenticatedAt': null,
+    'capabilities': {
+      'passkeys': false,
+      'password': false,
+      'authenticator': false,
+      'twoStep': false,
+      'recoveryPhone': false,
+      'connectedAccounts': false,
+      'reauthentication': false,
+      'signOutOtherDevices': false,
+    },
+    'sessions': [
+      {
+        'id': 'session_current',
+        'device': 'This device',
+        'place': '',
+        'source': 'Movera',
+        'current': true,
+      },
+    ],
+  };
   final SafetyMockApi safety = safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
@@ -174,6 +207,47 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
       payload = {'code': 'OK', 'requestId': requestId};
+    } else if (path == '/api/v1/account/security' && method == 'GET') {
+      payload = {
+        'code': 'OK',
+        'security': accountSecurity,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/account/security/sessions/sign-out-others' &&
+        method == 'POST') {
+      final reauthenticatedAt = DateTime.tryParse(
+        '${accountSecurity['reauthenticatedAt'] ?? ''}',
+      );
+      final now = DateTime.now().toUtc();
+      final age = reauthenticatedAt == null
+          ? null
+          : now.difference(reauthenticatedAt.toUtc());
+      final fresh = age != null &&
+          !age.isNegative &&
+          age <= const Duration(minutes: 5);
+      if (!fresh) {
+        status = 403;
+        payload = {
+          'code': 'REAUTH_REQUIRED',
+          'message': 'Fresh reauthentication is required.',
+          'requestId': requestId,
+        };
+      } else {
+        final sessions = accountSecurity['sessions'];
+        if (sessions is List) {
+          accountSecurity['sessions'] = sessions
+              .whereType<Map>()
+              .where((item) => item['current'] == true)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+        }
+        accountSecurity['reauthenticatedAt'] = null;
+        payload = {
+          'code': 'OK',
+          'security': accountSecurity,
+          'requestId': requestId,
+        };
+      }
     } else if (path == '/api/v1/routes' && method == 'POST') {
       final from = body['from'];
       final to = body['to'];
