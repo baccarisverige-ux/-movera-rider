@@ -118,4 +118,101 @@ void main() {
     realtime.dispose();
     await tester.pump();
   });
+
+  testWidgets(
+    'accepted feedback -> close failure -> changed feedback submits new intent',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(1200, 1600),
+          builder: (_, __) => MaterialApp(
+            navigatorKey: moveraNavigatorKey,
+            home: const Scaffold(body: Text('journey-home')),
+          ),
+        ),
+      );
+
+      final realtime = MockRideRealtime();
+      final backend = InProcessMockClient();
+      backend.rides['journey-book-1'] = {
+        'id': 'journey-book-1',
+        'status': 'ratingPending',
+      };
+      var closeAttempts = 0;
+      moveraNavigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          settings: const RouteSettings(name: AppRoutes.rideCompleted),
+          builder: (_) => RideCompleted(
+            status: RideStatus.ratingPending,
+            rideId: 'journey-book-1',
+            realtime: realtime,
+            controller: RideCompleteController(
+              feedback: RideFeedbackRepository(api: ApiClient(client: backend)),
+            ),
+            showConnectionBanner: false,
+            onClose: (_) async {
+              closeAttempts += 1;
+              if (closeAttempts == 1) {
+                throw StateError('History close failed');
+              }
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final firstStar = find.byIcon(Icons.star_rounded).first;
+      await tester.ensureVisible(firstStar);
+      await tester.tap(firstStar);
+      await tester.pump();
+
+      final firstTip = find.text('20 kr').first;
+      await tester.ensureVisible(firstTip);
+      await tester.tap(firstTip);
+      await tester.pump();
+
+      final done = find.byKey(const ValueKey<String>('ride-completed-done'));
+      await tester.ensureVisible(done);
+      await tester.tap(done);
+      await tester.pumpAndSettle();
+
+      expect(closeAttempts, 1);
+      expect(find.byKey(const ValueKey('completion-submit-error')), findsOneWidget);
+      final firstFeedback =
+          backend.rides['journey-book-1']!['feedback'] as Map<String, dynamic>;
+      expect(firstFeedback['tipMinor'], 2000);
+      expect(backend.idempotency.length, 1);
+
+      final changedStar = find.byIcon(Icons.star_rounded).at(2);
+      await tester.ensureVisible(changedStar);
+      await tester.tap(changedStar);
+      await tester.pump();
+
+      final changedTip = find.text('30 kr').first;
+      await tester.ensureVisible(changedTip);
+      await tester.tap(changedTip);
+      await tester.pump();
+
+      await tester.ensureVisible(done);
+      await tester.tap(done);
+      await tester.pumpAndSettle();
+
+      expect(closeAttempts, 2);
+      final changedFeedback =
+          backend.rides['journey-book-1']!['feedback'] as Map<String, dynamic>;
+      expect(changedFeedback['rating'], 3);
+      expect(changedFeedback['tipMinor'], 3000);
+      expect(changedFeedback['currency'], 'SEK');
+      expect(backend.idempotency.length, 2);
+
+      realtime.dispose();
+      await tester.pump();
+    },
+  );
+
 }
