@@ -21,9 +21,11 @@ abstract interface class FirebasePushGateway {
 
 class FlutterFirebasePushGateway implements FirebasePushGateway {
   FlutterFirebasePushGateway({FirebaseMessaging? messaging})
-      : _messaging = messaging ?? FirebaseMessaging.instance;
+      : _messagingOverride = messaging;
 
-  final FirebaseMessaging _messaging;
+  final FirebaseMessaging? _messagingOverride;
+  FirebaseMessaging get _messaging =>
+      _messagingOverride ?? FirebaseMessaging.instance;
 
   @override
   Future<void> initialize(AppEnv environment) async {
