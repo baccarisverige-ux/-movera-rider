@@ -17,8 +17,13 @@ import 'package:movera_rider/core/maps/marker_store.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
+import 'package:movera_rider/core/observability/http_observability.dart';
+import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
+import 'package:movera_rider/core/payments/payment_gateway.dart';
+import 'package:movera_rider/core/payments/unavailable_payment_gateway.dart';
 import 'package:movera_rider/core/permissions/permission_service.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -31,41 +36,58 @@ import 'package:movera_rider/features/payments/data/local_payment_repository.dar
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
-import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 class AppScope {
-  AppScope._()
-    : maps = GoogleMapProvider(),
-      mapLifecycle = MapLifecycleController(),
-      markers = MarkerStore(),
-      motion = MotionEngine(),
-      ride = RideSession(),
-      tokens = SecureTokenStore(),
-      realtime = RealtimeConnection(),
-      payments = LocalPaymentRepository(),
-      defaultPayment = const PrefsDefaultPaymentStore(),
-      paymentGateway = MockPaymentGateway(),
-      wallet = WalletLedger(),
-      lifecycle = AppLifecycleObserver(),
-      permissions = PermissionService(),
-      search = PlaceSearchService(),
-      location = LocationRepository(),
-      push = NoopPushService(),
-      crashes = const CrashReporter(),
-      pickup = PickupSession(),
-      destination = DestinationSession(),
-      booking = BookingCoordinator(),
-      reservations = ReservationController(),
-      profile = ProfileController() {
-    api = ApiClient(tokens: tokens);
+  AppScope._(this.environment)
+      : maps = GoogleMapProvider(),
+        mapLifecycle = MapLifecycleController(),
+        markers = MarkerStore(),
+        motion = MotionEngine(),
+        ride = RideSession(),
+        tokens = SecureTokenStore(),
+        realtime = RealtimeConnection(),
+        payments = LocalPaymentRepository(),
+        defaultPayment = const PrefsDefaultPaymentStore(),
+        paymentGateway = environment.allowsMockTransport
+            ? MockPaymentGateway()
+            : const UnavailablePaymentGateway(),
+        wallet = WalletLedger(),
+        lifecycle = AppLifecycleObserver(),
+        permissions = PermissionService(),
+        search = PlaceSearchService(),
+        location = LocationRepository(),
+        push = environment.allowsMockTransport
+            ? NoopPushService()
+            : const UnavailablePushService(),
+        crashes = const CrashReporter(),
+        pickup = PickupSession(),
+        destination = DestinationSession(),
+        booking = BookingCoordinator(),
+        reservations = ReservationController(environment: environment),
+        profile = ProfileController() {
+    api = ApiClient(env: environment, tokens: tokens);
+
+    if (environment.isReleaseLike) {
+      final sink = HttpObservabilitySink(baseUrl: environment.apiBaseUrl);
+      observabilitySink = sink;
+      Observability.configure(
+        loggerSink: sink,
+        analyticsSink: sink,
+        crashSink: sink,
+      );
+    }
+
     geocoding = AppGeocoding(api: api);
     routing = RoutingService(api: api);
     quotes = ApiQuoteRepository(api: api);
-    rideRealtime = MockRideRealtime(api: api, connection: realtime);
+    rideRealtime = environment.allowsMockTransport
+        ? MockRideRealtime(api: api, connection: realtime)
+        : ApiRideRealtime(api: api);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search);
@@ -76,19 +98,29 @@ class AppScope {
       lifecycle: mapLifecycle,
       routing: routing,
     );
+
     TransportComposition.validate(
-      environment: AppEnv.current,
+      environment: environment,
       api: api,
       realtime: rideRealtime,
       paymentGateway: paymentGateway,
       push: push,
-      emergencyDialer: EmergencyCallService.shared.dialer,
+      emergencyDialer: emergencyDialer,
+      logger: Observability.logger,
+      analytics: Observability.analytics,
+      crashes: Observability.crashes,
       usesMockDriverAssignment: reservations.usesMockDriverAssignment,
     );
   }
 
-  static final instance = AppScope._();
+  static final instance = AppScope._(AppEnv.current);
 
+  /// Uses the exact production composition root without replacing individual
+  /// dependencies by hand. Phase 72 CI exercises this factory directly.
+  static AppScope composeForEnvironment(AppEnv environment) =>
+      AppScope._(environment);
+
+  final AppEnv environment;
   final GoogleMapProvider maps;
   final MapLifecycleController mapLifecycle;
   final MarkerStore markers;
@@ -103,7 +135,7 @@ class AppScope {
   late final QuoteRepository quotes;
   final LocalPaymentRepository payments;
   final DefaultPaymentStore defaultPayment;
-  final MockPaymentGateway paymentGateway;
+  final PaymentGateway paymentGateway;
   final WalletLedger wallet;
   final AppLifecycleObserver lifecycle;
   final PermissionService permissions;
@@ -120,5 +152,15 @@ class AppScope {
   late final RideRealtime rideRealtime;
   final ReservationController reservations;
   final ProfileController profile;
+  HttpObservabilitySink? observabilitySink;
   FeatureFlags flags = FeatureFlags.current;
+
+  EmergencyDialer get emergencyDialer => EmergencyCallService.shared.dialer;
+
+  void disposeForTest() {
+    rideRealtime.dispose();
+    realtime.dispose();
+    observabilitySink?.dispose();
+    if (environment.isReleaseLike) Observability.reset();
+  }
 }
