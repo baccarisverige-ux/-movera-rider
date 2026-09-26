@@ -899,7 +899,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Container(
-                    height: MediaQuery.of(context).size.height * 0.92,
+                    // MoveraSheet already owns the keyboard inset outside this
+                    // builder. Size this surface from the remaining visible
+                    // viewport, not from the full screen, otherwise the sheet
+                    // plus keyboard padding becomes taller than the screen and
+                    // pushes the primary Next action below the hit-test area.
+                    height:
+                        (MediaQuery.sizeOf(context).height -
+                            MediaQuery.viewInsetsOf(context).bottom) *
+                        0.92,
                     padding: EdgeInsets.fromLTRB(
                       ResSize.w * 14,
                       ResSize.h * 10,
