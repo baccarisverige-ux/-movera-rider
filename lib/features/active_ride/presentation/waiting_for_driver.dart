@@ -20,6 +20,7 @@ import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_call_unavailable_dialog.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -493,6 +494,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
+  void _callDriverUnavailable() {
+    final driver = _tracking.driver ?? widget.driver;
+    SafetyController.shared.record(
+      SafetyKind.maskedCall,
+      rideId: _rideId,
+    );
+    unawaited(
+      showDriverCallUnavailable(
+        context,
+        driverName: driver?.displayFirstName,
+      ),
+    );
+  }
+
   bool get _isInTrip =>
       _tracking.status == RideStatus.tripStarted ||
       _tracking.status == RideStatus.tripInProgress ||
@@ -776,7 +791,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         rideId: _rideId,
         status: _tracking.status,
         onOpenProfile: _openProfile,
-        onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
+        onCall: _callDriverUnavailable,
         onMore: _openDetails,
         onCancel: _confirmCancel,
       );
@@ -791,7 +806,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             driver: driver,
             rideId: _rideId,
             onOpenProfile: _openProfile,
-            onCall: () => SafetyController.shared.record(SafetyKind.maskedCall),
+            onCall: _callDriverUnavailable,
             onMore: _openDetails,
           ),
           const SizedBox(height: 12),
