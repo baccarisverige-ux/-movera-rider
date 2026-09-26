@@ -16,6 +16,7 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
+  final Map<String, Map<String, dynamic>> pushDevices = {};
   final Map<String, dynamic> accountSecurity = {
     'phone': '',
     'email': '',
@@ -207,6 +208,44 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
       payload = {'code': 'OK', 'requestId': requestId};
+    } else if (path == '/api/v1/push/devices' && method == 'POST') {
+      final token = body['token'];
+      final provider = body['provider'];
+      final platform = body['platform'];
+      if (token is! String ||
+          token.trim().isEmpty ||
+          provider != 'fcm' ||
+          platform is! String ||
+          platform.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PUSH_DEVICE', 'requestId': requestId};
+      } else {
+        final normalized = token.trim();
+        pushDevices[normalized] = {
+          'token': normalized,
+          'provider': 'fcm',
+          'platform': platform.trim(),
+        };
+        payload = {
+          'code': 'OK',
+          'status': 'registered',
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/push/devices/unregister' &&
+        method == 'POST') {
+      final token = body['token'];
+      if (token is! String || token.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PUSH_DEVICE', 'requestId': requestId};
+      } else {
+        pushDevices.remove(token.trim());
+        payload = {
+          'code': 'OK',
+          'status': 'unregistered',
+          'requestId': requestId,
+        };
+      }
     } else if (path == '/api/v1/account/security' && method == 'GET') {
       payload = {
         'code': 'OK',
