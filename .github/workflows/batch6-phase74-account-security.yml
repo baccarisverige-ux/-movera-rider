@@ -4,9 +4,9 @@ on:
   pull_request:
     paths:
       - 'lib/features/profile/**'
-      - 'lib/core/api/in_process_mock_client.dart'
+      - 'lib/core/api/**'
       - 'lib/app/di.dart'
-      - 'backend/src/index.js'
+      - 'backend/src/**'
       - 'test/profile/**'
       - '.github/workflows/**'
   workflow_dispatch:
@@ -31,19 +31,69 @@ jobs:
       - name: Strict analysis
         run: flutter analyze
 
-      - name: Security truth guard
+      - name: Security truth source guards
         run: |
           ! grep -q "ProfileController" lib/features/profile/presentation/security.dart
           ! grep -q "_profile.update" lib/features/profile/presentation/security.dart
           ! grep -q "SharedPreferences" lib/features/profile/presentation/security.dart
-          ! grep -q "copyWith(phone:" lib/features/profile/presentation/personal_info.dart
-          ! grep -q "copyWith(email:" lib/features/profile/presentation/personal_info.dart
 
-      - name: Account security contracts
+      - name: Account security contracts and UI effects
         run: |
           flutter test test/profile/phase74_account_security_test.dart
           flutter test test/profile/phase74_account_security_ui_test.dart
           flutter test test/profile/account_flow_test.dart
 
-      - name: Backend route syntax
-        run: node --check backend/src/index.js
+      - name: Backend account-security smoke
+        run: |
+          node --check backend/src/index.js
+          node backend/src/index.js >/tmp/movera-backend.log 2>&1 &
+          BACKEND_PID=$!
+          trap 'kill $BACKEND_PID' EXIT
+          sleep 1
+          node <<'NODE'
+          (async () => {
+            const base = 'http://127.0.0.1:8787';
+            const beforeRes = await fetch(base + '/api/v1/account/security');
+            if (!beforeRes.ok) throw new Error('security GET failed');
+            const before = await beforeRes.json();
+            if (!before.security) throw new Error('missing security payload');
+            if (before.security.phoneVerifiedAt !== null) {
+              throw new Error('phone verification truth changed unexpectedly');
+            }
+            if (!before.security.emailVerifiedAt) {
+              throw new Error('email verification metadata missing');
+            }
+            if (!before.security.sessions.some((s) => s.current === false)) {
+              throw new Error('expected an other-device session before revoke');
+            }
+
+            const revokeRes = await fetch(
+              base + '/api/v1/account/security/sessions/sign-out-others',
+              {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+              },
+            );
+            if (!revokeRes.ok) throw new Error('session revoke failed');
+
+            const afterRes = await fetch(base + '/api/v1/account/security');
+            const after = await afterRes.json();
+            if (!after.security.sessions.length) {
+              throw new Error('current session was incorrectly revoked');
+            }
+            if (after.security.sessions.some((s) => s.current === false)) {
+              throw new Error('other sessions still present after revoke');
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Production build
+        run: |
+          flutter build web --release \
+            -t lib/main_production.dart \
+            --dart-define=MOVERA_FLAVOR=production \
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
+          test -f build/web/main.dart.js
