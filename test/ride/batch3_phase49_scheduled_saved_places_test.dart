@@ -1,12 +1,17 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
-import 'package:movera_rider/features/saved_places/data/saved_places_repository.dart';
+import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   test('unknown explicit lifecycle is rejected without breaking legacy missing status', () {
     final raw = <String, dynamic>{
       'reservationId': 'rsv-49',
@@ -29,9 +34,8 @@ void main() {
     expect(Reservation.tryParse(legacy)?.status, ReservationStatus.scheduled);
   });
 
-  test('saved place shortcuts survive repository restart without seeded demo data', () async {
-    final storage = MemorySavedPlacesStorage();
-    final first = SavedPlacesRepository(storage: storage);
+  test('saved place shortcuts survive controller restart without demo data', () async {
+    final first = SavedPlacesController();
     await first.save(
       const PlaceShortcut(
         title: 'Home',
@@ -40,28 +44,25 @@ void main() {
       ),
     );
 
-    final second = SavedPlacesRepository(storage: storage);
+    final second = SavedPlacesController();
     await second.hydrate();
 
     expect(second.shortcuts(), hasLength(1));
     expect(second.shortcuts().single.title, 'Home');
     expect(second.shortcuts().single.subtitle, 'Klockarvägen 37');
     expect(second.shortcuts().single.kind, 'home');
-    final persisted = jsonDecode(storage.value!) as List<dynamic>;
-    expect(persisted, hasLength(1));
   });
 
   test('saving same saved-place kind updates instead of duplicating it', () async {
-    final storage = MemorySavedPlacesStorage();
-    final repository = SavedPlacesRepository(storage: storage);
-    await repository.save(
+    final controller = SavedPlacesController();
+    await controller.save(
       const PlaceShortcut(title: 'Home', subtitle: 'Old', kind: 'home'),
     );
-    await repository.save(
+    await controller.save(
       const PlaceShortcut(title: 'Home', subtitle: 'New', kind: 'HOME'),
     );
 
-    expect(repository.shortcuts(), hasLength(1));
-    expect(repository.shortcuts().single.subtitle, 'New');
+    expect(controller.shortcuts(), hasLength(1));
+    expect(controller.shortcuts().single.subtitle, 'New');
   });
 }
