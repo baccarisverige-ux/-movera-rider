@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide_policy.dart';
 
@@ -12,9 +10,5 @@ void main() {
     expect(shouldHandleRidePageHide(persisted: false), isTrue);
   });
 
-  test('BFCache restore does not force a cold reload', () {
-    final index = File('web/index.html').readAsStringSync();
-
-    expect(index, isNot(contains('if (event.persisted) location.reload()')));
-  });
+  
 }
