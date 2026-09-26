@@ -162,8 +162,18 @@ void main() {
         'journey-reservation-1',
         const ReservationPatch(status: ReservationStatus.completed),
       );
+      // The live reservation event first parks the active map at end-of-frame,
+      // then replaces Waiting with the completion route. Pump those stages in
+      // order instead of jumping fake time before navigation is scheduled.
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      for (
+        var i = 0;
+        i < 10 && find.byType(RideCompleted).evaluate().isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(find.byType(RideCompleted), findsOneWidget);
       expect(
