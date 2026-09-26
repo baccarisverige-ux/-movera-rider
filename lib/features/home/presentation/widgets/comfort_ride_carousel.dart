@@ -24,7 +24,10 @@ class ComfortRideCarousel extends StatelessWidget {
     final viewportWidth = MediaQuery.of(context).size.width;
     final cardWidth = (viewportWidth * 0.78).clamp(270.0, 330.0).toDouble();
     final imageHeight = ResSize.h * 112;
-    final bandHeight = ResSize.h * 64;
+    // Text can wrap to two lines on compact/rescaled layouts. A purely scaled
+    // 64px band shrank below the content's intrinsic height and produced a
+    // RenderFlex overflow. Keep a compact but safe minimum content band.
+    final bandHeight = (ResSize.h * 64).clamp(70.0, 82.0).toDouble();
 
     return SizedBox(
       height: imageHeight + bandHeight + ResSize.h * 2,
