@@ -1,0 +1,46 @@
+name: Batch 6 Phase 74 Account Security Certification
+
+on:
+  pull_request:
+    paths:
+      - 'lib/features/profile/**'
+      - 'lib/core/api/in_process_mock_client.dart'
+      - 'lib/app/di.dart'
+      - 'backend/src/index.js'
+      - 'test/profile/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  account-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Strict analysis
+        run: flutter analyze
+
+      - name: Security truth guard
+        run: |
+          ! grep -q "ProfileController" lib/features/profile/presentation/security.dart
+          ! grep -q "_profile.update" lib/features/profile/presentation/security.dart
+          ! grep -q "SharedPreferences" lib/features/profile/presentation/security.dart
+
+      - name: Account security contracts
+        run: |
+          flutter test test/profile/phase74_account_security_test.dart
+          flutter test test/profile/account_flow_test.dart
+
+      - name: Backend route syntax
+        run: node --check backend/src/index.js
