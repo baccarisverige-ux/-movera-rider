@@ -17,10 +17,10 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> quotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
   final Map<String, dynamic> accountSecurity = {
-    'phone': '+46701234567',
-    'email': 'rider@example.test',
+    'phone': '',
+    'email': '',
     'phoneVerifiedAt': null,
-    'emailVerifiedAt': '2026-01-01T12:00:00.000Z',
+    'emailVerifiedAt': null,
     'passkeyEnabled': false,
     'twoStepEnabled': false,
     'authenticatorEnabled': false,
@@ -41,16 +41,9 @@ class InProcessMockClient extends http.BaseClient {
       {
         'id': 'session_current',
         'device': 'This device',
-        'place': 'Stockholm, Sweden',
+        'place': '',
         'source': 'Movera',
         'current': true,
-      },
-      {
-        'id': 'session_other',
-        'device': 'Other device',
-        'place': 'Stockholm, Sweden',
-        'source': 'Movera',
-        'current': false,
       },
     ],
   };
