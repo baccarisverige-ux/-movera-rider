@@ -37,7 +37,7 @@ class InProcessMockClient extends http.BaseClient {
       'recoveryPhone': false,
       'connectedAccounts': false,
       'reauthentication': false,
-      'signOutOtherDevices': true,
+      'signOutOtherDevices': false,
     },
     'sessions': [
       {
