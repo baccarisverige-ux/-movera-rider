@@ -23,6 +23,7 @@ const accountSecurity = {
     twoStep: false,
     recoveryPhone: false,
     connectedAccounts: false,
+    reauthentication: false,
     signOutOtherDevices: true,
   },
   sessions: [
