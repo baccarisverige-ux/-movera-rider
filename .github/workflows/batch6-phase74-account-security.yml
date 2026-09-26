@@ -57,14 +57,11 @@ jobs:
             if (!beforeRes.ok) throw new Error('security GET failed');
             const before = await beforeRes.json();
             if (!before.security) throw new Error('missing security payload');
-            if (before.security.phoneVerifiedAt !== null) {
-              throw new Error('phone verification truth changed unexpectedly');
+            if (before.security.phone !== '' || before.security.email !== '') {
+              throw new Error('backend seeded a fake rider identity');
             }
-            if (!before.security.emailVerifiedAt) {
-              throw new Error('email verification metadata missing');
-            }
-            if (!before.security.sessions.some((s) => s.current === false)) {
-              throw new Error('expected an other-device session before revoke');
+            if (before.security.capabilities.reauthentication !== false) {
+              throw new Error('reauthentication must be unavailable by default');
             }
 
             const revokeRes = await fetch(
@@ -74,15 +71,21 @@ jobs:
                 headers: { 'content-type': 'application/json' },
               },
             );
-            if (!revokeRes.ok) throw new Error('session revoke failed');
+            if (revokeRes.status !== 403) {
+              throw new Error('sensitive session revoke did not require reauth');
+            }
+            const rejected = await revokeRes.json();
+            if (rejected.code !== 'REAUTH_REQUIRED') {
+              throw new Error('wrong rejection for missing reauthentication');
+            }
 
             const afterRes = await fetch(base + '/api/v1/account/security');
             const after = await afterRes.json();
-            if (!after.security.sessions.length) {
-              throw new Error('current session was incorrectly revoked');
-            }
-            if (after.security.sessions.some((s) => s.current === false)) {
-              throw new Error('other sessions still present after revoke');
+            if (
+              JSON.stringify(after.security.sessions) !==
+              JSON.stringify(before.security.sessions)
+            ) {
+              throw new Error('rejected revoke mutated server sessions');
             }
           })().catch((error) => {
             console.error(error);
