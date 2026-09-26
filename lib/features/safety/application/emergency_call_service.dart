@@ -1,8 +1,56 @@
+import 'package:url_launcher/url_launcher.dart';
+
+typedef EmergencyUriLauncher = Future<bool> Function(Uri uri);
+
+class EmergencyCallException implements Exception {
+  const EmergencyCallException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'EmergencyCallException($message)';
+}
+
 /// Opens the system dialer. Never invoked automatically.
 abstract class EmergencyDialer {
   Future<void> open(String number);
 }
 
+/// Production dialer. It requests the platform to open an external `tel:` URI.
+class SystemEmergencyDialer implements EmergencyDialer {
+  SystemEmergencyDialer({EmergencyUriLauncher? launcher})
+      : _launcher = launcher ?? _launch;
+
+  final EmergencyUriLauncher _launcher;
+
+  static Future<bool> _launch(Uri uri) =>
+      launchUrl(uri, mode: LaunchMode.externalApplication);
+
+  @override
+  Future<void> open(String number) async {
+    final clean = number.trim();
+    if (clean.isEmpty) {
+      throw const EmergencyCallException('Emergency number is unavailable.');
+    }
+    final uri = Uri(scheme: 'tel', path: clean);
+    try {
+      final opened = await _launcher(uri);
+      if (!opened) {
+        throw const EmergencyCallException(
+          'Could not open the system phone dialer.',
+        );
+      }
+    } on EmergencyCallException {
+      rethrow;
+    } catch (_) {
+      throw const EmergencyCallException(
+        'Could not open the system phone dialer.',
+      );
+    }
+  }
+}
+
+/// Test-only dialer. Release composition rejects this outside dev/test.
 class RecordingEmergencyDialer implements EmergencyDialer {
   final calls = <String>[];
 
@@ -14,7 +62,9 @@ class RecordingEmergencyDialer implements EmergencyDialer {
 
 class EmergencyCallService {
   EmergencyCallService({EmergencyDialer? dialer})
-      : _dialer = dialer ?? RecordingEmergencyDialer();
+      : _dialer = dialer ?? SystemEmergencyDialer();
+
+  static final EmergencyCallService shared = EmergencyCallService();
 
   static const swedenEmergencyNumber = '112';
 
@@ -23,6 +73,7 @@ class EmergencyCallService {
 
   int get explicitCallCount => _explicitCalls;
   EmergencyDialer get dialer => _dialer;
+  bool get usesRecordingDialer => _dialer is RecordingEmergencyDialer;
 
   /// Requires an explicit rider action. Never called from background logic.
   Future<void> callEmergencyNumber() async {

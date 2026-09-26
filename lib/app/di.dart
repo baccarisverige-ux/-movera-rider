@@ -31,6 +31,7 @@ import 'package:movera_rider/features/payments/data/local_payment_repository.dar
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
@@ -81,6 +82,7 @@ class AppScope {
       realtime: rideRealtime,
       paymentGateway: paymentGateway,
       push: push,
+      emergencyDialer: EmergencyCallService.shared.dialer,
       usesMockDriverAssignment: reservations.usesMockDriverAssignment,
     );
   }
