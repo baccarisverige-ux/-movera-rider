@@ -20,8 +20,8 @@ class PushUnavailableException implements Exception {
   String toString() => 'PushUnavailableException($message)';
 }
 
-/// Release-safe placeholder until Phase 78 connects FCM/APNs.
-/// Unlike NoopPushService it fails visibly and cannot imply registration.
+/// Explicit fail-closed fallback. Release composition rejects this placeholder
+/// now that Phase 78 provides the Firebase push transport.
 class UnavailablePushService implements PushService {
   const UnavailablePushService();
 
