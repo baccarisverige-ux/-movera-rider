@@ -91,25 +91,6 @@ class SavedPlacesRow extends StatelessWidget {
   }
 }
 
-String _placeLabel(String type) {
-  switch (type) {
-    case 'gym':
-      return 'Gym';
-    case 'mall':
-      return 'Mall';
-    case 'school':
-      return 'School';
-    case 'airport':
-      return 'Airport';
-    case 'family':
-      return 'Family';
-    case 'restaurant':
-      return 'Restaurant';
-    default:
-      return 'Other';
-  }
-}
-
 IconData _placeIcon(String type) {
   switch (type) {
     case 'gym':
