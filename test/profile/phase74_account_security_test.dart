@@ -22,11 +22,38 @@ void main() {
     mapsEnabled: true,
   );
 
+  InProcessMockClient seededSecurityClient({bool withOtherSession = true}) {
+    final client = InProcessMockClient();
+    client.accountSecurity
+      ..['phone'] = '+46701234567'
+      ..['email'] = 'rider@example.test'
+      ..['phoneVerifiedAt'] = null
+      ..['emailVerifiedAt'] = '2026-01-01T12:00:00.000Z'
+      ..['sessions'] = [
+        {
+          'id': 'session_current',
+          'device': 'This device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': true,
+        },
+        if (withOtherSession)
+          {
+            'id': 'session_other',
+            'device': 'Other device',
+            'place': 'Stockholm, Sweden',
+            'source': 'Movera',
+            'current': false,
+          },
+      ];
+    return client;
+  }
+
   test('verification truth comes from backend metadata, not contact strings', () async {
     final repo = AccountSecurityRepository(
       api: ApiClient(
         env: env,
-        client: InProcessMockClient(),
+        client: seededSecurityClient(),
       ),
     );
 
@@ -44,7 +71,7 @@ void main() {
     final repo = AccountSecurityRepository(
       api: ApiClient(
         env: env,
-        client: InProcessMockClient(),
+        client: seededSecurityClient(),
       ),
     );
 
@@ -62,7 +89,7 @@ void main() {
     final repo = AccountSecurityRepository(
       api: ApiClient(
         env: env,
-        client: InProcessMockClient(),
+        client: seededSecurityClient(),
       ),
     );
 
