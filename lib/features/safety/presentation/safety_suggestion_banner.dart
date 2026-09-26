@@ -21,7 +21,6 @@ class SafetySuggestionBanner extends StatelessWidget {
         action: 'Share',
         onTap: () {
           if (safety.preferences.tripShareEnabled) {
-            safety.shareTrip(rideId: rideId);
             showRideSafetyKit(context, rideId: rideId);
             return;
           }

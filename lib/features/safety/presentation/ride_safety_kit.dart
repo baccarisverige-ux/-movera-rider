@@ -167,22 +167,23 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording saved on this device. Upload is not live yet.',
+              'Recording saved on this device. Automatic upload is unavailable.',
         );
       } else {
         await _ctl.audio.start(rideId: widget.rideId ?? 'ride_local');
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording. Microphone audio stays on this device for now.',
+              'Recording. Tap Stop audio to save it on this device.',
         );
       }
-    } catch (err) {
+    } on SafetyAudioException catch (error) {
       if (!mounted) return;
-      setState(
-        () => _audioNote =
-            'Recording is prepared, but the microphone is not available yet.',
-      );
+      setState(() => _audioNote = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _audioNote =
+          'Recording could not be saved. Check microphone access and try again.');
     }
   }
 

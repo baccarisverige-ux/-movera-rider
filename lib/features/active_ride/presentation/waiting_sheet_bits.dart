@@ -57,7 +57,6 @@ class WaitingShareButton extends StatelessWidget {
   void _share(BuildContext context) {
     final safety = SafetyController.shared;
     if (safety.preferences.tripShareEnabled) {
-      safety.shareTrip(rideId: rideId);
       showRideSafetyKit(context, rideId: rideId);
       return;
     }
