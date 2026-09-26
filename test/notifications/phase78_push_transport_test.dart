@@ -5,9 +5,15 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 
 class _FakeGateway implements FirebasePushGateway {
   final StreamController<String> refresh = StreamController<String>.broadcast();
+  final StreamController<PushPayload> foreground =
+      StreamController<PushPayload>.broadcast();
+  final StreamController<PushPayload> opened =
+      StreamController<PushPayload>.broadcast();
+  PushPayload? initial;
   PushAuthorizationStatus authorization = PushAuthorizationStatus.authorized;
   String? token = 'fcm-token-a';
   int initializeCalls = 0;
@@ -31,11 +37,24 @@ class _FakeGateway implements FirebasePushGateway {
   Stream<String> get onTokenRefresh => refresh.stream;
 
   @override
+  Stream<PushPayload> get onForegroundMessage => foreground.stream;
+
+  @override
+  Stream<PushPayload> get onOpenedMessage => opened.stream;
+
+  @override
+  Future<PushPayload?> getInitialMessage() async => initial;
+
+  @override
   Future<void> deleteToken() async {
     deleteCalls += 1;
   }
 
-  Future<void> dispose() => refresh.close();
+  Future<void> dispose() async {
+    await refresh.close();
+    await foreground.close();
+    await opened.close();
+  }
 }
 
 const _production = AppEnv(
