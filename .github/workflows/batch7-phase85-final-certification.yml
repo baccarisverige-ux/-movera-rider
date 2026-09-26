@@ -124,8 +124,38 @@ jobs:
 
       - name: Build exact candidate demo web
         run: |
-          flutter build web --release             -t lib/main_demo.dart             --dart-define=MOVERA_FLAVOR=demo
+          flutter build web --release \
+            -t lib/main_demo.dart \
+            --dart-define=MOVERA_FLAVOR=demo
           test -f build/web/main.dart.js
+
+      - name: Configure Google Maps exactly like the live deploy
+        env:
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          if [ -z "$MAPS_WEB_API_KEY" ]; then
+            echo "::error::Missing Google Maps API key for Phase 85 browser certification."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
+          maps = (
+              '  <script src="https://maps.googleapis.com/maps/api/js?key='
+              + os.environ['MAPS_WEB_API_KEY']
+              + '" async defer></script>'
+          )
+          if bootstrap not in s:
+              raise SystemExit('Flutter bootstrap tag not found')
+          if 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, maps + '\n' + bootstrap)
+          p.write_text(s)
+          PY
+          grep -q "maps.googleapis.com/maps/api/js" build/web/index.html
 
       - name: Install Playwright browsers
         run: |
@@ -170,6 +200,8 @@ jobs:
               isMobile: width < 768,
               hasTouch: true,
               locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
             });
             const page = await context.newPage();
             const errors = [];
@@ -205,9 +237,18 @@ jobs:
               hasFlutter:
                 !!document.querySelector('flutter-view') ||
                 !!document.querySelector('flt-glass-pane'),
+              hasGoogleMaps:
+                typeof window.google !== 'undefined' &&
+                !!window.google.maps,
             }));
             if (!metrics.hasFlutter) {
               throw new Error(family + ' ' + width + 'x' + height + ': Flutter surface missing');
+            }
+            if (!metrics.hasGoogleMaps) {
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': Google Maps runtime missing from exact candidate',
+              );
             }
             if (metrics.docWidth > metrics.width + 2) {
               throw new Error(
