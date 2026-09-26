@@ -3,13 +3,6 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_transition.dart';
 
-Iterable<File> dartFiles(Directory root) sync* {
-  if (!root.existsSync()) return;
-  for (final entity in root.listSync(recursive: true)) {
-    if (entity is File && entity.path.endsWith('.dart')) yield entity;
-  }
-}
-
 void main() {
   
 
