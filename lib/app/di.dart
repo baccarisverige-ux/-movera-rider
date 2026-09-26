@@ -56,9 +56,6 @@ class AppScope {
         realtime = RealtimeConnection(),
         payments = LocalPaymentRepository(),
         defaultPayment = const PrefsDefaultPaymentStore(),
-        paymentGateway = environment.allowsMockTransport
-            ? MockPaymentGateway()
-            : ApiPaymentGateway(api: ApiClient(env: environment)),
         wallet = WalletLedger(),
         lifecycle = AppLifecycleObserver(),
         permissions = PermissionService(),
@@ -71,6 +68,9 @@ class AppScope {
         reservations = ReservationController(environment: environment),
         profile = ProfileController() {
     api = ApiClient(env: environment, tokens: tokens);
+    paymentGateway = environment.allowsMockTransport
+        ? MockPaymentGateway()
+        : ApiPaymentGateway(api: api);
     push = environment.allowsMockTransport
         ? NoopPushService()
         : FirebasePushService(api: api, environment: environment);
@@ -142,7 +142,7 @@ class AppScope {
   late final QuoteRepository quotes;
   final LocalPaymentRepository payments;
   final DefaultPaymentStore defaultPayment;
-  final PaymentGateway paymentGateway;
+  late final PaymentGateway paymentGateway;
   final WalletLedger wallet;
   final AppLifecycleObserver lifecycle;
   final PermissionService permissions;
