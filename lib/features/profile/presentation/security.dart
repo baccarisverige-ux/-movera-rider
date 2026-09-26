@@ -206,10 +206,13 @@ class _SecurityPageState extends State<SecurityPage> {
                     ? 'Unavailable until session revocation is supported'
                     : !caps.reauthentication
                         ? 'Unavailable until reauthentication is connected'
-                        : 'Server will revoke every session except this one.',
+                        : !security.hasFreshReauthentication
+                            ? 'Reauthenticate before revoking other sessions'
+                            : 'Server will revoke every session except this one.',
                 showDivider: false,
                 onTap: caps.signOutOtherDevices &&
                         caps.reauthentication &&
+                        security.hasFreshReauthentication &&
                         !_security.loading
                     ? () async {
                         final confirm = await showAccountChoice(
