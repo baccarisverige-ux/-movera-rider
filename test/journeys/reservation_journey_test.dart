@@ -92,7 +92,8 @@ void main() {
             ),
           ),
         ),
-      );
+      ),
+    );
 
       await tester.tap(find.text('Schedule Movera'));
       await tester.pump();
