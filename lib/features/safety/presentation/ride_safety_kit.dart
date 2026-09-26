@@ -109,15 +109,16 @@ Future<void> showRideSafetyKit(BuildContext context, {String? rideId}) {
 }
 
 class RideSafetyKitSheet extends StatefulWidget {
-  const RideSafetyKitSheet({super.key, this.rideId});
+  const RideSafetyKitSheet({super.key, this.rideId, this.controller});
   final String? rideId;
+  final SafetyController? controller;
 
   @override
   State<RideSafetyKitSheet> createState() => _RideSafetyKitSheetState();
 }
 
 class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
-  final SafetyController _ctl = SafetyController.shared;
+  late final SafetyController _ctl = widget.controller ?? SafetyController.shared;
   String? _audioNote;
 
   @override
