@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
@@ -47,8 +48,13 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
+        ScreenUtilInit(
+          designSize: const Size(375, 812),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          ensureScreenSize: true,
+          builder: (_, child) => MaterialApp(
+            home: Builder(
             builder: (context) => Scaffold(
               body: Column(
                 children: [
