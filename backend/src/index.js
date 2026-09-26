@@ -4,6 +4,44 @@ const safety = require('./modules/safety');
 
 const idempotency = new Map();
 const rides = new Map();
+const accountSecurity = {
+  phone: '+46701234567',
+  email: 'rider@example.test',
+  phoneVerifiedAt: null,
+  emailVerifiedAt: '2026-01-01T12:00:00.000Z',
+  passkeyEnabled: false,
+  twoStepEnabled: false,
+  authenticatorEnabled: false,
+  passwordUpdatedAt: null,
+  recoveryPhone: null,
+  googleConnected: false,
+  appleConnected: false,
+  capabilities: {
+    passkeys: false,
+    password: false,
+    authenticator: false,
+    twoStep: false,
+    recoveryPhone: false,
+    connectedAccounts: false,
+    signOutOtherDevices: true,
+  },
+  sessions: [
+    {
+      id: 'session_current',
+      device: 'This device',
+      place: 'Stockholm, Sweden',
+      source: 'Movera',
+      current: true,
+    },
+    {
+      id: 'session_other',
+      device: 'Other device',
+      place: 'Stockholm, Sweden',
+      source: 'Movera',
+      current: false,
+    },
+  ],
+};
 
 function send(res, status, body, requestId) {
   res.statusCode = status;
@@ -52,6 +90,22 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/health' && method === 'GET') {
     send(res, 200, { ok: true }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/account/security' && method === 'GET') {
+    send(res, 200, { code: 'OK', security: accountSecurity }, requestId);
+    return;
+  }
+
+  if (
+    url === '/api/v1/account/security/sessions/sign-out-others' &&
+    method === 'POST'
+  ) {
+    accountSecurity.sessions = accountSecurity.sessions.filter(
+      (session) => session.current === true,
+    );
+    send(res, 200, { code: 'OK', security: accountSecurity }, requestId);
     return;
   }
 
