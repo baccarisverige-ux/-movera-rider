@@ -5,10 +5,10 @@ const safety = require('./modules/safety');
 const idempotency = new Map();
 const rides = new Map();
 const accountSecurity = {
-  phone: '+46701234567',
-  email: 'rider@example.test',
+  phone: '',
+  email: '',
   phoneVerifiedAt: null,
-  emailVerifiedAt: '2026-01-01T12:00:00.000Z',
+  emailVerifiedAt: null,
   passkeyEnabled: false,
   twoStepEnabled: false,
   authenticatorEnabled: false,
@@ -29,16 +29,9 @@ const accountSecurity = {
     {
       id: 'session_current',
       device: 'This device',
-      place: 'Stockholm, Sweden',
+      place: '',
       source: 'Movera',
       current: true,
-    },
-    {
-      id: 'session_other',
-      device: 'Other device',
-      place: 'Stockholm, Sweden',
-      source: 'Movera',
-      current: false,
     },
   ],
 };
