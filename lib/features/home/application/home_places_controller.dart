@@ -2,16 +2,29 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 
 class SavedPlaceData {
-  const SavedPlaceData({required this.type, required this.address});
+  const SavedPlaceData({
+    required this.title,
+    required this.type,
+    required this.address,
+  });
 
+  final String title;
   final String type;
   final String address;
 
-  Map<String, String> toJson() => {'type': type, 'address': address};
+  Map<String, String> toJson() => {
+    'title': title,
+    'type': type,
+    'address': address,
+  };
 
   factory SavedPlaceData.fromJson(Map<String, dynamic> json) {
+    final type = json['type'] as String? ?? 'other';
     return SavedPlaceData(
-      type: json['type'] as String? ?? 'other',
+      title: (json['title'] as String?)?.trim().isNotEmpty == true
+          ? (json['title'] as String).trim()
+          : type,
+      type: type,
       address: json['address'] as String? ?? '',
     );
   }
@@ -24,6 +37,8 @@ class HomePlacesController {
       : _store = store ?? HomeAddressRepository();
 
   final HomeAddressRepository _store;
+
+  Stream<void> get changes => _store.changes;
 
   static const maxRecent = 8;
   static const maxCustom = 8;
@@ -110,7 +125,7 @@ class HomePlacesController {
       case 'custom':
         final type = customType ?? 'other';
         final existingIndex = savedPlaces.indexWhere((place) => place.type == type);
-        final place = SavedPlaceData(type: type, address: address);
+        final place = SavedPlaceData(title: type, type: type, address: address);
         if (existingIndex >= 0) {
           savedPlaces[existingIndex] = place;
         } else if (savedPlaces.length < maxCustom) {
