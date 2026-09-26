@@ -16,6 +16,44 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
+  final Map<String, dynamic> accountSecurity = {
+    'phone': '+46701234567',
+    'email': 'rider@example.test',
+    'phoneVerifiedAt': null,
+    'emailVerifiedAt': '2026-01-01T12:00:00.000Z',
+    'passkeyEnabled': false,
+    'twoStepEnabled': false,
+    'authenticatorEnabled': false,
+    'passwordUpdatedAt': null,
+    'recoveryPhone': null,
+    'googleConnected': false,
+    'appleConnected': false,
+    'capabilities': {
+      'passkeys': false,
+      'password': false,
+      'authenticator': false,
+      'twoStep': false,
+      'recoveryPhone': false,
+      'connectedAccounts': false,
+      'signOutOtherDevices': true,
+    },
+    'sessions': [
+      {
+        'id': 'session_current',
+        'device': 'This device',
+        'place': 'Stockholm, Sweden',
+        'source': 'Movera',
+        'current': true,
+      },
+      {
+        'id': 'session_other',
+        'device': 'Other device',
+        'place': 'Stockholm, Sweden',
+        'source': 'Movera',
+        'current': false,
+      },
+    ],
+  };
   final SafetyMockApi safety = safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
@@ -174,6 +212,27 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
       payload = {'code': 'OK', 'requestId': requestId};
+    } else if (path == '/api/v1/account/security' && method == 'GET') {
+      payload = {
+        'code': 'OK',
+        'security': accountSecurity,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/account/security/sessions/sign-out-others' &&
+        method == 'POST') {
+      final sessions = accountSecurity['sessions'];
+      if (sessions is List) {
+        accountSecurity['sessions'] = sessions
+            .whereType<Map>()
+            .where((item) => item['current'] == true)
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+      payload = {
+        'code': 'OK',
+        'security': accountSecurity,
+        'requestId': requestId,
+      };
     } else if (path == '/api/v1/routes' && method == 'POST') {
       final from = body['from'];
       final to = body['to'];
