@@ -163,6 +163,7 @@ void main() {
 
   testWidgets('account hub shows honest empty profile state', (tester) async {
     await pumpPhone(tester, AccountHomePage(controller: controller()));
+    await tester.pumpAndSettle();
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
