@@ -1,9 +1,8 @@
-import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/features/profile/domain/account_security.dart';
 
 class AccountSecurityRepository {
-  AccountSecurityRepository({ApiClient? api}) : _api = api ?? AppScope.instance.api;
+  AccountSecurityRepository({required ApiClient api}) : _api = api;
 
   final ApiClient _api;
 
