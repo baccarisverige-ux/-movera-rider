@@ -11,14 +11,20 @@ class AuthRepository {
   final ApiClient _api;
   final TokenStore _tokens;
 
-  Future<OtpChallenge> requestOtp({required String phone}) async {
+  Future<OtpChallenge> requestOtp({
+    required String phone,
+    String? fullName,
+  }) async {
     final normalized = phone.replaceAll(' ', '').trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(phone, 'phone', 'Phone number is required.');
     }
     final response = await _api.post(
       '/api/v1/auth/otp/request',
-      body: {'phone': normalized},
+      body: {
+        'phone': normalized,
+        if (fullName?.trim().isNotEmpty == true) 'fullName': fullName!.trim(),
+      },
     );
     final requestId = response['requestId'];
     final sessionId = response['sessionId'];
