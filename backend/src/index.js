@@ -4,6 +4,7 @@ const safety = require('./modules/safety');
 
 const idempotency = new Map();
 const rides = new Map();
+const pushDevices = new Map();
 const accountSecurity = {
   phone: '',
   email: '',
@@ -85,6 +86,37 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/health' && method === 'GET') {
     send(res, 200, { ok: true }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/push/devices' && method === 'POST') {
+    const body = await readBody(req);
+    const token = typeof body.token === 'string' ? body.token.trim() : '';
+    const platform =
+      typeof body.platform === 'string' ? body.platform.trim() : '';
+    if (!token || body.provider !== 'fcm' || !platform) {
+      send(res, 400, { code: 'INVALID_PUSH_DEVICE' }, requestId);
+      return;
+    }
+    pushDevices.set(token, {
+      token,
+      provider: 'fcm',
+      platform,
+      updatedAt: new Date().toISOString(),
+    });
+    send(res, 200, { code: 'OK', status: 'registered' }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/push/devices/unregister' && method === 'POST') {
+    const body = await readBody(req);
+    const token = typeof body.token === 'string' ? body.token.trim() : '';
+    if (!token) {
+      send(res, 400, { code: 'INVALID_PUSH_DEVICE' }, requestId);
+      return;
+    }
+    pushDevices.delete(token);
+    send(res, 200, { code: 'OK', status: 'unregistered' }, requestId);
     return;
   }
 
