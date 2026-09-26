@@ -202,11 +202,15 @@ class _SecurityPageState extends State<SecurityPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: AccountTile(
                 title: 'Sign out other devices',
-                body: caps.signOutOtherDevices
-                    ? 'Server will revoke every session except this one.'
-                    : 'Unavailable until session revocation is supported',
+                body: !caps.signOutOtherDevices
+                    ? 'Unavailable until session revocation is supported'
+                    : !caps.reauthentication
+                        ? 'Unavailable until reauthentication is connected'
+                        : 'Server will revoke every session except this one.',
                 showDivider: false,
-                onTap: caps.signOutOtherDevices && !_security.loading
+                onTap: caps.signOutOtherDevices &&
+                        caps.reauthentication &&
+                        !_security.loading
                     ? () async {
                         final confirm = await showAccountChoice(
                           context,
