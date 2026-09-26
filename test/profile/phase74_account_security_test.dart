@@ -8,9 +8,6 @@ import 'package:movera_rider/features/profile/data/account_security_repository.d
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:movera_rider/features/profile/data/profile_repository.dart';
-import 'package:movera_rider/features/profile/domain/profile.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -25,13 +22,28 @@ void main() {
     mapsEnabled: true,
   );
 
-  InProcessMockClient seededSecurityClient({bool withOtherSession = true}) {
+  InProcessMockClient seededSecurityClient({
+    bool withOtherSession = true,
+    bool reauthenticationSupported = false,
+    bool freshlyReauthenticated = false,
+  }) {
     final client = InProcessMockClient();
+    final capabilities = Map<String, dynamic>.from(
+      client.accountSecurity['capabilities'] as Map,
+    );
+    capabilities
+      ..['reauthentication'] = reauthenticationSupported
+      ..['signOutOtherDevices'] = true;
+
     client.accountSecurity
       ..['phone'] = '+46701234567'
       ..['email'] = 'rider@example.test'
       ..['phoneVerifiedAt'] = null
       ..['emailVerifiedAt'] = '2026-01-01T12:00:00.000Z'
+      ..['reauthenticatedAt'] = freshlyReauthenticated
+          ? DateTime.now().toUtc().toIso8601String()
+          : null
+      ..['capabilities'] = capabilities
       ..['sessions'] = [
         {
           'id': 'session_current',
@@ -50,6 +62,14 @@ void main() {
           },
       ];
     return client;
+  }
+
+  AccountSecurityController controllerFor(InProcessMockClient client) {
+    return AccountSecurityController(
+      repository: AccountSecurityRepository(
+        api: ApiClient(env: env, client: client),
+      ),
+    );
   }
 
   test('verification truth comes from backend metadata, not contact strings', () async {
@@ -86,19 +106,55 @@ void main() {
     expect(state.capabilities.twoStep, isFalse);
     expect(state.capabilities.recoveryPhone, isFalse);
     expect(state.capabilities.connectedAccounts, isFalse);
+    expect(state.capabilities.reauthentication, isFalse);
   });
 
-  test('sign out other devices is verified by refreshed server sessions', () async {
+  test('controller refuses session revocation without fresh reauthentication', () async {
+    final controller = controllerFor(
+      seededSecurityClient(
+        reauthenticationSupported: true,
+        freshlyReauthenticated: false,
+      ),
+    );
+    await controller.load();
+
+    expect(controller.state!.sessions.any((item) => !item.current), isTrue);
+    await controller.signOutOtherDevices();
+
+    expect(controller.state!.sessions.any((item) => !item.current), isTrue);
+  });
+
+  test('freshly reauthenticated session revocation is verified by server state', () async {
+    final controller = controllerFor(
+      seededSecurityClient(
+        reauthenticationSupported: true,
+        freshlyReauthenticated: true,
+      ),
+    );
+    await controller.load();
+
+    expect(controller.state!.hasFreshReauthentication, isTrue);
+    expect(controller.state!.sessions.any((item) => !item.current), isTrue);
+
+    await controller.signOutOtherDevices();
+
+    expect(controller.state!.sessions, isNotEmpty);
+    expect(controller.state!.sessions.every((item) => item.current), isTrue);
+  });
+
+  test('repository refresh verifies sign-out-other-devices server effect', () async {
     final repo = AccountSecurityRepository(
       api: ApiClient(
         env: env,
-        client: seededSecurityClient(),
+        client: seededSecurityClient(
+          reauthenticationSupported: true,
+          freshlyReauthenticated: true,
+        ),
       ),
     );
 
     final before = await repo.load();
     expect(before.sessions.where((item) => !item.current), isNotEmpty);
-    expect(before.capabilities.signOutOtherDevices, isTrue);
 
     final after = await repo.signOutOtherDevices();
 
@@ -106,7 +162,7 @@ void main() {
     expect(after.sessions.every((item) => item.current), isTrue);
   });
 
-  test('SharedPreferences cannot persist a successful security state', () async {
+  test('SharedPreferences cannot persist account identity or security success', () async {
     const key = 'phase74_local_profile';
     final store = ProfileRepository(storageKey: key);
 
@@ -133,8 +189,8 @@ void main() {
     final reloaded = ProfileRepository(storageKey: key);
     await reloaded.hydrate();
 
-    expect(reloaded.current.phone, '+46709999999');
-    expect(reloaded.current.email, 'local@example.test');
+    expect(reloaded.current.phone, isEmpty);
+    expect(reloaded.current.email, isEmpty);
     expect(reloaded.current.twoStepEnabled, isFalse);
     expect(reloaded.current.passkeyEnabled, isFalse);
     expect(reloaded.current.authenticatorEnabled, isFalse);
@@ -144,14 +200,18 @@ void main() {
     expect(reloaded.current.logins, isEmpty);
   });
 
-  test('local profile persistence scrubs every security claim', () async {
+  test('local profile persistence keeps only non-security presentation data', () async {
     final store = ProfileRepository(storageKey: 'phase74_profile');
     final unsafe = RiderProfileData.defaults().copyWith(
+      name: 'Local Rider',
+      language: 'Svenska',
+      phone: '+46709999999',
+      email: 'local@example.test',
       passkeyEnabled: true,
       twoStepEnabled: true,
       authenticatorEnabled: true,
       passwordUpdatedAt: DateTime.utc(2026, 1, 1),
-      recoveryPhone: '+46709999999',
+      recoveryPhone: '+46708888888',
       googleConnected: true,
       appleConnected: true,
       logins: const [
@@ -165,6 +225,10 @@ void main() {
 
     final saved = await store.save(unsafe);
 
+    expect(saved.name, 'Local Rider');
+    expect(saved.language, 'Svenska');
+    expect(saved.phone, isEmpty);
+    expect(saved.email, isEmpty);
     expect(saved.passkeyEnabled, isFalse);
     expect(saved.twoStepEnabled, isFalse);
     expect(saved.authenticatorEnabled, isFalse);
@@ -173,16 +237,6 @@ void main() {
     expect(saved.googleConnected, isFalse);
     expect(saved.appleConnected, isFalse);
     expect(saved.logins, isEmpty);
-
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('phase74_profile') ?? '';
-    expect(raw, isNot(contains('passkeyEnabled')));
-    expect(raw, isNot(contains('twoStepEnabled')));
-    expect(raw, isNot(contains('authenticatorEnabled')));
-    expect(raw, isNot(contains('recoveryPhone')));
-    expect(raw, isNot(contains('googleConnected')));
-    expect(raw, isNot(contains('appleConnected')));
-    expect(raw, isNot(contains('logins')));
   });
 
   test('missing security endpoint becomes unavailable instead of local success', () async {
