@@ -17,6 +17,7 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> quotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
   final Map<String, Map<String, dynamic>> pushDevices = {};
+  final Map<String, Map<String, dynamic>> paymentIntents = {};
   final Map<String, dynamic> accountSecurity = {
     'phone': '',
     'email': '',
@@ -466,15 +467,65 @@ class InProcessMockClient extends http.BaseClient {
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
     } else if (path == '/api/v1/payments' && method == 'POST') {
-      payload = {
-        'code': 'OK',
-        'intent': {
+      final amountMinor = body['amountMinor'];
+      final currency = body['currency'];
+      if (amountMinor is! int ||
+          amountMinor <= 0 ||
+          currency is! String ||
+          currency.trim().toUpperCase() != 'SEK') {
+        status = 400;
+        payload = {
+          'code': 'INVALID_PAYMENT_INTENT',
+          'requestId': requestId,
+        };
+      } else {
+        final intent = <String, dynamic>{
           'id': 'pi_$requestId',
+          'status': 'requires_confirmation',
+          'amountMinor': amountMinor,
+          'currency': 'SEK',
+        };
+        paymentIntents[intent['id'] as String] = intent;
+        payload = {
+          'code': 'OK',
+          'intent': Map<String, dynamic>.from(intent),
+          'requestId': requestId,
+        };
+      }
+    } else if (parts.length == 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'payments' &&
+        parts.last == 'confirm' &&
+        method == 'POST') {
+      final intent = paymentIntents[parts[4]];
+      if (intent == null) {
+        status = 404;
+        payload = {'code': 'PAYMENT_NOT_FOUND', 'requestId': requestId};
+      } else {
+        intent['status'] = 'succeeded';
+        payload = {
+          'code': 'OK',
           'status': 'succeeded',
-          'amountMinor': body['amountMinor'] ?? 0,
-        },
-        'requestId': requestId,
-      };
+          'intent': Map<String, dynamic>.from(intent),
+          'requestId': requestId,
+        };
+      }
+    } else if (parts.length == 5 &&
+        parts[1] == 'api' &&
+        parts[3] == 'payments' &&
+        method == 'GET') {
+      final intent = paymentIntents[parts[4]];
+      if (intent == null) {
+        status = 404;
+        payload = {'code': 'PAYMENT_NOT_FOUND', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'status': intent['status'],
+          'intent': Map<String, dynamic>.from(intent),
+          'requestId': requestId,
+        };
+      }
     } else if (path == '/api/v1/wallet/topup' && method == 'POST') {
       payload = {
         'code': 'OK',

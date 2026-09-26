@@ -20,9 +20,9 @@ import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
 import 'package:movera_rider/core/observability/observability.dart';
+import 'package:movera_rider/core/payments/api_payment_gateway.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
-import 'package:movera_rider/core/payments/unavailable_payment_gateway.dart';
 import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
@@ -56,9 +56,6 @@ class AppScope {
         realtime = RealtimeConnection(),
         payments = LocalPaymentRepository(),
         defaultPayment = const PrefsDefaultPaymentStore(),
-        paymentGateway = environment.allowsMockTransport
-            ? MockPaymentGateway()
-            : const UnavailablePaymentGateway(),
         wallet = WalletLedger(),
         lifecycle = AppLifecycleObserver(),
         permissions = PermissionService(),
@@ -71,6 +68,9 @@ class AppScope {
         reservations = ReservationController(environment: environment),
         profile = ProfileController() {
     api = ApiClient(env: environment, tokens: tokens);
+    paymentGateway = environment.allowsMockTransport
+        ? MockPaymentGateway()
+        : ApiPaymentGateway(api: api);
     push = environment.allowsMockTransport
         ? NoopPushService()
         : FirebasePushService(api: api, environment: environment);
@@ -142,7 +142,7 @@ class AppScope {
   late final QuoteRepository quotes;
   final LocalPaymentRepository payments;
   final DefaultPaymentStore defaultPayment;
-  final PaymentGateway paymentGateway;
+  late final PaymentGateway paymentGateway;
   final WalletLedger wallet;
   final AppLifecycleObserver lifecycle;
   final PermissionService permissions;

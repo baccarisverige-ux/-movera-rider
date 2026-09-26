@@ -6,6 +6,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
+import 'package:movera_rider/core/payments/unavailable_payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 
@@ -149,6 +150,36 @@ void main() {
         usesMockDriverAssignment: true,
       ),
       returnsNormally,
+    );
+
+    realtime.dispose();
+  });
+
+
+  test('release composition rejects unavailable payment placeholder', () {
+    final api = ApiClient(env: production);
+    final realtime = MockRideRealtime(api: api);
+
+    expect(
+      () => TransportComposition.validate(
+        environment: production,
+        api: api,
+        realtime: realtime,
+        paymentGateway: const UnavailablePaymentGateway(),
+        push: NoopPushService(),
+        emergencyDialer: RecordingEmergencyDialer(),
+        logger: const NoopLoggerSink(),
+        analytics: const NoopAnalyticsSink(),
+        crashes: const NoopCrashSink(),
+        usesMockDriverAssignment: true,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('payments'),
+        ),
+      ),
     );
 
     realtime.dispose();
