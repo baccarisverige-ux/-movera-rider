@@ -6,9 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
-import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
+import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
@@ -37,6 +37,31 @@ SafetyController buildController({SafetyStore? store}) {
         remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
       );
   return SafetyController(session: session);
+}
+
+class TestSafetyRecorder implements SafetyRecorder {
+  bool permissionGranted = false;
+  String? capturedPath = '/device/safety/recording.m4a';
+  int permissionRequests = 0;
+  int starts = 0;
+  int stops = 0;
+  final deletedPaths = <String>[];
+
+  @override
+  bool get supported => true;
+  @override
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    return permissionGranted;
+  }
+  @override
+  Future<void> start(String recordingId) async { starts++; }
+  @override
+  Future<String?> stop() async { stops++; return capturedPath; }
+  @override
+  Future<void> cancel() async {}
+  @override
+  Future<void> delete(String path) async { deletedPaths.add(path); }
 }
 
 void main() {
@@ -280,24 +305,67 @@ void main() {
       remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
     );
     await store.load();
-    final perms = PermissionService();
-    final audio = SafetyAudioService(permissions: perms, store: store);
-    expect(() => audio.start(), throwsA(isA<SafetyAudioException>()));
-    audio.grantMicrophone();
+    final recorder = TestSafetyRecorder();
+    final audio = SafetyAudioService(recorder: recorder, store: store);
+    await expectLater(
+      audio.start(),
+      throwsA(isA<SafetyAudioException>().having((e) => e.code, 'code', 'MIC_DENIED')),
+    );
+    expect(recorder.permissionRequests, 1);
+    expect(recorder.starts, 0);
+    recorder.permissionGranted = true;
     final rec = await audio.start(rideId: 'ride_a');
     expect(audio.isRecording, isTrue);
-    expect(rec.localPath, isNotNull);
+    expect(rec.localPath, isNull);
+    expect(recorder.starts, 1);
     final stopped = await audio.stop();
     expect(stopped.endedAt, isNotNull);
+    expect(stopped.localPath, '/device/safety/recording.m4a');
+    expect(recorder.stops, 1);
     await audio.delete(stopped);
+    expect(recorder.deletedPaths, ['/device/safety/recording.m4a']);
+
+    recorder.capturedPath = null;
+    await audio.start(rideId: 'ride_b');
+    await expectLater(
+      audio.stop(),
+      throwsA(isA<SafetyAudioException>().having((e) => e.code, 'code', 'NO_AUDIO')),
+    );
+    expect(audio.isRecording, isFalse);
 
     final unsupported = SafetyAudioService(
-      permissions: PermissionService()
-        ..set(AppPermission.microphone, PermissionPhase.granted),
+      recorder: recorder,
       store: store,
       supported: false,
     );
-    expect(() => unsupported.start(), throwsA(isA<SafetyAudioException>()));
+    await expectLater(unsupported.start(), throwsA(isA<SafetyAudioException>()));
+  });
+
+  testWidgets('Safety Kit reports denied microphone access honestly', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final recorder = TestSafetyRecorder();
+    final controller = SafetyController(
+      session: store,
+      audio: SafetyAudioService(recorder: recorder, store: store),
+    );
+    await controller.load();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_denied',
+        controller: controller,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Record audio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Microphone permission is required to record.'), findsOneWidget);
+    expect(recorder.permissionRequests, 1);
+    expect(recorder.starts, 0);
   });
 
   test('optimistic write rolls back on simulated server failure', () async {

@@ -402,12 +402,22 @@ class SafetyStore {
       ),
       next,
       (value) {
+        // Completion confirms metadata, not the private file on this device.
+        final local = value.copyWith(
+          localPath: recording.localPath,
+          durationMs: recording.durationMs,
+          endedAt: recording.endedAt,
+        );
         _cache.recordings = [
           for (final item in _cache.recordings)
-            if (item.id == value.id) value else item,
+            if (item.id == value.id) local else item,
         ];
       },
-    );
+    ).then((value) => value.copyWith(
+          localPath: recording.localPath,
+          durationMs: recording.durationMs,
+          endedAt: recording.endedAt,
+        ));
   }
 
   Future<void> deleteAudio(AudioRecording recording) async {

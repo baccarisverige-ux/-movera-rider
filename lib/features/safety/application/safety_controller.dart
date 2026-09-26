@@ -111,9 +111,6 @@ class SafetyController extends ChangeNotifier {
     _events.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
   }
 
-  void shareTrip({String? rideId}) =>
-      record(SafetyKind.shareTrip, rideId: rideId);
-
   Future<void> sos({String? rideId}) async {
     record(SafetyKind.sos, rideId: rideId);
     final id = rideId?.trim();
