@@ -341,6 +341,33 @@ void main() {
     await expectLater(unsupported.start(), throwsA(isA<SafetyAudioException>()));
   });
 
+  testWidgets('Safety Kit reports denied microphone access honestly', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final recorder = TestSafetyRecorder();
+    final controller = SafetyController(
+      session: store,
+      audio: SafetyAudioService(recorder: recorder, store: store),
+    );
+    await controller.load();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_denied',
+        controller: controller,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Record audio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Microphone permission is required to record.'), findsOneWidget);
+    expect(recorder.permissionRequests, 1);
+    expect(recorder.starts, 0);
+  });
+
   test('optimistic write rolls back on simulated server failure', () async {
     resetSafetyMockForProcess();
     final store = SafetyStore(
