@@ -55,17 +55,29 @@ jobs:
             exit 1
           fi
 
-      - name: Cap legacy source-reading coverage below 40
+      - name: Cap legacy grep-style cases below 40
         shell: bash
         run: |
           set -euo pipefail
-          matches="$(grep -R -nE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' test --include='*.dart' || true)"
-          count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')"
-          echo "Legacy source-reading call sites: $count"
-          if [ "$count" -ge 40 ]; then
-            echo "Source-reading call sites by file:"
-            printf '%s\n' "$matches" | cut -d: -f1 | sort | uniq -c | sort -nr
-            echo "::error::Phase 69 requires fewer than 40 legacy source-reading call sites; found $count."
+          mapfile -t files < <(
+            grep -R -lE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\('               test --include='*.dart' | sort || true
+          )
+
+          cases=0
+          read_calls=0
+          echo "Source-reading test files: ${#files[@]}"
+          for file in "${files[@]}"; do
+            file_cases="$(grep -cE '(^|[^A-Za-z0-9_])test(Widgets)?[[:space:]]*\(' "$file" || true)"
+            file_reads="$(grep -cE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' "$file" || true)"
+            cases=$((cases + file_cases))
+            read_calls=$((read_calls + file_reads))
+            printf '%3d cases | %3d reads | %s\n' "$file_cases" "$file_reads" "$file"
+          done
+
+          echo "Legacy grep-style test cases: $cases"
+          echo "Legacy source-reading call sites: $read_calls"
+          if [ "$cases" -ge 40 ]; then
+            echo "::error::Phase 69 requires fewer than 40 legacy grep-style test cases; found $cases."
             exit 1
           fi
 
