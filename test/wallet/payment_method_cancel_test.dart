@@ -16,9 +16,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('cancelling add-card sheet leaves no partial payment state', (
-    tester,
-  ) async {
+  testWidgets('unavailable payment methods never collect credentials or save a method', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: WalletScreen()));
     await tester.pumpAndSettle();
 
@@ -27,23 +25,18 @@ void main() {
     await tester.tap(addPayment);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Debit or credit card'));
+    expect(find.text('Unavailable until secure card setup is connected'), findsOneWidget);
+    expect(find.text('Unavailable until PayPal authorization is connected'), findsOneWidget);
+    expect(find.text('Unavailable until Klarna authorization is connected'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text('PayPal'));
     await tester.pumpAndSettle();
-
-    final fields = find.byType(TextField);
-    expect(fields, findsNWidgets(4));
-    await tester.enterText(fields.at(0), '4242424242424242');
-    await tester.enterText(fields.at(1), 'Test Rider');
-    await tester.enterText(fields.at(2), '12/30');
-    await tester.enterText(fields.at(3), '123');
-    await tester.pump();
-
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
 
     final saved = await WalletController().loadPayments();
     expect(saved.defaultMethod, 'apple');
     expect(saved.extraMethods, isEmpty);
-    expect(find.text('Card ending 4242'), findsNothing);
+    expect(find.text('Connected'), findsNothing);
   });
 }
