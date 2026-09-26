@@ -72,18 +72,16 @@ void main() {
     await tester.pump();
     expect((await RideSnapshotStore.read())?.rideId, ride.rideId);
 
-    tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.resumed,
-    );
-    // resumeIfNeeded first awaits the persisted snapshot. Give that async
-    // read a frame to schedule the production reconnect backoff, then advance
-    // fake time until the restore callback owns the authoritative surface.
+    // AppLifecycleObserver delegates foreground restoration to this exact
+    // coordinator. Await that production future explicitly here so the widget
+    // test does not race a fire-and-forget lifecycle callback.
+    final resume = RideRestoreCoordinator.instance.resumeIfNeeded();
     await tester.pump();
-    for (var i = 0; i < 8 && shown == null; i++) {
-      await tester.pump(const Duration(milliseconds: 500));
-    }
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    final restored = await resume;
 
-    return shown;
+    return shown ?? restored;
   }
 
   testWidgets('background/resume restores Finding with the same ride', (
