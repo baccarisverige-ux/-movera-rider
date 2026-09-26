@@ -54,6 +54,7 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
       case AuthorizationStatus.provisional:
         return PushAuthorizationStatus.provisional;
       case AuthorizationStatus.denied:
+      case AuthorizationStatus.deniedPermanently:
       case AuthorizationStatus.notDetermined:
         return PushAuthorizationStatus.denied;
     }
