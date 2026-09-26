@@ -380,7 +380,7 @@ void main() {
     await ctl.setTripShare(enabled: true);
 
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Scaffold(
           body: RideSafetyKitSheet(
             rideId: 'ride_share_action',
