@@ -24,7 +24,7 @@ class SafetyController extends ChangeNotifier {
     RideCheckService? rideCheck,
   })  : _events = store ?? SafetyRepository.shared,
         _session = session ?? SafetyStore.shared,
-        emergency = emergency ?? EmergencyCallService(),
+        emergency = emergency ?? EmergencyCallService.shared,
         audio = audio ?? SafetyAudioService(store: session ?? SafetyStore.shared),
         rideCheck = rideCheck ??
             RideCheckService(store: session ?? SafetyStore.shared);
@@ -114,7 +114,25 @@ class SafetyController extends ChangeNotifier {
   void shareTrip({String? rideId}) =>
       record(SafetyKind.shareTrip, rideId: rideId);
 
-  void sos({String? rideId}) => record(SafetyKind.sos, rideId: rideId);
+  Future<void> sos({String? rideId}) async {
+    record(SafetyKind.sos, rideId: rideId);
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return;
+    try {
+      await rideCheck.sos(rideId: id);
+    } catch (error, stackTrace) {
+      AppLog.warning(
+        'safety.sos.backend_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+      AppLog.error(
+        'safety.sos.backend_failed.detail',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'rideId': id},
+      );
+    }
+  }
 
   Future<void> load() async {
     loading = true;
