@@ -173,10 +173,18 @@ jobs:
             });
             const page = await context.newPage();
             const errors = [];
-            page.on('pageerror', error => errors.push(String(error)));
+            page.on('pageerror', error => errors.push({
+              source: 'pageerror',
+              message: String(error),
+              stack: error?.stack || '',
+            }));
             page.on('console', message => {
               if (message.type() === 'error' && fatalPattern.test(message.text())) {
-                errors.push(message.text());
+                errors.push({
+                  source: 'console',
+                  message: message.text(),
+                  stack: '',
+                });
               }
             });
             await page.goto(base + '?phase85=' + family + '-' + width + 'x' + height, {
@@ -207,30 +215,43 @@ jobs:
                 ': horizontal overflow ' + metrics.docWidth + ' > ' + metrics.width,
               );
             }
-            if (errors.length) {
-              throw new Error(
-                family + ' ' + width + 'x' + height +
-                ': fatal runtime error(s): ' + errors.join(' | '),
-              );
-            }
-
             await page.screenshot({
               path: 'phase85-' + family + '-' + width + 'x' + height + '.png',
               fullPage: true,
             });
+            const record = { width, height, metrics, errors };
+            evidence[family].push(record);
+            fs.writeFileSync(
+              'phase85-browser-evidence.json',
+              JSON.stringify(evidence, null, 2),
+            );
+            if (errors.length) {
+              console.error(
+                'PHASE85_BROWSER_ERRORS ' +
+                family + ' ' + width + 'x' + height + ' ' +
+                JSON.stringify(errors),
+              );
+              await context.close();
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': fatal runtime error(s): ' +
+                errors.map(error => error.message).join(' | '),
+              );
+            }
+
             await context.close();
-            return { width, height, metrics, errors };
+            return record;
           }
 
           const chrome = await chromium.launch({ headless: true });
           for (const [width, height] of viewports) {
-            evidence.chromium.push(await inspect(chrome, 'chromium', width, height));
+            await inspect(chrome, 'chromium', width, height);
           }
           await chrome.close();
 
           const safari = await webkit.launch({ headless: true });
           for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
-            evidence.webkit.push(await inspect(safari, 'webkit', width, height));
+            await inspect(safari, 'webkit', width, height);
           }
           await safari.close();
 
