@@ -10,16 +10,16 @@ export 'safety_recorder_stub.dart' show SafetyRecorder;
 SafetyRecorder createSafetyRecorder() => NativeSafetyRecorder();
 
 class NativeSafetyRecorder implements SafetyRecorder {
-  NativeSafetyRecorder() : _recorder = AudioRecorder();
+  AudioRecorder? _recorder;
 
-  final AudioRecorder _recorder;
+  AudioRecorder get recorder => _recorder ??= AudioRecorder();
 
   @override
   bool get supported => true;
 
   // record.hasPermission requests the native microphone permission if needed.
   @override
-  Future<bool> requestPermission() => _recorder.hasPermission();
+  Future<bool> requestPermission() => recorder.hasPermission();
 
   @override
   Future<void> start(String recordingId) async {
@@ -27,7 +27,7 @@ class NativeSafetyRecorder implements SafetyRecorder {
       '${(await getApplicationDocumentsDirectory()).path}/safety_recordings',
     );
     await directory.create(recursive: true);
-    await _recorder.start(
+    await recorder.start(
       const RecordConfig(encoder: AudioEncoder.aacLc),
       path: '${directory.path}/$recordingId.m4a',
     );
@@ -35,7 +35,7 @@ class NativeSafetyRecorder implements SafetyRecorder {
 
   @override
   Future<String?> stop() async {
-    final path = await _recorder.stop();
+    final path = await recorder.stop();
     if (path == null || !await File(path).exists() || await File(path).length() == 0) {
       return null;
     }
@@ -43,7 +43,9 @@ class NativeSafetyRecorder implements SafetyRecorder {
   }
 
   @override
-  Future<void> cancel() => _recorder.cancel();
+  Future<void> cancel() async {
+    if (_recorder != null) await _recorder!.cancel();
+  }
 
   @override
   Future<void> delete(String path) async {
