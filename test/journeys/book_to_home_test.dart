@@ -82,6 +82,12 @@ void main() {
 
       final routeFields = find.byType(TextField);
       expect(routeFields, findsAtLeastNWidgets(2));
+
+      // The sheet fields exist before the smooth-sheet route has fully reached
+      // its resting position. Wait past the production 380 ms open motion so
+      // the test taps the same settled geometry a Rider sees.
+      await tester.pump(const Duration(milliseconds: 450));
+
       await tester.enterText(routeFields.at(0), 'Stockholm Central');
       await tester.enterText(routeFields.at(1), 'Arlanda Airport');
       await tester.pump();
@@ -89,6 +95,9 @@ void main() {
       final next = find.text('Next');
       expect(next, findsOneWidget);
       await tester.ensureVisible(next);
+      await tester.pump(const Duration(milliseconds: 80));
+      final nextCenter = tester.getCenter(next);
+      expect(nextCenter.dy, lessThan(tester.view.physicalSize.height));
       await tester.tap(next);
       await tester.pump(const Duration(milliseconds: 700));
 
