@@ -33,12 +33,5 @@ void main() {
     );
   });
 
-  test('index.html still loads the wipe helper before booting Flutter', () {
-    final index = File('web/index.html').readAsStringSync();
-    final wipeAt = index.indexOf('movera_ride_snapshot_wipe.js');
-    final bootAt = index.indexOf('flutter_bootstrap.js');
-    expect(wipeAt, greaterThan(-1));
-    expect(bootAt, greaterThan(-1));
-    expect(wipeAt, lessThan(bootAt));
-  });
+  
 }

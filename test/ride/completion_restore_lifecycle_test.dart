@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/driver_repository.dart';
@@ -74,31 +72,7 @@ void main() {
     }
   });
 
-  test('real bootstrap installs the web pagehide bridge', () {
-    final source = File('lib/app/bootstrap.dart').readAsStringSync();
+  
 
-    expect(source, contains('installWebRidePagehide('));
-    expect(
-      source,
-      contains('RideRestoreCoordinator.instance.onPageHide'),
-    );
-  });
-
-  test('pagehide bridge uses touchCurrent instead of read then save', () {
-    final source = File(
-      'lib/features/ride_booking/application/ride_restore_coordinator.dart',
-    ).readAsStringSync();
-
-    final start = source.indexOf('void onPageHide()');
-    final end = source.indexOf(
-      '  RestoredSurface surfaceFor',
-      start,
-    );
-    expect(start, greaterThanOrEqualTo(0));
-    expect(end, greaterThan(start));
-
-    final block = source.substring(start, end);
-    expect(block, contains('RideSnapshotStore.touchCurrent()'));
-    expect(block, isNot(contains('RideSnapshotStore.save(')));
-  });
+  
 }

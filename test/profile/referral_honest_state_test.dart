@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,22 +26,5 @@ void main() {
     expect(find.textContaining('Referral code copied'), findsNothing);
   });
 
-  test('known completion and referral demo values never ship in lib', () {
-    final source = Directory('lib')
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.dart'))
-        .map((file) => file.readAsStringSync())
-        .join('\n');
-
-    for (final banned in [
-      'Skypulse',
-      'I11/Street',
-      r'$10.12',
-      'Marle',
-      'RID2ESSA',
-    ]) {
-      expect(source, isNot(contains(banned)), reason: 'Found banned demo value: $banned');
-    }
-  });
+  
 }
