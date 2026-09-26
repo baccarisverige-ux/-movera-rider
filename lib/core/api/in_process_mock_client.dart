@@ -28,6 +28,7 @@ class InProcessMockClient extends http.BaseClient {
     'recoveryPhone': null,
     'googleConnected': false,
     'appleConnected': false,
+    'reauthenticatedAt': null,
     'capabilities': {
       'passkeys': false,
       'password': false,
