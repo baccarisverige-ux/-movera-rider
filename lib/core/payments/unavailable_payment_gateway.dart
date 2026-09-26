@@ -8,8 +8,8 @@ class PaymentUnavailableException implements Exception {
   String toString() => 'PaymentUnavailableException($message)';
 }
 
-/// Fail-closed adapter for release compositions until Phase 76 connects
-/// a real payment processor. It never fabricates a successful payment.
+/// Explicit fail-closed fallback. Release composition rejects this placeholder
+/// now that Phase 80 provides the authenticated backend payment transport.
 class UnavailablePaymentGateway implements PaymentGateway {
   const UnavailablePaymentGateway();
 

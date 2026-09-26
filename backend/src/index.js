@@ -5,6 +5,7 @@ const safety = require('./modules/safety');
 const idempotency = new Map();
 const rides = new Map();
 const pushDevices = new Map();
+const paymentIntents = new Map();
 const accountSecurity = {
   phone: '',
   email: '',
@@ -256,16 +257,69 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/api/v1/payments' && method === 'POST') {
     const body = await readBody(req);
-    const payload = {
-      code: 'OK',
-      intent: {
-        id: `pi_${requestId}`,
-        status: 'succeeded',
-        amountMinor: body.amountMinor || 0,
-      },
+    const amountMinor = body.amountMinor;
+    const currency =
+      typeof body.currency === 'string' ? body.currency.trim().toUpperCase() : '';
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0 || currency !== 'SEK') {
+      send(res, 400, { code: 'INVALID_PAYMENT_INTENT' }, requestId);
+      return;
+    }
+    const intent = {
+      id: `pi_${requestId}`,
+      status: 'requires_confirmation',
+      amountMinor,
+      currency: 'SEK',
     };
+    paymentIntents.set(intent.id, intent);
+    const payload = { code: 'OK', intent: { ...intent } };
     if (key) idempotency.set(key, payload);
     send(res, 200, payload, requestId);
+    return;
+  }
+
+  if (
+    parts[0] === 'api' &&
+    parts[1] === 'v1' &&
+    parts[2] === 'payments' &&
+    parts[3] &&
+    parts[4] === 'confirm' &&
+    parts.length === 5 &&
+    method === 'POST'
+  ) {
+    const intent = paymentIntents.get(parts[3]);
+    if (!intent) {
+      send(res, 404, { code: 'PAYMENT_NOT_FOUND' }, requestId);
+      return;
+    }
+    intent.status = 'succeeded';
+    send(
+      res,
+      200,
+      { code: 'OK', status: intent.status, intent: { ...intent } },
+      requestId,
+    );
+    return;
+  }
+
+  if (
+    parts[0] === 'api' &&
+    parts[1] === 'v1' &&
+    parts[2] === 'payments' &&
+    parts[3] &&
+    parts.length === 4 &&
+    method === 'GET'
+  ) {
+    const intent = paymentIntents.get(parts[3]);
+    if (!intent) {
+      send(res, 404, { code: 'PAYMENT_NOT_FOUND' }, requestId);
+      return;
+    }
+    send(
+      res,
+      200,
+      { code: 'OK', status: intent.status, intent: { ...intent } },
+      requestId,
+    );
     return;
   }
 
