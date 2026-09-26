@@ -72,6 +72,7 @@ class AccountSecurityState {
     required this.recoveryPhone,
     required this.googleConnected,
     required this.appleConnected,
+    required this.reauthenticatedAt,
     required this.sessions,
     required this.capabilities,
   });
@@ -87,11 +88,19 @@ class AccountSecurityState {
   final String? recoveryPhone;
   final bool googleConnected;
   final bool appleConnected;
+  final DateTime? reauthenticatedAt;
   final List<AccountSession> sessions;
   final AccountSecurityCapabilities capabilities;
 
   bool get phoneVerified => phoneVerifiedAt != null;
   bool get emailVerified => emailVerifiedAt != null;
+  bool get hasFreshReauthentication {
+    final at = reauthenticatedAt;
+    if (at == null) return false;
+    final age = DateTime.now().toUtc().difference(at);
+    return !age.isNegative && age <= const Duration(minutes: 5);
+  }
+
   bool get checkupComplete =>
       phoneVerified && twoStepEnabled && (recoveryPhone ?? '').isNotEmpty;
 
@@ -111,6 +120,7 @@ class AccountSecurityState {
       recoveryPhone: json['recoveryPhone'] as String?,
       googleConnected: json['googleConnected'] == true,
       appleConnected: json['appleConnected'] == true,
+      reauthenticatedAt: parseDate(json['reauthenticatedAt']),
       sessions: rawSessions is List
           ? rawSessions
               .whereType<Map>()
