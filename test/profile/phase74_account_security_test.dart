@@ -8,6 +8,9 @@ import 'package:movera_rider/features/profile/data/account_security_repository.d
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -139,6 +142,37 @@ void main() {
     expect(reloaded.current.googleConnected, isFalse);
     expect(reloaded.current.appleConnected, isFalse);
     expect(reloaded.current.logins, isEmpty);
+  });
+
+  test('local profile persistence scrubs every security claim', () async {
+    final store = ProfileRepository(storageKey: 'phase74_profile');
+    final unsafe = RiderProfileData.defaults().copyWith(
+      passkeyEnabled: true,
+      twoStepEnabled: true,
+      authenticatorEnabled: true,
+      passwordUpdatedAt: DateTime.utc(2026, 1, 1),
+      recoveryPhone: '+46709999999',
+      googleConnected: true,
+      appleConnected: true,
+      logins: const [
+        LoginSession(
+          device: 'Other device',
+          place: 'Stockholm',
+          source: 'Movera',
+        ),
+      ],
+    );
+
+    final saved = await store.save(unsafe);
+
+    expect(saved.passkeyEnabled, isFalse);
+    expect(saved.twoStepEnabled, isFalse);
+    expect(saved.authenticatorEnabled, isFalse);
+    expect(saved.passwordUpdatedAt.millisecondsSinceEpoch, 0);
+    expect(saved.recoveryPhone, isNull);
+    expect(saved.googleConnected, isFalse);
+    expect(saved.appleConnected, isFalse);
+    expect(saved.logins, isEmpty);
   });
 
   test('missing security endpoint becomes unavailable instead of local success', () async {
