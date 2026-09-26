@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -148,8 +150,13 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   }
 
   Future<void> _call112() async {
-    await _ctl.emergency.callEmergencyNumber();
-    _ctl.sos(rideId: widget.rideId);
+    try {
+      await _ctl.emergency.callEmergencyNumber();
+      await _ctl.sos(rideId: widget.rideId);
+    } on EmergencyCallException catch (error) {
+      if (!mounted) return;
+      MoveraToast.show(context, error.message);
+    }
   }
 
   Future<void> _toggleAudio() async {
