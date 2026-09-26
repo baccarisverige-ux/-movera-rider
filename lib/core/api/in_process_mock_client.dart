@@ -117,6 +117,8 @@ class InProcessMockClient extends http.BaseClient {
             .add(const Duration(minutes: 5));
         otpSessions[sessionId] = {
           'phone': phone.trim(),
+          if (body['fullName'] is String)
+            'fullName': (body['fullName'] as String).trim(),
           'code': '1234',
           'expiresAt': expiresAt.toIso8601String(),
         };
