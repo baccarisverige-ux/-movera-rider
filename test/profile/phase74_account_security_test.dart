@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
@@ -140,6 +141,30 @@ void main() {
 
     expect(controller.state!.sessions, isNotEmpty);
     expect(controller.state!.sessions.every((item) => item.current), isTrue);
+    expect(controller.state!.reauthenticatedAt, isNull);
+  });
+
+  test('session revocation API rejects missing fresh reauthentication', () async {
+    final repo = AccountSecurityRepository(
+      api: ApiClient(
+        env: env,
+        client: seededSecurityClient(
+          reauthenticationSupported: true,
+          freshlyReauthenticated: false,
+        ),
+      ),
+    );
+
+    await expectLater(
+      repo.signOutOtherDevices(),
+      throwsA(
+        isA<ApiError>().having(
+          (error) => error.code,
+          'code',
+          'REAUTH_REQUIRED',
+        ),
+      ),
+    );
   });
 
   test('repository refresh verifies sign-out-other-devices server effect', () async {
