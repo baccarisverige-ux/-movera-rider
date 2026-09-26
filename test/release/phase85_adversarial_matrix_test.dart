@@ -197,6 +197,7 @@ void main() {
       store: FindingDriverRepository(),
       realtime: realtime,
       ride: ride,
+      api: ApiClient(client: InProcessMockClient()),
     );
     controller.start(
       snapshot: snapshot,
