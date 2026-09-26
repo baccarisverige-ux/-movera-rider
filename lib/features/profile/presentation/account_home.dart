@@ -58,9 +58,15 @@ class _AccountHomePageState extends State<AccountHomePage> {
   Widget build(BuildContext context) {
     final ride = _profile.profile;
     final name = ride.name.trim().isEmpty ? 'Profile not set' : ride.name;
-    final email = ride.email.trim().isEmpty ? 'Email not added' : ride.email;
     final hasPhoto = ride.photoAsset.trim().isNotEmpty;
     final security = _security.available ? _security.state : null;
+    final email = security == null
+        ? 'Server email unavailable'
+        : security.email.trim().isEmpty
+            ? 'Email not added'
+            : security.emailVerified
+                ? '${security.email} · Verified'
+                : '${security.email} · Not verified';
     final checkupComplete = security?.checkupComplete == true;
 
     return AccountScaffold(
@@ -117,7 +123,12 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 mark: const AccountIcon(Icons.person_outline_rounded),
                 title: 'Personal info',
                 body: 'Name, phone, email, language',
-                onTap: () => _open(PersonalInfoPage(controller: _profile)),
+                onTap: () => _open(
+                  PersonalInfoPage(
+                    controller: _profile,
+                    securityController: _security,
+                  ),
+                ),
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.verified_user_outlined),
