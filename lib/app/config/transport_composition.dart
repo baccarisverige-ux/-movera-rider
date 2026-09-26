@@ -27,7 +27,7 @@ abstract final class TransportComposition {
       if (api.usesMockTransport) 'api',
       if (realtime is MockRideRealtime) 'realtime',
       if (paymentGateway is MockPaymentGateway) 'payments',
-      if (push is NoopPushService) 'push',
+      if (push is NoopPushService || push is UnavailablePushService) 'push',
       if (emergencyDialer is RecordingEmergencyDialer) 'emergencyDialer',
       if (logger is NoopLoggerSink) 'logger',
       if (analytics is NoopAnalyticsSink) 'analytics',
