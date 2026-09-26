@@ -3,8 +3,8 @@ import 'package:movera_rider/features/profile/data/account_security_repository.d
 import 'package:movera_rider/features/profile/domain/account_security.dart';
 
 class AccountSecurityController extends ChangeNotifier {
-  AccountSecurityController({AccountSecurityRepository? repository})
-      : _repository = repository ?? AccountSecurityRepository();
+  AccountSecurityController({required AccountSecurityRepository repository})
+      : _repository = repository;
 
   final AccountSecurityRepository _repository;
 
