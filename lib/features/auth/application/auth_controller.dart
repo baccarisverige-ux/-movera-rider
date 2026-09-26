@@ -11,8 +11,14 @@ class AuthController {
 
   String? get lastPhone => lastChallenge?.phone;
 
-  Future<OtpChallenge> requestOtp({required String phone}) async {
-    final challenge = await _auth.requestOtp(phone: phone);
+  Future<OtpChallenge> requestOtp({
+    required String phone,
+    String? fullName,
+  }) async {
+    final challenge = await _auth.requestOtp(
+      phone: phone,
+      fullName: fullName,
+    );
     lastChallenge = challenge;
     return challenge;
   }
