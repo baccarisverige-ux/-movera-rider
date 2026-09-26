@@ -125,6 +125,11 @@ void main() {
       expect(realtime.lastDriver, isNotNull);
       expect(realtime.lastDriver!.id, isNot(firstDriver!.id));
       expect(AppScope.instance.ride.rideId, rideId);
+
+      // The replacement assignment starts the real mock GPS cadence. Stop it
+      // before Flutter verifies that the widget test has no orphan timers.
+      realtime.dispose();
+      await tester.pump();
     },
   );
 }
