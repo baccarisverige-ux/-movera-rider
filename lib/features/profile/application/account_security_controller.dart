@@ -34,7 +34,8 @@ class AccountSecurityController extends ChangeNotifier {
     final current = state;
     if (current == null ||
         !available ||
-        !current.capabilities.signOutOtherDevices) {
+        !current.capabilities.signOutOtherDevices ||
+        !current.capabilities.reauthentication) {
       return;
     }
     loading = true;
