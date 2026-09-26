@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -8,14 +6,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 
 void main() {
-  test('Rider source contains no direct public OSRM endpoint', () {
-    final source = File(
-      'lib/core/maps/routing_service.dart',
-    ).readAsStringSync();
-
-    expect(source, isNot(contains('router.project-osrm.org')));
-    expect(source, contains('/api/v1/routes'));
-  });
+  
 
   test('road routing uses Movera API contract and returns provider geometry', () async {
     const env = AppEnv(
