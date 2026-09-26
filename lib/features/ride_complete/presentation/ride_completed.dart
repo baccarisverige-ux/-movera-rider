@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
-import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -74,7 +74,8 @@ class _RideCompletedState extends State<RideCompleted> {
   double? _rating;
   int? _tipMinor;
   String? _submitError;
-  late final String _feedbackKey = newIdempotencyKey('ride-feedback');
+  final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
+  String? _acceptedFeedbackIntent;
 
   @override
   void initState() {
@@ -139,12 +140,18 @@ class _RideCompletedState extends State<RideCompleted> {
         if (id == null || id.trim().isEmpty) {
           throw StateError('Ride ID is missing.');
         }
-        await _controller.submitFeedback(
-          rideId: id,
-          rating: _rating,
-          tipMinor: _tipMinor,
-          idempotencyKey: _feedbackKey,
-        );
+        final feedbackIntent =
+            '$id|${_rating?.toStringAsFixed(1) ?? ''}|${_tipMinor ?? ''}';
+        if (_acceptedFeedbackIntent != feedbackIntent) {
+          await _controller.submitFeedback(
+            rideId: id,
+            rating: _rating,
+            tipMinor: _tipMinor,
+            idempotencyKey: _feedbackMutation.keyFor(feedbackIntent),
+          );
+          _acceptedFeedbackIntent = feedbackIntent;
+          _feedbackMutation.succeeded(feedbackIntent);
+        }
       }
       if (!mounted) return;
       final customClose = widget.onClose;
