@@ -1,7 +1,13 @@
+import 'package:movera_rider/core/notifications/push_payload.dart';
+
 /// Push transport contract.
 abstract class PushService {
   Future<void> register();
   Future<void> unregister();
+
+  Stream<PushPayload> get foregroundMessages;
+  Stream<PushPayload> get openedMessages;
+  Future<PushPayload?> takeInitialMessage();
 }
 
 class NoopPushService implements PushService {
@@ -10,6 +16,15 @@ class NoopPushService implements PushService {
 
   @override
   Future<void> unregister() async {}
+
+  @override
+  Stream<PushPayload> get foregroundMessages => const Stream.empty();
+
+  @override
+  Stream<PushPayload> get openedMessages => const Stream.empty();
+
+  @override
+  Future<PushPayload?> takeInitialMessage() async => null;
 }
 
 class PushUnavailableException implements Exception {
@@ -36,4 +51,13 @@ class UnavailablePushService implements PushService {
 
   @override
   Future<void> unregister() async => _unavailable();
+
+  @override
+  Stream<PushPayload> get foregroundMessages => const Stream.empty();
+
+  @override
+  Stream<PushPayload> get openedMessages => const Stream.empty();
+
+  @override
+  Future<PushPayload?> takeInitialMessage() async => null;
 }

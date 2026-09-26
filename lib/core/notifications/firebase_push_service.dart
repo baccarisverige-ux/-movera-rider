@@ -6,9 +6,33 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 
 enum PushAuthorizationStatus { authorized, provisional, denied }
+
+FirebaseOptions _firebaseOptions(AppEnv environment) {
+  return FirebaseOptions(
+    apiKey: environment.firebaseApiKey,
+    appId: environment.firebaseAppId,
+    messagingSenderId: environment.firebaseMessagingSenderId,
+    projectId: environment.firebaseProjectId,
+  );
+}
+
+@pragma('vm:entry-point')
+Future<void> moveraFirebaseMessagingBackgroundHandler(
+  RemoteMessage message,
+) async {
+  final environment = AppEnv.current;
+  if (!environment.hasFirebaseConfig) return;
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(options: _firebaseOptions(environment));
+  }
+  // Background delivery is a wake-up signal only. Ride state remains
+  // authoritative from the backend and is reconciled after the Rider opens
+  // the notification/app.
+}
 
 abstract interface class FirebasePushGateway {
   Future<void> initialize(AppEnv environment);
@@ -16,6 +40,9 @@ abstract interface class FirebasePushGateway {
   Future<void> ensureAppleTransportReady();
   Future<String?> getToken({String? vapidKey});
   Stream<String> get onTokenRefresh;
+  Stream<PushPayload> get onForegroundMessage;
+  Stream<PushPayload> get onOpenedMessage;
+  Future<PushPayload?> getInitialMessage();
   Future<void> deleteToken();
 }
 
@@ -29,15 +56,14 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
 
   @override
   Future<void> initialize(AppEnv environment) async {
-    if (Firebase.apps.isNotEmpty) return;
-    await Firebase.initializeApp(
-      options: FirebaseOptions(
-        apiKey: environment.firebaseApiKey,
-        appId: environment.firebaseAppId,
-        messagingSenderId: environment.firebaseMessagingSenderId,
-        projectId: environment.firebaseProjectId,
-      ),
-    );
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp(options: _firebaseOptions(environment));
+    }
+    if (!kIsWeb) {
+      FirebaseMessaging.onBackgroundMessage(
+        moveraFirebaseMessagingBackgroundHandler,
+      );
+    }
   }
 
   @override
@@ -85,6 +111,46 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
   Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;
 
   @override
+  Stream<PushPayload> get onForegroundMessage => FirebaseMessaging.onMessage
+      .map(_payloadFromRemoteMessage)
+      .where((payload) => payload != null)
+      .cast<PushPayload>();
+
+  @override
+  Stream<PushPayload> get onOpenedMessage =>
+      FirebaseMessaging.onMessageOpenedApp
+          .map(_payloadFromRemoteMessage)
+          .where((payload) => payload != null)
+          .cast<PushPayload>();
+
+  @override
+  Future<PushPayload?> getInitialMessage() async {
+    final message = await _messaging.getInitialMessage();
+    return message == null ? null : _payloadFromRemoteMessage(message);
+  }
+
+  PushPayload? _payloadFromRemoteMessage(RemoteMessage message) {
+    try {
+      return PushPayload.fromMap(
+        message.data,
+        messageId: message.messageId,
+        title: message.notification?.title,
+        body: message.notification?.body,
+        sentAt: message.sentTime,
+      );
+    } on FormatException catch (error) {
+      AppLog.warning(
+        'push.payload_rejected',
+        extra: {
+          'messageId': message.messageId ?? '',
+          'reason': error.message,
+        },
+      );
+      return null;
+    }
+  }
+
+  @override
   Future<void> deleteToken() => _messaging.deleteToken();
 }
 
@@ -100,8 +166,21 @@ class FirebasePushService implements PushService {
   final ApiClient _api;
   final AppEnv _environment;
   final FirebasePushGateway _gateway;
+  final StreamController<PushPayload> _foreground =
+      StreamController<PushPayload>.broadcast();
+  final StreamController<PushPayload> _opened =
+      StreamController<PushPayload>.broadcast();
   StreamSubscription<String>? _tokenSub;
+  StreamSubscription<PushPayload>? _foregroundSub;
+  StreamSubscription<PushPayload>? _openedSub;
   String? _registeredToken;
+  PushPayload? _initialMessage;
+
+  @override
+  Stream<PushPayload> get foregroundMessages => _foreground.stream;
+
+  @override
+  Stream<PushPayload> get openedMessages => _opened.stream;
 
   @override
   Future<void> register() async {
@@ -133,6 +212,7 @@ class FirebasePushService implements PushService {
     }
 
     await _replaceToken(token.trim());
+    await _attachInboundStreams();
     await _tokenSub?.cancel();
     _tokenSub = _gateway.onTokenRefresh.listen((next) {
       final normalized = next.trim();
@@ -147,6 +227,39 @@ class FirebasePushService implements PushService {
         }),
       );
     });
+  }
+
+  Future<void> _attachInboundStreams() async {
+    await _foregroundSub?.cancel();
+    await _openedSub?.cancel();
+    _foregroundSub = _gateway.onForegroundMessage.listen(
+      _foreground.add,
+      onError: (Object error, StackTrace stack) {
+        AppLog.error(
+          'push.foreground_stream_failed',
+          error: error,
+          stackTrace: stack,
+        );
+      },
+    );
+    _openedSub = _gateway.onOpenedMessage.listen(
+      _opened.add,
+      onError: (Object error, StackTrace stack) {
+        AppLog.error(
+          'push.opened_stream_failed',
+          error: error,
+          stackTrace: stack,
+        );
+      },
+    );
+    _initialMessage = await _gateway.getInitialMessage();
+  }
+
+  @override
+  Future<PushPayload?> takeInitialMessage() async {
+    final initial = _initialMessage;
+    _initialMessage = null;
+    return initial;
   }
 
   Future<void> _replaceToken(String token) async {
@@ -187,7 +300,13 @@ class FirebasePushService implements PushService {
   @override
   Future<void> unregister() async {
     await _tokenSub?.cancel();
+    await _foregroundSub?.cancel();
+    await _openedSub?.cancel();
     _tokenSub = null;
+    _foregroundSub = null;
+    _openedSub = null;
+    _initialMessage = null;
+
     final token = _registeredToken;
     Object? unregisterError;
     StackTrace? unregisterStack;
@@ -216,7 +335,13 @@ class FirebasePushService implements PushService {
 
   Future<void> dispose() async {
     await _tokenSub?.cancel();
+    await _foregroundSub?.cancel();
+    await _openedSub?.cancel();
     _tokenSub = null;
+    _foregroundSub = null;
+    _openedSub = null;
+    await _foreground.close();
+    await _opened.close();
   }
 
   String get _platformName {

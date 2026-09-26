@@ -14,6 +14,7 @@ abstract final class AppRoutes {
   static const rideHistory = '/history';
   static const support = '/support';
   static const messages = '/messages';
+  static const notifications = '/notifications';
   static const schedule = '/schedule';
   static const reservationScheduled = '/reservation/scheduled';
   static const reservationUpcoming = '/reservation/upcoming';

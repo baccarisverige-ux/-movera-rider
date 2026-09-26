@@ -76,19 +76,20 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   void _goNext() {
     if (_continuing) return;
-    if (!StockholmSchedule.isLegalPickup(_selectedDateTime)) {
-      setState(() {
-        _selectedDateTime = StockholmSchedule.clampPickup(_selectedDateTime);
-      });
-      _commitSchedule();
-      return;
-    }
+
+    // The legal minimum moves with the wall clock. If the screen was opened
+    // just before a 5-minute boundary, the default slot can become stale
+    // before the Rider taps Continue. Clamp and continue in the same action so
+    // one deliberate tap always submits a legal scheduled time.
+    _selectedDateTime = StockholmSchedule.clampPickup(_selectedDateTime);
     _continuing = true;
     _commitSchedule();
+
     if (widget.popOnConfirm) {
       Navigator.pop(context, _selectedDateTime);
       return;
     }
+
     setState(() {});
     widget.onConfirm();
   }
