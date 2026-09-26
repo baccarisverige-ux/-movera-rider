@@ -90,7 +90,10 @@ class _AccountCheckupPageState extends State<AccountCheckupPage> {
                     Navigator.push(
                       context,
                       RightToLeftTransition(
-                        PersonalInfoPage(controller: _profile),
+                        PersonalInfoPage(
+                          controller: _profile,
+                          securityController: _security,
+                        ),
                       ),
                     );
                   },
