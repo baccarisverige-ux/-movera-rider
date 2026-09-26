@@ -19,6 +19,10 @@ void main() {
       ..rideId = null
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.idle);
+    // AppScope owns one reconnect controller across the full test process.
+    // Reset its exponential attempt counter so this journey starts from the
+    // same connected baseline as a normally foregrounded Rider session.
+    AppScope.instance.realtime.markConnected();
     final restore = RideRestoreCoordinator.instance;
     restore.showing = RestoredSurface.home;
     restore.debugAtRoot = () => true;
