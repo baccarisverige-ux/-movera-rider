@@ -25,20 +25,18 @@ class MessagesController {
   List<ChatMessage> get messages => _store.messages;
   int get unreadCount => _store.unreadCount;
 
+  static const sendUnavailableMessage =
+      "Sending messages to your driver isn't available yet.";
+
+  bool get canSendMessages => false;
+
   bool send(String raw) {
     final text = raw.trim();
     if (text.isEmpty) return false;
 
-    // A local send is always authored by the Rider. Driver-authored messages
-    // must arrive from a real transport later; never manufacture them here.
-    _store.add(
-      ChatMessage(
-        text: text,
-        fromRider: true,
-        sentAt: _now(),
-      ),
-    );
-    return true;
+    // Phase 83 deliberately fails closed until a real message transport is
+    // connected. Never append a Rider message locally and make it look sent.
+    return false;
   }
 
   /// Adapter seam for a future transport. It never synthesizes Driver/System
