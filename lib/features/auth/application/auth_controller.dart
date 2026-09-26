@@ -51,7 +51,9 @@ class AuthController {
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
+    // Unregister while the access token is still available. Even when the
+    // backend is unreachable, FirebasePushService deletes the local token so a
+    // signed-out Rider cannot keep receiving notifications for that session.
     try {
       await AppScope.instance.push.unregister();
     } catch (error) {
@@ -60,5 +62,6 @@ class AuthController {
         extra: {'error': error.toString()},
       );
     }
+    await _auth.signOut();
   }
 }
