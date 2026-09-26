@@ -226,10 +226,48 @@ jobs:
               JSON.stringify(evidence, null, 2),
             );
             if (errors.length) {
+              const scripts = await page.evaluate(() =>
+                Array.from(document.scripts).map(script => script.src).filter(Boolean),
+              );
+              const mainScript =
+                scripts.find(url => /main\.[a-f0-9]+\.dart\.js/.test(url)) ||
+                scripts.find(url => /main.*dart\.js/.test(url)) ||
+                null;
+              const stackText = errors
+                .map(error => error.message + '\n' + error.stack)
+                .join('\n');
+              const snippets = [];
+              if (mainScript) {
+                const source = await (await fetch(mainScript)).text();
+                const sourceLines = source.split('\n');
+                const wanted = new Set();
+                for (const match of stackText.matchAll(/\.dart\.js:(\d+):(\d+)/g)) {
+                  wanted.add(Number(match[1]));
+                }
+                for (const line of [...wanted].sort((a, b) => a - b)) {
+                  const from = Math.max(1, line - 8);
+                  const to = Math.min(sourceLines.length, line + 8);
+                  snippets.push({
+                    line,
+                    from,
+                    to,
+                    text: sourceLines
+                      .slice(from - 1, to)
+                      .map((text, index) => (from + index) + ': ' + text)
+                      .join('\n'),
+                  });
+                }
+              }
+              record.mainScript = mainScript;
+              record.bundleSnippets = snippets;
+              fs.writeFileSync(
+                'phase85-browser-evidence.json',
+                JSON.stringify(evidence, null, 2),
+              );
               console.error(
                 'PHASE85_BROWSER_ERRORS ' +
                 family + ' ' + width + 'x' + height + ' ' +
-                JSON.stringify(errors),
+                JSON.stringify({ errors, mainScript, snippets }),
               );
               await context.close();
               throw new Error(
