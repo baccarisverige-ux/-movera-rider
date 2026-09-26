@@ -20,18 +20,16 @@ void main() {
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.idle);
     final restore = RideRestoreCoordinator.instance;
-    restore
-      ..showing = RestoredSurface.home
-      ..debugAtRoot = () => true
-      ..onReplaceRoot = null;
+    restore.showing = RestoredSurface.home;
+    restore.debugAtRoot = () => true;
+    restore.onReplaceRoot = null;
   });
 
   tearDown(() {
     final restore = RideRestoreCoordinator.instance;
-    restore
-      ..showing = RestoredSurface.home
-      ..debugAtRoot = null
-      ..onReplaceRoot = null;
+    restore.showing = RestoredSurface.home;
+    restore.debugAtRoot = null;
+    restore.onReplaceRoot = null;
   });
 
   RideSnapshot snapshot(String id, RideStatus status) => RideSnapshot(
@@ -64,13 +62,13 @@ void main() {
       const MaterialApp(home: Scaffold(body: Text('resume-host'))),
     );
 
-    await tester.binding.handleAppLifecycleStateChanged(
+    tester.binding.handleAppLifecycleStateChanged(
       AppLifecycleState.paused,
     );
     await tester.pump();
     expect((await RideSnapshotStore.read())?.rideId, ride.rideId);
 
-    await tester.binding.handleAppLifecycleStateChanged(
+    tester.binding.handleAppLifecycleStateChanged(
       AppLifecycleState.resumed,
     );
     // reconnectAndResync uses the production reconnect backoff before the
