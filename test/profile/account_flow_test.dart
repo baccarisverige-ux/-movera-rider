@@ -142,7 +142,7 @@ void main() {
     expect(persisted['logins'], isEmpty);
   });
 
-  test('real local profile edits survive hydration', () async {
+  test('only presentation profile edits survive local hydration', () async {
     const key = 'real_profile';
     final first = controller(storageKey: key);
     await first.update(
@@ -157,8 +157,8 @@ void main() {
     await second.hydrate();
 
     expect(second.profile.name, 'Real Rider');
-    expect(second.profile.email, 'real.rider@example.com');
-    expect(second.profile.phone, '+46 70 999 88 77');
+    expect(second.profile.email, isEmpty);
+    expect(second.profile.phone, isEmpty);
   });
 
   testWidgets('account hub shows honest empty profile state', (tester) async {
@@ -175,14 +175,22 @@ void main() {
     expect(find.textContaining('Uber'), findsNothing);
   });
 
-  testWidgets('personal info starts honest and edits name', (tester) async {
+  testWidgets('personal info uses server contact truth and edits only presentation data', (tester) async {
     final c = controller();
-    await pumpPhone(tester, PersonalInfoPage(controller: c));
+    final security = securityController();
+    await pumpPhone(
+      tester,
+      PersonalInfoPage(
+        controller: c,
+        securityController: security,
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('Name'), findsOneWidget);
     expect(find.text('Phone'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Not added'), findsNWidgets(3));
-    expect(find.textContaining('Verified'), findsNothing);
+    expect(find.text('+46701234567 · Not verified'), findsOneWidget);
+    expect(find.text('rider@example.test · Verified'), findsOneWidget);
     await tester.tap(find.text('Name'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Houssem Baccari');
@@ -217,13 +225,17 @@ void main() {
 
     final signOut = find.text('Sign out other devices');
     await tester.scrollUntilVisible(signOut, 300);
+    await tester.pumpAndSettle();
+    expect(signOut, findsOneWidget);
+    expect(
+      find.text('Unavailable until reauthentication is connected'),
+      findsOneWidget,
+    );
+
     await tester.tap(signOut);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign out others'));
-    await tester.pumpAndSettle();
-
-    expect(security.state!.sessions.every((item) => item.current), isTrue);
-    expect(find.text('Other device'), findsNothing);
+    expect(find.text('Sign out others'), findsNothing);
+    expect(security.state!.sessions.any((item) => !item.current), isTrue);
   });
 
   testWidgets('Account Check ignores local contact strings for verification', (
