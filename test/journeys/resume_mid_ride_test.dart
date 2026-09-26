@@ -71,10 +71,13 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(
       AppLifecycleState.resumed,
     );
-    // reconnectAndResync uses the production reconnect backoff before the
-    // coordinator rereads the snapshot and selects the authoritative surface.
-    await tester.pump(const Duration(seconds: 3));
+    // resumeIfNeeded first awaits the persisted snapshot. Give that async
+    // read a frame to schedule the production reconnect backoff, then advance
+    // fake time until the restore callback owns the authoritative surface.
     await tester.pump();
+    for (var i = 0; i < 8 && shown == null; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+    }
 
     return shown;
   }
