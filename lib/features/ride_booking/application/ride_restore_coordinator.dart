@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -11,6 +12,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -25,16 +27,41 @@ class RideRestoreCoordinator {
     RideSnapshotStoreReader? reader,
     bool Function()? skipRestore,
     RideRealtimeResync? resync,
+    bool Function()? authRequired,
+    Future<bool> Function()? hasSession,
   }) : _reader = reader ?? RideSnapshotStore.read,
        _skipRestore = skipRestore ?? defaultSkipRestore,
-       _resync = resync ?? _defaultResync;
+       _resync = resync ?? _defaultResync,
+       _authRequired = authRequired ?? _defaultAuthRequired,
+       _hasSession = hasSession ?? _defaultHasSession;
 
   final Future<RideSnapshot?> Function() _reader;
   final bool Function() _skipRestore;
   final RideRealtimeResync _resync;
+  final bool Function() _authRequired;
+  final Future<bool> Function() _hasSession;
 
   static Future<void> _defaultResync(String rideId) =>
       AppScope.instance.rideRealtime.reconnectAndResync(rideId);
+
+  static bool _defaultAuthRequired() => AppEnv.current.authRequired;
+
+  static Future<bool> _defaultHasSession() async {
+    final access = await AppScope.instance.tokens.readAccess();
+    final refresh = await AppScope.instance.tokens.readRefresh();
+    return access?.isNotEmpty == true && refresh?.isNotEmpty == true;
+  }
+
+  Future<bool> _shouldRequireSignIn(RideSnapshot? snapshot) async {
+    if (!_authRequired()) return false;
+    if (surfaceFor(snapshot) != RestoredSurface.home) return false;
+    return !await _hasSession();
+  }
+
+  Widget _gatedHome() {
+    if (!_authRequired()) return const Home();
+    return _AuthenticatedHomeGate(hasSession: _hasSession);
+  }
   RestoredSurface showing = RestoredSurface.home;
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
@@ -84,7 +111,7 @@ class RideRestoreCoordinator {
     // navigator pops to root. Rebuilding the root Home again causes a visible
     // double transition and unnecessary map/controller churn. Cold-restored
     // ride surfaces still need an explicit root replacement.
-    if (replaceRoot) onReplaceRoot?.call(const Home());
+    if (replaceRoot) onReplaceRoot?.call(_gatedHome());
   }
 
   bool replaceRootSurface(Widget page, RestoredSurface surface) {
@@ -189,12 +216,15 @@ class RideRestoreCoordinator {
   Future<Widget> root() async {
     reportRestoreSurface('hold');
     if (_skipRestore()) {
+      RideSnapshot? snapshot;
       try {
-        _noteDropped(surfaceFor(await _reader()));
+        snapshot = await _reader();
+        _noteDropped(surfaceFor(snapshot));
       } catch (_) {}
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
+      if (await _shouldRequireSignIn(snapshot)) return const SignIn();
       return const Home();
     }
     try {
@@ -203,11 +233,17 @@ class RideRestoreCoordinator {
         'ride.restore.cold',
         extra: {'status': snapshot?.status.name ?? 'none'},
       );
+      if (await _shouldRequireSignIn(snapshot)) {
+        showing = RestoredSurface.home;
+        reportRestoreSurface('signIn');
+        return const SignIn();
+      }
       return pageFor(snapshot);
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
+      if (_authRequired() && !await _hasSession()) return const SignIn();
       return const Home();
     }
   }
@@ -327,7 +363,7 @@ class RideRestoreCoordinator {
     }
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
-    final page = pageFor(snapshot);
+    final page = next == RestoredSurface.home ? _gatedHome() : pageFor(snapshot);
     onReplaceRoot?.call(page);
     return page;
   }
@@ -350,6 +386,29 @@ class _RideRecoveryBarrier extends StatelessWidget {
           child: const CircularProgressIndicator(),
         ),
       ),
+    );
+  }
+}
+
+
+class _AuthenticatedHomeGate extends StatelessWidget {
+  const _AuthenticatedHomeGate({required this.hasSession});
+
+  final Future<bool> Function() hasSession;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: hasSession(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const ColoredBox(
+            color: Color(0xFFFFFFFF),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return snapshot.data == true ? const Home() : const SignIn();
+      },
     );
   }
 }
