@@ -163,6 +163,7 @@ class RideSelectionController {
   }) async {
     usedFallback = false;
     final catalog = rides();
+    if (catalog.isEmpty) return;
     final width = parallelism.clamp(1, catalog.length).toInt();
 
     for (var start = 0; start < catalog.length; start += width) {

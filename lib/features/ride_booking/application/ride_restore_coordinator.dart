@@ -24,11 +24,17 @@ class RideRestoreCoordinator {
   RideRestoreCoordinator({
     RideSnapshotStoreReader? reader,
     bool Function()? skipRestore,
+    RideRealtimeResync? resync,
   }) : _reader = reader ?? RideSnapshotStore.read,
-       _skipRestore = skipRestore ?? defaultSkipRestore;
+       _skipRestore = skipRestore ?? defaultSkipRestore,
+       _resync = resync ?? _defaultResync;
 
   final Future<RideSnapshot?> Function() _reader;
   final bool Function() _skipRestore;
+  final RideRealtimeResync _resync;
+
+  static Future<void> _defaultResync(String rideId) =>
+      AppScope.instance.rideRealtime.reconnectAndResync(rideId);
   RestoredSurface showing = RestoredSurface.home;
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
@@ -308,7 +314,7 @@ class RideRestoreCoordinator {
     final id = snapshot?.rideId;
     if (id != null) {
       try {
-        await AppScope.instance.rideRealtime.reconnectAndResync(id);
+        await _resync(id);
       } catch (_) {}
       try {
         snapshot = await _reader();
@@ -328,6 +334,7 @@ class RideRestoreCoordinator {
 }
 
 typedef RideSnapshotStoreReader = Future<RideSnapshot?> Function();
+typedef RideRealtimeResync = Future<void> Function(String rideId);
 
 
 class _RideRecoveryBarrier extends StatelessWidget {
