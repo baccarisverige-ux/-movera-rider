@@ -5,7 +5,6 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
-import 'package:movera_rider/core/notifications/push_service.dart';
 
 class _FakeGateway implements FirebasePushGateway {
   final StreamController<String> refresh = StreamController<String>.broadcast();
