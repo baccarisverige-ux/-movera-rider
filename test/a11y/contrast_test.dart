@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 
 double _linear(double c) {
@@ -34,8 +33,4 @@ void main() {
     expect(contrastRatio(muted, soft), greaterThanOrEqualTo(4.5));
     expect(MoveraTokens.muted, muted);
   });
-
-  
-
-  
 }
