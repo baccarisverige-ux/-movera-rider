@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
@@ -22,17 +25,24 @@ class AccountHomePage extends StatefulWidget {
 
 class _AccountHomePageState extends State<AccountHomePage> {
   late final ProfileController _profile;
+  late final AccountSecurityController _security;
 
   @override
   void initState() {
     super.initState();
     _profile = widget.controller ?? AppScope.instance.profile;
+    _security = AppScope.instance.accountSecurity;
     _profile.addListener(_refresh);
+    _security.addListener(_refresh);
+    if (_security.state == null && !_security.loading) {
+      unawaited(_security.load());
+    }
   }
 
   @override
   void dispose() {
     _profile.removeListener(_refresh);
+    _security.removeListener(_refresh);
     super.dispose();
   }
 
@@ -50,6 +60,8 @@ class _AccountHomePageState extends State<AccountHomePage> {
     final name = ride.name.trim().isEmpty ? 'Profile not set' : ride.name;
     final email = ride.email.trim().isEmpty ? 'Email not added' : ride.email;
     final hasPhoto = ride.photoAsset.trim().isNotEmpty;
+    final security = _security.available ? _security.state : null;
+    final checkupComplete = security?.checkupComplete == true;
 
     return AccountScaffold(
       child: ListView(
@@ -111,7 +123,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 mark: const AccountIcon(Icons.verified_user_outlined),
                 title: 'Security',
                 body: 'Passkeys, 2-step, devices',
-                onTap: () => _open(SecurityPage(controller: _profile)),
+                onTap: () => _open(SecurityPage(securityController: _security)),
               ),
               AccountTile(
                 mark: const AccountIcon(Icons.lock_outline_rounded),
@@ -122,16 +134,23 @@ class _AccountHomePageState extends State<AccountHomePage> {
               ),
             ],
           ),
-          if (!ride.checkupComplete) ...[
+          if (!checkupComplete) ...[
             const SizedBox(height: 14),
             AccountGroup(
               children: [
                 AccountTile(
                   mark: const AccountIcon(Icons.task_alt_rounded),
                   title: 'Finish your account',
-                  body: 'Add recovery and 2-step so this account stays yours.',
+                  body: security == null
+                      ? 'Security status unavailable.'
+                      : 'Add verified recovery and 2-step so this account stays yours.',
                   showDivider: false,
-                  onTap: () => _open(AccountCheckupPage(controller: _profile)),
+                  onTap: () => _open(
+                    AccountCheckupPage(
+                      controller: _profile,
+                      securityController: _security,
+                    ),
+                  ),
                 ),
               ],
             ),
