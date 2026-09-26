@@ -15,9 +15,14 @@ import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class AccountHomePage extends StatefulWidget {
-  const AccountHomePage({super.key, this.controller});
+  const AccountHomePage({
+    super.key,
+    this.controller,
+    this.securityController,
+  });
 
   final ProfileController? controller;
+  final AccountSecurityController? securityController;
 
   @override
   State<AccountHomePage> createState() => _AccountHomePageState();
@@ -31,7 +36,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
   void initState() {
     super.initState();
     _profile = widget.controller ?? AppScope.instance.profile;
-    _security = AppScope.instance.accountSecurity;
+    _security = widget.securityController ?? AppScope.instance.accountSecurity;
     _profile.addListener(_refresh);
     _security.addListener(_refresh);
     if (_security.state == null && !_security.loading) {
