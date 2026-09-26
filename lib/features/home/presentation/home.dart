@@ -78,6 +78,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     motion: AppScope.instance.motion,
   );
   late final HomePlacesController _places = HomePlacesController();
+  StreamSubscription<void>? _savedPlacesSubscription;
   bool _showRecenterButton = true;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
@@ -214,6 +215,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     reportHomeBuilt();
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
+    _savedPlacesSubscription = _places.changes.listen((_) async {
+      await _places.load();
+      if (mounted) setState(() {});
+    });
     _restoreAddressData();
     _startHeadingTracking();
     _announceInterruptedSearch();
@@ -269,6 +274,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _savedPlacesSubscription?.cancel();
     _sheetCtl.dispose();
     _locationCtl.dispose();
     _puckCompactImage?.dispose();
