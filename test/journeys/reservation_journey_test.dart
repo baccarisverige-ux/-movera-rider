@@ -94,7 +94,9 @@ void main() {
         ),
       ),
     );
+      await tester.pumpAndSettle();
 
+      expect(find.text('Schedule Movera'), findsOneWidget);
       await tester.tap(find.text('Schedule Movera'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 700));
@@ -185,6 +187,10 @@ void main() {
       expect(find.byType(RideCompleted), findsNothing);
       expect(find.byType(HomeReservationChrono), findsNothing);
       expect(find.text('Schedule Movera'), findsOneWidget);
+
+      // HomeReservationChrono owns a periodic refresh while mounted.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
     },
   );
 }
