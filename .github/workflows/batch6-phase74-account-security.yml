@@ -36,10 +36,13 @@ jobs:
           ! grep -q "ProfileController" lib/features/profile/presentation/security.dart
           ! grep -q "_profile.update" lib/features/profile/presentation/security.dart
           ! grep -q "SharedPreferences" lib/features/profile/presentation/security.dart
+          ! grep -q "copyWith(phone:" lib/features/profile/presentation/personal_info.dart
+          ! grep -q "copyWith(email:" lib/features/profile/presentation/personal_info.dart
 
       - name: Account security contracts
         run: |
           flutter test test/profile/phase74_account_security_test.dart
+          flutter test test/profile/phase74_account_security_ui_test.dart
           flutter test test/profile/account_flow_test.dart
 
       - name: Backend route syntax
