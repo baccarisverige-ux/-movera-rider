@@ -3,6 +3,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
+import 'package:movera_rider/core/payments/unavailable_payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/observability/observability.dart';
@@ -26,7 +27,9 @@ abstract final class TransportComposition {
     final mockSurfaces = <String>[
       if (api.usesMockTransport) 'api',
       if (realtime is MockRideRealtime) 'realtime',
-      if (paymentGateway is MockPaymentGateway) 'payments',
+      if (paymentGateway is MockPaymentGateway ||
+          paymentGateway is UnavailablePaymentGateway)
+        'payments',
       if (push is NoopPushService || push is UnavailablePushService) 'push',
       if (emergencyDialer is RecordingEmergencyDialer) 'emergencyDialer',
       if (logger is NoopLoggerSink) 'logger',
