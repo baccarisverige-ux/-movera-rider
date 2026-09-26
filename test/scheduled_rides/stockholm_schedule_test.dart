@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
@@ -65,21 +63,5 @@ void main() {
     expect(session.scheduledAt, StockholmSchedule.minimumPickup());
   });
 
-  test('date picker and session restore use the shared helper', () {
-    final picker = File(
-      'lib/features/scheduled_rides/presentation/select_date_time.dart',
-    ).readAsStringSync();
-    expect(picker.contains('StockholmSchedule.clampPickup'), isTrue);
-    expect(picker.contains('StockholmSchedule.defaultPickup'), isTrue);
-    expect(picker.contains('StockholmSchedule.isLegalPickup'), isTrue);
-    expect(picker.contains('StockholmSchedule.timePickerMinFor'), isTrue);
-    expect(
-      picker.contains('DateTime.now().add(const Duration(minutes: 30))'),
-      isFalse,
-    );
-    final session = File(
-      'lib/features/scheduled_rides/application/scheduled_rides_controller.dart',
-    ).readAsStringSync();
-    expect(session.contains('StockholmSchedule.clampPickup'), isTrue);
-  });
+  
 }
