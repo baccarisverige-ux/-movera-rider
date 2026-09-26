@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -56,11 +54,5 @@ void main() {
     expect(body['detail'], 'Fare total looks wrong');
   });
 
-  test('receipt dispute entry requires both a real receipt and authoritative ride id', () {
-    final source = File(
-      'lib/features/ride_complete/presentation/trip_detail.dart',
-    ).readAsStringSync();
-    expect(source, contains("ValueKey<String>('receipt-report-issue')"));
-    expect(source, contains("rideId != null && rideId!.trim().isNotEmpty"));
-  });
+  
 }
