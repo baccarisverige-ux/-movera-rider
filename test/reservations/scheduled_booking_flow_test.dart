@@ -14,6 +14,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 
 void main() {
@@ -311,6 +312,7 @@ void main() {
   testWidgets('When should we pick you up Continue returns a scheduled time', (
     tester,
   ) async {
+    final now = DateTime.utc(2026, 9, 26, 10);
     DateTime? picked;
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
@@ -323,7 +325,10 @@ void main() {
             return Scaffold(
               body: TextButton(
                 onPressed: () async {
-                  picked = await ScheduleDateTimeSelector.choose(context);
+                  picked = await ScheduleDateTimeSelector.choose(
+                    context,
+                    now: () => now,
+                  );
                 },
                 child: const Text('open calendar'),
               ),
@@ -342,7 +347,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(picked, isNotNull);
-    expect(picked!.isAfter(DateTime.now()), isTrue);
+    expect(StockholmSchedule.isLegalPickup(picked!, now), isTrue);
 
     final selection = RideSelectionController();
     expect(selection.bookingMode.ctaLabel('Movera'), 'Select Movera');
