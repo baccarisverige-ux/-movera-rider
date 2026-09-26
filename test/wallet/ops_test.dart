@@ -40,6 +40,28 @@ void main() {
     expect(prefs.containsKey('movera_used_vouchers'), isFalse);
   });
 
+  test('legacy unverified payment labels and defaults are removed', () async {
+    SharedPreferences.setMockInitialValues({
+      'movera_payment_methods': '[{"id":"card_4242","title":"Card ending 4242","detail":"Debit or credit card"},{"id":"paypal","detail":"Connected"}]',
+      'movera_default_payment': 'card_4242',
+    });
+    final store = WalletStore();
+    final settings = await store.loadPayments();
+    expect(settings.extraMethods, isEmpty);
+    expect(settings.defaultMethod, 'apple');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('movera_payment_methods'), isFalse);
+    expect(prefs.getString('movera_default_payment'), 'apple');
+
+    await store.savePayments(WalletPaymentSettings(
+      defaultMethod: 'paypal',
+      business: false,
+      extraMethods: [{'id': 'paypal', 'detail': 'Connected'}],
+    ));
+    expect((await store.loadPayments()).defaultMethod, 'apple');
+    expect(prefs.containsKey('movera_payment_methods'), isFalse);
+  });
+
   test('top-up idempotency key reused', () async {
     final gw = MockPaymentGateway();
     final a = await gw.create(

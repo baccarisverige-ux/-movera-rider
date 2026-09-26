@@ -4,6 +4,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
+import 'package:movera_rider/core/payments/unavailable_payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 
@@ -22,7 +23,7 @@ void main() {
     );
   });
 
-  test('actual production AppScope composition contains no mock/no-op surfaces', () {
+  test('actual production AppScope composition contains no mock/no-op surfaces', () async {
     const production = AppEnv(
       flavor: AppFlavor.production,
       apiBaseUrl: 'https://api.movera.example',
@@ -35,7 +36,15 @@ void main() {
     expect(scope.environment.flavor, AppFlavor.production);
     expect(scope.api.usesMockTransport, isFalse);
     expect(scope.rideRealtime, isNot(isA<MockRideRealtime>()));
-    expect(scope.paymentGateway, isNot(isA<MockPaymentGateway>()));
+    expect(scope.paymentGateway, isA<UnavailablePaymentGateway>());
+    await expectLater(
+      scope.paymentGateway.create(
+        amountMinor: 20000,
+        currency: 'SEK',
+        idempotencyKey: 'release-topup',
+      ),
+      throwsA(isA<PaymentUnavailableException>()),
+    );
     expect(scope.push, isNot(isA<NoopPushService>()));
     expect(scope.emergencyDialer, isNot(isA<RecordingEmergencyDialer>()));
     expect(Observability.logger, isNot(isA<NoopLoggerSink>()));

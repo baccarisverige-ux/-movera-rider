@@ -651,8 +651,8 @@ void main() {
     (
       'Wallet',
       'Vouchers unavailable',
-      'Add funds with card, Swish, Apple Pay or PayPal.',
-      'Add funds',
+      'Demo top-ups use simulated payments.',
+      'Add funds (demo)',
     ),
     (
       'Upcoming',

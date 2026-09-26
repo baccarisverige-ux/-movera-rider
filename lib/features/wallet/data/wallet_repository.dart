@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:movera_rider/core/storage/preferences_store.dart';
-import 'package:movera_rider/core/logging/app_log.dart';
 
 class WalletPaymentSettings {
   WalletPaymentSettings({
@@ -37,43 +34,40 @@ class WalletStore {
   Future<WalletPaymentSettings> loadPayments() async {
     final prefs = await PreferencesStore.load();
     await _removeLegacyVoucherState(prefs);
-    final savedMethods = prefs.getString('movera_payment_methods');
-    var extra = <Map<String, String>>[];
-    if (savedMethods != null) {
-      try {
-        final decoded = jsonDecode(savedMethods) as List<dynamic>;
-        extra = decoded
-            .whereType<Map>()
-            .map(
-              (item) => item.map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              ),
-            )
-            .toList();
-      } catch (error, stackTrace) {
-        AppLog.error(
-          'wallet.payment_methods_decode_failed',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
+    // Earlier builds stored unverified cards and provider labels locally.
+    // None represent tokenized or authorized payment methods.
+    if (prefs.containsKey('movera_payment_methods')) {
+      await prefs.remove('movera_payment_methods');
+    }
+    final savedDefault = prefs.getString('movera_default_payment');
+    final defaultMethod = savedDefault == 'paypal' ||
+            savedDefault == 'klarna' ||
+            savedDefault == 'card' ||
+            (savedDefault?.startsWith('card_') ?? false)
+        ? 'apple'
+        : savedDefault ?? 'apple';
+    if (savedDefault != defaultMethod) {
+      await prefs.setString('movera_default_payment', defaultMethod);
     }
     return WalletPaymentSettings(
-      defaultMethod: prefs.getString('movera_default_payment') ?? 'apple',
+      defaultMethod: defaultMethod,
       business: prefs.getBool('movera_payment_business') ?? false,
-      extraMethods: extra,
     );
   }
 
   Future<void> savePayments(WalletPaymentSettings settings) async {
     final prefs = await PreferencesStore.load();
     await _removeLegacyVoucherState(prefs);
-    await prefs.setString('movera_default_payment', settings.defaultMethod);
-    await prefs.setBool('movera_payment_business', settings.business);
+    final method = settings.defaultMethod;
     await prefs.setString(
-      'movera_payment_methods',
-      jsonEncode(settings.extraMethods),
+      'movera_default_payment',
+      method == 'paypal' || method == 'klarna' || method == 'card' ||
+              method.startsWith('card_')
+          ? 'apple'
+          : method,
     );
+    await prefs.setBool('movera_payment_business', settings.business);
+    await prefs.remove('movera_payment_methods');
   }
 
   Future<void> _removeLegacyVoucherState(dynamic prefs) async {
