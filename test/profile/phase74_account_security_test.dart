@@ -173,6 +173,16 @@ void main() {
     expect(saved.googleConnected, isFalse);
     expect(saved.appleConnected, isFalse);
     expect(saved.logins, isEmpty);
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('phase74_profile') ?? '';
+    expect(raw, isNot(contains('passkeyEnabled')));
+    expect(raw, isNot(contains('twoStepEnabled')));
+    expect(raw, isNot(contains('authenticatorEnabled')));
+    expect(raw, isNot(contains('recoveryPhone')));
+    expect(raw, isNot(contains('googleConnected')));
+    expect(raw, isNot(contains('appleConnected')));
+    expect(raw, isNot(contains('logins')));
   });
 
   test('missing security endpoint becomes unavailable instead of local success', () async {
