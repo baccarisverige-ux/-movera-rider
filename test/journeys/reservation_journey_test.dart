@@ -195,7 +195,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(RideCompleted), findsNothing);
-      expect(find.byType(HomeReservationChrono), findsNothing);
+      // Home keeps the chrono shell mounted permanently. A completed
+      // reservation must disappear from its data/content rather than remove
+      // the Home widget itself.
+      expect(find.byType(HomeReservationChrono), findsOneWidget);
+      expect(reservations.upcoming(), isEmpty);
+      expect(find.text('2h'), findsNothing);
+      expect(find.text('15m'), findsNothing);
       expect(find.text('Schedule Movera'), findsOneWidget);
 
       // HomeReservationChrono owns a periodic refresh while mounted.
