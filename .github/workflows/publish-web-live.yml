@@ -1,4 +1,4 @@
-name: Publish Rider Web Live
+name: Publish Rider Web Demo
 
 on:
   push:
@@ -31,8 +31,13 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Build Flutter web
-        run: flutter build web --release
+      - name: Build explicit demo Flutter web
+        run: |
+          flutter build web --release \
+            -t lib/main_demo.dart \
+            --dart-define=MOVERA_FLAVOR=demo \
+            --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid
+          printf '%s\n' '{"flavor":"demo","production":false}' > build/web/movera-environment.json
 
       - name: Configure Google Maps for web
         env:

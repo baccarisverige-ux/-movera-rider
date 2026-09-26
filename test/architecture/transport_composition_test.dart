@@ -4,6 +4,7 @@ import 'package:movera_rider/app/config/transport_composition.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
+import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
@@ -58,6 +59,9 @@ void main() {
           paymentGateway: MockPaymentGateway(),
           push: NoopPushService(),
           emergencyDialer: RecordingEmergencyDialer(),
+          logger: const NoopLoggerSink(),
+          analytics: const NoopAnalyticsSink(),
+          crashes: const NoopCrashSink(),
           usesMockDriverAssignment: true,
         ),
         throwsStateError,
@@ -79,6 +83,9 @@ void main() {
         paymentGateway: MockPaymentGateway(),
         push: NoopPushService(),
         emergencyDialer: RecordingEmergencyDialer(),
+        logger: const NoopLoggerSink(),
+        analytics: const NoopAnalyticsSink(),
+        crashes: const NoopCrashSink(),
         usesMockDriverAssignment: true,
       ),
       throwsA(
@@ -86,6 +93,37 @@ void main() {
           (error) => error.message,
           'message',
           contains('emergencyDialer'),
+        ),
+      ),
+    );
+
+    realtime.dispose();
+  });
+
+  test('release composition rejects noop observability sinks', () {
+    final api = ApiClient(env: production);
+    final realtime = MockRideRealtime(api: api);
+
+    expect(
+      () => TransportComposition.validate(
+        environment: production,
+        api: api,
+        realtime: realtime,
+        paymentGateway: MockPaymentGateway(),
+        push: NoopPushService(),
+        emergencyDialer: SystemEmergencyDialer(
+          launcher: (_) async => true,
+        ),
+        logger: const NoopLoggerSink(),
+        analytics: const NoopAnalyticsSink(),
+        crashes: const NoopCrashSink(),
+        usesMockDriverAssignment: false,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          allOf(contains('logger'), contains('analytics'), contains('crashes')),
         ),
       ),
     );
@@ -105,6 +143,9 @@ void main() {
         paymentGateway: MockPaymentGateway(),
         push: NoopPushService(),
         emergencyDialer: RecordingEmergencyDialer(),
+        logger: const NoopLoggerSink(),
+        analytics: const NoopAnalyticsSink(),
+        crashes: const NoopCrashSink(),
         usesMockDriverAssignment: true,
       ),
       returnsNormally,
