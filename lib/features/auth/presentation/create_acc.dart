@@ -74,7 +74,10 @@ class _CreateAccountState extends State<CreateAccount> {
     final number = '$selectedCountryCode$digits';
     setState(() => _submitting = true);
     try {
-      final challenge = await _auth.requestOtp(phone: number);
+      final challenge = await _auth.requestOtp(
+        phone: number,
+        fullName: name,
+      );
       if (!mounted) return;
       await Navigator.push(
         context,
