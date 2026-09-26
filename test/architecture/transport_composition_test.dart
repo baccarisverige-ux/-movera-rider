@@ -6,6 +6,7 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 
 void main() {
   const production = AppEnv(
@@ -56,6 +57,7 @@ void main() {
           realtime: realtime,
           paymentGateway: MockPaymentGateway(),
           push: NoopPushService(),
+          emergencyDialer: RecordingEmergencyDialer(),
           usesMockDriverAssignment: true,
         ),
         throwsStateError,
@@ -63,6 +65,32 @@ void main() {
 
       realtime.dispose();
     }
+  });
+
+  test('release rejection identifies a recording emergency dialer', () {
+    final api = ApiClient(env: production);
+    final realtime = MockRideRealtime(api: api);
+
+    expect(
+      () => TransportComposition.validate(
+        environment: production,
+        api: api,
+        realtime: realtime,
+        paymentGateway: MockPaymentGateway(),
+        push: NoopPushService(),
+        emergencyDialer: RecordingEmergencyDialer(),
+        usesMockDriverAssignment: true,
+      ),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('emergencyDialer'),
+        ),
+      ),
+    );
+
+    realtime.dispose();
   });
 
   test('dev composition accepts mock stack', () {
@@ -76,6 +104,7 @@ void main() {
         realtime: realtime,
         paymentGateway: MockPaymentGateway(),
         push: NoopPushService(),
+        emergencyDialer: RecordingEmergencyDialer(),
         usesMockDriverAssignment: true,
       ),
       returnsNormally,
