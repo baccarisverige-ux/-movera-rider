@@ -26,7 +26,6 @@ import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/presentation/emergency_contacts_page.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
-import 'package:movera_rider/features/saved_places/data/saved_places_repository.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
@@ -312,6 +311,9 @@ void main() {
   });
 
   testWidgets('saved Home shortcut selects the stored address', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'movera_home_address': 'Klockarvägen 37',
+    });
     String? selected;
     await setViewport(tester, const Size(390, 844));
     await tester.pumpWidget(
@@ -328,19 +330,7 @@ void main() {
                     selected = await Navigator.push<String>(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => RiderSearchPickupLocation(
-                          places: SavedPlacesController(
-                            store: SavedPlacesRepository(
-                              shortcuts: const [
-                                PlaceShortcut(
-                                  title: 'Home',
-                                  subtitle: 'Klockarvägen 37',
-                                  kind: 'home',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        builder: (_) => const RiderSearchPickupLocation(),
                       ),
                     );
                   },
