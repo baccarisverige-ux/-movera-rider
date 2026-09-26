@@ -36,6 +36,21 @@ class RideCheckService {
   Future<RideCheckEvent> routeDeviation({String rideId = 'ride_qa'}) =>
       simulate(type: RideCheckEventType.routeDeviation, rideId: rideId);
 
+  Future<RideCheckEvent> sos({required String rideId}) {
+    return _store.postEvent(
+      RideCheckEvent(
+        eventId: 'ev_${newRequestId()}',
+        rideId: rideId,
+        type: RideCheckEventType.manualSafetyCheck,
+        at: DateTime.now().toUtc(),
+        payload: const {
+          'kind': 'sos',
+          'action': 'call_112',
+        },
+      ),
+    );
+  }
+
   Future<RideCheckEvent> resolve(RideCheckEvent event) {
     return _store.respondEvent(
       rideId: event.rideId,
