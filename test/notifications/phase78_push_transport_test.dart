@@ -121,4 +121,25 @@ void main() {
     );
     expect(gateway.initializeCalls, 0);
   });
+
+  test('Phase 78 deletes the local FCM token when server unregister fails',
+      () async {
+    final backend = InProcessMockClient();
+    final gateway = _FakeGateway();
+    addTearDown(gateway.dispose);
+    final service = FirebasePushService(
+      api: ApiClient(env: _production, client: backend),
+      environment: _production,
+      gateway: gateway,
+    );
+    addTearDown(service.dispose);
+
+    await service.register();
+    backend.failNext = true;
+
+    await expectLater(service.unregister(), throwsA(anything));
+
+    expect(gateway.deleteCalls, 1);
+  });
+
 }
