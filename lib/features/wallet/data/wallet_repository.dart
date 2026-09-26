@@ -36,7 +36,7 @@ class WalletStore {
     await _removeLegacyVoucherState(prefs);
     // Earlier builds stored unverified cards and provider labels locally.
     // None represent tokenized or authorized payment methods.
-    if (prefs.containsKey('movera_payment_methods')) {
+    if (prefs.getString('movera_payment_methods') != null) {
       await prefs.remove('movera_payment_methods');
     }
     final savedDefault = prefs.getString('movera_default_payment');

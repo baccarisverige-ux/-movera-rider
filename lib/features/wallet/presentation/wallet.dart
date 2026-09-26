@@ -76,7 +76,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE6E8E7);
   late final WalletController _wallet = widget.wallet ?? WalletController();
-  bool get _demoPayments = AppScope.instance.environment.allowsMockTransport;
+  bool get _demoPayments => AppScope.instance.environment.allowsMockTransport;
 
   double _balance = 0;
   bool _loading = true;
