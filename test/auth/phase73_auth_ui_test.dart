@@ -51,7 +51,7 @@ void main() {
     final controller = controllerFor(client);
     await pump(tester, SignInPhone(controller: controller));
 
-    await tester.enterText(find.byType(TextField).first, '701234567');
+    await tester.enterText(find.byType(EditableText).first, '701234567');
     await tester.tap(find.text('Continue'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
