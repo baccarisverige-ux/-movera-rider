@@ -8,6 +8,7 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(Observability.reset);
 
   test('compile-time release env parser distinguishes demo and production', () {
