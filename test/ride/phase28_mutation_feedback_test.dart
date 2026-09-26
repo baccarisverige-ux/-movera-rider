@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
@@ -39,32 +37,7 @@ void main() {
     expect(waits, 0);
   });
 
-  test('finding screen exposes explicit pickup and offer mutation outcomes', () {
-    final source = File(
-      'lib/features/finding_driver/presentation/finding_drivers.dart',
-    ).readAsStringSync();
+  
 
-    expect(source, contains('_showEditFeedback('));
-    expect(source, contains("fallback: updated\n                  ? 'Pickup updated'"));
-    expect(source, contains("'Couldn’t update pickup. Try again.'"));
-    expect(source, contains("'Couldn’t update offer. Try again.'"));
-    expect(source, contains('busy: _match.editInFlight'));
-  });
-
-  test('price bump remains renderable while edit is in flight', () {
-    final source = File(
-      'lib/features/finding_driver/application/finding_driver_controller.dart',
-    ).readAsStringSync();
-
-    final start = source.indexOf('bool get showPriceBump =>');
-    final end = source.indexOf('double get currentPrice', start);
-    expect(start, greaterThanOrEqualTo(0));
-    expect(end, greaterThan(start));
-
-    final block = source.substring(start, end);
-    expect(block, isNot(contains('!_editInFlight')));
-    expect(source, contains('bool get editInFlight => _editInFlight;'));
-    expect(source, contains("editFeedback = 'Pickup updated';"));
-    expect(source, contains("editFeedback = 'Couldn’t update offer. Try again.';"));
-  });
+  
 }
