@@ -63,6 +63,8 @@ class ProfileRepository {
 
   RiderProfileData _presentationOnly(RiderProfileData source) {
     return source.copyWith(
+      email: '',
+      phone: '',
       passkeyEnabled: false,
       twoStepEnabled: false,
       authenticatorEnabled: false,
