@@ -34,7 +34,9 @@ import 'package:movera_rider/features/destination_search/application/destination
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
@@ -81,6 +83,10 @@ class AppScope {
         crashSink: sink,
       );
     }
+
+    accountSecurity = AccountSecurityController(
+      repository: AccountSecurityRepository(api: api),
+    );
 
     geocoding = AppGeocoding(api: api);
     routing = RoutingService(api: api);
@@ -152,6 +158,7 @@ class AppScope {
   late final RideRealtime rideRealtime;
   final ReservationController reservations;
   final ProfileController profile;
+  late final AccountSecurityController accountSecurity;
   HttpObservabilitySink? observabilitySink;
   FeatureFlags flags = FeatureFlags.current;
 
