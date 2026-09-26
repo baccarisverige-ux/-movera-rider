@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -48,7 +49,16 @@ class ApiRideRealtime implements RideRealtime {
     if (_disposed || id == null || controller == null || controller.isClosed) {
       return;
     }
-    final json = await _api.get('/api/v1/rides/$id');
+    late final Map<String, dynamic> json;
+    try {
+      json = await _api.get('/api/v1/rides/$id');
+    } catch (error) {
+      AppLog.warning(
+        'realtime.poll_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+      return;
+    }
     final rawRide = json['ride'];
     if (rawRide is! Map) return;
     final ride = Map<String, dynamic>.from(rawRide);
