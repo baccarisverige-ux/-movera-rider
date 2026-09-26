@@ -188,10 +188,29 @@ class FirebasePushService implements PushService {
     await _tokenSub?.cancel();
     _tokenSub = null;
     final token = _registeredToken;
+    Object? unregisterError;
+    StackTrace? unregisterStack;
     if (token != null) {
-      await _unregisterToken(token);
+      try {
+        await _unregisterToken(token);
+      } catch (error, stack) {
+        unregisterError = error;
+        unregisterStack = stack;
+      }
     }
-    await _gateway.deleteToken();
+
+    try {
+      await _gateway.deleteToken();
+    } finally {
+      _registeredToken = null;
+    }
+
+    if (unregisterError != null) {
+      Error.throwWithStackTrace(
+        unregisterError,
+        unregisterStack ?? StackTrace.current,
+      );
+    }
   }
 
   Future<void> dispose() async {
