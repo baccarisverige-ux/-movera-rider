@@ -4,11 +4,14 @@ import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/payments/api_payment_gateway.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -183,16 +186,42 @@ void main() {
     expect(await gateway.status(intent.id), 'succeeded');
   });
 
-  test('Phase 85 no-driver branch restores Home and cannot resurrect search', () async {
-    await RideSnapshotStore.save(
-      _snapshot('phase85-no-driver', RideStatus.noDriverFound),
+  test('Phase 85 no-driver branch clears the live search and restores Home', () async {
+    const rideId = 'phase85-no-driver';
+    final snapshot = _snapshot(rideId, RideStatus.findingDriver);
+    await RideSnapshotStore.save(snapshot);
+
+    final realtime = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession(rideId: rideId);
+    final controller = FindingDriverController(
+      store: FindingDriverRepository(),
+      realtime: realtime,
+      ride: ride,
     );
+    controller.start(
+      snapshot: snapshot,
+      onTick: (_) {},
+      onMatched: () {},
+    );
+
+    realtime.emit(RideStatus.noDriverFound, sequence: 5);
+    await _waitFor(
+      () => ride.status == RideStatus.noDriverFound,
+      label: 'no-driver terminal event',
+    );
+    await _waitFor(
+      () => controller.ownedRideId == rideId,
+      label: 'terminal owner identity',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
 
     final restarted = RideRestoreCoordinator(reader: RideSnapshotStore.read);
     final persisted = await RideSnapshotStore.read();
-
-    expect(persisted?.status, RideStatus.noDriverFound);
+    expect(persisted, isNull);
     expect(restarted.surfaceFor(persisted), RestoredSurface.home);
+
+    controller.dispose();
+    realtime.dispose();
   });
 
   test('Phase 85 scheduled ride persists, assigns, drops driver and reassigns same id',
