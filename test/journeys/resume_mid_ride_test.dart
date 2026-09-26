@@ -12,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  late RideRestoreCoordinator restore;
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     RideSnapshotStore.epoch = 0;
@@ -19,20 +21,11 @@ void main() {
       ..rideId = null
       ..suppressRestore = false
       ..restoreFromBackend(RideStatus.idle);
-    // AppScope owns one reconnect controller across the full test process.
-    // Reset its exponential attempt counter so this journey starts from the
-    // same connected baseline as a normally foregrounded Rider session.
-    AppScope.instance.realtime.markConnected();
-    final restore = RideRestoreCoordinator.instance;
+    restore = RideRestoreCoordinator(
+      resync: (_) async {},
+    );
     restore.showing = RestoredSurface.home;
     restore.debugAtRoot = () => true;
-    restore.onReplaceRoot = null;
-  });
-
-  tearDown(() {
-    final restore = RideRestoreCoordinator.instance;
-    restore.showing = RestoredSurface.home;
-    restore.debugAtRoot = null;
     restore.onReplaceRoot = null;
   });
 
@@ -57,7 +50,7 @@ void main() {
   ) async {
     await RideSnapshotStore.save(ride);
     Widget? shown;
-    RideRestoreCoordinator.instance.onReplaceRoot = (page) => shown = page;
+    restore.onReplaceRoot = (page) => shown = page;
 
     final observer = AppLifecycleObserver()..attach();
     addTearDown(observer.detach);
@@ -72,14 +65,10 @@ void main() {
     await tester.pump();
     expect((await RideSnapshotStore.read())?.rideId, ride.rideId);
 
-    // AppLifecycleObserver delegates foreground restoration to this exact
-    // coordinator. Await that production future explicitly here so the widget
-    // test does not race a fire-and-forget lifecycle callback.
-    final resume = RideRestoreCoordinator.instance.resumeIfNeeded();
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pump();
-    final restored = await resume;
+    // The production coordinator always resyncs before choosing a surface.
+    // This journey injects an immediate transport resync so it can verify the
+    // restore contract without depending on reconnect backoff timers.
+    final restored = await restore.resumeIfNeeded();
 
     return shown ?? restored;
   }
@@ -94,7 +83,7 @@ void main() {
     );
 
     expect(shown, isA<FindingDrivers>());
-    expect(RideRestoreCoordinator.instance.showing, RestoredSurface.finding);
+    expect(restore.showing, RestoredSurface.finding);
     expect(AppScope.instance.ride.rideId, rideId);
     expect(AppScope.instance.ride.status, RideStatus.findingDriver);
   });
@@ -109,7 +98,7 @@ void main() {
     );
 
     expect(shown, isA<WaitingForDriver>());
-    expect(RideRestoreCoordinator.instance.showing, RestoredSurface.waiting);
+    expect(restore.showing, RestoredSurface.waiting);
     expect(AppScope.instance.ride.rideId, rideId);
     expect(AppScope.instance.ride.status, RideStatus.driverAssigned);
   });
@@ -124,7 +113,7 @@ void main() {
     );
 
     expect(shown, isA<WaitingForDriver>());
-    expect(RideRestoreCoordinator.instance.showing, RestoredSurface.waiting);
+    expect(restore.showing, RestoredSurface.waiting);
     expect(AppScope.instance.ride.rideId, rideId);
     expect(AppScope.instance.ride.status, RideStatus.tripInProgress);
   });
