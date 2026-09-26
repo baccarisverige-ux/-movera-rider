@@ -3,7 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
@@ -24,6 +29,22 @@ void main() {
   ProfileController controller({String storageKey = 'test_profile'}) {
     return ProfileController(
       store: ProfileRepository(storageKey: storageKey),
+    );
+  }
+
+  AccountSecurityController securityController() {
+    const env = AppEnv(
+      flavor: AppFlavor.test,
+      apiBaseUrl: 'https://api.test.movera.invalid',
+      mapsEnabled: true,
+    );
+    return AccountSecurityController(
+      repository: AccountSecurityRepository(
+        api: ApiClient(
+          env: env,
+          client: InProcessMockClient(),
+        ),
+      ),
     );
   }
 
@@ -147,30 +168,39 @@ void main() {
     expect(c.profile.name, 'Houssem Baccari');
   });
 
-  testWidgets('security starts without invented password or device activity', (
+  testWidgets('security is server-backed and unsupported controls are read-only', (
     tester,
   ) async {
-    final c = controller();
-    await pumpPhone(tester, SecurityPage(controller: c));
+    final security = securityController();
+    await pumpPhone(
+      tester,
+      SecurityPage(securityController: security),
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('Passkeys'), findsOneWidget);
     expect(find.text('2-step verification'), findsOneWidget);
-    expect(find.text('Not set'), findsOneWidget);
-    expect(c.profile.twoStepEnabled, isFalse);
-    await tester.tap(find.byType(Switch).first);
-    await tester.pump();
-    expect(c.profile.twoStepEnabled, isTrue);
-
-    final emptyActivity = find.text('No login activity available');
-    await tester.scrollUntilVisible(emptyActivity, 300);
-    await tester.pumpAndSettle();
-    expect(emptyActivity, findsOneWidget);
-    expect(find.byIcon(Icons.devices_outlined), findsOneWidget);
     expect(
-      find.text('Sign-in history will appear here when available.'),
-      findsOneWidget,
+      find.text('Unavailable until secure account service is connected'),
+      findsWidgets,
     );
-    expect(find.text('Stockholm, Sweden'), findsNothing);
-    expect(find.textContaining('Uber'), findsNothing);
+    expect(find.byType(Switch), findsNothing);
+
+    final otherDevice = find.text('Other device');
+    await tester.scrollUntilVisible(otherDevice, 300);
+    await tester.pumpAndSettle();
+    expect(otherDevice, findsOneWidget);
+    expect(find.text('Stockholm, Sweden'), findsWidgets);
+
+    final signOut = find.text('Sign out other devices');
+    await tester.scrollUntilVisible(signOut, 300);
+    await tester.tap(signOut);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign out others'));
+    await tester.pumpAndSettle();
+
+    expect(security.state!.sessions.every((item) => item.current), isTrue);
+    expect(find.text('Other device'), findsNothing);
   });
 
   testWidgets('privacy communication toggles persist', (tester) async {
