@@ -91,25 +91,6 @@ class SavedPlacesRow extends StatelessWidget {
   }
 }
 
-String _placeLabel(String type) {
-  switch (type) {
-    case 'gym':
-      return 'Gym';
-    case 'mall':
-      return 'Mall';
-    case 'school':
-      return 'School';
-    case 'airport':
-      return 'Airport';
-    case 'family':
-      return 'Family';
-    case 'restaurant':
-      return 'Restaurant';
-    default:
-      return 'Other';
-  }
-}
-
 IconData _placeIcon(String type) {
   switch (type) {
     case 'gym':
@@ -172,7 +153,7 @@ class _CustomPlaceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: _placeLabel(place.type),
+                      text: place.title,
                       color: _premiumInk,
                       fontSize: 10.5,
                       fontWeight: fwSemiBold,
