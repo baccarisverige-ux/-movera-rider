@@ -251,7 +251,7 @@ void main() {
   );
 
   testWidgets(
-    'Phase 13 UAT: ride-scoped messages keep rider/driver/system truth and unread state',
+    'Phase 13 UAT: ride-scoped messages fail closed without send transport and keep inbound truth',
     (tester) async {
       const rideId = 'uat-messages';
       final now = DateTime(2026, 9, 22, 16, 0);
@@ -260,7 +260,10 @@ void main() {
         now: () => now,
       );
 
-      expect(controller.send('I am at the pickup'), isTrue);
+      expect(controller.canSendMessages, isFalse);
+      expect(controller.send('I am at the pickup'), isFalse);
+      expect(controller.messages, isEmpty);
+
       controller.receive(
         ChatMessage(
           text: 'I can see you',
@@ -277,17 +280,16 @@ void main() {
         ),
       );
 
-      expect(controller.messages, hasLength(3));
-      expect(controller.messages.first.fromRider, isTrue);
-      expect(controller.messages[1].sender, ChatMessageSender.driver);
-      expect(controller.messages[2].isSystem, isTrue);
+      expect(controller.messages, hasLength(2));
+      expect(controller.messages.first.sender, ChatMessageSender.driver);
+      expect(controller.messages.last.isSystem, isTrue);
       expect(controller.unreadCount, 2);
 
       final reopened = MessagesController.forRide(
         rideId,
         now: () => now.add(const Duration(seconds: 3)),
       );
-      expect(reopened.messages, hasLength(3));
+      expect(reopened.messages, hasLength(2));
       expect(reopened.unreadCount, 2);
 
       reopened.markAllRead();
