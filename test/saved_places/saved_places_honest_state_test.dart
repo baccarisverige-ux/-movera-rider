@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
-import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
@@ -12,6 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
 
   test('saved places keep add actions without seeded location shortcuts', () {
