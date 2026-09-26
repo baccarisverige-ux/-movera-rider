@@ -172,7 +172,7 @@ class _CustomPlaceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextWidget(
-                      text: _placeLabel(place.type),
+                      text: place.title,
                       color: _premiumInk,
                       fontSize: 10.5,
                       fontWeight: fwSemiBold,
