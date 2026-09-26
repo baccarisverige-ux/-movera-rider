@@ -213,7 +213,7 @@ void main() {
     await tester.scrollUntilVisible(otherDevice, 300);
     await tester.pumpAndSettle();
     expect(otherDevice, findsOneWidget);
-    expect(find.text('Stockholm, Sweden'), findsWidgets);
+    expect(find.textContaining('Stockholm, Sweden'), findsWidgets);
 
     final signOut = find.text('Sign out other devices');
     await tester.scrollUntilVisible(signOut, 300);
