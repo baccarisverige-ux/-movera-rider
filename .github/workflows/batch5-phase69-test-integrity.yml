@@ -1,0 +1,77 @@
+name: Batch 5 Phase 69 Test Integrity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'test/**'
+      - '.github/workflows/batch5-phase69-test-integrity.yml'
+  pull_request:
+    paths:
+      - 'test/**'
+      - '.github/workflows/batch5-phase69-test-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  journey-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require the six real Rider journeys
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            test/journeys/book_to_home_test.dart
+            test/journeys/catalog_failure_test.dart
+            test/journeys/driver_cancel_research_test.dart
+            test/journeys/reservation_journey_test.dart
+            test/journeys/resume_mid_ride_test.dart
+            test/journeys/rider_cancel_test.dart
+          )
+          for file in "${required[@]}"; do
+            test -f "$file" || {
+              echo "::error::Missing required Phase 69 journey: $file"
+              exit 1
+            }
+          done
+
+      - name: Reject the retired source-topology suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e test/ride/ride_navigation_topology_test.dart || {
+            echo "::error::Legacy ride_navigation_topology_test.dart must stay deleted."
+            exit 1
+          }
+
+      - name: Keep journeys behavioral
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -nE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' test/journeys --include='*.dart'; then
+            echo "::error::Journey tests must exercise behavior, not read implementation source."
+            exit 1
+          fi
+
+      - name: Cap legacy source-reading coverage below 40
+        shell: bash
+        run: |
+          set -euo pipefail
+          count="$(grep -R -hE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' test --include='*.dart' | wc -l | tr -d ' ')"
+          echo "Legacy source-reading call sites: $count"
+          if [ "$count" -ge 40 ]; then
+            echo "::error::Phase 69 requires fewer than 40 legacy source-reading call sites; found $count."
+            exit 1
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Run real Rider journeys
+        run: flutter test test/journeys
