@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/custom_textfield.dart';
@@ -14,7 +15,9 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class SignInPhone extends StatefulWidget {
-  const SignInPhone({super.key});
+  const SignInPhone({super.key, this.controller});
+
+  final AuthController? controller;
 
   @override
   State<SignInPhone> createState() => _SignInPhoneState();
@@ -24,12 +27,13 @@ class _SignInPhoneState extends State<SignInPhone> {
   String selectedCountryCode = '+46';
   Country? selectedCountry;
   final TextEditingController _phone = TextEditingController();
+  late final AuthController _auth;
+  bool _submitting = false;
 
   @override
   void initState() {
     super.initState();
-    // Movera operates in Sweden, so that is the number a rider is most likely
-    // to be typing.
+    _auth = widget.controller ?? AuthController();
     selectedCountry = CountryPickerUtils.getCountryByIsoCode('SE');
     selectedCountryCode = '+46';
   }
@@ -40,11 +44,10 @@ class _SignInPhoneState extends State<SignInPhone> {
     super.dispose();
   }
 
-  /// Null until a number is actually entered, so the next screen never names
-  /// a number the rider did not type.
   String? get _enteredNumber {
-    final digits = _phone.text.trim();
-    return digits.isEmpty ? null : '$selectedCountryCode $digits';
+    final digits = _phone.text.replaceAll(RegExp(r'\s+'), '').trim();
+    if (digits.isEmpty) return null;
+    return '$selectedCountryCode$digits';
   }
 
   void updateCountryCode(String newCode, Country country) {
@@ -52,6 +55,34 @@ class _SignInPhoneState extends State<SignInPhone> {
       selectedCountryCode = newCode;
       selectedCountry = country;
     });
+  }
+
+  Future<void> _continue() async {
+    if (_submitting) return;
+    final number = _enteredNumber;
+    if (number == null || number.length < 7) {
+      MoveraToast.show(context, 'Enter a valid phone number.');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      final challenge = await _auth.requestOtp(phone: number);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        BottomToTopTransition(
+          PhoneVerification(
+            challenge: challenge,
+            controller: _auth,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      MoveraToast.show(context, 'Could not send a verification code.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -66,9 +97,7 @@ class _SignInPhoneState extends State<SignInPhone> {
             Transform.translate(
               offset: Offset(ResSize.w * -10, 0),
               child: IconButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                onPressed: () => Navigator.pop(context),
                 tooltip: 'Back',
                 icon: Icon(
                   Icons.arrow_back_ios_rounded,
@@ -79,7 +108,7 @@ class _SignInPhoneState extends State<SignInPhone> {
             ),
             18.height,
             TextWidget(
-              text: "Sign in with phone number",
+              text: 'Sign in with phone number',
               fontSize: 24,
               fontWeight: fwExtraBold,
             ),
@@ -87,7 +116,7 @@ class _SignInPhoneState extends State<SignInPhone> {
             TextWidget(
               textAlign: TextAlign.start,
               text:
-                  "Enter a valid phone number where we will send a verification code",
+                  'Enter a valid phone number where we will send a verification code',
               color: AppColor.subtitle,
               fontSize: 16,
               fontWeight: fwMedium,
@@ -96,17 +125,15 @@ class _SignInPhoneState extends State<SignInPhone> {
             customTextfield(
               controller: _phone,
               contentHorizPadding: 0,
-              hint: "Phone number",
+              hint: 'Phone number',
               keyboardType: TextInputType.phone,
               prefixWidget: InkWell(
                 onTap: () {
                   showDialog(
                     context: context,
-                    builder: (context) {
-                      return PhoneNumberPicker(
-                        onCountryCodeSelected: updateCountryCode,
-                      );
-                    },
+                    builder: (context) => PhoneNumberPicker(
+                      onCountryCodeSelected: updateCountryCode,
+                    ),
                   );
                 },
                 child: Padding(
@@ -121,13 +148,11 @@ class _SignInPhoneState extends State<SignInPhone> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Display country flag instead of country code
                         if (selectedCountry != null)
                           CountryPickerUtils.getDefaultFlagImage(
                             selectedCountry!,
                           ),
                         5.width,
-
                         Icon(
                           Icons.keyboard_arrow_down_rounded,
                           color: AppColor.hintText,
@@ -149,17 +174,14 @@ class _SignInPhoneState extends State<SignInPhone> {
           child: Column(
             children: [
               CustomButton(
-                centerContent: "Continue",
-                onPressed: () {
-                  final number = _enteredNumber;
-                  AuthController().requestOtp(phone: number ?? '');
-                  Navigator.push(
-                    context,
-                    BottomToTopTransition(
-                      PhoneVerification(phoneNumber: number),
-                    ),
-                  );
-                },
+                centerContent: 'Continue',
+                onPressed: _submitting ? null : _continue,
+                isLoading: _submitting,
+                loader: const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             ],
           ),
