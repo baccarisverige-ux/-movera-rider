@@ -59,9 +59,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          count="$(grep -R -hE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' test --include='*.dart' | wc -l | tr -d ' ')"
+          matches="$(grep -R -nE 'readAsStringSync[[:space:]]*\(|readAsLinesSync[[:space:]]*\(' test --include='*.dart' || true)"
+          count="$(printf '%s\n' "$matches" | sed '/^$/d' | wc -l | tr -d ' ')"
           echo "Legacy source-reading call sites: $count"
           if [ "$count" -ge 40 ]; then
+            echo "Source-reading call sites by file:"
+            printf '%s\n' "$matches" | cut -d: -f1 | sort | uniq -c | sort -nr
             echo "::error::Phase 69 requires fewer than 40 legacy source-reading call sites; found $count."
             exit 1
           fi
