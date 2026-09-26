@@ -71,6 +71,7 @@ jobs:
           flutter test test/safety/safety_test.dart
           flutter test test/architecture/release_observability_test.dart
           flutter test test/architecture/transport_composition_test.dart
+          flutter test test/architecture/phase72_actual_release_composition_test.dart
           flutter test test/ride/realtime_contract_test.dart
           flutter test test/maps/routing_privacy_test.dart
           flutter test test/performance/performance_budget_test.dart
@@ -93,5 +94,9 @@ jobs:
           xvfb-run -a flutter test -d linux integration_test/pre15_all_lifecycle_paths_test.dart
           xvfb-run -a flutter test -d linux integration_test/global_uat_flow_test.dart
 
-      - name: Release web build
-        run: flutter build web --release --pwa-strategy=none
+      - name: Production web build
+        run: |
+          flutter build web --release --pwa-strategy=none \
+            -t lib/main_production.dart \
+            --dart-define=MOVERA_FLAVOR=production \
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
