@@ -25,7 +25,7 @@ const accountSecurity = {
     recoveryPhone: false,
     connectedAccounts: false,
     reauthentication: false,
-    signOutOtherDevices: true,
+    signOutOtherDevices: false,
   },
   sessions: [
     {
