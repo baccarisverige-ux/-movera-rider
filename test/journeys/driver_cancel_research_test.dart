@@ -100,7 +100,7 @@ void main() {
       );
       expect(AppScope.instance.ride.rideId, rideId);
 
-      realtime.emit(RideStatus.cancelledByDriver);
+      realtime.cancelByDriver();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 450));
 
