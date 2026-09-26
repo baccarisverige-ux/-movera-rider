@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -25,6 +26,7 @@ class RideCompleted extends StatefulWidget {
     this.feedbackAvailableOnCompletion = false,
     this.showConnectionBanner = true,
     this.onClose,
+    this.controller,
   });
 
   final RideStatus status;
@@ -43,6 +45,7 @@ class RideCompleted extends StatefulWidget {
 
   final bool showConnectionBanner;
   final Future<void> Function(BuildContext context)? onClose;
+  final RideCompleteController? controller;
 
   @override
   State<RideCompleted> createState() => _RideCompletedState();
@@ -64,10 +67,15 @@ int _completionRank(RideStatus status) {
 }
 
 class _RideCompletedState extends State<RideCompleted> {
-  final RideCompleteController _controller = RideCompleteController();
+  late final RideCompleteController _controller = widget.controller ?? RideCompleteController();
   StreamSubscription<RideRealtimeEvent>? _completionSub;
   late RideStatus _status;
   bool _leaving = false;
+  double? _rating;
+  int? _tipMinor;
+  String? _submitError;
+  final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
+  String? _acceptedFeedbackIntent;
 
   @override
   void initState() {
@@ -122,14 +130,49 @@ class _RideCompletedState extends State<RideCompleted> {
 
   Future<void> _closeAndHome() async {
     if (_leaving || !mounted) return;
-    _leaving = true;
-    final customClose = widget.onClose;
-    if (customClose != null) {
-      await customClose(context);
-      return;
+    setState(() {
+      _leaving = true;
+      _submitError = null;
+    });
+    try {
+      if (_rating != null || _tipMinor != null) {
+        final id = widget.rideId;
+        if (id == null || id.trim().isEmpty) {
+          throw StateError('Ride ID is missing.');
+        }
+        final feedbackIntent =
+            '$id|${_rating?.toStringAsFixed(1) ?? ''}|${_tipMinor ?? ''}';
+        if (_acceptedFeedbackIntent != feedbackIntent) {
+          await _controller.submitFeedback(
+            rideId: id,
+            rating: _rating,
+            tipMinor: _tipMinor,
+            idempotencyKey: _feedbackMutation.keyFor(feedbackIntent),
+          );
+          _acceptedFeedbackIntent = feedbackIntent;
+          _feedbackMutation.succeeded(feedbackIntent);
+        }
+      }
+      if (!mounted) return;
+      final customClose = widget.onClose;
+      if (customClose != null) {
+        await customClose(context);
+        return;
+      }
+      if (widget.persistOnDemandState && widget.rideId != null) {
+        await _controller.closeCompletedRide(widget.rideId!);
+      } else {
+        _controller.close();
+      }
+      if (!mounted) return;
+      RideNavigator.home(context, status: RideStatus.closed);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _leaving = false;
+        _submitError = 'Couldn’t save your trip feedback or History. Try again.';
+      });
     }
-    _controller.close();
-    RideNavigator.home(context, status: RideStatus.closed);
   }
 
   _CompletionSpec get _spec => _CompletionSpec.fromStatus(_status);
@@ -196,20 +239,24 @@ class _RideCompletedState extends State<RideCompleted> {
                         const SizedBox(height: 14),
                         IgnorePointer(
                           key: const ValueKey('completion-feedback-lock'),
-                          ignoring: !canRate,
+                          ignoring: !canRate || _leaving,
                           child: AnimatedOpacity(
                             key: const ValueKey('completion-feedback'),
                             duration: const Duration(milliseconds: 160),
                             curve: Curves.easeOutCubic,
                             opacity: canRate ? 1 : 0.52,
-                            child: const Column(
+                            child: Column(
                               children: [
                                 _SurfaceCard(
-                                  child: RideCompletedGiveReview(),
+                                  child: RideCompletedGiveReview(
+                                    onRatingChanged: (rating) => _rating = rating,
+                                  ),
                                 ),
-                                SizedBox(height: 14),
+                                const SizedBox(height: 14),
                                 _SurfaceCard(
-                                  child: RideCompletedAddTip(),
+                                  child: RideCompletedAddTip(
+                                    onTipChanged: (amount) => _tipMinor = amount,
+                                  ),
                                 ),
                               ],
                             ),
@@ -244,6 +291,12 @@ class _RideCompletedState extends State<RideCompleted> {
                         ),
                       ),
                       const SizedBox(height: 18),
+                      if (_submitError != null)
+                        Text(
+                          _submitError!,
+                          key: const ValueKey('completion-submit-error'),
+                          style: const TextStyle(color: Colors.red),
+                        ),
                     ],
                   ),
                 ),

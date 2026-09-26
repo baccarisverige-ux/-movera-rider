@@ -280,6 +280,33 @@ class InProcessMockClient extends http.BaseClient {
         rides[ride['id'] as String] = ride;
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
+    } else if (parts.length == 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'feedback' &&
+        method == 'POST') {
+      final ride = rides[parts[4]];
+      final rating = body['rating'];
+      final tipMinor = body['tipMinor'];
+      if (ride == null) {
+        status = 404;
+        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else if (!['tripCompleted', 'paymentFinalized', 'ratingPending'].contains(ride['status'])) {
+        status = 409;
+        payload = {'code': 'RIDE_NOT_COMPLETE', 'requestId': requestId};
+      } else if ((rating == null && tipMinor == null) ||
+          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) ||
+          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != 'SEK'))) {
+        status = 400;
+        payload = {'code': 'INVALID_FEEDBACK', 'requestId': requestId};
+      } else {
+        ride['feedback'] = {
+          if (rating != null) 'rating': rating,
+          if (tipMinor != null) 'tipMinor': tipMinor,
+          if (tipMinor != null) 'currency': 'SEK',
+        };
+        payload = {'code': 'OK', 'status': 'accepted', 'requestId': requestId};
+      }
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
