@@ -98,7 +98,7 @@ class _SafetyHubState extends State<SafetyHub> {
                 SafetyRow(
                   mark: SafetyMarks.rideCheck,
                   title: 'RideCheck',
-                  subtitle: 'Get help if a ride stops unexpectedly or goes off route.',
+                  subtitle: 'Save your alert preference for when monitoring is available.',
                   status: _ctl.rideCheckStatusLabel(),
                   onTap: () => _open(RideCheckPage(controller: _ctl)),
                   showDivider: false,

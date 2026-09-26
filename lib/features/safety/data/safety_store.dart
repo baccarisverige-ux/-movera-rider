@@ -344,6 +344,19 @@ class SafetyStore {
     );
   }
 
+  Future<List<RideCheckEvent>> refreshEvents(String rideId) async {
+    if (rideId.trim().isEmpty) return const [];
+    await _ensure();
+    final events = await _remote.listSafetyEvents(rideId);
+    _cache.events = [
+      for (final event in _cache.events)
+        if (event.rideId != rideId) event,
+      ...events,
+    ];
+    await _local.save(_cache);
+    return events;
+  }
+
   Future<RideCheckEvent> respondEvent({
     required String rideId,
     required String eventId,

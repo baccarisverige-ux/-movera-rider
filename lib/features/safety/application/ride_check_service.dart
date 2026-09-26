@@ -11,6 +11,9 @@ class RideCheckService {
 
   List<RideCheckEvent> events() => _store.rideCheckEvents;
 
+  Future<List<RideCheckEvent>> refresh(String rideId) =>
+      _store.refreshEvents(rideId);
+
   Future<RideCheckPolicy> setEnabled(bool enabled) =>
       _store.patchRideCheck(enabled);
 

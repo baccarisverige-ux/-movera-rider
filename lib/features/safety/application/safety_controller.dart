@@ -94,7 +94,23 @@ class SafetyController extends ChangeNotifier {
   }
 
   String rideCheckStatusLabel() =>
-      rideCheckPolicy.enabled ? 'On' : 'Off';
+      rideCheckPolicy.enabled ? 'Preference saved' : 'Off';
+
+  List<RideCheckEvent> pendingRideCheckEvents(String rideId) =>
+      rideCheck.events().where((event) =>
+          event.rideId == rideId &&
+          event.status == RideCheckStatus.pending &&
+          event.payload['kind'] != 'sos').toList();
+
+  Future<void> refreshRideCheckEvents(String rideId) async {
+    await rideCheck.refresh(rideId);
+    notifyListeners();
+  }
+
+  Future<void> resolveRideCheck(RideCheckEvent event) async {
+    await rideCheck.resolve(event);
+    notifyListeners();
+  }
 
   void _publishSnapshot() {
     reportSafetySnapshot(
@@ -111,12 +127,14 @@ class SafetyController extends ChangeNotifier {
     _events.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
   }
 
-  Future<void> sos({String? rideId}) async {
-    record(SafetyKind.sos, rideId: rideId);
+  Future<bool> sos({String? rideId}) async {
     final id = rideId?.trim();
-    if (id == null || id.isEmpty) return;
+    if (id == null || id.isEmpty) return false;
     try {
       await rideCheck.sos(rideId: id);
+      record(SafetyKind.sos, rideId: id);
+      notifyListeners();
+      return true;
     } catch (error, stackTrace) {
       AppLog.warning(
         'safety.sos.backend_failed',
@@ -128,6 +146,7 @@ class SafetyController extends ChangeNotifier {
         stackTrace: stackTrace,
         extra: {'rideId': id},
       );
+      rethrow;
     }
   }
 
