@@ -20,9 +20,9 @@ import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
 import 'package:movera_rider/core/observability/observability.dart';
+import 'package:movera_rider/core/payments/api_payment_gateway.dart';
 import 'package:movera_rider/core/payments/mock_payment_gateway.dart';
 import 'package:movera_rider/core/payments/payment_gateway.dart';
-import 'package:movera_rider/core/payments/unavailable_payment_gateway.dart';
 import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
@@ -58,7 +58,7 @@ class AppScope {
         defaultPayment = const PrefsDefaultPaymentStore(),
         paymentGateway = environment.allowsMockTransport
             ? MockPaymentGateway()
-            : const UnavailablePaymentGateway(),
+            : ApiPaymentGateway(api: ApiClient(env: environment)),
         wallet = WalletLedger(),
         lifecycle = AppLifecycleObserver(),
         permissions = PermissionService(),
