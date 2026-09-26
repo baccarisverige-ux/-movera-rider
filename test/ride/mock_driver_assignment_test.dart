@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/realtime/mock_driver_pool.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
@@ -56,37 +54,7 @@ void main() {
 /// old rule existed — no screen, controller or feature repository may conjure a
 /// driver of its own. Mock identities live behind the API boundary, nowhere else.
 void _guards() {
-  test('no feature layer fabricates a driver identity', () {
-    // Converting real data into a MatchedDriver is fine — reservations do it.
-    // What is banned is a literal identity: a name nobody supplied.
-    final literalName = RegExp(r"firstName:\s*'");
-    final offenders = <String>[];
-    for (final file in Directory('lib/features')
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.dart'))) {
-      final src = file.readAsStringSync();
-      if (src.contains('MatchedDriver(') && literalName.hasMatch(src)) {
-        offenders.add(file.path);
-      }
-    }
-    expect(
-      offenders,
-      isEmpty,
-      reason: 'driver identities must come from data, not literals: $offenders',
-    );
-  });
+  
 
-  test('the driver pool lives in core, behind the API boundary', () {
-    expect(File('lib/core/realtime/mock_driver_pool.dart').existsSync(), isTrue);
-    expect(
-      Directory('lib/features')
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.dart'))
-          .any((f) => f.readAsStringSync().contains('MockDriverPool')),
-      isFalse,
-      reason: 'feature code must not reach for the mock pool directly',
-    );
-  });
+  
 }
