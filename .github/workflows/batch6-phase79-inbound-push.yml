@@ -40,9 +40,11 @@ jobs:
 
       - name: Push navigation safety guards
         run: |
-          grep -q "reconnectAndResync(rideId)" lib/app/bootstrap.dart
+          grep -q "openRide: openRideFromNotification" lib/app/bootstrap.dart
+          grep -q "reconnectAndResync(expected)" lib/features/notifications/application/notification_navigation.dart
           grep -q "PushDestination.ride" lib/features/notifications/application/push_coordinator.dart
           ! grep -q "Navigator.*deepLink" lib/features/notifications/application/push_coordinator.dart
+          ! grep -q "Navigator.*deepLink" lib/features/notifications/presentation/notifications.dart
 
       - name: Android manifest is valid XML
         run: |

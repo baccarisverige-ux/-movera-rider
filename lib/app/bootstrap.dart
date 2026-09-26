@@ -11,10 +11,10 @@ import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
+import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -35,27 +35,6 @@ Future<void> _registerExistingPushSession() async {
       extra: {'error': error.toString()},
     );
   }
-}
-
-Future<bool> _openRideFromPush(String rideId) async {
-  await AppScope.instance.rideRealtime.reconnectAndResync(rideId);
-
-  final snapshot = await RideSnapshotStore.read();
-  if (snapshot == null || snapshot.rideId?.trim() != rideId.trim()) {
-    return false;
-  }
-
-  final surface = RideRestoreCoordinator.instance.surfaceFor(snapshot);
-  if (surface == RestoredSurface.home) return false;
-
-  final nav = moveraNavigatorKey.currentState;
-  if (nav != null && nav.canPop()) {
-    nav.popUntil((route) => route.isFirst);
-    await WidgetsBinding.instance.endOfFrame;
-  }
-
-  await RideRestoreCoordinator.instance.resumeIfNeeded();
-  return true;
 }
 
 void _openNotificationsFromPush() {
@@ -125,7 +104,7 @@ Future<void> bootstrap() async {
       runApp(const MoveraApp());
       _pushCoordinator ??= PushCoordinator(
         push: AppScope.instance.push,
-        openRide: _openRideFromPush,
+        openRide: openRideFromNotification,
         openNotifications: _openNotificationsFromPush,
       );
       WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/domain/notifications.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -12,11 +13,18 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class NotificationScreen extends StatelessWidget {
-  const NotificationScreen({super.key});
+  const NotificationScreen({
+    super.key,
+    this.controller,
+    this.openRide,
+  });
+
+  final NotificationsController? controller;
+  final NotificationRideOpener? openRide;
 
   @override
   Widget build(BuildContext context) {
-    final controller = NotificationsController();
+    final notificationController = controller ?? NotificationsController();
 
     return Scaffold(
       backgroundColor: AppColor.secondary,
@@ -54,11 +62,11 @@ class NotificationScreen extends StatelessWidget {
             12.height,
             Expanded(
               child: StreamBuilder<List<AppNotification>>(
-                stream: controller.watch(),
-                initialData: controller.feed(),
+                stream: notificationController.watch(),
+                initialData: notificationController.feed(),
                 builder: (context, snapshot) {
-                  final notifications = snapshot.data ?? const <AppNotification>[];
-                  if (notifications.isEmpty) {
+                  final items = snapshot.data ?? const <AppNotification>[];
+                  if (items.isEmpty) {
                     return const MoveraEmptyState(
                       icon: Icons.notifications_none_rounded,
                       title: "You're all caught up.",
@@ -68,14 +76,22 @@ class NotificationScreen extends StatelessWidget {
                   }
                   return ListView.builder(
                     padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                    itemCount: notifications.length,
+                    itemCount: items.length,
                     itemBuilder: (context, index) {
-                      final notification = notifications[index];
+                      final notification = items[index];
                       return Padding(
                         padding: EdgeInsets.only(bottom: ResSize.h * 16),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => controller.markRead(notification.messageId),
+                          onTap: () async {
+                            notificationController.markRead(notification.messageId);
+                            final rideId = notificationRideTarget(
+                              rideId: notification.rideId,
+                              deepLink: notification.deepLink,
+                            );
+                            if (rideId == null) return;
+                            await (openRide ?? openRideFromNotification)(rideId);
+                          },
                           child: _buildNotificationCard(notification),
                         ),
                       );
