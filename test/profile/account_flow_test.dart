@@ -39,11 +39,33 @@ void main() {
       apiBaseUrl: 'https://api.test.movera.invalid',
       mapsEnabled: true,
     );
+    final client = InProcessMockClient();
+    client.accountSecurity
+      ..['phone'] = '+46701234567'
+      ..['email'] = 'rider@example.test'
+      ..['phoneVerifiedAt'] = null
+      ..['emailVerifiedAt'] = '2026-01-01T12:00:00.000Z'
+      ..['sessions'] = [
+        {
+          'id': 'session_current',
+          'device': 'This device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': true,
+        },
+        {
+          'id': 'session_other',
+          'device': 'Other device',
+          'place': 'Stockholm, Sweden',
+          'source': 'Movera',
+          'current': false,
+        },
+      ];
     return AccountSecurityController(
       repository: AccountSecurityRepository(
         api: ApiClient(
           env: env,
-          client: InProcessMockClient(),
+          client: client,
         ),
       ),
     );
