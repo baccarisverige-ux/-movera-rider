@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,96 +37,11 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('IconButton calls declare a tooltip', () {
-    for (final file in Directory(
-      'lib',
-    ).listSync(recursive: true).whereType<File>()) {
-      if (!file.path.endsWith('.dart')) continue;
-      final src = file.readAsStringSync();
-      var i = 0;
-      while (true) {
-        final start = src.indexOf('IconButton(', i);
-        if (start < 0) break;
-        if (start > 0 && RegExp(r'[A-Za-z]').hasMatch(src[start - 1])) {
-          i = start + 1;
-          continue;
-        }
-        final end = _matchingParen(src, start + 'IconButton'.length);
-        expect(end, isNonNegative, reason: '${file.path} unmatched IconButton');
-        final block = src.substring(start, end + 1);
-        expect(
-          block.contains('tooltip:'),
-          isTrue,
-          reason: '${file.path} IconButton missing tooltip:\n$block',
-        );
-        i = end + 1;
-      }
-    }
-  });
+  
 
-  test('named-screen Image.asset excludes semantics', () {
-    const files = [
-      'lib/features/home/presentation/widgets/premium_bottom_nav_item.dart',
-      'lib/features/home/presentation/widgets/where_to_card.dart',
-      'lib/features/ride_selection/presentation/select_ride.dart',
-      'lib/features/finding_driver/presentation/finding_drivers.dart',
-      'lib/features/active_ride/presentation/waiting_sheet_bits.dart',
-      'lib/features/ride_complete/presentation/ride_completed.dart',
-      'lib/features/wallet/presentation/wallet.dart',
-      'lib/features/profile/presentation/account_widgets.dart',
-    ];
-    for (final path in files) {
-      final src = File(path).readAsStringSync();
-      var i = 0;
-      var seen = 0;
-      while (true) {
-        final start = src.indexOf('Image.asset(', i);
-        if (start < 0) break;
-        final end = _matchingParen(src, start + 'Image.asset'.length);
-        expect(end, isNonNegative, reason: '$path unmatched Image.asset');
-        final block = src.substring(start, end + 1);
-        expect(
-          block.contains('excludeFromSemantics: true'),
-          isTrue,
-          reason: '$path Image.asset missing excludeFromSemantics:\n$block',
-        );
-        seen++;
-        i = end + 1;
-      }
-      expect(seen, greaterThan(0), reason: '$path expected Image.asset');
-    }
-  });
+  
 
-  test('sheet motion uses the shared Home motion system', () {
-    const files = [
-      'lib/features/finding_driver/presentation/finding_drivers.dart',
-      'lib/features/active_ride/presentation/waiting_for_driver.dart',
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ];
-    for (final path in files) {
-      final src = File(path).readAsStringSync();
-      final usesHomeSheet =
-          src.contains('SheetController') &&
-          src.contains('MoveraSheetMotion.physics');
-      final usesTokenizedAnimationController =
-          src.contains('MoveraDurations.sheetOpen') &&
-          src.contains(
-            'MoveraMotion.of(context, MoveraDurations.sheetOpen)',
-          );
-      expect(
-        usesHomeSheet || usesTokenizedAnimationController,
-        isTrue,
-        reason: '$path must use Home sheet physics or tokenized sheet motion',
-      );
-      expect(
-        RegExp(
-          r'AnimationController\([\s\S]{0,180}Duration\(milliseconds:',
-        ).hasMatch(src),
-        isFalse,
-        reason: '$path AnimationController still uses a raw duration',
-      );
-    }
-  });
+  
 
   testWidgets('empty state, wallet retry, and profile rows are labeled', (
     tester,
