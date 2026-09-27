@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: movera-rider-pages
@@ -16,6 +14,10 @@ concurrency:
 
 jobs:
   publish:
+    permissions:
+      contents: write # Only the generated web-live branch needs a repository write.
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.pages.outputs.page_url }}
@@ -135,11 +137,12 @@ jobs:
           cp -a build/web/. /tmp/movera-web/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan web-live
+          git fetch origin web-live:web-live
+          git checkout web-live
           git rm -rf . || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a /tmp/movera-web/. .
           touch .nojekyll
           git add -A
           git commit -m "Publish Movera Rider web build"
-          git push --force origin web-live
+          git push origin HEAD:web-live
