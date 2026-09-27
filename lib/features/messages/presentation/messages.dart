@@ -56,7 +56,7 @@ class MessagesInbox extends StatelessWidget {
                     icon: Icons.chat_bubble_outline_rounded,
                     title: 'No conversations yet',
                     message:
-                        'Messages with your driver will appear here when a ride is connected. Active-trip chat stays available from your ride screen.',
+                        'Messages with your driver will appear here when a ride is connected. Sending isn\'t available yet.',
                   ),
                 ),
               ),
