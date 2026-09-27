@@ -68,6 +68,7 @@ class SafetyController extends ChangeNotifier {
   final SafetyAudioService audio;
   final RideCheckService rideCheck;
   bool loading = false;
+  bool hasLoaded = false;
   String? error;
 
   List<SafetyEvent> get events => _events.events;
@@ -176,6 +177,7 @@ class SafetyController extends ChangeNotifier {
       AppLog.error('safety.load_failed');
     } finally {
       loading = false;
+      hasLoaded = true;
       notifyListeners();
     }
   }

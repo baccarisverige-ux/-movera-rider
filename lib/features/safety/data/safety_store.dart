@@ -47,6 +47,9 @@ class SafetyStore {
 
   Future<void> load() async {
     _cache = await _local.load();
+    // A cached per-user PIN cannot prove that the current ride still uses it.
+    // Never display cached digits after a network failure or while refreshing.
+    _cache.pin = RidePin.unavailable;
     try {
       final prefs = await _remote.getPreferences();
       final pin = await _remote.getPin();
@@ -65,10 +68,6 @@ class SafetyStore {
         error: error,
         stackTrace: stackTrace,
       );
-    }
-    if (_cache.pin.pin.isEmpty || !RegExp(r'^\d{4}$').hasMatch(_cache.pin.pin)) {
-      _cache.pin = RidePin.generate();
-      await _local.save(_cache);
     }
     _loaded = true;
   }
@@ -110,15 +109,14 @@ class SafetyStore {
 
   Future<RidePin> rotatePin({String? idempotencyKey}) async {
     await _ensure();
-    final previous = _cache.pin;
-    final optimistic = RidePin.generate(requiredForStart: previous.requiredForStart);
-    return _write(
-      () => _remote.rotatePin(idempotencyKey: idempotencyKey),
-      optimistic,
-      (value) {
-        _cache.pin = value.copyWith(requiredForStart: _cache.preferences.pinRequired);
-      },
-    );
+    if (failNextWrite) {
+      failNextWrite = false;
+      throw const SafetyException('SERVER_ERROR', 'Simulated write failure');
+    }
+    final confirmed = await _remote.rotatePin(idempotencyKey: idempotencyKey);
+    _cache.pin = confirmed.copyWith(requiredForStart: _cache.preferences.pinRequired);
+    await _local.save(_cache);
+    return _cache.pin;
   }
 
   Future<PinVerifyResult> verifyPin({required String rideId, required String pin}) async {
