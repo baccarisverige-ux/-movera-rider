@@ -81,15 +81,22 @@ class ApiRideRealtime implements RideRealtime {
         throw const FormatException('Ride projection needs version or updatedAt');
       }
       if (poll.version != null && version != null &&
-          version < poll.version!) return;
+          version < poll.version!) {
+        connection.markConnected();
+        return;
+      }
       // The aggregate version wins over a clock that moves backwards. Within
       // the same version, updatedAt can still order location projections.
       if ((poll.version == null || version == null ||
               version == poll.version) &&
           poll.updatedAt != null && updatedAt != null &&
-          updatedAt.isBefore(poll.updatedAt!)) return;
+          updatedAt.isBefore(poll.updatedAt!)) {
+        connection.markConnected();
+        return;
+      }
       if (poll.version != null && version == null) {
         // Do not replace a versioned projection with an unversioned response.
+        connection.markConnected();
         return;
       }
       final rawDriver = ride['driver'];
