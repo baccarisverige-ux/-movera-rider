@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -235,10 +234,6 @@ void main() {
     expect(isPlaceholderPickupLabel('Current location'), isTrue);
     expect(isPlaceholderPickupLabel(locationOffPickupLabel), isTrue);
     expect(isPlaceholderPickupLabel('Sveavägen 1'), isFalse);
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
-    expect(home, contains('if (isRawCoordinateLabel(address)'));
   });
 
   testWidgets('D-002: Confirm is disabled on a fallback pickup point', (

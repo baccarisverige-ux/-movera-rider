@@ -1,12 +1,16 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -106,24 +110,51 @@ void main() {
     });
   });
 
-  test('U5: the add-stop button and stop hint are hidden until stops ship', () {
-    final source = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
-    expect(source, contains('static const bool _stopsSupported = false;'));
-    final hint = source.indexOf("'Add a stop before your final destination.'");
-    expect(hint, greaterThan(0));
-    final gate = source.lastIndexOf('if (_stopsSupported) ...[', hint);
-    expect(
-      gate,
-      greaterThan(0),
-      reason: 'the stop hint row must sit behind _stopsSupported',
+  testWidgets('U5: the add-stop button and stop hint are hidden', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    // Keep SecureTokenStore off the (unanswered) secure-storage channel.
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    FindingDriverController.active = null;
+    AppScope.instance.ride
+      ..rideId = null
+      ..status = RideStatus.idle
+      ..suppressRestore = false;
+
+    await tester.pumpWidget(
+      ScreenUtilInit(
+        designSize: const Size(390, 844),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, __) =>
+            MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
+      ),
     );
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.text('Where to?'));
+    for (
+      var i = 0;
+      i < 40 && find.byType(TextField).evaluate().length < 2;
+      i++
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pump(const Duration(milliseconds: 450));
+
+    expect(find.byType(TextField), findsNWidgets(2));
     expect(
-      source,
-      contains('(_stopsSupported ? _routeStops : const <String>[])'),
-      reason: 'stale stops must not be prefilled into hidden fields',
+      find.text('Add a stop before your final destination.'),
+      findsNothing,
     );
+    expect(find.byIcon(Icons.alt_route_rounded), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    debugDefaultTargetPlatformOverride = null;
   });
 
   group('D-023 saved-place search', () {

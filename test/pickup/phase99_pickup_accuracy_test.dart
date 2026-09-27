@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 
 /// Batch 9 Phase 99 — U6 (stale picker position), D-010 (raw coordinates
 /// shown as the pickup), D-011 (picker freshness, radius lag, pin tip).
@@ -112,10 +113,19 @@ void main() {
           ),
         );
         await tester.pump(const Duration(milliseconds: 500));
-        final source = File(
-          'lib/features/pickup/presentation/confirm_pickup_spot.dart',
-        ).readAsStringSync();
-        expect(source, isNot(contains("CircleId('pickup-accuracy')")));
+        // The map mounts once the route has settled.
+        await tester.pump();
+        await tester.pump();
+        final map = tester.widget<CustomGoogleMap>(
+          find.byType(CustomGoogleMap),
+        );
+        expect(map.circles ?? const <Circle>{}, isEmpty);
+        final overlay = find.byKey(const ValueKey('pickup-accuracy-overlay'));
+        expect(overlay, findsOneWidget);
+        expect(
+          tester.getCenter(overlay),
+          tester.getCenter(find.byType(CustomGoogleMap)),
+        );
         expect(find.byKey(const ValueKey('pickup-pin')), findsOneWidget);
       },
     );
