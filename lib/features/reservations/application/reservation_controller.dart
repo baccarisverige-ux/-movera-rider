@@ -122,6 +122,45 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
+  /// How long after the scheduled pickup time a reservation may sit without
+  /// a driver before the client stops showing "searching" and tells the rider
+  /// honestly that no driver was found.
+  ///
+  /// Client-side mitigation only (Batch 9 Phase 106 / U4): reservations are
+  /// local-only today and nothing assigns a driver, so without this a due
+  /// ride stays in [ReservationStatus.driverAssignmentPending] forever. The
+  /// real fix is server-driven dispatch with explicit no_driver_found /
+  /// expired states.
+  static const noDriverFoundAfter = Duration(minutes: 5);
+
+  /// Reason recorded when the rider resolves a reservation that timed out
+  /// without a driver.
+  static const noDriverFoundReason = 'no_driver_found';
+
+  /// Whether [ride] has passed its pickup time by [noDriverFoundAfter] and
+  /// still has no driver assigned.
+  bool isNoDriverFound(Reservation ride, {DateTime? now}) {
+    final status = ride.status;
+    if (status != ReservationStatus.scheduled &&
+        status != ReservationStatus.driverAssignmentPending) {
+      return false;
+    }
+    if (ride.driver != null) return false;
+    final currentTime = now ?? _clock();
+    return !currentTime.isBefore(
+      ride.scheduledPickupAt.add(noDriverFoundAfter),
+    );
+  }
+
+  /// Upcoming reservations currently in the "No driver found" state.
+  List<Reservation> noDriverFound({DateTime? now}) =>
+      upcoming().where((ride) => isNoDriverFound(ride, now: now)).toList();
+
+  /// Cancels a reservation that timed out without a driver, recording why.
+  Future<Reservation> resolveNoDriverFound(String reservationId) {
+    return cancel(reservationId, reason: noDriverFoundReason);
+  }
+
   Future<void> startLiveIfDue({DateTime? now}) async {
     final currentTime = now ?? _clock();
     var changed = false;
