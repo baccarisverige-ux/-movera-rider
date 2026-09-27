@@ -15,7 +15,11 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RiderSideMenu extends StatelessWidget {
-  const RiderSideMenu({super.key});
+  const RiderSideMenu({super.key, this.onStartBooking});
+
+  /// Called when a menu page asks to go straight to booking (for example
+  /// Ride History's empty-state "Book a ride") instead of back to the menu.
+  final VoidCallback? onStartBooking;
 
   static const Color _ink = Color(0xFF1C2329);
   static const Color _muted = Color(0xFF7A858E);
@@ -35,7 +39,21 @@ class RiderSideMenu extends StatelessWidget {
       await WidgetsBinding.instance.endOfFrame;
     }
     if (!nav.mounted) return;
-    await nav.push(RightToLeftTransition(page));
+    final result = await nav.push<Object?>(RightToLeftTransition(page));
+    if (!scaffold.mounted) return;
+    if (result == RideHistory.startBookingResult) {
+      onStartBooking?.call();
+      return;
+    }
+    // U1: the menu page was opened from the drawer, so Back returns to the
+    // drawer. Only reopen it once Home is genuinely the top route again —
+    // never when the page was replaced or something else now sits above Home.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!scaffold.mounted || scaffold.isDrawerOpen) return;
+      final homeRoute = ModalRoute.of(scaffold.context);
+      if (homeRoute != null && !homeRoute.isCurrent) return;
+      scaffold.openDrawer();
+    });
   }
 
   @override
@@ -180,7 +198,10 @@ class RiderSideMenu extends StatelessWidget {
             icon: Icons.credit_card_outlined,
             image: null,
             title: 'Payments',
-            onTap: () => _pushPage(context, const WalletAndPaymentsScreen(initialTab: 1)),
+            onTap: () => _pushPage(
+              context,
+              const WalletAndPaymentsScreen(initialTab: 1),
+            ),
           ),
           // Notifications and Saved places were both finished screens with no
           // way in: nothing in the app built either of them.
@@ -310,7 +331,6 @@ class RiderSideMenu extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _footer() {
     return Padding(

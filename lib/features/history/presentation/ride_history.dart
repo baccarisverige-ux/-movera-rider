@@ -17,6 +17,10 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 class RideHistory extends StatefulWidget {
   const RideHistory({super.key, this.reservations, this.onDemandReader});
 
+  /// Pop result asking the opener to start a booking (D-026). The side menu
+  /// answers it by opening Home's destination sheet.
+  static const startBookingResult = 'movera.rideHistory.startBooking';
+
   final ReservationController? reservations;
   final Future<List<Reservation>> Function()? onDemandReader;
 
@@ -423,7 +427,8 @@ class _RideHistoryState extends State<RideHistory> {
               ? 'Completed trips and their real ride details will appear here.'
               : 'Trips you cancel will appear here with their recorded reason.',
           actionLabel: 'Book a ride',
-          onAction: () => Navigator.maybePop(context),
+          onAction: () =>
+              Navigator.maybePop(context, RideHistory.startBookingResult),
         ),
       );
     }

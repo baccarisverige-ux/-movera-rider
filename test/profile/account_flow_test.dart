@@ -129,7 +129,7 @@ void main() {
     expect(c.profile.photoAsset, isEmpty);
     expect(c.profile.appleConnected, isFalse);
     expect(c.profile.logins, isEmpty);
-    expect(c.displayName(), 'Profile not set');
+    expect(c.displayName(), 'Welcome to Movera');
 
     final prefs = await SharedPreferences.getInstance();
     final persisted = jsonDecode(prefs.getString(key)!) as Map<String, dynamic>;
@@ -177,7 +177,7 @@ void main() {
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);
     expect(find.byIcon(Icons.person_outline_rounded), findsWidgets);
-    expect(find.text('Profile not set'), findsOneWidget);
+    expect(find.text('Add your name'), findsOneWidget);
     expect(find.text('rider@example.test · Verified'), findsOneWidget);
     expect(find.text('Name, phone, email, language'), findsOneWidget);
     expect(find.text('Ben Gleason'), findsNothing);
