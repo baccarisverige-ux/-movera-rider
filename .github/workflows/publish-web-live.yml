@@ -137,6 +137,10 @@ jobs:
           cp -a build/web/. /tmp/movera-web/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # flutter build regenerates tracked files (plugin registrants, pubspec.lock)
+          # as a side effect; the built output is already copied to /tmp/movera-web
+          # above, so discard those before switching branches or checkout aborts.
+          git checkout -- .
           git fetch origin web-live:web-live
           git checkout web-live
           git rm -rf . || true
