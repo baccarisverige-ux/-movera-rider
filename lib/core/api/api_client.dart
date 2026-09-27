@@ -172,8 +172,12 @@ class ApiClient {
       if (payload is! Map<String, dynamic>) return null;
       final access = payload['accessToken'];
       final nextRefresh = payload['refreshToken'];
-      if (access is! String || access.isEmpty ||
-          nextRefresh is! String || nextRefresh.isEmpty) return null;
+      if (access is! String ||
+          access.isEmpty ||
+          nextRefresh is! String ||
+          nextRefresh.isEmpty) {
+        return null;
+      }
       await _tokens?.save(access: access, refresh: nextRefresh);
       return access;
     } catch (_) {
