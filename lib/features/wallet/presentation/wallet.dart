@@ -7,6 +7,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
 
 Future<void> showVoucherUnavailableSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);
@@ -451,7 +452,7 @@ class _WalletHomeState extends State<WalletHome> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'kr ${_balance.toStringAsFixed(0)}',
+                        formatKr(_balance),
                         style: _style(
                           34,
                           weight: FontWeight.w700,

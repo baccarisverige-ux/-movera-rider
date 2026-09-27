@@ -6,6 +6,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/checkbox.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
@@ -63,7 +64,8 @@ class _CreateAccountState extends State<CreateAccount> {
       MoveraToast.show(context, 'Enter your full name.');
       return;
     }
-    if (digits.length < 6) {
+    final number = SwedishPhone.toE164('$selectedCountryCode$digits');
+    if (number == null) {
       MoveraToast.show(context, 'Enter a valid phone number.');
       return;
     }
@@ -71,7 +73,6 @@ class _CreateAccountState extends State<CreateAccount> {
       MoveraToast.show(context, 'Accept the Terms and Privacy Policy to continue.');
       return;
     }
-    final number = '$selectedCountryCode$digits';
     setState(() => _submitting = true);
     try {
       final challenge = await _auth.requestOtp(

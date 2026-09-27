@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -92,7 +93,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       MoveraToast.show(context, 'This verification code has expired. Request a new one.');
       return;
     }
-    if (!RegExp(r'^\d{4}$').hasMatch(_pin)) {
+    if (!RidePin.isValidFormat(_pin)) {
       MoveraToast.show(context, 'Enter the 4-digit verification code.');
       return;
     }

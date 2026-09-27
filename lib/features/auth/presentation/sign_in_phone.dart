@@ -5,6 +5,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_btn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -59,8 +60,9 @@ class _SignInPhoneState extends State<SignInPhone> {
 
   Future<void> _continue() async {
     if (_submitting) return;
-    final number = _enteredNumber;
-    if (number == null || number.length < 7) {
+    final entered = _enteredNumber;
+    final number = entered == null ? null : SwedishPhone.toE164(entered);
+    if (number == null) {
       MoveraToast.show(context, 'Enter a valid phone number.');
       return;
     }

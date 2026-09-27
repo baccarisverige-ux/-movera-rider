@@ -1,3 +1,5 @@
+import 'package:movera_rider/shared/formatters/money.dart';
+
 class SupportRide {
   const SupportRide({
     required this.title,
@@ -51,6 +53,6 @@ class SupportRide {
       return extra == null ? 'kr 0 · Cancelled' : 'kr 0 · Cancelled · $extra';
     }
     if (failed) return 'Failed';
-    return 'kr ${price.toStringAsFixed(0)}';
+    return formatKr(price);
   }
 }

@@ -31,6 +31,8 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -432,18 +434,10 @@ class _SelectRideState extends State<SelectRide>
   String _compactAddress(String value) {
     final cleaned = value.trim();
     if (cleaned.isEmpty) return 'Unknown place';
-    final parts = cleaned
-        .split(',')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .where((part) => !RegExp(r'^\d{3,}$').hasMatch(part))
-        .toList();
-    if (parts.isEmpty) return cleaned;
-    if (parts.length == 1) return parts.first;
-    return '${parts[0]}, ${parts[1]}';
+    return shortenPlace(cleaned);
   }
 
-  String _kr(double value) => 'kr ${value.toStringAsFixed(0)}';
+  String _kr(double value) => formatKr(value);
 
   double _minSheet(MediaQueryData media) =>
       (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);

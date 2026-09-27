@@ -3,6 +3,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/shared/formatters/name_format.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -47,9 +48,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: TextWidget(
-              text: driver.name.trim().isEmpty
-                  ? '?'
-                  : driver.name.trim().substring(0, 1).toUpperCase(),
+              text: initialFromName(driver.name, whenEmpty: '?'),
               color: const Color(0xFF2D5878),
               fontSize: 28,
               fontWeight: fwSemiBold,
