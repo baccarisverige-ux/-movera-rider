@@ -46,7 +46,7 @@ class ApiRideRealtime implements RideRealtime {
       onCancel: () {
         poll.timer?.cancel();
         poll.timer = null;
-        _rides.remove(id);
+        if (identical(_rides[id], poll)) _rides.remove(id);
         final controller = poll.controller;
         if (controller != null) unawaited(controller.close());
         if (_rides.isEmpty) connection.markDisconnected();
