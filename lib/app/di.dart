@@ -94,7 +94,7 @@ class AppScope {
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = environment.allowsMockTransport
         ? MockRideRealtime(api: api, connection: realtime)
-        : ApiRideRealtime(api: api);
+        : ApiRideRealtime(api: api, connection: realtime);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search);
