@@ -317,6 +317,81 @@ void main() {
   );
 
   phase114Widgets(
+    'Phase 136 repro: an off-grid but otherwise legal return prefill still goes through the validated picker',
+    (tester) async {
+      final now = StockholmSchedule.stockholmNow();
+      final onGridSoon = StockholmSchedule.roundToFive(
+        DateTime(
+          now.year,
+          now.month,
+          now.day,
+          now.hour,
+          now.minute,
+        ).add(const Duration(hours: 2)),
+      );
+      // +2 min keeps the offset off-grid through the +3h return prefill,
+      // since 3 hours is an exact multiple of the 5-minute slot.
+      final offGridOriginPickup = onGridSoon.add(const Duration(minutes: 2));
+      final ride = origin(offGridOriginPickup);
+      final prefill = ride.scheduledPickupAt.add(const Duration(hours: 3));
+      expect(
+        StockholmSchedule.isLegalPickup(prefill),
+        isTrue,
+        reason: 'precondition: origin + 3 h is well past the 30-minute lead',
+      );
+      expect(
+        StockholmSchedule.isOnGrid(prefill),
+        isFalse,
+        reason: 'precondition: origin + 3 h keeps the 2-minute off-grid offset',
+      );
+
+      final c = reservations();
+      final opened = <String>[];
+      await pumpApp(
+        tester,
+        PlanReturnRidePage(
+          origin: ride,
+          controller: c,
+          onScheduled: (context, id) async => opened.add(id),
+        ),
+      );
+
+      await tapSchedule(tester);
+      await waitForNextStep(tester);
+
+      expect(
+        find.byType(ConfirmPickupSpot),
+        findsNothing,
+        reason: 'an off-grid prefill must not skip straight to pickup confirm',
+      );
+      expect(
+        find.byType(ScheduleDateTimeSelector),
+        findsOneWidget,
+        reason:
+            'an off-grid return prefill must open the shared validated picker',
+      );
+      expect(c.all, isEmpty);
+
+      final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
+      await tester.ensureVisible(continueButton);
+      await tester.tap(continueButton);
+      await tester.pump();
+      await confirmPickupSpot(tester);
+      await settleBooking(tester, opened);
+
+      expect(c.all, hasLength(1));
+      final booked = c.all.single;
+      expect(opened, [booked.reservationId]);
+      expect(booked.parentReservationId, 'rsv_origin');
+      expect(
+        StockholmSchedule.isOnGrid(booked.scheduledPickupAt),
+        isTrue,
+        reason: 'the picker grid-aligns the final booked time',
+      );
+    },
+  );
+
+  phase114Widgets(
     'Phase 114 regression guard: main Schedule flow books its picked time without reopening the picker',
     (tester) async {
       final c = reservations();
