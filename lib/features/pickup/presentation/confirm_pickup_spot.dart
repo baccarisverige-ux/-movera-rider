@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -186,6 +187,12 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     await _map?.animateCamera(CameraUpdate.newLatLng(_center));
   }
 
+  void _confirmPosition() {
+    final position = _center;
+    final address = confirmedPickupAddress(_address, position);
+    Navigator.pop(context, ConfirmPickupResult(position: position, address: address));
+  }
+
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
@@ -363,13 +370,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     height: 54,
                     child: FilledButton(
                       onPressed: _hasUsablePickupCoordinates
-                          ? () => Navigator.pop(
-                                context,
-                                ConfirmPickupResult(
-                                  position: _center,
-                                  address: _address,
-                                ),
-                              )
+                          ? _confirmPosition
                           : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF11181D),

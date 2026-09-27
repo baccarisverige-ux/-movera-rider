@@ -55,7 +55,7 @@ class AppGeocoding implements GeocodingRepository {
     _reverseInFlight[key] = future;
     try {
       final result = await future;
-      _reverseCache[key] = _CachedValue(result);
+      if (result != null) _reverseCache[key] = _CachedValue(result);
       return result;
     } finally {
       if (identical(_reverseInFlight[key], future)) _reverseInFlight.remove(key);

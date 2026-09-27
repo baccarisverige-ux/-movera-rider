@@ -48,18 +48,24 @@ class PickupMapController {
     if (resolving) return null;
     resolving = true;
     final generation = _stale.next();
-    final address = await geocoding.reverseGeocodeAddress(
-      position.latitude,
-      position.longitude,
-    );
-    resolving = false;
-    if (!_stale.isCurrent(generation)) return null;
-    PickupRepository.instance.remember(
-      address: address,
-      lat: position.latitude,
-      lng: position.longitude,
-    );
-    return address;
+    try {
+      final address = await geocoding.reverseGeocodeAddress(
+        position.latitude,
+        position.longitude,
+      );
+      if (!_stale.isCurrent(generation)) return null;
+      if (address == null || address.trim().isEmpty) return null;
+      PickupRepository.instance.remember(
+        address: address,
+        lat: position.latitude,
+        lng: position.longitude,
+      );
+      return address;
+    } catch (_) {
+      return null;
+    } finally {
+      resolving = false;
+    }
   }
 
   Future<PickupCurrentPositionResult> currentPosition() async {

@@ -168,7 +168,7 @@ class RiderSideMenu extends StatelessWidget {
             icon: Icons.account_balance_wallet_outlined,
             image: null,
             title: 'Wallet',
-            onTap: () => _pushPage(context, const WalletHome()),
+            onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
           ),
           (
             icon: Icons.history_rounded,
@@ -180,7 +180,7 @@ class RiderSideMenu extends StatelessWidget {
             icon: Icons.credit_card_outlined,
             image: null,
             title: 'Payments',
-            onTap: () => _pushPage(context, const WalletScreen()),
+            onTap: () => _pushPage(context, const WalletAndPaymentsScreen(initialTab: 1)),
           ),
           // Notifications and Saved places were both finished screens with no
           // way in: nothing in the app built either of them.

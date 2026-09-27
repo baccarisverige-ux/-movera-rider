@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -9,6 +10,8 @@ import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/motion/bearing.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
@@ -34,6 +37,7 @@ import 'package:movera_rider/features/safety/application/safety_controller.dart'
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -96,6 +100,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     realtime: widget.realtime,
     pickupLat: widget.pickupPosition.latitude,
     pickupLng: widget.pickupPosition.longitude,
+    destinationLat: widget.destinationPosition.latitude,
+    destinationLng: widget.destinationPosition.longitude,
     persistRideSnapshot: widget.persistRideSnapshot,
   );
   late final CameraPosition _initialPosition;
@@ -109,6 +115,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _overlayOn = false;
   bool _mapParked = false;
   bool _modalHandoffInProgress = false;
+  bool _arrivedSheetShowing = false;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
@@ -125,6 +132,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     setWebOverlayOpen(false);
     _tracking.driver = widget.driver;
     SafetyController.shared.load();
+    final realtime = _realtime;
+    if (realtime is MockRideRealtime) {
+      realtime.destinationLat = widget.destinationPosition.latitude;
+      realtime.destinationLng = widget.destinationPosition.longitude;
+    }
     final rideId = _rideId;
     if (rideId != null && rideId.trim().isNotEmpty) {
       _tracking.start(
@@ -132,12 +144,43 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         initial: widget.driver,
         onChange: _onLiveTick,
       );
+    } else {
+      // No rideId means nothing will ever subscribe: no driver marker, no
+      // status changes, and previously no error either — the screen just
+      // sat there silently. Say so explicitly instead.
+      _missingRideId = true;
     }
+  }
+
+  bool _missingRideId = false;
+
+  void _retryTracking() {
+    final rideId = _rideId;
+    if (rideId == null || rideId.trim().isEmpty) return;
+    setState(() => _missingRideId = false);
+    _tracking.start(
+      rideId: rideId,
+      initial: widget.driver,
+      onChange: _onLiveTick,
+    );
   }
 
   void _onLiveTick() {
     if (!mounted) return;
     final status = _tracking.status;
+
+    // The arrived sheet is a modal route sitting on top of this screen, so
+    // stage navigation deliberately waits for it to close before acting (see
+    // _drainStageNavigation's !_routeIsCurrent guard) — otherwise the trip
+    // could start and finish entirely behind a sheet the rider hasn't
+    // dismissed yet, and dismissing it would then jump straight to "Trip
+    // complete" with the in-trip phase never shown. Close it the moment the
+    // trip actually starts so the rider sees that phase instead of skipping it.
+    if (_arrivedSheetShowing && DriverEta.isInTrip(status)) {
+      _arrivedSheetShowing = false;
+      final nav = Navigator.of(context, rootNavigator: true);
+      if (nav.canPop()) nav.pop();
+    }
 
     // A driver drop is a reversible dispatch event, not the end of the
     // rider's trip. Handle it on the active Waiting owner immediately instead
@@ -196,12 +239,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       return;
     }
     _arrivalAnnounced = true;
+    _arrivedSheetShowing = true;
     unawaited(
       showDriverArrivedSheet(
         context,
         driver: _tracking.driver ?? widget.driver,
         onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
-      ),
+      ).whenComplete(() => _arrivedSheetShowing = false),
     );
   }
 
@@ -468,21 +512,35 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (!outcome.cancelled || !mounted) return;
     _leaving = true;
     setState(() {});
-    _tracking.dispose();
 
-    final customCancel = widget.onCancel;
-    if (customCancel != null) {
+    try {
+      final customCancel = widget.onCancel;
+      if (customCancel != null) {
+        // Tracking is only torn down once the custom handler has actually
+        // taken over the ride; if it throws, live updates must still work.
+        await customCancel(context, outcome.reasonId);
+        if (!mounted) return;
+        _tracking.dispose();
+        await _parkMapForStageChange();
+        return;
+      }
+
+      await _ride.markCancelled(reasonId: outcome.reasonId);
+      if (!mounted) return;
+      _tracking.dispose();
       await _parkMapForStageChange();
       if (!mounted) return;
-      await customCancel(context, outcome.reasonId);
-      return;
+      RideNavigator.home(context);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _leaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't cancel your ride. Try again."),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-
-    await _ride.markCancelled(reasonId: outcome.reasonId);
-    if (!mounted) return;
-    await _parkMapForStageChange();
-    if (!mounted) return;
-    RideNavigator.home(context);
   }
 
   void _openProfile() {
@@ -508,10 +566,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
-  bool get _isInTrip =>
-      _tracking.status == RideStatus.tripStarted ||
-      _tracking.status == RideStatus.tripInProgress ||
-      _tracking.status == RideStatus.approachingDropoff;
+  bool get _isInTrip => DriverEta.isInTrip(_tracking.status);
 
   Future<void> _openDetails() async {
     await MoveraSheet.show<void>(
@@ -597,6 +652,37 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   @override
   Widget build(BuildContext context) {
+    if (_missingRideId) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF6F5F1),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  MoveraEmptyState(
+                    icon: Icons.error_outline_rounded,
+                    title: "Can't track this ride",
+                    message:
+                        "We lost track of which ride this is, so driver "
+                        'updates can\'t load. Try again, or go back to Home.',
+                    actionLabel: 'Retry',
+                    onAction: _retryTracking,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => RideNavigator.home(context),
+                    child: const Text('Go home'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final driver = _tracking.driver ?? widget.driver;
     final eta = _tracking.eta;
     final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
@@ -635,6 +721,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       pickupAddress: widget.pickupAddress,
                       destinationAddress: widget.destinationAddress,
                       tracking: _tracking,
+                      cameraBottomPadding: _collapsedSheet(media),
                     ),
             ),
             Positioned(
@@ -644,10 +731,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               child: PointerInterceptor(
                 child: Row(
                   children: [
+                    // Always the cancel action, never "collapse" — the
+                    // chevron this used to show pre-trip is Finding's icon
+                    // for collapsing its own sheet, and sharing it here made
+                    // a rider trying to minimise the sheet land in the
+                    // cancel flow instead.
                     MoveraIconButton.round(
-                      icon: _isInTrip
-                          ? Icons.close_rounded
-                          : Icons.keyboard_arrow_down_rounded,
+                      icon: Icons.close_rounded,
                       onPressed: _confirmCancel,
                       label: 'Cancel ride',
                     ),
@@ -814,9 +904,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             rideType: widget.rideType,
             pickupAddress: widget.pickupAddress,
             destinationAddress: widget.destinationAddress,
-            inTrip:
-                _tracking.status == RideStatus.tripStarted ||
-                _tracking.status == RideStatus.tripInProgress,
+            inTrip: _isInTrip,
             paymentMethod: widget.paymentMethod,
             price: widget.price,
             onMore: _openDetails,
@@ -837,6 +925,7 @@ class _WaitingRideMap extends StatefulWidget {
     required this.pickupAddress,
     required this.destinationAddress,
     required this.tracking,
+    this.cameraBottomPadding = 140,
   });
 
   final CameraPosition initialPosition;
@@ -846,25 +935,51 @@ class _WaitingRideMap extends StatefulWidget {
   final String destinationAddress;
   final DriverTrackingController tracking;
 
+  /// Approximates the sheet's on-screen clearance so [fitBounds] doesn't
+  /// frame the driver and target only to have the bottom sheet cover them.
+  final double cameraBottomPadding;
+
   @override
   State<_WaitingRideMap> createState() => _WaitingRideMapState();
 }
 
-class _WaitingRideMapState extends State<_WaitingRideMap> {
+class _WaitingRideMapState extends State<_WaitingRideMap>
+    with SingleTickerProviderStateMixin {
   Set<Marker> _markers = const <Marker>{};
   Set<Polyline> _polylines = const <Polyline>{};
   BitmapDescriptor? _riderPuck;
   BitmapDescriptor? _driverCar;
   DateTime? _lastPaint;
+  Timer? _pendingRepaint;
   DateTime? _lastRouteRefresh;
   bool _mapReady = false;
   String? _routeKey;
   Widget? _leaf;
+  bool _approximateRoute = false;
 
-  bool get _inTrip =>
-      widget.tracking.status == RideStatus.tripStarted ||
-      widget.tracking.status == RideStatus.tripInProgress ||
-      widget.tracking.status == RideStatus.approachingDropoff;
+  // M-01/M-02: the driver marker used to teleport to each new fix. Ease
+  // between the last displayed position/heading and the new one instead.
+  late final AnimationController _driverAnim = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..addListener(() {
+      if (!mounted) return;
+      setState(() {
+        _markers = _buildMarkers();
+        _leaf = null;
+      });
+    });
+  LatLng? _driverAnimFrom;
+  LatLng? _driverAnimTo;
+  double _driverHeadingFrom = 0;
+  double _driverHeadingTo = 0;
+
+  // M-08: last point the camera was fit to, so a fix that hasn't moved the
+  // driver meaningfully doesn't re-trigger animateCamera every paint.
+  LatLng? _lastFitDriverPoint;
+  bool _lastFitInTrip = false;
+
+  bool get _inTrip => DriverEta.isInTrip(widget.tracking.status);
 
   @override
   void initState() {
@@ -892,13 +1007,30 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
     }
   }
 
+  @override
+  void dispose() {
+    _pendingRepaint?.cancel();
+    _driverAnim.dispose();
+    super.dispose();
+  }
+
   void paintIfDue() {
     final now = DateTime.now();
     if (_lastPaint != null &&
         now.difference(_lastPaint!) < const Duration(milliseconds: 400)) {
+      // M-03: a fix arriving inside the throttle window used to be dropped
+      // until the next unrelated event happened to call paintIfDue again.
+      // Schedule one for the remainder of this window instead.
+      final remaining =
+          const Duration(milliseconds: 400) - now.difference(_lastPaint!);
+      _pendingRepaint?.cancel();
+      _pendingRepaint = Timer(remaining, () {
+        if (mounted) paintIfDue();
+      });
       return;
     }
     _lastPaint = now;
+    _updateDriverAnimation();
 
     final next = _buildMarkers();
     final markersChanged = !_sameMarkers(_markers, next);
@@ -908,6 +1040,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         _leaf = null;
       });
     }
+    _maybeFitCamera();
 
     if (_mapReady &&
         (_lastRouteRefresh == null ||
@@ -915,6 +1048,88 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
                 const Duration(seconds: 10))) {
       unawaited(_refreshRoadRoute());
     }
+  }
+
+  /// Feeds a new fix into the from/to pair the animation eases between.
+  /// The very first fix snaps (there is nothing to ease from yet).
+  void _updateDriverAnimation() {
+    final eta = widget.tracking.eta;
+    final lat = eta?.latitude;
+    final lng = eta?.longitude;
+    if (lat == null || lng == null) return;
+    final next = LatLng(lat, lng);
+    final previousTo = _driverAnimTo;
+    if (previousTo != null &&
+        previousTo.latitude == next.latitude &&
+        previousTo.longitude == next.longitude) {
+      return;
+    }
+    if (previousTo == null) {
+      // First fix: nothing to animate from.
+      _driverAnimFrom = next;
+      _driverAnimTo = next;
+      _driverHeadingFrom = 0;
+      _driverHeadingTo = 0;
+      return;
+    }
+    _driverAnimFrom = _currentDriverPosition() ?? previousTo;
+    _driverAnimTo = next;
+    _driverHeadingFrom = _currentDriverHeading();
+    _driverHeadingTo = _bearingDegrees(previousTo, next) ?? _driverHeadingFrom;
+    _driverAnim
+      ..stop()
+      ..forward(from: 0);
+  }
+
+  LatLng? _currentDriverPosition() {
+    final from = _driverAnimFrom;
+    final to = _driverAnimTo;
+    if (from == null || to == null) return to;
+    final t = _driverAnim.value;
+    return LatLng(
+      from.latitude + (to.latitude - from.latitude) * t,
+      from.longitude + (to.longitude - from.longitude) * t,
+    );
+  }
+
+  double _currentDriverHeading() {
+    if (_driverAnimFrom == null) return _driverHeadingTo;
+    return lerpHeading(_driverHeadingFrom, _driverHeadingTo, _driverAnim.value);
+  }
+
+  /// Initial bearing from [from] to [to] in degrees, or null when the two
+  /// points coincide (no direction to point).
+  double? _bearingDegrees(LatLng from, LatLng to) {
+    if (from.latitude == to.latitude && from.longitude == to.longitude) {
+      return null;
+    }
+    final lat1 = from.latitude * math.pi / 180;
+    final lat2 = to.latitude * math.pi / 180;
+    final dLng = (to.longitude - from.longitude) * math.pi / 180;
+    final y = math.sin(dLng) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) -
+        math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
+    return normalizeHeading(math.atan2(y, x) * 180 / math.pi);
+  }
+
+  void _maybeFitCamera() {
+    final driver = _currentDriverPosition();
+    if (driver == null) return;
+    final target = _inTrip ? widget.destinationPosition : widget.pickupPosition;
+    final samePoint = _lastFitDriverPoint != null &&
+        _lastFitInTrip == _inTrip &&
+        _lastFitDriverPoint!.latitude == driver.latitude &&
+        _lastFitDriverPoint!.longitude == driver.longitude;
+    if (samePoint) return;
+    _lastFitDriverPoint = driver;
+    _lastFitInTrip = _inTrip;
+    unawaited(
+      AppScope.instance.maps.fitBounds(
+        GeoPoint(driver.latitude, driver.longitude),
+        GeoPoint(target.latitude, target.longitude),
+        padding: widget.cameraBottomPadding,
+      ),
+    );
   }
 
   bool _sameMarkers(Set<Marker> current, Set<Marker> next) {
@@ -931,7 +1146,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
   }
 
   Set<Marker> _buildMarkers() {
-    final eta = widget.tracking.eta;
+    final driverPosition = _currentDriverPosition();
     return {
       if (!_inTrip && _riderPuck != null)
         Marker(
@@ -949,11 +1164,11 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
         ),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
-      if (eta?.latitude != null && eta?.longitude != null)
+      if (driverPosition != null)
         Marker(
           markerId: const MarkerId('driver'),
-          position: LatLng(eta!.latitude!, eta.longitude!),
-          rotation: 0,
+          position: driverPosition,
+          rotation: _currentDriverHeading(),
           flat: true,
           anchor: const Offset(0.5, 0.5),
           icon:
@@ -1029,40 +1244,74 @@ class _WaitingRideMapState extends State<_WaitingRideMap> {
     );
     if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
 
+    // roadRoutePolyline falls back to a straight two-point line whenever a
+    // real road route can't be resolved. A genuine road route for anything
+    // but a trivially short hop has more than two vertices, so this is a
+    // reasonable signal to tell the rider the line is approximate rather
+    // than implying turn-by-turn accuracy that isn't there.
+    final approximate = route.points.length <= 2;
     setState(() {
       _polylines = {route};
+      _approximateRoute = approximate;
       _leaf = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return _leaf ??= RepaintBoundary(
-      child: CustomGoogleMap(
-        key: const ValueKey('waiting-map'),
-        initialPosition: widget.initialPosition,
-        markers: _markers,
-        polylines: _polylines,
-        myLocationEnabled: false,
-        myLocationButtonEnabled: false,
-        zoomControlsEnabled: false,
-        mapToolbarEnabled: false,
-        compassEnabled: false,
-        trafficEnabled: false,
-        buildingsEnabled: false,
-        indoorViewEnabled: false,
-        tiltGesturesEnabled: false,
-        rotateGesturesEnabled: false,
-        mapType: MapType.normal,
-        onMapCreated: (controller) {
-          _mapReady = true;
-          AppScope.instance.maps.attach(
-            controller,
-            owner: MapOwners.waiting,
-          );
-          unawaited(_refreshRoadRoute(force: true));
-        },
-      ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: _leaf ??= RepaintBoundary(
+            child: CustomGoogleMap(
+              key: const ValueKey('waiting-map'),
+              initialPosition: widget.initialPosition,
+              markers: _markers,
+              polylines: _polylines,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              compassEnabled: false,
+              trafficEnabled: false,
+              buildingsEnabled: false,
+              indoorViewEnabled: false,
+              tiltGesturesEnabled: false,
+              rotateGesturesEnabled: false,
+              mapType: MapType.normal,
+              onMapCreated: (controller) {
+                _mapReady = true;
+                AppScope.instance.maps.attach(
+                  controller,
+                  owner: MapOwners.waiting,
+                );
+                unawaited(_refreshRoadRoute(force: true));
+              },
+            ),
+          ),
+        ),
+        if (_approximateRoute)
+          Positioned(
+            left: 12,
+            bottom: 12,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Approximate route',
+                  style: TextStyle(color: Colors.white, fontSize: 11),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -15,6 +15,7 @@ import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
@@ -27,7 +28,6 @@ import 'package:movera_rider/features/home/application/home_sheet_controller.dar
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
-import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
@@ -52,7 +52,6 @@ import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
@@ -66,7 +65,8 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> with WidgetsBindingObserver {
   final SheetController _homeSheetController = SheetController();
-  final PanelController _profilePanelController = PanelController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _drawerOpen = false;
   late final HomeSheetController _sheetCtl = HomeSheetController(
     controller: _homeSheetController,
     minPixels: () => _sheetMinPixels,
@@ -384,6 +384,15 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   void _rememberAddress(String address) => _places.remember(address);
 
+  Future<String> _bookingPickup(String label, LatLng position) =>
+      bookingPickupAddress(
+        label: label,
+        position: position,
+        reverse: (point) => AppScope.instance.geocoding.reverse(
+          GeoPoint(point.latitude, point.longitude),
+        ),
+      );
+
   Future<void> _saveAddressFor(
     String target,
     String address, {
@@ -466,8 +475,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       );
       if (pickupResult == null || !mounted) return null;
       final pickupPosition = pickupResult.position;
+      final bookingAddress = await _bookingPickup(
+        pickupResult.address,
+        pickupPosition,
+      );
+      if (!mounted) return null;
       setState(() {
-        _pickupAddress = pickupResult.address;
+        _pickupAddress = bookingAddress;
         _tripPickupLatLng = pickupResult.position;
       });
       if (!mounted) return null;
@@ -492,7 +506,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       return Navigator.of(context).push(
         RideStageTransition(
           SelectRide(
-            pickupAddress: _pickupAddress ?? 'Current location',
+            pickupAddress: bookingAddress,
             destinationAddress: resolvedDestination,
             pickupPosition: confirmedPickupPosition,
             destinationPosition: confirmedDestinationPosition,
@@ -1340,7 +1354,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       routePreparationWatch.elapsed,
       stopCount: rawStops.length,
     );
-    final pickup = normalizedRoute[0];
+    var pickup = normalizedRoute[0];
     final destination = normalizedRoute[1];
     final stops = normalizedRoute
         .skip(2)
@@ -1352,6 +1366,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final exactPickupPosition = pickupLat != null && pickupLng != null
         ? LatLng(pickupLat, pickupLng)
         : (_tripPickupLatLng ?? _currentLatLng);
+    if (exactPickupPosition != null) {
+      pickup = await _bookingPickup(pickup, exactPickupPosition);
+      if (!mounted) return;
+    }
     final destinationLat = draft['destinationLat'] as double?;
     final destinationLng = draft['destinationLng'] as double?;
     final exactDestinationPosition =
@@ -2044,10 +2062,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   void _openPayment() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const WalletScreen()),
-    );
+    unawaited(_withParkedHomeMap(() {
+      return Navigator.of(context).push(
+        RightToLeftTransition(const WalletAndPaymentsScreen(initialTab: 1)),
+      );
+    }));
   }
 
   void _openAccount() {
@@ -2066,10 +2085,24 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final topInset = MediaQuery.of(context).padding.top + ResSize.h * 8;
     final fullSheetPixels = viewportHeight - topInset;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_destinationSheetOpen && !_drawerOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_drawerOpen) {
+          _scaffoldKey.currentState?.closeDrawer();
+        } else if (_destinationSheetOpen) {
+          _closeDestinationSheet();
+        }
+      },
+      child: Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFEEF1E8),
       extendBody: true,
       drawer: const RiderSideMenu(),
+      onDrawerChanged: (open) {
+        if (mounted) setState(() => _drawerOpen = open);
+      },
       drawerScrimColor: Colors.black.withValues(alpha: 0.38),
       body: FocusTraversalGroup(
         child: Listener(
@@ -2230,16 +2263,11 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            RiderProfile(
-              controller: _profilePanelController,
-              onClose: () {
-                _profilePanelController.close();
-              },
-            ),
           ],
           ),
         ),
       ),
+    ),
     );
   }
 

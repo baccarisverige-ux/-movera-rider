@@ -11,6 +11,7 @@ import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
@@ -97,6 +98,7 @@ Future<void> bootstrap() async {
   await AppScope.instance.reservations.hydrate();
   await AppScope.instance.profile.hydrate();
   await _registerExistingPushSession();
+  unawaited(FindingDriverController.flushPendingCancels());
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
   runZonedGuarded(

@@ -9,7 +9,10 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/features/auth/presentation/sign_in.dart';
+import 'package:movera_rider/features/auth/presentation/create_acc.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in_phone.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:pinput/pinput.dart';
 
 void main() {
@@ -75,6 +78,7 @@ void main() {
     );
 
     expect(find.text('Phone verification'), findsOneWidget);
+    expect(find.byType(Home, skipOffstage: false), findsNothing);
     await tester.tap(find.byType(Pinput));
     await tester.enterText(find.byType(EditableText).last, '9999');
     await tester.pump();
@@ -84,5 +88,29 @@ void main() {
 
     expect(find.text('Phone verification'), findsOneWidget);
     expect(find.textContaining('not valid'), findsAtLeastNWidgets(1));
+    expect(find.byType(Home, skipOffstage: false), findsNothing);
+  });
+
+  testWidgets('auth-required sign-in reaches create-account phone flow', (tester) async {
+    const authEnv = AppEnv(
+      flavor: AppFlavor.test,
+      apiBaseUrl: 'https://api.test.movera.invalid',
+      mapsEnabled: true,
+      authRequired: true,
+    );
+    final tokens = MemoryTokenStore();
+    final controller = AuthController(
+      auth: AuthRepository(
+        api: ApiClient(env: authEnv, client: InProcessMockClient(), tokens: tokens),
+        tokens: tokens,
+      ),
+    );
+    await pump(tester, SignIn(controller: controller));
+    expect(find.byType(Home, skipOffstage: false), findsNothing);
+    await tester.tap(find.text('Continue with phone'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(CreateAccount), findsOneWidget);
+    expect(find.byType(Home, skipOffstage: false), findsNothing);
   });
 }

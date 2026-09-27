@@ -1,6 +1,10 @@
+import 'package:flutter/material.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/app/config/pin_composition.dart';
 import 'package:movera_rider/app/config/transport_composition.dart';
+import 'package:movera_rider/app/config/auth_composition.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/secure_token_store.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
@@ -30,6 +34,7 @@ import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/sockets/socket_client.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
+import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
@@ -40,6 +45,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
@@ -67,7 +73,17 @@ class AppScope {
         booking = BookingCoordinator(),
         reservations = ReservationController(environment: environment),
         profile = ProfileController() {
-    api = ApiClient(env: environment, tokens: tokens);
+    api = ApiClient(
+      env: environment,
+      tokens: tokens,
+      onSessionExpired: () async {
+        await RideSnapshotStore.clear();
+        moveraNavigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => const SignIn()),
+          (_) => false,
+        );
+      },
+    );
     paymentGateway = environment.allowsMockTransport
         ? MockPaymentGateway()
         : ApiPaymentGateway(api: api);
@@ -94,7 +110,7 @@ class AppScope {
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = environment.allowsMockTransport
         ? MockRideRealtime(api: api, connection: realtime)
-        : ApiRideRealtime(api: api);
+        : ApiRideRealtime(api: api, connection: realtime);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
     destinationSearch = DestinationSearchController(search);
@@ -106,6 +122,10 @@ class AppScope {
       routing: routing,
     );
 
+    PinComposition.validate(
+      environment: environment,
+      usesMockPinIssuance: api.usesMockTransport,
+    );
     TransportComposition.validate(
       environment: environment,
       api: api,
@@ -118,6 +138,7 @@ class AppScope {
       crashes: Observability.crashes,
       usesMockDriverAssignment: reservations.usesMockDriverAssignment,
     );
+    AuthComposition.validate(environment);
   }
 
   static final instance = AppScope._(AppEnv.current);

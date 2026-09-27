@@ -259,15 +259,18 @@ class SafetyPinCadre extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < digits.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  _PinDigit(digits[i]),
+            LayoutBuilder(builder: (context, constraints) => FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < digits.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    _PinDigit(digits[i]),
+                  ],
                 ],
-              ],
-            ),
+              ),
+            )),
             const SizedBox(height: 18),
             Text(
               caption,

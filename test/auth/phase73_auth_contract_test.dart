@@ -7,13 +7,17 @@ import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
-import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+  });
 
   const testEnv = AppEnv(
     flavor: AppFlavor.test,
@@ -100,7 +104,7 @@ void main() {
     expect(root, isA<SignIn>());
   });
 
-  test('active ride restore wins over auth gate', () async {
+  test('active ride restore requires session and clears stale snapshot', () async {
     final snapshot = RideSnapshot(
       status: RideStatus.findingDriver,
       savedAt: DateTime.now(),
@@ -122,9 +126,13 @@ void main() {
       resync: (_) async {},
     );
 
+    await RideSnapshotStore.save(snapshot);
+    expect((await RideSnapshotStore.read())?.rideId, 'ride_phase73');
+
     final root = await coordinator.root();
 
-    expect(root, isA<FindingDrivers>());
+    expect(root, isA<SignIn>());
+    expect(await RideSnapshotStore.read(), isNull);
   });
 
   test('expired OTP challenge is rejected before verify transport', () {

@@ -188,7 +188,8 @@ void main() {
     });
     expect(parsed.pin, '4242');
     expect(parsed.requiredForStart, isTrue);
-    expect(RidePin.fromJson({'pin': 'nope'}).pin.length, 4);
+    expect(RidePin.fromJson({'pin': 'nope'}).pin, isEmpty);
+    expect(RidePin.fromJson(null).isAvailable, isFalse);
     expect(SafetyPreferences.fromJson(null).pinRequired, isFalse);
   });
 
