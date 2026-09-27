@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' show Offset;
+import 'dart:ui' show Color, Offset;
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -14,6 +14,24 @@ import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
+
+/// Label for the pickup when no GPS fix exists. A fallback map point must
+/// never be called "Current location" (U2 / D-002).
+const String locationOffPickupLabel = 'Location off, set pickup';
+
+/// Whether [label] is a placeholder rather than a real address, so it must
+/// not be forward-geocoded or saved.
+bool isPlaceholderPickupLabel(String? label) {
+  final clean = label?.trim().toLowerCase() ?? '';
+  return clean.isEmpty ||
+      clean == 'current location' ||
+      clean == locationOffPickupLabel.toLowerCase();
+}
+
+/// Whether [text] is a raw "lat, lng" coordinate string (D-004).
+bool isRawCoordinateLabel(String? text) => RegExp(
+  r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
+).hasMatch(text ?? '');
 
 enum HomeLocationFailure {
   servicesDisabled,
@@ -78,6 +96,26 @@ class HomeLocationController extends ChangeNotifier {
   final StaleGuard _placeGuard = StaleGuard();
   final StaleGuard _detectGuard = StaleGuard();
   StreamSubscription<Position>? _positionSub;
+  Timer? _resubscribeTimer;
+  int _resubscribeAttempts = 0;
+  bool Function()? _trackingMounted;
+  void Function(LatLng latLng, double heading)? _trackingOnFix;
+  bool _resumeRefreshInFlight = false;
+
+  /// Accuracy (metres) of the last fix the puck was painted from, so a
+  /// low-accuracy fix is shown with its uncertainty circle (U2).
+  double? lastFixAccuracyMeters;
+
+  static const detectFixTimeout = Duration(seconds: 16);
+  static const latestFixTimeout = Duration(seconds: 9);
+
+  /// Backoff before re-subscribing after a transient stream failure.
+  @visibleForTesting
+  static Duration resubscribeDelay(int attempt) {
+    final seconds = 2 << attempt.clamp(0, 4); // 2, 4, 8, 16, 32
+    return Duration(seconds: seconds > 30 ? 30 : seconds);
+  }
+
   Timer? _headingTimer;
   Timer? _pulseTimer;
   bool Function()? _headingMounted;
@@ -144,7 +182,7 @@ class HomeLocationController extends ChangeNotifier {
         _setState(HomeLocationState.servicesDisabled);
         return const DetectedLocation(
           target: null,
-          address: 'Current location',
+          address: locationOffPickupLabel,
           heading: 0,
           failure: HomeLocationFailure.servicesDisabled,
         );
@@ -157,7 +195,7 @@ class HomeLocationController extends ChangeNotifier {
         _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
-          address: 'Current location',
+          address: locationOffPickupLabel,
           heading: 0,
           failure: HomeLocationFailure.permissionDeniedForever,
         );
@@ -166,18 +204,23 @@ class HomeLocationController extends ChangeNotifier {
         _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
-          address: 'Current location',
+          address: locationOffPickupLabel,
           heading: 0,
           failure: HomeLocationFailure.permissionDenied,
         );
       }
       _setState(HomeLocationState.acquiringFix);
-      final position = await location.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+      // D-003: geolocator_web passes timeLimit in microseconds to a JS API
+      // that expects milliseconds (15 s becomes ~4 h). The Dart-side
+      // timeout guarantees the fallback path still runs.
+      final position = await location
+          .getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 15),
+            ),
+          )
+          .timeout(detectFixTimeout);
       final generation = _detectGuard.next();
       String? detected;
       try {
@@ -214,7 +257,7 @@ class HomeLocationController extends ChangeNotifier {
       _setState(HomeLocationState.temporarilyUnavailable);
       return const DetectedLocation(
         target: null,
-        address: 'Current location',
+        address: locationOffPickupLabel,
         heading: 0,
         failure: HomeLocationFailure.unavailable,
       );
@@ -226,6 +269,10 @@ class HomeLocationController extends ChangeNotifier {
     required void Function(LatLng latLng, double heading) onFix,
   }) {
     _positionSub?.cancel();
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
+    _trackingMounted = isMounted;
+    _trackingOnFix = onFix;
     final settings = LocationSettings(
       accuracy: kIsWeb
           ? LocationAccuracy.high
@@ -237,33 +284,75 @@ class HomeLocationController extends ChangeNotifier {
         .listen(
           (position) {
             if (!isMounted() || _livePaused) return;
-            _setState(HomeLocationState.live);
-            final pose = motion.ingest(
-              LocationPoint(
-                point: GeoPoint(position.latitude, position.longitude),
-                timestamp: position.timestamp,
-                accuracyMeters: position.accuracy,
-                speedMps: position.speed,
-                heading: position.heading,
-              ),
-            );
-            final latLng = pose == null
-                ? LatLng(position.latitude, position.longitude)
-                : LatLng(pose.position.latitude, pose.position.longitude);
-            if (!hasCompassHeading &&
-                position.heading.isFinite &&
-                position.heading >= 0) {
-              heading = position.heading;
-              reportPuckHeading(heading, compass: false);
-            }
-            onFix(latLng, heading);
+            _resubscribeAttempts = 0;
+            _deliverFix(position, onFix);
           },
-          onError: (Object _) {
-            _setState(HomeLocationState.temporarilyUnavailable);
+          onError: (Object error) {
             _positionSub?.cancel();
             _positionSub = null;
+            // U2: only a permission or services problem stops tracking; any
+            // other failure re-subscribes with backoff instead of freezing
+            // the puck until the app is backgrounded.
+            if (error is PermissionDeniedException) {
+              _setState(HomeLocationState.permissionRequired);
+              return;
+            }
+            if (error is LocationServiceDisabledException) {
+              _setState(HomeLocationState.servicesDisabled);
+              return;
+            }
+            _setState(HomeLocationState.temporarilyUnavailable);
+            _scheduleResubscribe();
+          },
+          onDone: () {
+            if (_positionSub == null) return;
+            _positionSub = null;
+            _setState(HomeLocationState.temporarilyUnavailable);
+            _scheduleResubscribe();
           },
         );
+  }
+
+  void _scheduleResubscribe() {
+    final isMounted = _trackingMounted;
+    final onFix = _trackingOnFix;
+    if (isMounted == null || onFix == null || !isMounted()) return;
+    _resubscribeTimer?.cancel();
+    final delay = resubscribeDelay(_resubscribeAttempts);
+    _resubscribeAttempts += 1;
+    _resubscribeTimer = Timer(delay, () {
+      _resubscribeTimer = null;
+      if (!isMounted()) return;
+      _setState(HomeLocationState.recovering);
+      startTracking(isMounted: isMounted, onFix: onFix);
+    });
+  }
+
+  void _deliverFix(
+    Position position,
+    void Function(LatLng latLng, double heading) onFix,
+  ) {
+    _setState(HomeLocationState.live);
+    final pose = motion.ingest(
+      LocationPoint(
+        point: GeoPoint(position.latitude, position.longitude),
+        timestamp: position.timestamp,
+        accuracyMeters: position.accuracy,
+        speedMps: position.speed,
+        heading: position.heading,
+      ),
+    );
+    final latLng = pose == null
+        ? LatLng(position.latitude, position.longitude)
+        : LatLng(pose.position.latitude, pose.position.longitude);
+    lastFixAccuracyMeters = pose?.cone.accuracy ?? position.accuracy;
+    if (!hasCompassHeading &&
+        position.heading.isFinite &&
+        position.heading >= 0) {
+      heading = position.heading;
+      reportPuckHeading(heading, compass: false);
+    }
+    onFix(latLng, heading);
   }
 
   /// Requests compass permission, then polls heading. Returns whether the
@@ -299,13 +388,12 @@ class HomeLocationController extends ChangeNotifier {
 
   void _ensureHeadingPoller() {
     if (_headingTimer != null) return;
-    _headingTimer = Timer.periodic(
-      Duration(milliseconds: kIsWeb ? 250 : 100),
-      (_) {
-        if (_livePaused) return;
-        pollHeading();
-      },
-    );
+    _headingTimer = Timer.periodic(Duration(milliseconds: kIsWeb ? 250 : 100), (
+      _,
+    ) {
+      if (_livePaused) return;
+      pollHeading();
+    });
   }
 
   /// Applies one compass sample. Public for tests so heading can be verified
@@ -325,12 +413,15 @@ class HomeLocationController extends ChangeNotifier {
   }
 
   Future<LatLng?> latestFix() async {
-    final position = await location.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        timeLimit: Duration(seconds: 8),
-      ),
-    );
+    // D-003: explicit Dart-side timeout (see detectFixTimeout).
+    final position = await location
+        .getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.bestForNavigation,
+            timeLimit: Duration(seconds: 8),
+          ),
+        )
+        .timeout(latestFixTimeout);
     final target = LatLng(position.latitude, position.longitude);
     if (!hasCompassHeading &&
         position.heading.isFinite &&
@@ -379,7 +470,20 @@ class HomeLocationController extends ChangeNotifier {
     required double heading,
   }) {
     if (_livePaused) return;
-    locationCircles = {};
+    final accuracy = lastFixAccuracyMeters;
+    // U2: a low-accuracy fix is shown with its uncertainty, not hidden.
+    locationCircles = accuracy != null && accuracy.isFinite && accuracy > 30
+        ? {
+            Circle(
+              circleId: const CircleId('live_user_accuracy'),
+              center: target,
+              radius: accuracy.clamp(30, 2000).toDouble(),
+              fillColor: const Color(0x1F2D5878),
+              strokeColor: const Color(0x592D5878),
+              strokeWidth: 1,
+            ),
+          }
+        : {};
     locationDirection = {};
     markers = {
       Marker(
@@ -398,6 +502,10 @@ class HomeLocationController extends ChangeNotifier {
   @override
   void dispose() {
     _positionSub?.cancel();
+    _resubscribeTimer?.cancel();
+    _resubscribeTimer = null;
+    _trackingMounted = null;
+    _trackingOnFix = null;
     _headingTimer?.cancel();
     _headingTimer = null;
     _pulseTimer?.cancel();
@@ -417,7 +525,28 @@ class HomeLocationController extends ChangeNotifier {
   }
 
   void resumeLiveUpdates() {
+    final wasPaused = _livePaused;
     _livePaused = false;
+    // U2: fixes were dropped while paused, and a stationary rider may not
+    // produce a new stream event for a long time. Ask for one fresh fix.
+    if (wasPaused) unawaited(_refreshAfterResume());
+  }
+
+  Future<void> _refreshAfterResume() async {
+    final isMounted = _trackingMounted;
+    final onFix = _trackingOnFix;
+    if (isMounted == null || onFix == null || _resumeRefreshInFlight) return;
+    _resumeRefreshInFlight = true;
+    try {
+      final target = await latestFix();
+      if (target == null || !isMounted() || _livePaused) return;
+      _setState(HomeLocationState.live);
+      onFix(target, heading);
+    } catch (_) {
+      // No fresh fix: keep the last one; the stream will deliver the next.
+    } finally {
+      _resumeRefreshInFlight = false;
+    }
   }
 
   void recoverLiveLocation({
