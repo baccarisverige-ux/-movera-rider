@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -17,10 +21,15 @@ class RiderSearchPickupLocation extends StatefulWidget {
     super.key,
     this.places,
     this.allowCreateShortcut = true,
+    this.geocode,
   });
 
   final SavedPlacesController? places;
   final bool allowCreateShortcut;
+
+  /// Forward geocoder for the free-text field; defaults to the app's (the
+  /// same call destination text uses).
+  final Future<PlaceResult?> Function(String query)? geocode;
 
   @override
   State<RiderSearchPickupLocation> createState() =>
@@ -29,6 +38,46 @@ class RiderSearchPickupLocation extends StatefulWidget {
 
 class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   late final SavedPlacesController _places;
+  final TextEditingController _query = TextEditingController();
+  bool _searching = false;
+  String? _searchError;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  /// D-023: the field had no submit handler, so a typed address went
+  /// nowhere. Resolve it with the same forward geocode destination text uses
+  /// and return the real place it names; never save unresolved text.
+  Future<void> _submitQuery() async {
+    final text = _query.text.trim();
+    if (text.isEmpty || _searching) return;
+    setState(() {
+      _searching = true;
+      _searchError = null;
+    });
+    PlaceResult? found;
+    try {
+      final geocode = widget.geocode ?? AppScope.instance.geocoding.forward;
+      found = await geocode(text).timeout(const Duration(seconds: 10));
+    } catch (_) {
+      found = null;
+    }
+    if (!mounted) return;
+    if (found == null) {
+      setState(() {
+        _searching = false;
+        _searchError =
+            'We couldn’t find that address. Try a street name and city.';
+      });
+      return;
+    }
+    setState(() => _searching = false);
+    final address = found.address.trim();
+    Navigator.maybePop(context, address.isNotEmpty ? address : text);
+  }
 
   @override
   void initState() {
@@ -94,6 +143,9 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                 child: Stack(
                   children: [
                     customTextfield(
+                      controller: _query,
+                      textInputAction: TextInputAction.search,
+                      onFieldSubmitted: (_) => unawaited(_submitQuery()),
                       borderColor: Colors.transparent,
                       borderWidth: 0,
                       borderRadius: 0,
@@ -109,6 +161,22 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
+                          IconButton(
+                            key: const ValueKey('saved-place-search'),
+                            tooltip: 'Search address',
+                            onPressed: _searching
+                                ? null
+                                : () => unawaited(_submitQuery()),
+                            icon: _searching
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.search_rounded, size: 20),
+                          ),
                           TextButton(
                             // Did nothing at all. This screen returns a chosen
                             // place by popping it, the way the Home and Work
@@ -208,11 +276,23 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                 fontWeight: fwSemiBold,
               ),
               10.height,
+              if (_searchError != null) ...[
+                Semantics(
+                  liveRegion: true,
+                  child: TextWidget(
+                    key: const ValueKey('saved-place-search-error'),
+                    text: _searchError!,
+                    color: const Color(0xFF9A3412),
+                    fontSize: 12.5,
+                  ),
+                ),
+                10.height,
+              ],
               _buildEmptyState(
                 icon: Icons.search_off_rounded,
                 title: 'No search results',
                 subtitle:
-                    'Place search isn’t connected in this build yet.',
+                    'Suggestions aren’t available yet. Type a full address and press Search.',
                 backgroundColor: const Color(0xffF5F4F1),
               ),
               20.height,
