@@ -41,6 +41,61 @@ void main() {
     expect(c.all, hasLength(1));
   });
 
+  test(
+    'Phase 134: concurrent cancel calls for the same reservation coalesce '
+    'onto one in-flight Future instead of racing two store mutations',
+    () async {
+      final c = controller();
+      await c.create(draft);
+      final first = c.cancel('rsv_ctrl', reason: 'first');
+      final second = c.cancel('rsv_ctrl', reason: 'second');
+      expect(
+        identical(first, second),
+        isTrue,
+        reason: 'the second call must reuse the first in-flight Future',
+      );
+      final result = await first;
+      expect(await second, same(result));
+      expect(result.status, ReservationStatus.cancelled);
+      expect(
+        result.cancellationReason,
+        'first',
+        reason: 'only the first call actually mutated the store',
+      );
+
+      // Once resolved, a later call must not be stuck reusing a stale Future.
+      final third = c.cancel('rsv_ctrl', reason: 'third');
+      expect(identical(third, first), isFalse);
+      await third;
+    },
+  );
+
+  test(
+    'Phase 134: concurrent update calls for the same reservation coalesce',
+    () async {
+      final c = controller();
+      await c.create(draft);
+      final patch = ReservationPatch(
+        scheduledPickupAt: DateTime(2026, 9, 24, 8, 15),
+      );
+      final first = c.update('rsv_ctrl', patch);
+      final second = c.update('rsv_ctrl', patch);
+      expect(identical(first, second), isTrue);
+      await first;
+      await second;
+    },
+  );
+
+  test('Phase 134: concurrent create calls coalesce onto one Future', () async {
+    final c = controller();
+    final first = c.create(draft);
+    final second = c.create(draft);
+    expect(identical(first, second), isTrue);
+    final result = await first;
+    expect(await second, same(result));
+    expect(c.all, hasLength(1), reason: 'only one reservation was created');
+  });
+
   test('tabs split upcoming completed cancelled', () async {
     final c = controller();
     await c.create(draft);
