@@ -2269,7 +2269,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   Positioned(
                     left: screenHorizPadding,
                     top: ResSize.h * 60,
-                    child: const HomeReservationChrono(),
+                    child: HomeReservationChrono(
+                      onRebook: () => unawaited(_openSchedule()),
+                    ),
                   ),
                   Positioned.fill(
                     child: Padding(

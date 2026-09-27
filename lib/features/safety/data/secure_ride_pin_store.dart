@@ -2,24 +2,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// iOS Keychain / Android Keystore for the ride-verification PIN digits,
-/// mirroring core/auth/secure_token_store.dart's platform split: native
-/// secure storage on iOS/Android, a no-op everywhere else (web, desktop,
-/// tests) so those platforms keep behaving exactly as before — the PIN
-/// stays in the caller's existing SharedPreferences-backed cache there,
-/// same as this codebase already accepts for auth tokens.
+/// Keeps the ride-verification PIN digits out of the plaintext
+/// SharedPreferences safety cache.
 ///
-/// On web that cache is browser storage, which is readable by any script on
-/// the origin. That is an accepted trade-off rather than an oversight: this
-/// PIN is not a credential. The server issues it and can rotate it
-/// (`/api/v1/safety/pin`, see SafetyRemoteDataSource.getPin/rotatePin), it
-/// verifies a single ride, and it is worthless once that ride ends. Anything
-/// that does grant access — auth tokens — never touches this cache; see
-/// core/auth/secure_token_store.dart, which keeps them in memory on web.
-///
-/// If the PIN ever becomes reusable or long-lived, this needs revisiting.
+/// - iOS/Android: Keychain / Keystore (mirrors core/auth/secure_token_store).
+/// - Web (Batch 9 Phase 107, P-06): memory only. Browser storage is readable
+///   by any script on the origin and persists across sessions, so the digits
+///   are never written there. SafetyStore.load() already refuses to display
+///   a cached PIN and re-fetches it from `/api/v1/safety/pin`, so losing the
+///   in-memory copy on reload costs nothing but that fetch.
+/// - Desktop / tests: unchanged no-op; the PIN stays in the caller's cache.
 class SecureRidePinStore {
-  const SecureRidePinStore() : _forceNativeSecure = null, _fakeStorage = null;
+  const SecureRidePinStore()
+    : _forceNativeSecure = null,
+      _fakeStorage = null,
+      _forceWeb = null;
 
   /// Test-only: exercises the same scrub/restore logic against an in-memory
   /// map instead of the real Keychain/Keystore plugin, which has no
@@ -28,11 +25,26 @@ class SecureRidePinStore {
   @visibleForTesting
   SecureRidePinStore.fake()
     : _forceNativeSecure = true,
-      _fakeStorage = <String, String>{};
+      _fakeStorage = <String, String>{},
+      _forceWeb = false;
+
+  /// Test-only: behaves as the web build does (memory-only PIN).
+  @visibleForTesting
+  const SecureRidePinStore.web()
+    : _forceNativeSecure = false,
+      _fakeStorage = null,
+      _forceWeb = true;
 
   static const _key = 'movera_ride_pin';
   final bool? _forceNativeSecure;
   final Map<String, String>? _fakeStorage;
+  final bool? _forceWeb;
+
+  /// Web PIN holder: lives for the page session only, never persisted.
+  static final Map<String, String> _webMemory = <String, String>{};
+
+  @visibleForTesting
+  static void debugResetWebMemory() => _webMemory.clear();
 
   bool get _nativeSecure {
     if (_forceNativeSecure != null) return _forceNativeSecure;
@@ -48,7 +60,15 @@ class SecureRidePinStore {
 
   bool get isNativeSecure => _nativeSecure;
 
+  bool get _webMemoryOnly => !_nativeSecure && (_forceWeb ?? kIsWeb);
+
+  /// Whether the PIN digits are held outside the plaintext prefs cache
+  /// (native secure storage, or memory on web). When true, callers must
+  /// persist only a placeholder in that cache.
+  bool get keepsPinOutOfPreferences => _nativeSecure || _webMemoryOnly;
+
   Future<String?> read() async {
+    if (_webMemoryOnly) return _webMemory[_key];
     if (!_nativeSecure) return null;
     final fake = _fakeStorage;
     if (fake != null) return fake[_key];
@@ -62,6 +82,10 @@ class SecureRidePinStore {
   }
 
   Future<void> write(String pin) async {
+    if (_webMemoryOnly) {
+      _webMemory[_key] = pin;
+      return;
+    }
     if (!_nativeSecure) return;
     final fake = _fakeStorage;
     if (fake != null) {
