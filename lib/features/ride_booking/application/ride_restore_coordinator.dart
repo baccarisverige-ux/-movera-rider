@@ -54,8 +54,10 @@ class RideRestoreCoordinator {
 
   Future<bool> _shouldRequireSignIn(RideSnapshot? snapshot) async {
     if (!_authRequired()) return false;
-    if (surfaceFor(snapshot) != RestoredSurface.home) return false;
-    return !await _hasSession();
+    if (await _hasSession()) return false;
+    // No snapshot may be replayed after its owner has lost the session.
+    await RideSnapshotStore.clear();
+    return true;
   }
 
   Widget _gatedHome() {

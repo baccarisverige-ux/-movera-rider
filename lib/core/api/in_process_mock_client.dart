@@ -207,6 +207,19 @@ class InProcessMockClient extends http.BaseClient {
           'requestId': requestId,
         };
       }
+    } else if (path == '/api/v1/auth/refresh' && method == 'POST') {
+      final refreshToken = body['refreshToken'];
+      if (refreshToken is! String || !refreshToken.startsWith('mock-refresh-')) {
+        status = 401;
+        payload = {'code': 'INVALID_REFRESH', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'accessToken': 'mock-access-refreshed-${newRequestId()}',
+          'refreshToken': 'mock-refresh-rotated-${newRequestId()}',
+          'requestId': requestId,
+        };
+      }
     } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
       payload = {'code': 'OK', 'requestId': requestId};
     } else if (path == '/api/v1/push/devices' && method == 'POST') {
