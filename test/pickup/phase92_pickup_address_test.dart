@@ -46,6 +46,13 @@ void main() {
     expect(fallback, '59.329300, 18.068600');
   });
 
+  test('map confirmation returns coordinates immediately for the UI label', () {
+    expect(
+      confirmedPickupAddress('Current location', _point),
+      '59.329300, 18.068600',
+    );
+  });
+
   test('pickup reverse recovers after an error and never remembers null', () async {
     final geo = _Geocoder()..fail = true;
     final controller = PickupMapController(

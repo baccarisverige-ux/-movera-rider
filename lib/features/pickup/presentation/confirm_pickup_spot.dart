@@ -187,14 +187,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     await _map?.animateCamera(CameraUpdate.newLatLng(_center));
   }
 
-  Future<void> _confirmPosition() async {
+  void _confirmPosition() {
     final position = _center;
-    final address = await bookingPickupAddress(
-      label: _address,
-      position: position,
-      reverse: _pickup.reverse,
-    );
-    if (!mounted) return;
+    final address = confirmedPickupAddress(_address, position);
     Navigator.pop(context, ConfirmPickupResult(position: position, address: address));
   }
 
