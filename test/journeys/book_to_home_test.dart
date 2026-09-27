@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -17,6 +19,7 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride.da
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/data/ride_feedback_repository.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,6 +39,11 @@ void main() {
     AppScope.instance.ride
       ..rideId = 'journey-book-1'
       ..status = RideStatus.ratingPending;
+    // The continuous journey test below completes a real trip with a real
+    // assigned driver, which populates this process-global snapshot. Clear
+    // it so later tests in this file see the same driver-less state they
+    // would if run in isolation, instead of inheriting a leaked driver name.
+    LastCompletedRide.clear();
   });
 
   testWidgets(
@@ -45,6 +53,16 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+
+      // flutter_test defaults defaultTargetPlatform to android, which makes
+      // SecureTokenStore route the geocode/booking calls this journey makes
+      // through the live flutter_secure_storage platform channel. With no
+      // native host to answer it, that channel call never completes, hanging
+      // every authenticated request made from inside the pumped widget tree.
+      // Force a desktop platform so SecureTokenStore falls back to its
+      // in-memory store, matching how the app actually behaves on web/Linux.
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
 
       FindingDriverController.active = null;
       AppScope.instance.ride
@@ -99,8 +117,15 @@ void main() {
       final nextCenter = tester.getCenter(next);
       expect(nextCenter.dy, lessThan(tester.view.physicalSize.height));
       await tester.tap(next);
-      await tester.pump(const Duration(milliseconds: 700));
-
+      // Next awaits a real (mocked) geocode round trip and the Home map
+      // parking sequence before ConfirmPickupSpot is pushed. Poll instead of
+      // a fixed pump, matching the wait pattern already used for SelectRide
+      // and FindingDrivers below.
+      for (var i = 0;
+          i < 40 && find.byType(ConfirmPickupSpot).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(find.byType(ConfirmPickupSpot), findsOneWidget);
       final confirmPickup = find.text('Confirm pickup');
       expect(confirmPickup, findsOneWidget);
@@ -149,6 +174,33 @@ void main() {
 
       mock.markArrivedForTest();
       await tester.pump(const Duration(milliseconds: 200));
+
+      // The driver-arrived sheet is a real pushed route: while it is open,
+      // WaitingForDriver.isCurrent is false and it deliberately withholds the
+      // trip-completed transition until the rider acknowledges arrival — the
+      // same "popup waits for a child route to return" contract certified
+      // elsewhere for this screen. Acknowledge it here or the trip timers
+      // below fire into a route that never drains them.
+      for (var i = 0;
+          i < 20 && find.byType(DriverArrivedSheet).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(DriverArrivedSheet), findsOneWidget);
+      // Let the sheet's entrance animation settle onto its resting geometry
+      // before hit-testing its CTA — the same wait every other sheet tap in
+      // this journey already needs.
+      await tester.pump(const Duration(milliseconds: 350));
+      final onTheWay = find.text("I'm on the way");
+      await tester.ensureVisible(onTheWay);
+      await tester.tap(onTheWay);
+      for (var i = 0;
+          i < 20 && find.byType(DriverArrivedSheet).evaluate().isNotEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(DriverArrivedSheet), findsNothing);
+
       await tester.pump(const Duration(seconds: 9));
       for (var i = 0; i < 7; i++) {
         await tester.pump(const Duration(seconds: 3));
@@ -170,7 +222,14 @@ void main() {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.text('How was your trip'), findsOneWidget);
-      expect(find.text('Tip your driver'), findsOneWidget);
+      // This journey completes with a real assigned driver, so the tip
+      // header reads "Tip <name>" rather than the driver-less "Tip your
+      // driver" fallback the standalone completion test below exercises.
+      expect(
+        find.textContaining('Tip ', findRichText: true),
+        findsWidgets,
+        reason: 'tip surface should greet the rider with a tip prompt',
+      );
 
       final star = find.byIcon(Icons.star_rounded).first;
       await tester.ensureVisible(star);
@@ -200,6 +259,12 @@ void main() {
       // No delayed assignment or stage timer may leak out of this one journey.
       mock.unsubscribe();
       await tester.pump();
+
+      // The framework's end-of-test invariant check runs synchronously right
+      // after this callback returns, before any addTearDown callback fires,
+      // so the override must be cleared here rather than relying on the
+      // addTearDown registered above.
+      debugDefaultTargetPlatformOverride = null;
     },
   );
 

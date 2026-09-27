@@ -391,6 +391,14 @@ class MockRideRealtime implements RideRealtime {
           timer.cancel();
           lastStatus = RideStatus.tripCompleted;
           _emit(RideStatus.tripCompleted);
+          // A real backend updates its own ride record before it ever pushes
+          // the "trip completed" realtime event, so post-trip feedback always
+          // lands against a ride the backend already agrees is finished.
+          // Mirror that here the same way _persistAssignment mirrors the
+          // driver-assigned handshake: without it, this mock's REST responder
+          // never learns the trip ended and rejects feedback submitted against
+          // an authoritative-looking rideId with 409 RIDE_NOT_COMPLETE.
+          if (_rideId != null) unawaited(_persistCompletion(_rideId!));
           _startPostTripFlow();
           return;
         }
@@ -466,6 +474,17 @@ class MockRideRealtime implements RideRealtime {
           'lat': lastLat,
           'lng': lastLng,
         },
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _persistCompletion(String rideId) async {
+    final client = api;
+    if (client == null) return;
+    try {
+      await client.post(
+        '/api/v1/rides/$rideId/status',
+        body: {'status': RideStatus.tripCompleted.name},
       );
     } catch (_) {}
   }
