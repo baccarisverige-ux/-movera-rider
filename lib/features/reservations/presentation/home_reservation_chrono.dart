@@ -16,7 +16,9 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-/// Home reservation timer. White face, status on the ring only.
+/// Home reservation timer. White face with a neutral ring; the ride's state is
+/// carried by a small corner badge (shape + colour): check = driver assigned,
+/// clock = booked (no driver yet), dots = searching, ! = no driver found.
 class HomeReservationChrono extends StatefulWidget {
   const HomeReservationChrono({
     super.key,
@@ -197,11 +199,32 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
         final ride = _nextRide();
         if (ride == null) return const SizedBox.shrink();
         final noDriver = _isNoDriverFound(ride);
-        final ring = noDriver
-            ? HomeReservationChrono.noDriver
+        // "Confirmed" (check) only when a driver is really on the ride:
+        // status.hasDriver && driver != null. A booked ride with no driver
+        // yet gets the clock, never the check.
+        final (Color badgeColor, IconData badgeIcon, String badgeKey) = noDriver
+            ? (
+                HomeReservationChrono.noDriver,
+                Icons.priority_high_rounded,
+                'reservation-chrono-badge-no-driver',
+              )
+            : ride.driverAssigned
+            ? (
+                HomeReservationChrono.confirmed,
+                Icons.check_rounded,
+                'reservation-chrono-badge-confirmed',
+              )
             : ride.isSearchingDriver
-            ? HomeReservationChrono.searching
-            : HomeReservationChrono.confirmed;
+            ? (
+                HomeReservationChrono.searching,
+                Icons.more_horiz_rounded,
+                'reservation-chrono-badge-searching',
+              )
+            : (
+                const Color(0xFF6B757B),
+                Icons.schedule_rounded,
+                'reservation-chrono-badge-booked',
+              );
         final parts = ReservationFormat.remainingParts(
           ride.scheduledPickupAt,
           now: _now,
@@ -221,65 +244,93 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
               child: SizedBox(
                 width: 54,
                 height: 54,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x24000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 7),
-                      ),
-                    ],
-                  ),
-                  child: CustomPaint(
-                    painter: _ChronoFace(ring: ring),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 7, 8, 6),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            AppAssets.scheduleRideCar,
-                            height: 11,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox(height: 11),
-                          ),
-                          const SizedBox(height: 1),
-                          if (noDriver)
-                            const Icon(
-                              Icons.person_off_outlined,
-                              key: Key('reservation-chrono-no-driver'),
-                              size: 18,
-                              color: HomeReservationChrono.noDriver,
-                            )
-                          else ...[
-                            Text(
-                              parts.primary,
-                              style: GoogleFonts.poppins(
-                                fontSize: parts.secondary == null ? 13 : 11,
-                                fontWeight: FontWeight.w700,
-                                color: HomeReservationChrono.ink,
-                                height: 1,
-                              ),
+                child: Stack(
+                  // The badge overhangs the disc by 6 px; the layout box and
+                  // tap target stay 54x54 (the badge is decorative).
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x24000000),
+                              blurRadius: 18,
+                              offset: Offset(0, 7),
                             ),
-                            if (parts.secondary != null)
-                              Text(
-                                parts.secondary!,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF6B757B),
-                                  height: 1.1,
-                                ),
-                              ),
                           ],
-                        ],
+                        ),
+                        child: CustomPaint(
+                          painter: _ChronoFace(noDriver: noDriver),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 7, 8, 6),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  AppAssets.scheduleRideCar,
+                                  height: 11,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      const SizedBox(height: 11),
+                                ),
+                                const SizedBox(height: 1),
+                                if (noDriver)
+                                  const Icon(
+                                    Icons.person_off_outlined,
+                                    key: Key('reservation-chrono-no-driver'),
+                                    size: 18,
+                                    color: HomeReservationChrono.noDriver,
+                                  )
+                                else ...[
+                                  Text(
+                                    parts.primary,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: parts.secondary == null
+                                          ? 13
+                                          : 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: HomeReservationChrono.ink,
+                                      height: 1,
+                                    ),
+                                  ),
+                                  if (parts.secondary != null)
+                                    Text(
+                                      parts.secondary!,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF6B757B),
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: ExcludeSemantics(
+                        child: Container(
+                          key: ValueKey<String>(badgeKey),
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: badgeColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: Icon(badgeIcon, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -361,9 +412,15 @@ class _NoDriverFoundSheet extends StatelessWidget {
 }
 
 class _ChronoFace extends CustomPainter {
-  const _ChronoFace({required this.ring});
+  const _ChronoFace({required this.noDriver});
 
-  final Color ring;
+  /// Neutral ring for every state except "no driver found" (red). The ride's
+  /// state lives in the corner badge, not in the ring colour.
+  static const neutralRing = Color(0x55172127);
+
+  final bool noDriver;
+
+  Color get ring => noDriver ? HomeReservationChrono.noDriver : neutralRing;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -395,5 +452,5 @@ class _ChronoFace extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ChronoFace oldDelegate) =>
-      oldDelegate.ring != ring;
+      oldDelegate.noDriver != noDriver;
 }

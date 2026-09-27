@@ -14,6 +14,10 @@ import 'package:movera_rider/features/reservations/presentation/home_reservation
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Phase 111: the chrono ring is neutral unless no driver was found; the
+// state is carried by the corner badge.
+const _neutralRing = Color(0x55172127);
+
 /// Batch 10 Phase 109 — a scheduled ride actually lives through its lifecycle
 /// in mock builds (demo/dev/test), reveals the driver at the right time, and
 /// never re-opens once finished.
@@ -183,6 +187,10 @@ void main() {
       );
     }
 
+    void expectBadge(String key) {
+      expect(find.byKey(ValueKey<String>(key)), findsOneWidget);
+    }
+
     /// One 30 s chrono tick at the current fake time.
     Future<void> tick(WidgetTester tester) async {
       await tester.pump(const Duration(seconds: 30));
@@ -221,17 +229,23 @@ void main() {
       expect(c.byId(id)!.status, ReservationStatus.scheduled);
       expect(c.byId(id)!.driver, isNull);
       expect(find.text('40m'), findsOneWidget);
-      expectRing(tester, HomeReservationChrono.confirmed);
+      // Phase 111: no driver yet -> neutral ring + clock badge (was: green
+      // ring, which wrongly read as "confirmed").
+      expectRing(tester, _neutralRing);
+      expectBadge('reservation-chrono-badge-booked');
       expect(liveRoutes.pushes, 0);
 
-      // 2. T-30: mock dispatch assigns a driver (identity known), ring green.
+      // 2. T-30: mock dispatch assigns a driver (identity known), check badge.
       now = pickupAt.subtract(const Duration(minutes: 30));
       await tick(tester);
       final assigned = c.byId(id)!;
       expect(assigned.status, ReservationStatus.driverAssigned);
       expect(assigned.driver?.firstName, isIn(['Elin', 'Johan', 'Amina']));
       expect(find.text('30m'), findsOneWidget);
-      expectRing(tester, HomeReservationChrono.confirmed);
+      // Phase 111: driver assigned -> neutral ring + check badge (was: green
+      // ring).
+      expectRing(tester, _neutralRing);
+      expectBadge('reservation-chrono-badge-confirmed');
       expect(find.byType(WaitingForDriver), findsNothing);
       expect(liveRoutes.pushes, 0);
 
