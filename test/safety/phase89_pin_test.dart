@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/config/pin_composition.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
+import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 
@@ -25,6 +29,17 @@ void main() {
     }
   });
 
+  test('offline load discards previously cached PIN digits', () async {
+    final local = PreferencesSafetyLocalDataSource(memoryOnly: true);
+    final cache = SafetyCache(pin: RidePin.fromJson({
+      'pinId': 'stale', 'pin': '1234', 'serverAuthoritative': true,
+    }));
+    await local.save(cache);
+    final store = SafetyStore(local: local, remote: _OfflinePinRemote());
+    await store.load();
+    expect(store.pin.pin, isEmpty);
+  });
+
   testWidgets('PIN row fits a 320 pixel display', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 568));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -35,4 +50,11 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('4'), findsOneWidget);
   });
+}
+
+class _OfflinePinRemote extends ApiSafetyRemoteDataSource {
+  _OfflinePinRemote() : super(ApiClient(client: InProcessMockClient()));
+
+  @override
+  Future<RidePin> getPin() async => throw StateError('offline');
 }
