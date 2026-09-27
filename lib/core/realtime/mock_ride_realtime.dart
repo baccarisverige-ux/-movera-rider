@@ -78,9 +78,44 @@ class MockRideRealtime implements RideRealtime {
   double? destinationLng;
   double? _tripStartLat;
   double? _tripStartLng;
+  RideStatus? _resumeStatus;
+  MatchedDriver? _resumeDriver;
+  int? _resumeVersion;
+
+  /// Primes the next [subscribe] call to resume from a previously known
+  /// status/driver/version instead of unconditionally resetting to
+  /// findingDriver (Phase 135).
+  ///
+  /// A fresh MockRideRealtime construction - always true after a page
+  /// reload - otherwise always resets to findingDriver and restarts the
+  /// 25-second assignment timer, even when the restored ride already had a
+  /// driver or was mid-trip. That reset event was then wrongly accepted as
+  /// authoritative because nothing had ever seeded RideSession's ordering
+  /// metadata, regressing a restored "driver found"/in-trip ride back to
+  /// "finding driver". [version] should be the same ordering number the
+  /// restore seeded RideSession.authoritativeVersion with, so this resumed
+  /// emission is recognized as continuing that ordering, not restarting it.
+  void primeResume({
+    required RideStatus status,
+    MatchedDriver? driver,
+    int? version,
+  }) {
+    _resumeStatus = status;
+    _resumeDriver = driver;
+    _resumeVersion = version;
+  }
 
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
+    // Consumed exactly once per call, on every path, so a primed value can
+    // never leak into a later, unrelated subscribe().
+    final resumeStatus = _resumeStatus;
+    final resumeDriver = _resumeDriver;
+    final resumeVersion = _resumeVersion;
+    _resumeStatus = null;
+    _resumeDriver = null;
+    _resumeVersion = null;
+
     if (_rideId == rideId && !disposed && !cancelled) {
       return _controller.stream;
     }
@@ -98,9 +133,6 @@ class MockRideRealtime implements RideRealtime {
     held = false;
     _assignmentInFlight = false;
     _rideId = rideId;
-    _sequence = 0;
-    lastStatus = RideStatus.findingDriver;
-    lastDriver = null;
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
@@ -108,6 +140,47 @@ class MockRideRealtime implements RideRealtime {
     _tripStartLat = null;
     _tripStartLng = null;
     connection.markConnected();
+
+    if (resumeStatus != null && resumeStatus.isMatched) {
+      _sequence = resumeVersion ?? 0;
+      lastStatus = resumeStatus;
+      lastDriver = resumeDriver;
+      _pickupLat ??= 59.3293;
+      _pickupLng ??= 18.0686;
+      // A broadcast StreamController cannot deliver an event added before a
+      // listener exists - and the caller's own `.subscribe(id).listen(...)`
+      // chain only attaches its listener immediately *after* this method
+      // returns. Emitting synchronously here would silently vanish before
+      // DriverTrackingController ever sees it, leaving it stuck on its own
+      // constructor default (driverAssigned) until whatever timer/tick
+      // happens to fire next. Defer by one microtask so the just-attached
+      // listener actually receives the resumed status.
+      scheduleMicrotask(() {
+        if (cancelled || disposed || _rideId != rideId) return;
+        _emit(resumeStatus);
+      });
+      const tripStatuses = {
+        RideStatus.tripStarted,
+        RideStatus.tripInProgress,
+        RideStatus.approachingDropoff,
+      };
+      if (tripStatuses.contains(resumeStatus)) {
+        _tripStartLat ??= _pickupLat;
+        _tripStartLng ??= _pickupLng;
+        _runTripTicks();
+      } else {
+        // The remaining isMatched statuses are the pre-trip approach:
+        // driverAssigned, driverArriving, driverWaiting.
+        lastLat ??= _pickupLat! + 0.0072;
+        lastLng ??= _pickupLng! - 0.0048;
+        _startGps();
+      }
+      return _controller.stream;
+    }
+
+    _sequence = 0;
+    lastStatus = RideStatus.findingDriver;
+    lastDriver = null;
     _emit(RideStatus.findingDriver);
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
@@ -414,33 +487,39 @@ class MockRideRealtime implements RideRealtime {
       _tripStartLat = lastLat;
       _tripStartLng = lastLng;
       _emit(RideStatus.tripStarted);
-      _trip?.cancel();
-      _tripTicksDone = 0;
-      _trip = Timer.periodic(tripTick, (timer) {
-        if (cancelled || disposed || _rideId == null) {
-          timer.cancel();
-          return;
-        }
-        _tripTicksDone += 1;
-        _advanceTripPosition();
-        if (_tripTicksDone >= tripTicks) {
-          timer.cancel();
-          lastStatus = RideStatus.tripCompleted;
-          _emit(RideStatus.tripCompleted);
-          // A real backend updates its own ride record before it ever pushes
-          // the "trip completed" realtime event, so post-trip feedback always
-          // lands against a ride the backend already agrees is finished.
-          // Mirror that here the same way _persistAssignment mirrors the
-          // driver-assigned handshake: without it, this mock's REST responder
-          // never learns the trip ended and rejects feedback submitted against
-          // an authoritative-looking rideId with 409 RIDE_NOT_COMPLETE.
-          if (_rideId != null) unawaited(_persistCompletion(_rideId!));
-          _startPostTripFlow();
-          return;
-        }
-        lastStatus = RideStatus.tripInProgress;
-        _emit(RideStatus.tripInProgress);
-      });
+      _runTripTicks();
+    });
+  }
+
+  /// The recurring tick loop shared by a normal boarding-triggered trip start
+  /// and a Phase 135 resume that primes straight into a trip-stage status.
+  void _runTripTicks() {
+    _trip?.cancel();
+    _tripTicksDone = 0;
+    _trip = Timer.periodic(tripTick, (timer) {
+      if (cancelled || disposed || _rideId == null) {
+        timer.cancel();
+        return;
+      }
+      _tripTicksDone += 1;
+      _advanceTripPosition();
+      if (_tripTicksDone >= tripTicks) {
+        timer.cancel();
+        lastStatus = RideStatus.tripCompleted;
+        _emit(RideStatus.tripCompleted);
+        // A real backend updates its own ride record before it ever pushes
+        // the "trip completed" realtime event, so post-trip feedback always
+        // lands against a ride the backend already agrees is finished.
+        // Mirror that here the same way _persistAssignment mirrors the
+        // driver-assigned handshake: without it, this mock's REST responder
+        // never learns the trip ended and rejects feedback submitted against
+        // an authoritative-looking rideId with 409 RIDE_NOT_COMPLETE.
+        if (_rideId != null) unawaited(_persistCompletion(_rideId!));
+        _startPostTripFlow();
+        return;
+      }
+      lastStatus = RideStatus.tripInProgress;
+      _emit(RideStatus.tripInProgress);
     });
   }
 

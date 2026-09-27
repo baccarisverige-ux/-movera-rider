@@ -6,6 +6,7 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
@@ -171,12 +172,36 @@ class RideRestoreCoordinator {
     // AppScope, and a cold restore starts with it empty. Without this the
     // restored search has no rideId, so Cancel reaches no ride to cancel and
     // raising the offer refuses because it cannot name the ride it belongs to.
+    // Phase 135: seed authoritativeVersion from the snapshot's own ordering
+    // number so a subsequent lower-versioned event - like the findingDriver
+    // reset a freshly-reconnected mock transport unconditionally emits - is
+    // correctly rejected as stale instead of silently regressing this
+    // restore. Without a persisted version there is nothing to protect
+    // against; that gap is closed as soon as the first live event persists
+    // one (see DriverTrackingController._persistLiveStatus).
     AppScope.instance.ride.backendReconcile(
       snapshot.status,
       id: snapshot.rideId,
+      version: snapshot.version,
+      updatedAt: snapshot.savedAt,
     );
     final pickup = LatLng(snapshot.pickupLat, snapshot.pickupLng);
     final drop = LatLng(snapshot.destinationLat, snapshot.destinationLng);
+    if (surface == RestoredSurface.waiting) {
+      // Phase 135: this is the other half of the fix. Only this call site
+      // actually knows the restore is genuine (a normal live continuation
+      // never goes through pageFor), so priming happens here rather than in
+      // WaitingForDriver itself, which cannot tell a real restore apart from
+      // a screen mounting fresh mid-session with an already-matched status.
+      final realtime = AppScope.instance.rideRealtime;
+      if (realtime is MockRideRealtime && snapshot.status.isMatched) {
+        realtime.primeResume(
+          status: snapshot.status,
+          driver: snapshot.driver,
+          version: snapshot.version,
+        );
+      }
+    }
     switch (surface) {
       case RestoredSurface.finding:
         return FindingDrivers(

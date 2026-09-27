@@ -35,6 +35,7 @@ class DriverTrackingController {
   RideRealtimeSignal? lastSignal;
   String? signalMessage;
   RideStatus? _lastPersistedStatus;
+  int? _lastVersion;
   void Function()? onChange;
 
   /// Re-evaluates staleness on a timer, independent of new fixes arriving.
@@ -63,11 +64,12 @@ class DriverTrackingController {
         // status the app had already superseded. Only skip the status/signal
         // side when the event is rejected; the position always applies if it
         // is not itself older than what is already tracked.
+        final eventVersion = event.version ?? event.sequence;
         final accepted = !persistRideSnapshot ||
             (_ride ?? AppScope.instance.ride).backendReconcile(
               event.status,
               id: event.tripId,
-              version: event.version ?? event.sequence,
+              version: eventVersion,
               updatedAt: event.serverTime ?? event.occurredAt,
             );
         final statusChanged = accepted && event.status != status;
@@ -75,6 +77,7 @@ class DriverTrackingController {
           status = event.status;
           lastSignal = event.signal;
           signalMessage = event.message;
+          _lastVersion = eventVersion;
         }
         if (event.driver != null) driver = event.driver;
         final incomingLocationAt = event.locationAt ?? event.at;
@@ -147,6 +150,7 @@ class DriverTrackingController {
         status: status,
         savedAt: DateTime.now(),
         driver: driver ?? stored.driver,
+        version: _lastVersion,
       ),
     );
   }
