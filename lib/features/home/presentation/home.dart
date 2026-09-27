@@ -552,6 +552,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } finally {
       final resumeNow = _mapParkingGuard.exit();
       if (resumeNow && mounted) {
+        // U6: a finished (or abandoned) booking flow must not leave its
+        // pickup behind as the next booking's starting point.
+        _tripPickupLatLng = null;
         AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
         _locationCtl.resumeLiveUpdates();
@@ -564,20 +567,30 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     String address, {
     bool isDestination = false,
   }) async {
-    LatLng initialPosition =
-        _tripPickupLatLng ?? _currentLatLng ?? _initialPosition.target;
+    var cleanAddress = address.trim();
+    // U6: only text the rider actually typed is forward-geocoded. The stored
+    // pickup label came from GPS, a dropped pin or an earlier booking, and a
+    // raw coordinate string is not a place — geocoding either one moved the
+    // picker to wherever the *previous* trip's address resolved to.
+    final storedLabel = _pickupAddress?.trim() ?? '';
+    final typedByRider =
+        !isPlaceholderPickupLabel(cleanAddress) &&
+        !isUnusablePickupLabel(cleanAddress) &&
+        cleanAddress != storedLabel;
+    // This booking's own confirmed pickup (cleared when the flow ends).
+    LatLng? chosen = _tripPickupLatLng;
+    if (typedByRider || isDestination) {
+      final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
+      if (geocoded != null) chosen = geocoded;
+    }
+    final gps = _currentLatLng;
+    final initialPosition = chosen ?? gps ?? _initialPosition.target;
     // D-002: with no fix and no chosen pickup the picker opens on a default
     // map point; it must not be confirmable as if it were the rider's spot.
-    var positionIsFallback = _tripPickupLatLng == null && _currentLatLng == null;
-    var cleanAddress = address.trim();
-    if (!isPlaceholderPickupLabel(cleanAddress)) {
-      final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
-      if (geocoded != null) {
-        initialPosition = geocoded;
-        positionIsFallback = false;
-      }
+    final positionIsFallback = chosen == null && gps == null;
+    if (chosen == null) {
+      cleanAddress = gps != null ? 'Current location' : locationOffPickupLabel;
     }
-    if (positionIsFallback) cleanAddress = locationOffPickupLabel;
     if (!mounted) return null;
     return _withParkedHomeMap(() async {
       final result = await ConfirmPickupSpot.open(
@@ -589,6 +602,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         title: isDestination ? 'Confirm destination' : 'Confirm pickup spot',
         confirmLabel: isDestination ? 'Confirm destination' : 'Confirm pickup',
         positionIsFallback: positionIsFallback,
+        // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
+        refreshCurrentLocation: chosen == null,
       );
       if (result == null) return null;
       return PickupMapResult(
