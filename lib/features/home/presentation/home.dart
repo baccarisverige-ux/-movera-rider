@@ -85,6 +85,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   ui.Image? _puckCompactImage;
   ui.Image? _puckExpandedImage;
   int _webPuckPaintGen = 0;
+  final RotatedPuckCache _webPuckCache = RotatedPuckCache();
 
   // The search card ends around 113 logical px from the top of the sheet.
   // Leave space for the floating navigation bar below it at the collapsed snap.
@@ -1913,8 +1914,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
+  void _setCoveredByMenuPage(bool covered) {
+    if (!mounted || _mapParked.value) return;
+    if (covered) {
+      _locationCtl.pauseLiveUpdates();
+    } else {
+      _locationCtl.resumeLiveUpdates();
+    }
+  }
+
   Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
     final visual = await MoveraRiderPuckMarker.createVisual(expanded: expanded);
+    // The rotated bitmaps were drawn from the old source images.
+    _webPuckCache.clear();
     if (expanded) {
       _puckExpandedImage?.dispose();
       _puckExpandedImage = visual.image;
@@ -1936,6 +1948,28 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }) async {
     final src = expanded ? _puckExpandedImage : _puckCompactImage;
     if (src == null) return null;
+    // U7: one bitmap per 5° bucket and pulse state, built once and reused,
+    // instead of toImage + PNG encode on every heading sample and pulse.
+    final bucket = _webPuckCache.bucketFor(heading);
+    final cached = _webPuckCache.lookup(expanded: expanded, bucket: bucket);
+    if (cached != null) return cached;
+    final icon = await _rasteriseRotatedPuck(
+      src,
+      _webPuckCache.headingFor(bucket),
+    );
+    if (icon != null && identical(
+      src,
+      expanded ? _puckExpandedImage : _puckCompactImage,
+    )) {
+      _webPuckCache.store(expanded: expanded, bucket: bucket, icon: icon);
+    }
+    return icon;
+  }
+
+  Future<BitmapDescriptor?> _rasteriseRotatedPuck(
+    ui.Image src,
+    double heading,
+  ) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final cx = src.width * 0.5;
@@ -2141,6 +2175,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       extendBody: true,
       drawer: RiderSideMenu(
         onStartBooking: () => unawaited(_openDestinationSheet()),
+        // U7: menu pages cover Home without parking its map; stop the
+        // heading poll, pulse and puck repaint while they are on top.
+        onCoveredChanged: _setCoveredByMenuPage,
       ),
       onDrawerChanged: (open) {
         if (mounted) setState(() => _drawerOpen = open);

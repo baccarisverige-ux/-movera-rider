@@ -1102,7 +1102,13 @@ class _WaitingRideMap extends StatefulWidget {
 
 class _WaitingRideMapState extends State<_WaitingRideMap>
     with SingleTickerProviderStateMixin {
-  Set<Marker> _markers = const <Marker>{};
+  // U7: the markers live in a notifier so the moving driver only updates the
+  // map's marker set. It used to setState + drop the cached map leaf on
+  // every animation tick, rebuilding the whole map subtree each frame.
+  final ValueNotifier<Set<Marker>> _markerSet =
+      ValueNotifier<Set<Marker>>(const <Marker>{});
+  Set<Marker> get _markers => _markerSet.value;
+  set _markers(Set<Marker> next) => _markerSet.value = next;
   Set<Polyline> _polylines = const <Polyline>{};
   BitmapDescriptor? _riderPuck;
   BitmapDescriptor? _driverCar;
@@ -1125,9 +1131,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     duration: driverEaseDuration(null),
   )..addListener(() {
       if (!mounted) return;
-      // The ease now spans most of each fix interval, so cap marker rebuilds
-      // at ~20 fps rather than rebuilding on every frame for that whole time
-      // (the per-frame map rebuild itself is Phase 104's U7 work).
+      // The ease now spans most of each fix interval, so cap marker updates
+      // at ~20 fps rather than on every frame for that whole time.
       final now = DateTime.now();
       final last = _lastAnimRebuild;
       if (_driverAnim.isAnimating &&
@@ -1136,10 +1141,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         return;
       }
       _lastAnimRebuild = now;
-      setState(() {
-        _markers = _buildMarkers();
-        _leaf = null;
-      });
+      // U7: markers only; the map leaf and the rest of the stack stay put.
+      _markers = _buildMarkers();
     });
   DateTime? _lastAnimRebuild;
   DateTime? _lastFixArrivedAt;
@@ -1185,6 +1188,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   void dispose() {
     _pendingRepaint?.cancel();
     _driverAnim.dispose();
+    _markerSet.dispose();
     super.dispose();
   }
 
@@ -1209,10 +1213,8 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     final next = _buildMarkers();
     final markersChanged = !_sameMarkers(_markers, next);
     if (markersChanged && mounted) {
-      setState(() {
-        _markers = next;
-        _leaf = null;
-      });
+      // U7: no setState, no new map leaf; the marker listener updates it.
+      _markers = next;
     }
     _maybeFitCamera();
 
@@ -1446,36 +1448,43 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     });
   }
 
+  Widget _buildMap(Set<Marker> markers) {
+    return CustomGoogleMap(
+      key: const ValueKey('waiting-map'),
+      initialPosition: widget.initialPosition,
+      markers: markers,
+      polylines: _polylines,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+      mapToolbarEnabled: false,
+      compassEnabled: false,
+      trafficEnabled: false,
+      buildingsEnabled: false,
+      indoorViewEnabled: false,
+      tiltGesturesEnabled: false,
+      rotateGesturesEnabled: false,
+      mapType: MapType.normal,
+      onMapCreated: (controller) {
+        _mapReady = true;
+        AppScope.instance.maps.attach(
+          controller,
+          owner: MapOwners.waiting,
+        );
+        unawaited(_refreshRoadRoute(force: true));
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         Positioned.fill(
           child: _leaf ??= RepaintBoundary(
-            child: CustomGoogleMap(
-              key: const ValueKey('waiting-map'),
-              initialPosition: widget.initialPosition,
-              markers: _markers,
-              polylines: _polylines,
-              myLocationEnabled: false,
-              myLocationButtonEnabled: false,
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              compassEnabled: false,
-              trafficEnabled: false,
-              buildingsEnabled: false,
-              indoorViewEnabled: false,
-              tiltGesturesEnabled: false,
-              rotateGesturesEnabled: false,
-              mapType: MapType.normal,
-              onMapCreated: (controller) {
-                _mapReady = true;
-                AppScope.instance.maps.attach(
-                  controller,
-                  owner: MapOwners.waiting,
-                );
-                unawaited(_refreshRoadRoute(force: true));
-              },
+            child: ValueListenableBuilder<Set<Marker>>(
+              valueListenable: _markerSet,
+              builder: (context, markers, _) => _buildMap(markers),
             ),
           ),
         ),

@@ -15,6 +15,45 @@ import 'package:movera_rider/core/utils/stale_guard.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
 
+/// U7: Home used to re-rasterise the puck (toImage, PNG encode, new
+/// BitmapDescriptor) on every heading sample and pulse tick. Headings are
+/// snapped to [stepDegrees] buckets and each rotated bitmap is built once per
+/// (pulse state, bucket) and reused.
+class RotatedPuckCache {
+  RotatedPuckCache({this.stepDegrees = 5});
+
+  final int stepDegrees;
+  final Map<(bool, int), BitmapDescriptor> _icons = {};
+
+  int get bucketCount => (360 / stepDegrees).ceil();
+
+  /// The bucket [heading] falls into (nearest step, wrapping at 360°).
+  int bucketFor(double heading) {
+    if (!heading.isFinite) return 0;
+    final normalised = heading % 360;
+    return (normalised / stepDegrees).round() % bucketCount;
+  }
+
+  /// The heading the bitmap for [bucket] is drawn at.
+  double headingFor(int bucket) => (bucket * stepDegrees).toDouble();
+
+  BitmapDescriptor? lookup({required bool expanded, required int bucket}) =>
+      _icons[(expanded, bucket)];
+
+  void store({
+    required bool expanded,
+    required int bucket,
+    required BitmapDescriptor icon,
+  }) {
+    _icons[(expanded, bucket)] = icon;
+  }
+
+  int get length => _icons.length;
+
+  /// Drops every bitmap, e.g. when the source puck images are rebuilt.
+  void clear() => _icons.clear();
+}
+
 /// Label for the pickup when no GPS fix exists. A fallback map point must
 /// never be called "Current location" (U2 / D-002).
 const String locationOffPickupLabel = 'Location off, set pickup';
