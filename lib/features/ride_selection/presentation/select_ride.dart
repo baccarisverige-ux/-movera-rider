@@ -24,6 +24,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
+import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
@@ -529,10 +530,13 @@ class _SelectRideState extends State<SelectRide>
     }
   }
 
-  Future<void> _chooseLater() async {
+  Future<void> _chooseLater({DateTime? initial}) async {
     await _withParkedMap(() async {
       if (!mounted) return;
-      final when = await ScheduleDateTimeSelector.choose(context);
+      final when = await ScheduleDateTimeSelector.choose(
+        context,
+        initial: initial,
+      );
       if (when == null || !mounted) return;
       if (!_pickupConfirmed) {
         final spot = await ConfirmPickupSpot.open(
@@ -709,12 +713,28 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  /// Phase 114: a return ride arrives with a prefilled pickup (origin + 3 h)
+  /// that nobody validated. Before it can be booked it must satisfy the same
+  /// [StockholmSchedule] rules the scheduling picker enforces (30-minute lead,
+  /// 5-minute slots). The main Schedule flow already picked its time in that
+  /// picker, so it is not re-checked here.
+  bool get _returnTimeNeedsPicker {
+    if (widget.parentReservationId == null) return false;
+    final when = _selection.scheduledFor;
+    return when != null && !StockholmSchedule.isLegalPickup(when);
+  }
+
   Future<void> _bookScheduled() async {
     try {
       if (_selection.scheduledFor == null) {
         await _chooseLater();
+      } else if (_returnTimeNeedsPicker) {
+        // Route the rider through the shared validated picker, which opens on
+        // the prefill clamped to the next legal slot.
+        await _chooseLater(initial: _selection.scheduledFor);
       }
       if (_selection.scheduledFor == null || !mounted) return;
+      if (_returnTimeNeedsPicker) return;
       await _withParkedMap(() async {
         if (!mounted) return;
         if (!_pickupConfirmed) {
@@ -732,6 +752,15 @@ class _SelectRideState extends State<SelectRide>
           _pickupAddress = spot.address;
           _pickupPosition = spot.position;
           _pickupConfirmed = true;
+        }
+        if (_returnTimeNeedsPicker) {
+          // The prefill went stale while the rider confirmed the pickup spot.
+          final when = await ScheduleDateTimeSelector.choose(
+            context,
+            initial: _selection.scheduledFor,
+          );
+          if (when == null || !mounted) return;
+          _selection.scheduleFor(when);
         }
         final created = await ScheduledRideCheckout.run(
           context,
