@@ -72,7 +72,7 @@ void main() {
     expect(location.permissionRequests, 1);
     expect(detected.denied, isTrue);
     expect(detected.target, isNull);
-    expect(detected.address, 'Current location');
+    expect(detected.address, locationOffPickupLabel);
     expect(detected.heading, 0);
     ctl.dispose();
   });

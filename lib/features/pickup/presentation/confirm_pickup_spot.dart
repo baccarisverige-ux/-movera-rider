@@ -30,6 +30,7 @@ class ConfirmPickupSpot extends StatefulWidget {
     this.title = 'Confirm pickup spot',
     this.hint = 'Drag map to move pin',
     this.confirmLabel = 'Confirm pickup',
+    this.positionIsFallback = false,
   });
 
   static Future<ConfirmPickupResult?> open(
@@ -41,6 +42,7 @@ class ConfirmPickupSpot extends StatefulWidget {
     String title = 'Confirm pickup spot',
     String hint = 'Drag map to move pin',
     String confirmLabel = 'Confirm pickup',
+    bool positionIsFallback = false,
   }) async {
     final route = RightToLeftTransition<ConfirmPickupResult>(
       ConfirmPickupSpot(
@@ -51,6 +53,7 @@ class ConfirmPickupSpot extends StatefulWidget {
         title: title,
         hint: hint,
         confirmLabel: confirmLabel,
+        positionIsFallback: positionIsFallback,
       ),
       settings: const RouteSettings(name: AppRoutes.confirmPickup),
     );
@@ -66,6 +69,11 @@ class ConfirmPickupSpot extends StatefulWidget {
   final String title;
   final String hint;
   final String confirmLabel;
+
+  /// True when [initialPosition] is a default map point rather than a real
+  /// fix or chosen place (U2 / D-002). Confirm stays disabled until the
+  /// rider moves the pin, searches, or a real current location arrives.
+  final bool positionIsFallback;
 
   @override
   State<ConfirmPickupSpot> createState() => _ConfirmPickupSpotState();
@@ -99,7 +107,8 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
         widget.initialPosition.latitude >= -90 &&
         widget.initialPosition.latitude <= 90 &&
         widget.initialPosition.longitude >= -180 &&
-        widget.initialPosition.longitude <= 180;
+        widget.initialPosition.longitude <= 180 &&
+        !widget.positionIsFallback;
     _search.text = widget.initialAddress;
     setWebOverlayOpen(false);
   }
@@ -126,6 +135,15 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     _pickup.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.pickup);
     super.dispose();
+  }
+
+  /// D-002: the rider moved the pin away from the fallback point.
+  void _resolveFallbackIfMoved() {
+    if (!widget.positionIsFallback || _hasUsablePickupCoordinates) return;
+    final moved =
+        (_center.latitude - widget.initialPosition.latitude).abs() > 0.00015 ||
+        (_center.longitude - widget.initialPosition.longitude).abs() > 0.00015;
+    if (moved) _hasUsablePickupCoordinates = true;
   }
 
   Future<void> _idle() async {
@@ -190,7 +208,10 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   void _confirmPosition() {
     final position = _center;
     final address = confirmedPickupAddress(_address, position);
-    Navigator.pop(context, ConfirmPickupResult(position: position, address: address));
+    Navigator.pop(
+      context,
+      ConfirmPickupResult(position: position, address: address),
+    );
   }
 
   @override
@@ -241,7 +262,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     },
                     onCameraIdle: () {
                       _moving = false;
-                      setState(() {});
+                      setState(_resolveFallbackIfMoved);
                       _idle();
                     },
                   ),
@@ -352,6 +373,19 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                         fontSize: 12.5,
                         color: const Color(0xFF9A3412),
                       ),
+                    ),
+                  ),
+                ],
+                if (widget.positionIsFallback &&
+                    !_hasUsablePickupCoordinates) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Your location is off. Drag the map, search, or use '
+                    'current location to set your pickup.',
+                    key: const ValueKey('pickup-fallback-hint'),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12.5,
+                      color: const Color(0xFF9A3412),
                     ),
                   ),
                 ],

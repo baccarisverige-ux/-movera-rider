@@ -303,14 +303,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     try {
       final detected = await _locationCtl.detectCurrent();
       if (!mounted) return;
-      if (detected.denied) {
-        setState(() {
-              _pickupAddress ??= 'Current location';
-        });
+      final target = detected.target;
+      if (detected.denied || target == null) {
+        // U2: no fix — never call a fallback point "Current location".
+        if (isPlaceholderPickupLabel(_pickupAddress)) {
+          setState(() => _pickupAddress = locationOffPickupLabel);
+        }
         return;
       }
-      final target = detected.target;
-      if (target == null) return;
       setState(() {
         _pickupAddress = detected.address;
         _currentLatLng = target;
@@ -338,9 +338,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-          _pickupAddress ??= 'Current location';
-      });
+      if (isPlaceholderPickupLabel(_pickupAddress)) {
+        setState(() => _pickupAddress = locationOffPickupLabel);
+      }
     }
   }
 
@@ -382,7 +382,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     );
   }
 
-  void _rememberAddress(String address) => _places.remember(address);
+  void _rememberAddress(String address) {
+    // D-004: raw "lat, lng" strings and placeholders are not places; never
+    // offer them back as Recents.
+    if (isRawCoordinateLabel(address) || isPlaceholderPickupLabel(address)) {
+      return;
+    }
+    _places.remember(address);
+  }
 
   Future<String> _bookingPickup(String label, LatLng position) =>
       bookingPickupAddress(
@@ -559,12 +566,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }) async {
     LatLng initialPosition =
         _tripPickupLatLng ?? _currentLatLng ?? _initialPosition.target;
-    final cleanAddress = address.trim();
-    if (cleanAddress.isNotEmpty &&
-        cleanAddress.toLowerCase() != 'current location') {
+    // D-002: with no fix and no chosen pickup the picker opens on a default
+    // map point; it must not be confirmable as if it were the rider's spot.
+    var positionIsFallback = _tripPickupLatLng == null && _currentLatLng == null;
+    var cleanAddress = address.trim();
+    if (!isPlaceholderPickupLabel(cleanAddress)) {
       final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
-      if (geocoded != null) initialPosition = geocoded;
+      if (geocoded != null) {
+        initialPosition = geocoded;
+        positionIsFallback = false;
+      }
     }
+    if (positionIsFallback) cleanAddress = locationOffPickupLabel;
     if (!mounted) return null;
     return _withParkedHomeMap(() async {
       final result = await ConfirmPickupSpot.open(
@@ -575,6 +588,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             : cleanAddress,
         title: isDestination ? 'Confirm destination' : 'Confirm pickup spot',
         confirmLabel: isDestination ? 'Confirm destination' : 'Confirm pickup',
+        positionIsFallback: positionIsFallback,
       );
       if (result == null) return null;
       return PickupMapResult(
