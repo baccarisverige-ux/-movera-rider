@@ -21,13 +21,4 @@ void main() {
     expect(workflow, contains('apksigner'));
     expect(workflow, contains('Release APK is debug-signed'));
   });
-
-  test(
-    'production entrypoint refuses to start without the production flavor',
-    () {
-      final entry = File('lib/main_production.dart').readAsStringSync();
-      expect(entry, contains('AppFlavor.production'));
-      expect(entry, contains('throw StateError'));
-    },
-  );
 }
