@@ -1,8 +1,18 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Screens talk to this, never to Geolocator.
 class LocationRepository {
   const LocationRepository();
+
+  /// Where the app keeps its own last good high-accuracy fix (Batch 10
+  /// Phase 110). Coordinates only; used solely as a map-camera hint.
+  static const lastGoodFixKey = 'movera.location.last_good_fix.v1';
+
   Future<bool> isLocationServiceEnabled() {
     return Geolocator.isLocationServiceEnabled();
   }
@@ -20,6 +30,73 @@ class LocationRepository {
       locationSettings: locationSettings ??
           const LocationSettings(accuracy: LocationAccuracy.high),
     );
+  }
+
+  /// The OS's cached last position (Android/iOS), typically near-instant.
+  ///
+  /// Web: always null — geolocator_web throws `UnsupportedError` for this
+  /// call. Any plugin error also yields null. Coarse and possibly old: a
+  /// camera hint, never a pickup.
+  Future<GeoPoint?> lastKnownFix() async {
+    if (kIsWeb) return null;
+    try {
+      final position = await Geolocator.getLastKnownPosition();
+      if (position == null) return null;
+      final point = GeoPoint(position.latitude, position.longitude);
+      return point.isValid ? point : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The app's own last good fix, saved by [saveLastGoodFix]. Works on every
+  /// platform, including web. Null on first run or unreadable data.
+  Future<GeoPoint?> readLastGoodFix() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(lastGoodFixKey);
+      if (raw == null) return null;
+      final map = jsonDecode(raw);
+      if (map is! Map) return null;
+      final lat = (map['lat'] as num?)?.toDouble();
+      final lng = (map['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null) return null;
+      final point = GeoPoint(lat, lng);
+      return point.isValid ? point : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Remembers a successful high-accuracy fix for the next cold start.
+  /// Best effort: a storage failure never affects location itself.
+  Future<void> saveLastGoodFix(GeoPoint point) async {
+    if (!point.isValid) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        lastGoodFixKey,
+        jsonEncode({
+          'lat': point.latitude,
+          'lng': point.longitude,
+          'savedAt': DateTime.now().toUtc().toIso8601String(),
+        }),
+      );
+    } catch (_) {
+      // Best effort only.
+    }
+  }
+
+  /// Forgets the app's last good fix. Called when a session ends (sign-out
+  /// and session expiry) so the next person using a shared or handed-down
+  /// phone never sees the previous rider's last position. Best effort.
+  static Future<void> clearLastGoodFix() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(lastGoodFixKey);
+    } catch (_) {
+      // Best effort only.
+    }
   }
 
   Stream<Position> getPositionStream({LocationSettings? locationSettings}) {

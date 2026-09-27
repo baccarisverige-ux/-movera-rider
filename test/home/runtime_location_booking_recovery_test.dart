@@ -77,6 +77,15 @@ class _Location implements LocationRepository {
       );
 
   @override
+  Future<GeoPoint?> lastKnownFix() async => null;
+
+  @override
+  Future<GeoPoint?> readLastGoodFix() async => null;
+
+  @override
+  Future<void> saveLastGoodFix(GeoPoint point) async {}
+
+  @override
   Stream<Position> getPositionStream({LocationSettings? locationSettings}) =>
       const Stream.empty();
 

@@ -85,6 +85,7 @@ class AppScope {
       tokens: tokens,
       onSessionExpired: () async {
         await RideSnapshotStore.clear();
+        await LocationRepository.clearLastGoodFix();
         moveraNavigatorKey.currentState?.pushAndRemoveUntil(
           MaterialPageRoute<void>(builder: (_) => const SignIn()),
           (_) => false,
