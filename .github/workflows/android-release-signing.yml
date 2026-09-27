@@ -31,7 +31,7 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release-signing/keystore.jks"
           chmod 600 "$RUNNER_TEMP/release-signing/keystore.jks"
           echo "MOVERA_RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release-signing/keystore.jks" >> "$GITHUB_ENV"
-      - name: Build and inspect signed release APK
+      - name: Build and inspect signed production release APK
         env:
           MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
           MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
@@ -39,7 +39,12 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          flutter build apk --release -t lib/main_demo.dart
+          # D-027: sign the production composition (PinComposition and the
+          # transport guards are only enforced there), not the demo app.
+          flutter build apk --release \
+            -t lib/main_production.dart \
+            --dart-define=MOVERA_FLAVOR=production \
+            --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
           apk=build/app/outputs/flutter-apk/app-release.apk
           test -f "$apk"
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
