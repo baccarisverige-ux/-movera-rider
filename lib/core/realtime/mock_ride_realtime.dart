@@ -70,6 +70,15 @@ class MockRideRealtime implements RideRealtime {
   double? _pickupLng;
   double _progress = 0;
 
+  /// Set by the caller once the destination is known (Waiting doesn't exist
+  /// until after booking, so this can't be a constructor parameter). Left
+  /// null, trip ticks emit no movement at all — the same as before this was
+  /// added, so nothing regresses for a caller that never sets it.
+  double? destinationLat;
+  double? destinationLng;
+  double? _tripStartLat;
+  double? _tripStartLng;
+
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
     if (_rideId == rideId && !disposed && !cancelled) {
@@ -96,6 +105,8 @@ class MockRideRealtime implements RideRealtime {
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
+    _tripStartLat = null;
+    _tripStartLng = null;
     connection.markConnected();
     _emit(RideStatus.findingDriver);
     _assign = Timer(assignAfter, () {
@@ -291,6 +302,8 @@ class MockRideRealtime implements RideRealtime {
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
+    _tripStartLat = null;
+    _tripStartLng = null;
 
     // Publish the driver-drop outcome exactly once so Waiting can explain it.
     // Do not tear the transport down: this terminal-looking dispatch event is
@@ -366,6 +379,26 @@ class MockRideRealtime implements RideRealtime {
     _startTrip();
   }
 
+  /// Moves the driver from pickup toward the destination as the trip ticks
+  /// pass, so the in-trip marker/route path is actually exercised by every
+  /// journey through this mock, not left sitting at pickup for the whole ride.
+  void _advanceTripPosition() {
+    final destLat = destinationLat;
+    final destLng = destinationLng;
+    final startLat = _tripStartLat;
+    final startLng = _tripStartLng;
+    if (destLat == null ||
+        destLng == null ||
+        startLat == null ||
+        startLng == null) {
+      return;
+    }
+    final t = (_tripTicksDone / tripTicks).clamp(0.0, 1.0);
+    lastLat = startLat + (destLat - startLat) * t;
+    lastLng = startLng + (destLng - startLng) * t;
+    lastLocationAt = DateTime.now();
+  }
+
   /// The driver is at pickup; carry the ride through to completion so the
   /// rider reaches the finished-ride screen instead of waiting forever.
   void _startTrip() {
@@ -378,6 +411,8 @@ class MockRideRealtime implements RideRealtime {
     _board = Timer(boardAfter, () {
       if (cancelled || disposed || _rideId == null) return;
       lastStatus = RideStatus.tripStarted;
+      _tripStartLat = lastLat;
+      _tripStartLng = lastLng;
       _emit(RideStatus.tripStarted);
       _trip?.cancel();
       _tripTicksDone = 0;
@@ -387,6 +422,7 @@ class MockRideRealtime implements RideRealtime {
           return;
         }
         _tripTicksDone += 1;
+        _advanceTripPosition();
         if (_tripTicksDone >= tripTicks) {
           timer.cancel();
           lastStatus = RideStatus.tripCompleted;
