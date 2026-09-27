@@ -47,6 +47,64 @@ import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
+/// D-016: how long the driver marker eases towards a new fix. Following the
+/// actual interval between fixes (clamped) removes the move-then-stall rhythm
+/// a fixed short ease produced at a 2–3 s fix cadence.
+@visibleForTesting
+Duration driverEaseDuration(Duration? sinceLastFix) {
+  const fallback = Duration(milliseconds: 900);
+  const shortest = Duration(milliseconds: 400);
+  const longest = Duration(milliseconds: 4000);
+  if (sinceLastFix == null || sinceLastFix <= Duration.zero) return fallback;
+  if (sinceLastFix < shortest) return shortest;
+  if (sinceLastFix > longest) return longest;
+  return sinceLastFix;
+}
+
+/// D-018: bounds and uniform padding that frame [a] and [b] above a bottom
+/// obstruction (the sheet) instead of padding every side by its height.
+///
+/// google_maps_flutter 2.13 only offers a single uniform padding for
+/// `newLatLngBounds`, so the obstruction is reserved by stretching the bounds
+/// southwards: the real points then land in the top
+/// `viewportHeight - bottomObstruction` of the map.
+@visibleForTesting
+({GeoPoint southwest, GeoPoint northeast, double padding}) waitingCameraFit({
+  required GeoPoint a,
+  required GeoPoint b,
+  required double viewportHeight,
+  required double bottomObstruction,
+  double edgePadding = 48,
+}) {
+  const minSpan = 0.002; // ~200 m, so driver-at-pickup doesn't zoom to max.
+  var south = math.min(a.latitude, b.latitude);
+  var north = math.max(a.latitude, b.latitude);
+  var west = math.min(a.longitude, b.longitude);
+  var east = math.max(a.longitude, b.longitude);
+  if (north - south < minSpan) {
+    final mid = (north + south) / 2;
+    south = mid - minSpan / 2;
+    north = mid + minSpan / 2;
+  }
+  if (east - west < minSpan) {
+    final mid = (east + west) / 2;
+    west = mid - minSpan / 2;
+    east = mid + minSpan / 2;
+  }
+  final full = math.max(viewportHeight - 2 * edgePadding, 1.0);
+  final usable = math.max(
+    viewportHeight - bottomObstruction - 2 * edgePadding,
+    full * 0.25,
+  );
+  final span = north - south;
+  final stretchedSouth = north - span * (full / usable);
+  return (
+    southwest: GeoPoint(math.max(stretchedSouth, -85.0), west),
+    northeast: GeoPoint(north, east),
+    padding: edgePadding,
+  );
+}
+
 class WaitingForDriver extends StatefulWidget {
   const WaitingForDriver({
     super.key,
@@ -116,6 +174,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _mapParked = false;
   bool _modalHandoffInProgress = false;
   bool _arrivedSheetShowing = false;
+  bool _cancelling = false;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
@@ -163,6 +222,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       initial: widget.driver,
       onChange: _onLiveTick,
     );
+  }
+
+  void _retryLiveFeed() {
+    final rideId = _rideId;
+    if (rideId == null || rideId.trim().isEmpty) return;
+    _tracking.start(
+      rideId: rideId,
+      initial: _tracking.driver ?? widget.driver,
+      onChange: _onLiveTick,
+    );
+    _sheetSignature = '';
+    setState(() {});
   }
 
   void _onLiveTick() {
@@ -219,7 +290,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final headline = eta?.headline(status: status) ?? 'Driver found';
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: status) ?? '';
-    return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}';
+    return '${status.name}|$headline|$subtitle|${driver?.id ?? ''}'
+        '|${_tracking.connectionDegraded}';
   }
 
   /// The driver reaching pickup is easy to miss on a map the rider is not
@@ -337,6 +409,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _leaving = true;
     setState(() {});
     _tracking.dispose();
+
+    // A queued outbox cancel (D-013/D-020) can land after the rider was told
+    // the ride is still active. The server then reports cancelledByRider:
+    // commit it locally instead of treating it as an external terminal.
+    if (status == RideStatus.cancelledByRider && widget.onTerminal == null) {
+      await _ride.completeServerConfirmedCancel();
+      if (!mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      RideNavigator.home(context);
+      return;
+    }
 
     final customTerminal = widget.onTerminal;
     if (customTerminal != null) {
@@ -525,15 +609,29 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         return;
       }
 
-      await _ride.markCancelled(reasonId: outcome.reasonId);
+      // D-013: the server is asked first; local state only commits once it
+      // has answered. Show that the request is in flight meanwhile.
+      setState(() => _cancelling = true);
+      final result = await _ride.markCancelled(reasonId: outcome.reasonId);
       if (!mounted) return;
+      if (result != RideCancelOutcome.confirmed) {
+        setState(() {
+          _cancelling = false;
+          _leaving = false;
+        });
+        _showCancelProblem(result);
+        return;
+      }
       _tracking.dispose();
       await _parkMapForStageChange();
       if (!mounted) return;
       RideNavigator.home(context);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _leaving = false);
+      setState(() {
+        _cancelling = false;
+        _leaving = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Couldn't cancel your ride. Try again."),
@@ -541,6 +639,40 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         ),
       );
     }
+  }
+
+  void _showCancelProblem(RideCancelOutcome result) {
+    final message = result == RideCancelOutcome.rejected
+        ? 'This ride can no longer be cancelled.'
+        : "We couldn't reach Movera to confirm your cancellation. Your ride "
+              "is still active until it's confirmed — we'll retry "
+              "automatically when you're back online.";
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+      ),
+    );
+  }
+
+  /// D-014: leaving the "Can't track this ride" screen must not silently
+  /// orphan a live server ride. Try a real server cancel with any ride id
+  /// still on record first; only then wipe local state and go Home.
+  Future<void> _leaveUntrackedRide() async {
+    if (_leaving) return;
+    setState(() {
+      _leaving = true;
+      _cancelling = true;
+    });
+    try {
+      await _ride.cancelUntrackedRide(rideId: _rideId);
+    } catch (_) {
+      // cancelUntrackedRide already logs; a transient failure stays queued
+      // in the pending-cancel outbox. Leaving is still what the rider chose.
+    }
+    if (!mounted) return;
+    RideNavigator.home(context);
   }
 
   void _openProfile() {
@@ -673,8 +805,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   ),
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () => RideNavigator.home(context),
-                    child: const Text('Go home'),
+                    onPressed: _cancelling ? null : _leaveUntrackedRide,
+                    child: Text(_cancelling ? 'Leaving…' : 'Go home'),
                   ),
                 ],
               ),
@@ -747,14 +879,26 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 ),
               ),
             ),
-            if (widget.realtime == null)
+            if (widget.realtime == null || _tracking.connectionDegraded)
               Positioned(
                 top: media.padding.top + 62,
                 left: 12,
                 right: 12,
                 child: PointerInterceptor(
-                  child: RealtimeConnectionBanner(
-                    connection: AppScope.instance.realtime,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (widget.realtime == null)
+                        RealtimeConnectionBanner(
+                          connection: AppScope.instance.realtime,
+                        ),
+                      // D-015: a dead ride feed used to look exactly like a
+                      // stationary driver. Say so, and offer to reconnect.
+                      if (_tracking.connectionDegraded) ...[
+                        if (widget.realtime == null) const SizedBox(height: 8),
+                        LiveFeedDegradedBanner(onRetry: _retryLiveFeed),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -831,6 +975,19 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 ),
               ),
             ),
+            if (_cancelling)
+              Positioned.fill(
+                child: PointerInterceptor(
+                  child: Semantics(
+                    liveRegion: true,
+                    label: 'Cancelling your ride',
+                    child: const ColoredBox(
+                      color: Color(0x66000000),
+                      child: Center(child: _CancellingCard()),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -959,16 +1116,33 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
 
   // M-01/M-02: the driver marker used to teleport to each new fix. Ease
   // between the last displayed position/heading and the new one instead.
+  //
+  // D-016: the ease used to be a fixed 900 ms while fixes arrive every ~2–3 s,
+  // so the car moved for under a second and then stood still. The duration
+  // now follows the observed interval between fixes (see driverEaseDuration).
   late final AnimationController _driverAnim = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 900),
+    duration: driverEaseDuration(null),
   )..addListener(() {
       if (!mounted) return;
+      // The ease now spans most of each fix interval, so cap marker rebuilds
+      // at ~20 fps rather than rebuilding on every frame for that whole time
+      // (the per-frame map rebuild itself is Phase 104's U7 work).
+      final now = DateTime.now();
+      final last = _lastAnimRebuild;
+      if (_driverAnim.isAnimating &&
+          last != null &&
+          now.difference(last) < const Duration(milliseconds: 50)) {
+        return;
+      }
+      _lastAnimRebuild = now;
       setState(() {
         _markers = _buildMarkers();
         _leaf = null;
       });
     });
+  DateTime? _lastAnimRebuild;
+  DateTime? _lastFixArrivedAt;
   LatLng? _driverAnimFrom;
   LatLng? _driverAnimTo;
   double _driverHeadingFrom = 0;
@@ -1064,6 +1238,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         previousTo.longitude == next.longitude) {
       return;
     }
+    final arrivedAt = DateTime.now();
+    final previousArrival = _lastFixArrivedAt;
+    _lastFixArrivedAt = arrivedAt;
     if (previousTo == null) {
       // First fix: nothing to animate from.
       _driverAnimFrom = next;
@@ -1078,6 +1255,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     _driverHeadingTo = _bearingDegrees(previousTo, next) ?? _driverHeadingFrom;
     _driverAnim
       ..stop()
+      ..duration = driverEaseDuration(
+        previousArrival == null ? null : arrivedAt.difference(previousArrival),
+      )
       ..forward(from: 0);
   }
 
@@ -1123,11 +1303,20 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     if (samePoint) return;
     _lastFitDriverPoint = driver;
     _lastFitInTrip = _inTrip;
+    // D-018: the sheet's clearance used to be passed as fitBounds' uniform
+    // padding, i.e. applied to all four sides, which zoomed far out. Reserve
+    // it at the bottom only by extending the framed bounds southwards.
+    final fit = waitingCameraFit(
+      a: GeoPoint(driver.latitude, driver.longitude),
+      b: GeoPoint(target.latitude, target.longitude),
+      viewportHeight: MediaQuery.maybeSizeOf(context)?.height ?? 800,
+      bottomObstruction: widget.cameraBottomPadding,
+    );
     unawaited(
       AppScope.instance.maps.fitBounds(
-        GeoPoint(driver.latitude, driver.longitude),
-        GeoPoint(target.latitude, target.longitude),
-        padding: widget.cameraBottomPadding,
+        fit.southwest,
+        fit.northeast,
+        padding: fit.padding,
       ),
     );
   }
@@ -1312,6 +1501,88 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
             ),
           ),
       ],
+    );
+  }
+}
+
+class _CancellingCard extends StatelessWidget {
+  const _CancellingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                'Cancelling your ride…',
+                style: waitingText(15, weight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// D-015: shown when the ride's realtime stream itself errored or closed, so
+/// the driver marker is frozen rather than the driver standing still.
+class LiveFeedDegradedBanner extends StatelessWidget {
+  const LiveFeedDegradedBanner({super.key, required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      label: 'Live updates paused. Driver position may be out of date.',
+      child: DecoratedBox(
+        key: const ValueKey('waiting-live-feed-degraded'),
+        decoration: BoxDecoration(
+          color: const Color(0xF71D252C),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.portable_wifi_off_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ExcludeSemantics(
+                  child: Text(
+                    'Live updates paused. Driver position may be out of date.',
+                    style: waitingText(12.5, color: Colors.white),
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onRetry,
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

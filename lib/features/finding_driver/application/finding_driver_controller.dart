@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
@@ -654,12 +657,13 @@ class FindingDriverController {
 
   Future<void> _cancelViaAdapter(String id, String? reasonId) async {
     final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
+    final key = _cancelMutation.keyFor(intent);
     for (var attempt = 1; attempt <= 2; attempt += 1) {
       try {
         await api.post(
           '/api/v1/rides/$id/cancel',
           body: {if (reasonId != null) 'reason': reasonId},
-          idempotencyKey: _cancelMutation.keyFor(intent),
+          idempotencyKey: key,
         );
         _cancelMutation.succeeded(intent);
         await PendingCancelStore.remove(id);
@@ -669,39 +673,102 @@ class FindingDriverController {
           'ride.cancel.adapter_failed',
           extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
         );
+        if (isPermanentCancelFailure(error)) {
+          // D-020: the server no longer has a cancellable ride (404/409).
+          // Retrying — now or on a later launch — can never succeed.
+          _cancelMutation.succeeded(intent);
+          await PendingCancelStore.remove(id);
+          return;
+        }
         if (attempt == 2) {
-          // Both attempts in this session failed. Persist the request so a
-          // later session (a reconnect, a relaunch) can retry it instead of
-          // the rider's cancel silently never reaching the backend.
+          // Both attempts in this session failed. Persist the request, with
+          // the idempotency key already used for it, so a later session (a
+          // reconnect, a relaunch) retries the same request instead of the
+          // rider's cancel silently never reaching the backend.
           await PendingCancelStore.add(
-            PendingCancel(rideId: id, reasonId: reasonId),
+            PendingCancel(rideId: id, reasonId: reasonId, idempotencyKey: key),
           );
         }
       }
     }
   }
 
-  /// Retries any ride cancellations a previous session couldn't get
-  /// acknowledged. Call once at app start, after [AppScope] is composed.
-  static Future<void> flushPendingCancels({ApiClient? api}) async {
+  static Future<void>? _flushInFlight;
+  static StreamSubscription<RealtimeState>? _reconnectFlush;
+
+  /// Retries any ride cancellations that were never acknowledged. Called at
+  /// app start, after [AppScope] is composed, and again whenever the shared
+  /// realtime connection comes back (D-020: previously cold start only).
+  ///
+  /// Each entry is retried with its own persisted idempotency key. Entries the
+  /// server permanently rejects (ride gone or already finished) are dropped
+  /// rather than retried forever.
+  static Future<void> flushPendingCancels({ApiClient? api}) {
+    if (api == null) {
+      watchReconnectForPendingCancels(AppScope.instance.realtime);
+    }
+    final inFlight = _flushInFlight;
+    if (inFlight != null) return inFlight;
+    final run = _flushPendingCancels(api ?? AppScope.instance.api);
+    _flushInFlight = run;
+    return run.whenComplete(() => _flushInFlight = null);
+  }
+
+  /// Flushes the outbox every time [connection] returns to connected after
+  /// having been down. Installing it again replaces the previous watcher.
+  static void watchReconnectForPendingCancels(
+    RealtimeConnection connection, {
+    ApiClient? api,
+  }) {
+    unawaited(_reconnectFlush?.cancel());
+    var wasDown = connection.state != RealtimeState.connected;
+    _reconnectFlush = connection.states.listen((state) {
+      if (state == RealtimeState.connected) {
+        if (wasDown) {
+          wasDown = false;
+          unawaited(flushPendingCancels(api: api ?? AppScope.instance.api));
+        }
+      } else if (state == RealtimeState.failed ||
+          state == RealtimeState.disconnected ||
+          state == RealtimeState.reconnecting) {
+        wasDown = true;
+      }
+    });
+  }
+
+  @visibleForTesting
+  static Future<void> debugStopReconnectFlush() async {
+    await _reconnectFlush?.cancel();
+    _reconnectFlush = null;
+  }
+
+  static Future<void> _flushPendingCancels(ApiClient client) async {
     final pending = await PendingCancelStore.all();
     if (pending.isEmpty) return;
-    final client = api ?? AppScope.instance.api;
-    final mutation = MutationAttempt('ride-cancel-flush');
-    for (final cancel in pending) {
-      final intent = jsonEncode({
-        'rideId': cancel.rideId,
-        'reasonId': cancel.reasonId,
-      });
+    for (var cancel in pending) {
+      var key = cancel.idempotencyKey;
+      if (key == null) {
+        // Entry from before D-020: mint its one key now and keep it.
+        key = newIdempotencyKey('ride-cancel');
+        cancel = cancel.withKey(key);
+        await PendingCancelStore.add(cancel);
+      }
       try {
         await client.post(
           '/api/v1/rides/${cancel.rideId}/cancel',
           body: {if (cancel.reasonId != null) 'reason': cancel.reasonId},
-          idempotencyKey: mutation.keyFor(intent),
+          idempotencyKey: key,
         );
-        mutation.succeeded(intent);
         await PendingCancelStore.remove(cancel.rideId);
       } catch (error) {
+        if (isPermanentCancelFailure(error)) {
+          AppLog.warning(
+            'ride.cancel.flush_dropped_permanent',
+            extra: {'rideId': cancel.rideId, 'error': error.toString()},
+          );
+          await PendingCancelStore.remove(cancel.rideId);
+          continue;
+        }
         AppLog.warning(
           'ride.cancel.flush_failed',
           extra: {'rideId': cancel.rideId, 'error': error.toString()},
