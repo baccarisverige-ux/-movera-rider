@@ -250,6 +250,21 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                   ),
           ),
         ),
+        if (_canConfirm) ...[
+          const SizedBox(height: 6),
+          // D-012: the total above is a preview. Only the rider's increase is
+          // sent; the fare shown afterwards is the one the server returns.
+          Text(
+            'Movera confirms your final fare after you raise your offer.',
+            key: const ValueKey('price-bump-server-confirms'),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              height: 1.3,
+              color: MoveraTokens.muted,
+            ),
+          ),
+        ],
         const SizedBox(height: 4),
         Center(
           child: TextButton(

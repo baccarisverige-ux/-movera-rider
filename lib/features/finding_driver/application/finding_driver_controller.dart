@@ -446,31 +446,59 @@ class FindingDriverController {
     }
     editFeedback = null;
     _onTick?.call(elapsedSeconds);
+    // D-012: send only the rider's intent — how much to raise the offer by.
+    // The client-computed total is a preview for the button label, never a
+    // value the server is asked to accept. The fare shown afterwards is the
+    // one the server's response actually carries.
     final intent = jsonEncode({
       'rideId': id,
-      'price': next,
+      'fromPrice': snapshot.price,
       'offerIncreaseKr': kr,
     });
     try {
-      await api.patch(
+      final response = await api.patch(
         '/api/v1/rides/$id',
-        body: {'price': next, 'offerIncreaseKr': kr},
+        body: {'offerIncreaseKr': kr},
         idempotencyKey: _priceMutation.keyFor(intent),
       );
       _priceMutation.succeeded(intent);
       if (_editInvalid(editToken)) return false;
-      _priceUpdated = true;
       _bumpDismissed = true;
-      offerConfirmation = 'Updated offer: ${next.round()} kr';
+      final serverPrice = _serverPrice(response);
+      if (serverPrice == null) {
+        // Accepted, but the response did not say what the fare now is.
+        // Keep showing the last fare the server confirmed rather than
+        // assuming the preview total is what happened.
+        offerConfirmation = null;
+        editFeedback =
+            'Offer sent. Your fare will update once Movera confirms it.';
+        AppLog.warning(
+          'ride.offer.price_unconfirmed',
+          extra: {'rideId': id, 'increaseKr': kr},
+        );
+        _onTick?.call(elapsedSeconds);
+        _reportQa();
+        return true;
+      }
+      _priceUpdated = true;
+      offerConfirmation = 'Updated offer: ${serverPrice.round()} kr';
       editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(
         status: ride.status,
-        price: next,
+        price: serverPrice,
         savedAt: DateTime.now(),
       );
       await _store.save(_snapshot!);
       if (_editInvalid(editToken)) return false;
-      AppLog.info('ride.offer.updated', extra: {'rideId': id, 'increaseKr': kr});
+      AppLog.info(
+        'ride.offer.updated',
+        extra: {
+          'rideId': id,
+          'increaseKr': kr,
+          'serverPrice': serverPrice,
+          if (serverPrice != next) 'previewPrice': next,
+        },
+      );
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
@@ -482,6 +510,16 @@ class FindingDriverController {
     } finally {
       _finishEdit(editToken);
     }
+  }
+
+  /// The fare the server says the ride now has, from a PATCH response's
+  /// `ride.price` (or a top-level `price`). Null when absent or unusable.
+  static double? _serverPrice(Map<String, dynamic> response) {
+    final ride = response['ride'];
+    final raw = ride is Map ? ride['price'] : response['price'];
+    if (raw is! num) return null;
+    final value = raw.toDouble();
+    return value.isFinite && value > 0 ? value : null;
   }
 
   void dismissPriceBump() {
