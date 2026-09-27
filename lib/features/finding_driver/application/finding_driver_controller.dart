@@ -8,6 +8,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
@@ -148,6 +149,10 @@ class FindingDriverController {
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
   }) {
+    if (_realtime is ApiRideRealtime &&
+        snapshot.rideId?.trim().isNotEmpty != true) {
+      throw StateError('Cannot search without a server rideId.');
+    }
     active = this;
     _snapshot = snapshot;
     _catalogPrice = snapshot.price;
