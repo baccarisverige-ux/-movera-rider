@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -31,6 +32,7 @@ class ConfirmPickupSpot extends StatefulWidget {
     this.hint = 'Drag map to move pin',
     this.confirmLabel = 'Confirm pickup',
     this.positionIsFallback = false,
+    this.refreshCurrentLocation = false,
   });
 
   static Future<ConfirmPickupResult?> open(
@@ -43,6 +45,7 @@ class ConfirmPickupSpot extends StatefulWidget {
     String hint = 'Drag map to move pin',
     String confirmLabel = 'Confirm pickup',
     bool positionIsFallback = false,
+    bool refreshCurrentLocation = false,
   }) async {
     final route = RightToLeftTransition<ConfirmPickupResult>(
       ConfirmPickupSpot(
@@ -54,6 +57,7 @@ class ConfirmPickupSpot extends StatefulWidget {
         hint: hint,
         confirmLabel: confirmLabel,
         positionIsFallback: positionIsFallback,
+        refreshCurrentLocation: refreshCurrentLocation,
       ),
       settings: const RouteSettings(name: AppRoutes.confirmPickup),
     );
@@ -75,6 +79,26 @@ class ConfirmPickupSpot extends StatefulWidget {
   /// rider moves the pin, searches, or a real current location arrives.
   final bool positionIsFallback;
 
+  /// D-011: the picker fetches its own fresh fix on open and recentres on it
+  /// unless the rider has already moved the pin. Used when the initial
+  /// position came from (possibly stale) GPS rather than a chosen place.
+  final bool refreshCurrentLocation;
+
+  /// Size of the centre pin glyph.
+  static const pinSize = 44.0;
+
+  /// Bottom padding that puts the tip of Icons.location_on (y ≈ 22/24 of the
+  /// glyph box) exactly on the map centre (D-011: it sat ~4 px low).
+  static const pinTipPadding = pinSize * 2 * (22 / 24) - pinSize;
+
+  /// Screen radius in logical pixels of [meters] at [latitude] and [zoom]
+  /// (Web Mercator, 256 px tiles).
+  static double metersToPixels(double meters, double latitude, double zoom) {
+    final metersPerPixel =
+        156543.03392 * math.cos(latitude * math.pi / 180) / math.pow(2, zoom);
+    return meters / metersPerPixel;
+  }
+
   @override
   State<ConfirmPickupSpot> createState() => _ConfirmPickupSpotState();
 }
@@ -88,6 +112,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   bool _moving = false;
   String? _pickupError;
   bool _hasUsablePickupCoordinates = true;
+  final ValueNotifier<double> _zoom = ValueNotifier<double>(16.4);
   final _search = TextEditingController();
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
@@ -111,7 +136,49 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
         !widget.positionIsFallback;
     _search.text = widget.initialAddress;
     setWebOverlayOpen(false);
+    if (widget.refreshCurrentLocation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_refreshCurrentFix());
+      });
+    }
   }
+
+  /// D-011: take a fresh fix rather than trusting the position Home had.
+  Future<void> _refreshCurrentFix() async {
+    PickupCurrentPositionResult result;
+    try {
+      result = await _pickup.currentPosition().timeout(
+        const Duration(seconds: 10),
+      );
+    } catch (_) {
+      return;
+    }
+    final position = result.position;
+    // Never yank the pin away from a spot the rider already dragged to.
+    if (!mounted || position == null || _isAwayFrom(widget.initialPosition)) {
+      return;
+    }
+    setState(() {
+      _center = position;
+      _hasUsablePickupCoordinates = true;
+      _address = 'Current location';
+      _search.text = _address;
+    });
+    await _map?.animateCamera(CameraUpdate.newLatLng(position));
+    final address = await _pickup.reverse(position);
+    if (!mounted || _isAwayFrom(position) || isUnusablePickupLabel(address)) {
+      return;
+    }
+    setState(() {
+      _address = address!.trim();
+      _search.text = _address;
+    });
+  }
+
+  /// Whether the pin centre is more than ~15 m from [point].
+  bool _isAwayFrom(LatLng point) =>
+      (_center.latitude - point.latitude).abs() > 0.00015 ||
+      (_center.longitude - point.longitude).abs() > 0.00015;
 
   @override
   void didChangeDependencies() {
@@ -132,6 +199,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   @override
   void dispose() {
     _search.dispose();
+    _zoom.dispose();
     _pickup.dispose();
     AppScope.instance.maps.detach(owner: MapOwners.pickup);
     super.dispose();
@@ -140,19 +208,22 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   /// D-002: the rider moved the pin away from the fallback point.
   void _resolveFallbackIfMoved() {
     if (!widget.positionIsFallback || _hasUsablePickupCoordinates) return;
-    final moved =
-        (_center.latitude - widget.initialPosition.latitude).abs() > 0.00015 ||
-        (_center.longitude - widget.initialPosition.longitude).abs() > 0.00015;
-    if (moved) _hasUsablePickupCoordinates = true;
+    if (_isAwayFrom(widget.initialPosition)) {
+      _hasUsablePickupCoordinates = true;
+    }
   }
 
   Future<void> _idle() async {
     if (_moving) return;
     final address = await _pickup.reverse(_center);
-    if (!mounted || address == null || address.isEmpty) return;
+    if (!mounted) return;
+    // D-010: a raw "lat, lng" string is not an address the rider can use.
+    final label = isUnusablePickupLabel(address)
+        ? pickupLocationFallbackLabel
+        : address!.trim();
     setState(() {
-      _address = address;
-      _search.text = address;
+      _address = label;
+      _search.text = label;
     });
   }
 
@@ -185,9 +256,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
     });
     await _map?.animateCamera(CameraUpdate.newLatLng(position));
     final address = await _pickup.reverse(position);
-    if (!mounted || address == null || address.trim().isEmpty) return;
+    if (!mounted || isUnusablePickupLabel(address)) return;
     setState(() {
-      _address = address.trim();
+      _address = address!.trim();
       _search.text = _address;
     });
   }
@@ -235,20 +306,6 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     zoomControlsEnabled: false,
                     mapToolbarEnabled: false,
                     compassEnabled: false,
-                    circles: {
-                      Circle(
-                        circleId: const CircleId('pickup-accuracy'),
-                        center: _center,
-                        radius: _radiusMeters,
-                        fillColor: const Color(
-                          0xFF2D5878,
-                        ).withValues(alpha: 0.12),
-                        strokeColor: const Color(
-                          0xFF2D5878,
-                        ).withValues(alpha: 0.35),
-                        strokeWidth: 1,
-                      ),
-                    },
                     onMapCreated: (controller) {
                       _map = controller;
                       AppScope.instance.maps.attach(
@@ -259,6 +316,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                     onCameraMove: (position) {
                       _moving = true;
                       _center = position.target;
+                      // D-011: the radius overlay follows zoom live; it is
+                      // screen-centred like the pin, so it never lags.
+                      _zoom.value = position.zoom;
                     },
                     onCameraIdle: () {
                       _moving = false;
@@ -266,13 +326,47 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                       _idle();
                     },
                   ),
+                if (_mapReady)
+                  IgnorePointer(
+                    child: Center(
+                      child: ValueListenableBuilder<double>(
+                        valueListenable: _zoom,
+                        builder: (context, zoom, _) {
+                          final radius = ConfirmPickupSpot.metersToPixels(
+                            _radiusMeters,
+                            _center.latitude,
+                            zoom,
+                          ).clamp(8.0, 600.0);
+                          return Container(
+                            key: const ValueKey('pickup-accuracy-overlay'),
+                            width: radius * 2,
+                            height: radius * 2,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(
+                                0xFF2D5878,
+                              ).withValues(alpha: 0.12),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF2D5878,
+                                ).withValues(alpha: 0.35),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 const IgnorePointer(
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.only(bottom: 28),
+                      key: ValueKey('pickup-pin'),
+                      padding: EdgeInsets.only(
+                        bottom: ConfirmPickupSpot.pinTipPadding,
+                      ),
                       child: Icon(
                         Icons.location_on,
-                        size: 44,
+                        size: ConfirmPickupSpot.pinSize,
                         color: Color(0xFF11181D),
                       ),
                     ),

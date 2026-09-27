@@ -43,13 +43,13 @@ void main() {
       position: _point,
       reverse: (_) => throw StateError('offline'),
     );
-    expect(fallback, '59.329300, 18.068600');
+    expect(fallback, pickupLocationFallbackLabel);
   });
 
   test('map confirmation returns coordinates immediately for the UI label', () {
     expect(
       confirmedPickupAddress('Current location', _point),
-      '59.329300, 18.068600',
+      pickupLocationFallbackLabel,
     );
   });
 
