@@ -44,6 +44,7 @@ import 'package:movera_rider/features/profile/application/account_security_contr
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
@@ -71,13 +72,20 @@ class AppScope {
         pickup = PickupSession(),
         destination = DestinationSession(),
         booking = BookingCoordinator(),
-        reservations = ReservationController(environment: environment),
+        reservations = ReservationController(
+          environment: environment,
+          // Simulated scheduled-ride dispatch: mock-transport builds only.
+          mockDispatch: environment.allowsMockTransport
+              ? MockReservationDispatch()
+              : null,
+        ),
         profile = ProfileController() {
     api = ApiClient(
       env: environment,
       tokens: tokens,
       onSessionExpired: () async {
         await RideSnapshotStore.clear();
+        await LocationRepository.clearLastGoodFix();
         moveraNavigatorKey.currentState?.pushAndRemoveUntil(
           MaterialPageRoute<void>(builder: (_) => const SignIn()),
           (_) => false,

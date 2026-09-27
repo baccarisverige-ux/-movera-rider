@@ -87,6 +87,18 @@ class LocationRepository {
     }
   }
 
+  /// Forgets the app's last good fix. Called when a session ends (sign-out
+  /// and session expiry) so the next person using a shared or handed-down
+  /// phone never sees the previous rider's last position. Best effort.
+  static Future<void> clearLastGoodFix() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(lastGoodFixKey);
+    } catch (_) {
+      // Best effort only.
+    }
+  }
+
   Stream<Position> getPositionStream({LocationSettings? locationSettings}) {
     return Geolocator.getPositionStream(locationSettings: locationSettings);
   }

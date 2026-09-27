@@ -1,4 +1,5 @@
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
@@ -62,6 +63,12 @@ class AuthController {
         extra: {'error': error.toString()},
       );
     }
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+    } finally {
+      // Local wipe even when the backend sign-out fails (tokens are cleared
+      // the same way in AuthRepository.signOut).
+      await LocationRepository.clearLastGoodFix();
+    }
   }
 }
