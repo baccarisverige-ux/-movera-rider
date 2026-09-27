@@ -142,10 +142,11 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
       } else {
         cache = SafetyCache.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       }
-      // On iOS/Android, the PIN digits live in Keychain/Keystore, not in
-      // this plaintext prefs blob. Elsewhere (web, desktop, tests) nothing
-      // changes: the PIN stays embedded in `cache` exactly as before.
-      if (_pinStore.isNativeSecure) {
+      // On iOS/Android the PIN digits live in Keychain/Keystore and on web
+      // in memory only (P-06) — never in this plaintext prefs blob. A legacy
+      // blob that still carries real digits is adopted and then scrubbed by
+      // the _persist below. Desktop/tests keep the PIN embedded as before.
+      if (_pinStore.keepsPinOutOfPreferences) {
         final securePin = await _pinStore.read();
         if (securePin != null) {
           cache.pin = cache.pin.copyWith(pin: securePin);
@@ -173,7 +174,7 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
   Future<void> save(SafetyCache cache) async {
     _memory = _copy(cache);
     if (memoryOnly) return;
-    if (_pinStore.isNativeSecure) {
+    if (_pinStore.keepsPinOutOfPreferences) {
       if (cache.pin.isAvailable) await _pinStore.write(cache.pin.pin);
     }
     try {
@@ -187,7 +188,7 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
     String? raw,
   }) async {
     final store = prefs ?? await PreferencesStore.load();
-    if (_pinStore.isNativeSecure) {
+    if (_pinStore.keepsPinOutOfPreferences) {
       final scrubbed = _copy(cache)..pin = cache.pin.copyWith(pin: _pinPlaceholder);
       await store.setString(cacheKey, jsonEncode(scrubbed.toJson()));
     } else if (raw == null || raw.isEmpty) {
