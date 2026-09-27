@@ -2062,7 +2062,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _openPayment() {
     unawaited(_withParkedHomeMap(() {
       return Navigator.of(context).push(
-        RightToLeftTransition(const WalletScreen()),
+        RightToLeftTransition(const WalletAndPaymentsScreen(initialTab: 1)),
       );
     }));
   }
