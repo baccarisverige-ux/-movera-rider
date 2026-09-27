@@ -670,6 +670,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     LatLng? confirmedPickupLatLng;
     var destinationConfirmedOnMap = false;
     LatLng? confirmedDestinationLatLng;
+    var confirmingDestinationNext = false;
 
     TextEditingController activeController() {
       if (activeField == 'pickup') return pickupController;
@@ -1245,12 +1246,17 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             onTap: destinationController.text.trim().isEmpty
                                 ? null
                                 : () async {
+                                    if (confirmingDestinationNext) return;
+                                    confirmingDestinationNext = true;
                                     FocusScope.of(context).unfocus();
                                     // Book now always confirms pickup; GPS only prefills.
                                     final result = await _openPickupMapPicker(
                                       pickupController.text.trim(),
                                     );
-                                    if (result == null || !mounted) return;
+                                    if (result == null || !mounted) {
+                                      confirmingDestinationNext = false;
+                                      return;
+                                    }
                                     pickupController.text = result.address;
                                     final exactPosition = result.position;
 
@@ -1275,12 +1281,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                             'Choose a valid destination address.',
                                           );
                                         }
+                                        confirmingDestinationNext = false;
                                         return;
                                       }
                                     }
                                     if (!mounted ||
                                         !sheetContext.mounted ||
                                         exactDestinationPosition == null) {
+                                      confirmingDestinationNext = false;
                                       return;
                                     }
                                     Navigator.pop(sheetContext, {
