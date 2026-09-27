@@ -5,7 +5,6 @@ import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
-import 'package:movera_rider/features/messages/presentation/messages.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
@@ -218,12 +217,6 @@ class RiderSideMenu extends StatelessWidget {
             image: null,
             title: 'Notifications',
             onTap: () => _pushPage(context, const NotificationScreen()),
-          ),
-          (
-            icon: Icons.chat_bubble_outline_rounded,
-            image: null,
-            title: 'Messages',
-            onTap: () => _pushPage(context, const MessagesInbox()),
           ),
           (
             icon: Icons.bookmark_border_rounded,
