@@ -216,3 +216,18 @@ Future<void> waitForCurrentRouteToSettle(BuildContext context) async {
   await completer.future;
   await WidgetsBinding.instance.endOfFrame;
 }
+
+/// Pushes [route] unless [context]'s route is already no longer the
+/// topmost one — i.e. a previous tap already pushed something. Unlike a
+/// per-widget in-flight flag, this needs no State: [ModalRoute.isCurrent]
+/// flips to false synchronously the instant a route is pushed, before the
+/// transition animation even starts, so a rapid double-tap on a
+/// StatelessWidget's onTap (which has nowhere to store a boolean) is still
+/// caught. Use the per-widget flag pattern instead when the guarded action
+/// is async before the push happens (see e.g. SafetyHub._open).
+Future<T?> guardedPush<T>(BuildContext context, Route<T> route) {
+  if (!(ModalRoute.of(context)?.isCurrent ?? true)) {
+    return Future<T?>.value();
+  }
+  return Navigator.push<T>(context, route);
+}

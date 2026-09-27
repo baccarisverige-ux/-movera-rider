@@ -110,6 +110,7 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
+  bool _confirming = false;
   String? _pickupError;
   bool _hasUsablePickupCoordinates = true;
   final ValueNotifier<double> _zoom = ValueNotifier<double>(16.4);
@@ -277,6 +278,8 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   }
 
   void _confirmPosition() {
+    if (_confirming) return;
+    _confirming = true;
     final position = _center;
     final address = confirmedPickupAddress(_address, position);
     Navigator.pop(

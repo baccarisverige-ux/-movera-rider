@@ -168,7 +168,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
   }
 }
 
-class WaitingDriverCard extends StatelessWidget {
+class WaitingDriverCard extends StatefulWidget {
   const WaitingDriverCard({
     super.key,
     required this.driver,
@@ -185,7 +185,32 @@ class WaitingDriverCard extends StatelessWidget {
   final VoidCallback onMore;
 
   @override
+  State<WaitingDriverCard> createState() => _WaitingDriverCardState();
+}
+
+class _WaitingDriverCardState extends State<WaitingDriverCard> {
+  bool _openingChat = false;
+
+  Future<void> _openChat(String? rideId, String driverName) async {
+    if (_openingChat) return;
+    _openingChat = true;
+    try {
+      await Navigator.push(
+        context,
+        BottomToTopTransition(Chat(driverName: driverName, rideId: rideId)),
+      );
+    } finally {
+      _openingChat = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final driver = widget.driver;
+    final rideId = widget.rideId;
+    final onOpenProfile = widget.onOpenProfile;
+    final onCall = widget.onCall;
+    final onMore = widget.onMore;
     if (driver == null) {
       return Container(
         width: double.infinity,
@@ -203,7 +228,7 @@ class WaitingDriverCard extends StatelessWidget {
         ),
       );
     }
-    final d = driver!;
+    final d = driver;
     final unreadMessages = MessagesController.forRide(rideId).unreadCount;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
@@ -347,12 +372,7 @@ class WaitingDriverCard extends StatelessWidget {
                   color: const Color(0xFFF6F8FA),
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
-                    onTap: () => Navigator.push(
-                      context,
-                      BottomToTopTransition(
-                        Chat(driverName: d.displayFirstName, rideId: rideId),
-                      ),
-                    ),
+                    onTap: () => _openChat(rideId, d.displayFirstName),
                     borderRadius: BorderRadius.circular(14),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
