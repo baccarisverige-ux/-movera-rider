@@ -45,17 +45,27 @@ class StockholmSchedule {
     );
   }
 
-  /// Raise [dt] to [minimumPickup] when it is in the past (or too soon).
+  /// Raise [dt] to [minimumPickup] when it is in the past (or too soon), and
+  /// otherwise still grid-align it to the 5-minute slot. A time can be legal
+  /// (past the 30-minute lead) while off-grid — e.g. a return-ride prefill
+  /// inherited from an outbound time that was never itself grid-aligned —
+  /// and every caller of this method expects a slotted result back.
   static DateTime clampPickup(DateTime dt, [DateTime? now]) {
     final min = minimumPickup(now);
     if (dt.isBefore(min)) return min;
-    return DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
+    return roundToFive(DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute));
   }
 
   /// Continue-button predicate: pickup must be at/after Stockholm now+30.
   static bool isLegalPickup(DateTime dt, [DateTime? now]) {
     return !dt.isBefore(minimumPickup(now));
   }
+
+  /// Whether [dt] already sits on the 5-minute slot grid. A time can be a
+  /// legal pickup ([isLegalPickup]) while still being off-grid — e.g. a
+  /// return-ride prefill inherited from an outbound time that was never
+  /// itself grid-aligned.
+  static bool isOnGrid(DateTime dt) => dt.minute % slotMinutes == 0;
 
   /// Earliest time the time picker may land on for [date].
   static DateTime timePickerMinFor(DateTime date, [DateTime? now]) {

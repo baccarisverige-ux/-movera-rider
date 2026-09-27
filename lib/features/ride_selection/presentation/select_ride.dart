@@ -713,15 +713,19 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
-  /// Phase 114: a return ride arrives with a prefilled pickup (origin + 3 h)
-  /// that nobody validated. Before it can be booked it must satisfy the same
-  /// [StockholmSchedule] rules the scheduling picker enforces (30-minute lead,
-  /// 5-minute slots). The main Schedule flow already picked its time in that
-  /// picker, so it is not re-checked here.
+  /// Phase 114/136: a return ride arrives with a prefilled pickup
+  /// (origin + 3 h) that nobody validated. Before it can be booked it must
+  /// satisfy the same [StockholmSchedule] rules the scheduling picker
+  /// enforces (30-minute lead, 5-minute slots) — lead time alone isn't
+  /// enough, since a prefill can be legal but still off-grid (e.g. 21:07).
+  /// The main Schedule flow already picked its time in that picker, so it is
+  /// not re-checked here.
   bool get _returnTimeNeedsPicker {
     if (widget.parentReservationId == null) return false;
     final when = _selection.scheduledFor;
-    return when != null && !StockholmSchedule.isLegalPickup(when);
+    return when != null &&
+        (!StockholmSchedule.isLegalPickup(when) ||
+            !StockholmSchedule.isOnGrid(when));
   }
 
   Future<void> _bookScheduled() async {

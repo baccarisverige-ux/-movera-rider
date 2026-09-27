@@ -63,5 +63,21 @@ void main() {
     expect(session.scheduledAt, StockholmSchedule.minimumPickup());
   });
 
-  
+  test('Phase 136: isOnGrid flags a legal-but-off-grid time', () {
+    final future = DateTime(2026, 9, 23, 6, 55);
+    expect(StockholmSchedule.isLegalPickup(future, utc), isTrue);
+    expect(StockholmSchedule.isOnGrid(future), isTrue);
+
+    final offGrid = DateTime(2026, 9, 23, 6, 57);
+    expect(
+      StockholmSchedule.isLegalPickup(offGrid, utc),
+      isTrue,
+      reason: 'still well past the 30-minute lead',
+    );
+    expect(
+      StockholmSchedule.isOnGrid(offGrid),
+      isFalse,
+      reason: '57 is not a multiple of the 5-minute slot',
+    );
+  });
 }
