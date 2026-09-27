@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -78,15 +77,20 @@ class PremiumBottomNavItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                3.height,
+                2.height,
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: ResSize.w * 2),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: TextWidget(
-                      text: label,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    textScaler: MediaQuery.textScalerOf(context).clamp(
+                      maxScaleFactor: 1.2,
+                    ),
+                    style: TextStyle(
                       color: color,
-                      fontSize: 9.5,
+                      fontSize: ResSize.setSp(9.5),
                       fontWeight: active ? fwSemiBold : fwMedium,
                     ),
                   ),

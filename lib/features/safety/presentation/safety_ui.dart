@@ -183,12 +183,17 @@ class SafetyRow extends StatelessWidget {
                     ),
                     if (status != null) ...[
                       const SizedBox(width: 8),
-                      Text(
-                        status!,
-                        style: SafetyUi.text(
-                          12.5,
-                          color: SafetyUi.accent,
-                          weight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          status!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: SafetyUi.text(
+                            12.5,
+                            color: SafetyUi.accent,
+                            weight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],

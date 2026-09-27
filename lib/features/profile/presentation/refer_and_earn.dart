@@ -27,11 +27,14 @@ class ReferAndEarn extends StatelessWidget {
                     color: AppColor.primary,
                   ),
                 ),
-                TextWidget(
-                  text: 'Refer & Earn',
-                  color: AppColor.primary,
-                  fontSize: 18,
-                  fontWeight: fwSemiBold,
+                Expanded(
+                  child: TextWidget(
+                    text: 'Refer & Earn',
+                    textAlign: TextAlign.center,
+                    color: AppColor.primary,
+                    fontSize: 18,
+                    fontWeight: fwSemiBold,
+                  ),
                 ),
                 const SizedBox(width: 48, height: 48),
               ],

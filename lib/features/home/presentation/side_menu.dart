@@ -9,7 +9,6 @@ import 'package:movera_rider/features/messages/presentation/messages.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -152,32 +151,8 @@ class RiderSideMenu extends StatelessWidget {
                       fontSize: 18,
                       fontWeight: fwSemiBold,
                     ),
-                    4.height,
-                    TextWidget(
-                      text: 'Rider',
-                      color: _muted,
-                      fontSize: 13,
-                      fontWeight: fwMedium,
-                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          14.height,
-          Row(
-            children: [
-              Icon(
-                Icons.star_border_rounded,
-                color: _accent,
-                size: 18 * ResSize.h,
-              ),
-              6.width,
-              TextWidget(
-                text: 'No rating yet',
-                color: _muted,
-                fontSize: 13.5,
-                fontWeight: fwMedium,
               ),
             ],
           ),
@@ -240,12 +215,6 @@ class RiderSideMenu extends StatelessWidget {
             onTap: () => _pushPage(context, const SupportHome()),
           ),
           (
-            icon: Icons.mail_outline_rounded,
-            image: null,
-            title: 'Invite Friends',
-            onTap: () => _pushPage(context, const ReferAndEarn()),
-          ),
-          (
             icon: Icons.info_outline_rounded,
             image: null,
             title: 'About',
@@ -254,7 +223,7 @@ class RiderSideMenu extends StatelessWidget {
               const HelpArticle(
                 title: 'About Movera',
                 body:
-                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+                    'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
               ),
             ),
           ),
@@ -322,11 +291,15 @@ class RiderSideMenu extends StatelessWidget {
                   ),
                   16.width,
                   Expanded(
-                    child: TextWidget(
-                      text: title,
-                      color: _ink,
-                      fontSize: 16,
-                      fontWeight: fwMedium,
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: ResSize.setSp(16),
+                        fontWeight: fwMedium,
+                      ),
                     ),
                   ),
                 ],
@@ -356,11 +329,17 @@ class RiderSideMenu extends StatelessWidget {
             height: ResSize.h * 18,
           ),
           8.width,
-          TextWidget(
-            text: 'Movera Rider',
-            color: _muted,
-            fontSize: 11,
-            fontWeight: fwMedium,
+          Flexible(
+            child: Text(
+              'Movera Rider',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _muted,
+                fontSize: ResSize.setSp(11),
+                fontWeight: fwMedium,
+              ),
+            ),
           ),
         ],
       ),
