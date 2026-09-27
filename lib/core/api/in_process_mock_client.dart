@@ -446,10 +446,23 @@ class InProcessMockClient extends http.BaseClient {
             'ride': ride,
             'requestId': requestId,
           };
+        } else if (body.containsKey('offerIncreaseKr') &&
+            !_validOfferIncrease(body['offerIncreaseKr'], ride['price'])) {
+          status = 422;
+          payload = {
+            'code': 'INVALID_OFFER',
+            'message': 'Offer increase must be a positive whole amount',
+            'requestId': requestId,
+          };
         } else {
-          if (body['price'] != null) ride['price'] = body['price'];
-          if (body['offerIncreaseKr'] != null) {
-            ride['offerIncreaseKr'] = body['offerIncreaseKr'];
+          // D-012: the server prices an offer bump itself from the rider's
+          // intent (offerIncreaseKr). A client-sent `price` is never treated
+          // as authority and is ignored. (A real backend must also bound the
+          // bump; this in-process mock does not model fare limits.)
+          final increase = body['offerIncreaseKr'];
+          if (increase is num) {
+            ride['price'] = (ride['price'] as num) + increase;
+            ride['offerIncreaseKr'] = increase;
           }
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
@@ -705,4 +718,10 @@ class InProcessMockClient extends http.BaseClient {
       contentLength: bytes.length,
     );
   }
+
+  static bool _validOfferIncrease(Object? increase, Object? currentPrice) =>
+      increase is num &&
+      increase > 0 &&
+      increase == increase.roundToDouble() &&
+      currentPrice is num;
 }
