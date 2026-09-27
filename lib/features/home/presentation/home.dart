@@ -886,24 +886,33 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                     setModalState(() => query = text);
                   });
                 };
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                // MoveraSheet already applies the keyboard inset outside
+                // this builder. Applying it a second time pushed the primary
+                // Next action below the viewport while an address field was
+                // focused. Keep one keyboard owner and make this surface its
+                // own Material so ListTile ink/backgrounds remain visible.
+                return Material(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Container(
-                    height: MediaQuery.of(context).size.height * 0.92,
+                    // MoveraSheet already owns the keyboard inset outside this
+                    // builder. Size this surface from the remaining visible
+                    // viewport, not from the full screen, otherwise the sheet
+                    // plus keyboard padding becomes taller than the screen and
+                    // pushes the primary Next action below the hit-test area.
+                    height:
+                        (MediaQuery.sizeOf(context).height -
+                            MediaQuery.viewInsetsOf(context).bottom) *
+                        0.92,
                     padding: EdgeInsets.fromLTRB(
                       ResSize.w * 14,
                       ResSize.h * 10,
                       ResSize.w * 14,
                       ResSize.h * 16,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(32),
-                        topRight: Radius.circular(32),
-                      ),
                     ),
                     child: Column(
                       children: [
