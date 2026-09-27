@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -13,6 +14,7 @@ import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 
@@ -76,6 +78,7 @@ class _RideCompletedState extends State<RideCompleted> {
   String? _submitError;
   final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
   String? _acceptedFeedbackIntent;
+  bool _walletChargeRequested = false;
 
   @override
   void initState() {
@@ -119,7 +122,35 @@ class _RideCompletedState extends State<RideCompleted> {
         );
       }
       setState(() => _status = status);
+      _maybeChargeWallet();
     });
+    _maybeChargeWallet();
+  }
+
+  /// D-022: a wallet-paid on-demand ride is deducted from the local wallet
+  /// balance once it reaches a charged status. WalletController guards
+  /// against charging the same ride twice.
+  void _maybeChargeWallet() {
+    if (!widget.persistOnDemandState || _walletChargeRequested) return;
+    if (_completionRank(_status) <
+        _completionRank(RideStatus.paymentFinalized)) {
+      return;
+    }
+    final rideId = widget.rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    _walletChargeRequested = true;
+    unawaited(_chargeWallet(rideId));
+  }
+
+  Future<void> _chargeWallet(String rideId) async {
+    try {
+      await WalletController().chargeCompletedRideById(rideId);
+    } catch (error) {
+      AppLog.warning(
+        'wallet.ride_charge_failed',
+        extra: {'rideId': rideId, 'error': error.toString()},
+      );
+    }
   }
 
   @override
