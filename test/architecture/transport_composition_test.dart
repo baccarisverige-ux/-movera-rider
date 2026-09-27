@@ -63,7 +63,6 @@ void main() {
           logger: const NoopLoggerSink(),
           analytics: const NoopAnalyticsSink(),
           crashes: const NoopCrashSink(),
-          usesMockDriverAssignment: true,
         ),
         throwsStateError,
       );
@@ -87,7 +86,6 @@ void main() {
         logger: const NoopLoggerSink(),
         analytics: const NoopAnalyticsSink(),
         crashes: const NoopCrashSink(),
-        usesMockDriverAssignment: true,
       ),
       throwsA(
         isA<StateError>().having(
@@ -118,7 +116,6 @@ void main() {
         logger: const NoopLoggerSink(),
         analytics: const NoopAnalyticsSink(),
         crashes: const NoopCrashSink(),
-        usesMockDriverAssignment: false,
       ),
       throwsA(
         isA<StateError>().having(
@@ -147,7 +144,6 @@ void main() {
         logger: const NoopLoggerSink(),
         analytics: const NoopAnalyticsSink(),
         crashes: const NoopCrashSink(),
-        usesMockDriverAssignment: true,
       ),
       returnsNormally,
     );
@@ -171,7 +167,6 @@ void main() {
         logger: const NoopLoggerSink(),
         analytics: const NoopAnalyticsSink(),
         crashes: const NoopCrashSink(),
-        usesMockDriverAssignment: true,
       ),
       throwsA(
         isA<StateError>().having(
@@ -200,7 +195,6 @@ void main() {
         logger: const NoopLoggerSink(),
         analytics: const NoopAnalyticsSink(),
         crashes: const NoopCrashSink(),
-        usesMockDriverAssignment: true,
       ),
       throwsA(
         isA<StateError>().having(

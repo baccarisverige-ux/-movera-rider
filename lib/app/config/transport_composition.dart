@@ -20,7 +20,6 @@ abstract final class TransportComposition {
     required LoggerSink logger,
     required AnalyticsSink analytics,
     required CrashSink crashes,
-    required bool usesMockDriverAssignment,
   }) {
     if (environment.allowsMockTransport) return;
 
@@ -35,7 +34,13 @@ abstract final class TransportComposition {
       if (logger is NoopLoggerSink) 'logger',
       if (analytics is NoopAnalyticsSink) 'analytics',
       if (crashes is NoopCrashSink) 'crashes',
-      if (usesMockDriverAssignment) 'driverAssignment',
+      // Phase 137: a usesMockDriverAssignment check used to live here, but
+      // ReservationController defines that flag as exactly
+      // environment.allowsMockTransport - the same condition the early
+      // return above already guards on - so the branch could never fire by
+      // the time this list is built. Removed rather than kept as a
+      // tautology; reservation dispatch mocking is still gated by that
+      // same environment check at its own call site in di.dart.
     ];
 
     if (mockSurfaces.isNotEmpty) {

@@ -144,7 +144,6 @@ class AppScope {
       logger: Observability.logger,
       analytics: Observability.analytics,
       crashes: Observability.crashes,
-      usesMockDriverAssignment: reservations.usesMockDriverAssignment,
     );
     AuthComposition.validate(environment);
   }
