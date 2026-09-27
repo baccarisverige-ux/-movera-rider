@@ -44,6 +44,7 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_top_acti
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
+import 'package:movera_rider/features/home/presentation/widgets/plan_ride_address_box.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
@@ -1019,91 +1020,30 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         ),
                         14.height,
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Expanded(
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: ResSize.w * 10,
-                                  vertical: ResSize.h * 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColor.white,
-                                  borderRadius: BorderRadius.circular(23),
-                                  border: Border.all(
-                                    color: _premiumInk,
-                                    width: 1.25,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.045,
-                                      ),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 7),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      left: ResSize.w * 13,
-                                      top: ResSize.h * 25,
-                                      bottom: ResSize.h * 25,
-                                      child: Container(
-                                        width: 1.4,
-                                        color: _premiumInk.withValues(
-                                          alpha: 0.72,
-                                        ),
-                                      ),
-                                    ),
-                                    Column(children: routeRows),
-                                  ],
-                                ),
+                              child: PlanRideAddressBox(
+                                routeRows: routeRows,
+                                showAddStop: _stopsSupported,
+                                stopCount: stopControllers.length,
+                                onAddStop: () {
+                                  final controller = TextEditingController();
+                                  final focusNode = FocusNode();
+                                  setModalState(() {
+                                    stopControllers.add(controller);
+                                    stopFocusNodes.add(focusNode);
+                                    sheetDisposables.add(controller);
+                                    sheetDisposables.add(focusNode);
+                                    activeField = 'stop';
+                                    activeStopIndex = stopControllers.length - 1;
+                                    query = '';
+                                  });
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    focusNode.requestFocus();
+                                  });
+                                },
                               ),
                             ),
-                            if (_stopsSupported) ...[
-                            6.width,
-                            Material(
-                              color: const Color(0xFFF0F2F3),
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                onTap: stopControllers.length >= 3
-                                    ? null
-                                    : () {
-                                        final controller =
-                                            TextEditingController();
-                                        final focusNode = FocusNode();
-                                        setModalState(() {
-                                          stopControllers.add(controller);
-                                          stopFocusNodes.add(focusNode);
-                                          sheetDisposables.add(controller);
-                                          sheetDisposables.add(focusNode);
-                                          activeField = 'stop';
-                                          activeStopIndex =
-                                              stopControllers.length - 1;
-                                          query = '';
-                                        });
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                              focusNode.requestFocus();
-                                            });
-                                      },
-                                customBorder: const CircleBorder(),
-                                child: SizedBox(
-                                  width: ResSize.w * 44,
-                                  height: ResSize.h * 44,
-                                  child: Icon(
-                                    Icons.add_rounded,
-                                    color: stopControllers.length >= 3
-                                        ? _premiumMuted.withValues(alpha: 0.4)
-                                        : _premiumInk,
-                                    size: ResSize.h * 27,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            ],
                           ],
                         ),
                         if (_stopsSupported) ...[
