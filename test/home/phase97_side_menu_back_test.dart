@@ -139,16 +139,8 @@ void main() {
   });
 
   test('D-024: an empty profile never reads as a literal placeholder', () {
+    // The account screen's empty state is covered by account_flow_test.
     expect(ProfileRepository.emptyDisplayName, isNot('Profile not set'));
-    for (final path in [
-      'lib/features/profile/data/profile_repository.dart',
-      'lib/features/profile/presentation/account_home.dart',
-    ]) {
-      expect(
-        File(path).readAsStringSync(),
-        isNot(contains("'Profile not set'")),
-        reason: path,
-      );
-    }
+    expect(ProfileRepository.emptyDisplayName, 'Welcome to Movera');
   });
 }
