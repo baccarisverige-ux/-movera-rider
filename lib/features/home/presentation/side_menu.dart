@@ -15,11 +15,15 @@ import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RiderSideMenu extends StatelessWidget {
-  const RiderSideMenu({super.key, this.onStartBooking});
+  const RiderSideMenu({super.key, this.onStartBooking, this.onCoveredChanged});
 
   /// Called when a menu page asks to go straight to booking (for example
   /// Ride History's empty-state "Book a ride") instead of back to the menu.
   final VoidCallback? onStartBooking;
+
+  /// U7: told `true` when a full-screen menu page is pushed over Home and
+  /// `false` once it is popped, so Home can pause its puck work while hidden.
+  final ValueChanged<bool>? onCoveredChanged;
 
   static const Color _ink = Color(0xFF1C2329);
   static const Color _muted = Color(0xFF7A858E);
@@ -33,13 +37,17 @@ class RiderSideMenu extends StatelessWidget {
     final scaffold = Scaffold.of(context);
     scaffold.closeDrawer();
 
-    // Drawer close is animated and is not a Navigator Future. Do not start a
-    // page transition while that surface is still moving out.
-    while (scaffold.mounted && scaffold.isDrawerOpen) {
-      await WidgetsBinding.instance.endOfFrame;
-    }
+    // U7: push straight away and let the drawer close underneath. Waiting
+    // for the close animation first added its full length to every
+    // menu-to-page transition.
     if (!nav.mounted) return;
-    final result = await nav.push<Object?>(RightToLeftTransition(page));
+    onCoveredChanged?.call(true);
+    final Object? result;
+    try {
+      result = await nav.push<Object?>(RightToLeftTransition(page));
+    } finally {
+      onCoveredChanged?.call(false);
+    }
     if (!scaffold.mounted) return;
     if (result == RideHistory.startBookingResult) {
       onStartBooking?.call();
