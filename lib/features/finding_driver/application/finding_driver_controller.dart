@@ -12,6 +12,7 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -648,18 +649,59 @@ class FindingDriverController {
 
   Future<void> _cancelViaAdapter(String id, String? reasonId) async {
     final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
-    try {
-      await api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {if (reasonId != null) 'reason': reasonId},
-        idempotencyKey: _cancelMutation.keyFor(intent),
-      );
-      _cancelMutation.succeeded(intent);
-    } catch (error) {
-      AppLog.warning(
-        'ride.cancel.adapter_failed',
-        extra: {'rideId': id, 'error': error.toString()},
-      );
+    for (var attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await api.post(
+          '/api/v1/rides/$id/cancel',
+          body: {if (reasonId != null) 'reason': reasonId},
+          idempotencyKey: _cancelMutation.keyFor(intent),
+        );
+        _cancelMutation.succeeded(intent);
+        await PendingCancelStore.remove(id);
+        return;
+      } catch (error) {
+        AppLog.warning(
+          'ride.cancel.adapter_failed',
+          extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
+        );
+        if (attempt == 2) {
+          // Both attempts in this session failed. Persist the request so a
+          // later session (a reconnect, a relaunch) can retry it instead of
+          // the rider's cancel silently never reaching the backend.
+          await PendingCancelStore.add(
+            PendingCancel(rideId: id, reasonId: reasonId),
+          );
+        }
+      }
+    }
+  }
+
+  /// Retries any ride cancellations a previous session couldn't get
+  /// acknowledged. Call once at app start, after [AppScope] is composed.
+  static Future<void> flushPendingCancels({ApiClient? api}) async {
+    final pending = await PendingCancelStore.all();
+    if (pending.isEmpty) return;
+    final client = api ?? AppScope.instance.api;
+    final mutation = MutationAttempt('ride-cancel-flush');
+    for (final cancel in pending) {
+      final intent = jsonEncode({
+        'rideId': cancel.rideId,
+        'reasonId': cancel.reasonId,
+      });
+      try {
+        await client.post(
+          '/api/v1/rides/${cancel.rideId}/cancel',
+          body: {if (cancel.reasonId != null) 'reason': cancel.reasonId},
+          idempotencyKey: mutation.keyFor(intent),
+        );
+        mutation.succeeded(intent);
+        await PendingCancelStore.remove(cancel.rideId);
+      } catch (error) {
+        AppLog.warning(
+          'ride.cancel.flush_failed',
+          extra: {'rideId': cancel.rideId, 'error': error.toString()},
+        );
+      }
     }
   }
 

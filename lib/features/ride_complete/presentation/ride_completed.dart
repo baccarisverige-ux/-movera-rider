@@ -128,14 +128,55 @@ class _RideCompletedState extends State<RideCompleted> {
     super.dispose();
   }
 
-  Future<void> _closeAndHome() async {
+  Future<void> _closeAndHome() => _leave(submitFeedback: true);
+
+  /// Back (top-left and system) must never submit money-affecting feedback
+  /// as a side effect of leaving. Only prompt when there is a selected
+  /// rating or tip that would otherwise be silently discarded; with nothing
+  /// selected there is nothing to lose, so leave immediately.
+  Future<void> _handleBack() async {
+    if (_leaving || !mounted) return;
+    if (_rating == null && _tipMinor == null) {
+      await _leave(submitFeedback: false);
+      return;
+    }
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Leave without sending?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Your rating and tip have not been sent yet. Going back now will discard them.',
+          style: GoogleFonts.poppins(fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            key: const ValueKey('completion-leave-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (leave == true) {
+      await _leave(submitFeedback: false);
+    }
+  }
+
+  Future<void> _leave({required bool submitFeedback}) async {
     if (_leaving || !mounted) return;
     setState(() {
       _leaving = true;
       _submitError = null;
     });
     try {
-      if (_rating != null || _tipMinor != null) {
+      if (submitFeedback && (_rating != null || _tipMinor != null)) {
         final id = widget.rideId;
         if (id == null || id.trim().isEmpty) {
           throw StateError('Ride ID is missing.');
@@ -190,7 +231,7 @@ class _RideCompletedState extends State<RideCompleted> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
-          await _closeAndHome();
+          await _handleBack();
         }
       },
       child: Scaffold(
@@ -205,7 +246,7 @@ class _RideCompletedState extends State<RideCompleted> {
                     _CircleAction(
                       icon: Icons.arrow_back_ios_rounded,
                       label: 'Back',
-                      onTap: _closeAndHome,
+                      onTap: _handleBack,
                     ),
                     Expanded(
                       child: Text(
