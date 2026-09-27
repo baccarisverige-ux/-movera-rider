@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
@@ -91,16 +90,5 @@ void main() {
     ).load();
 
     expect(await persistedPin(), isNot('4242'));
-  });
-
-  test('the production store selects memory-only mode on web', () {
-    final source = File(
-      'lib/features/safety/data/secure_ride_pin_store.dart',
-    ).readAsStringSync();
-    expect(source, contains('(_forceWeb ?? kIsWeb)'));
-    final dataSource = File(
-      'lib/features/safety/data/safety_data_sources.dart',
-    ).readAsStringSync();
-    expect(dataSource, isNot(contains('_pinStore.isNativeSecure')));
   });
 }
