@@ -297,7 +297,8 @@ void main() {
     expect(menu.contains('Payments'), isTrue);
     expect(menu.contains('Safety'), isTrue);
     expect(menu.contains('Support'), isTrue);
-    expect(menu.contains('Invite Friends'), isTrue);
+    // Referrals have no live destination yet, so the drawer must hide them.
+    expect(menu.contains('Invite Friends'), isFalse);
     expect(menu.contains('About'), isTrue);
     expect(menu.contains('Become a driver'), isFalse);
   });

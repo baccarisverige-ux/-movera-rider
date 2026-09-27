@@ -86,7 +86,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   ui.Image? _puckExpandedImage;
   int _webPuckPaintGen = 0;
 
-  static const double _sheetMinHeight = 184;
+  // The search card ends around 113 logical px from the top of the sheet.
+  // Leave space for the floating navigation bar below it at the collapsed snap.
+  static const double _sheetMinHeight = 214;
   static const double _sheetMaxHeight = 294;
 
   bool _destinationSheetOpen = false;

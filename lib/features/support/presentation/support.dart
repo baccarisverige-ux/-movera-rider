@@ -220,7 +220,7 @@ class HowCanWeHelp extends StatelessWidget {
     return _SupportScaffold(
       title: 'How can we help you?',
       trailing: _exit(context),
-      child: Column(
+      child: ListView(
         children: [
           _LineItem(
             icon: Icons.directions_car_filled_outlined,
