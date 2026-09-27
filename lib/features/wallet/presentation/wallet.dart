@@ -62,10 +62,91 @@ Future<void> showVoucherUnavailableSheet(BuildContext context) async {
   );
 }
 
+/// One destination for the wallet balance and ride payment preferences.
+class WalletAndPaymentsScreen extends StatefulWidget {
+  const WalletAndPaymentsScreen({super.key, this.initialTab = 0});
+
+  /// 0 = wallet, 1 = payment preferences.
+  final int initialTab;
+
+  @override
+  State<WalletAndPaymentsScreen> createState() => _WalletAndPaymentsScreenState();
+}
+
+class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
+  late int _tab = widget.initialTab;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'Back',
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Wallet & Payments',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  for (final (index, title) in [(0, 'Wallet'), (1, 'Payments')])
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: OutlinedButton(
+                          onPressed: () => setState(() => _tab = index),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: _tab == index ? const Color(0xFF11181D) : Colors.white,
+                            foregroundColor: _tab == index ? Colors.white : const Color(0xFF11181D),
+                          ),
+                          child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: IndexedStack(
+                index: _tab,
+                children: const [
+                  WalletHome(embedded: true),
+                  WalletScreen(embedded: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class WalletHome extends StatefulWidget {
-  const WalletHome({super.key, this.wallet});
+  const WalletHome({super.key, this.wallet, this.embedded = false});
 
   final WalletController? wallet;
+  final bool embedded;
 
   @override
   State<WalletHome> createState() => _WalletHomeState();
@@ -233,10 +314,6 @@ class _WalletHomeState extends State<WalletHome> {
     }
   }
 
-  Future<void> _openVoucher() async {
-    await showVoucherUnavailableSheet(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -247,7 +324,7 @@ class _WalletHomeState extends State<WalletHome> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              if (!widget.embedded) Row(
                 children: [
                   Semantics(
                     button: true,
@@ -266,9 +343,7 @@ class _WalletHomeState extends State<WalletHome> {
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  Text('Wallet', style: _style(16, weight: FontWeight.w700)),
-                  const Spacer(),
+                  Expanded(child: Text('Wallet', textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style(16, weight: FontWeight.w700))),
                   const SizedBox(width: 42),
                 ],
               ),
@@ -396,21 +471,16 @@ class _WalletHomeState extends State<WalletHome> {
                   ),
                 ),
               const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: _openVoucher,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _ink,
-                    side: const BorderSide(color: _line),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(
-                    'Vouchers unavailable',
-                    style: _style(14, weight: FontWeight.w600),
+              Semantics(
+                enabled: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.confirmation_number_outlined, color: _muted),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('Vouchers unavailable', style: _style(14, color: _muted))),
+                    ],
                   ),
                 ),
               ),
@@ -430,7 +500,9 @@ class _WalletHomeState extends State<WalletHome> {
 }
 
 class WalletScreen extends StatefulWidget {
-  const WalletScreen({super.key});
+  const WalletScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<WalletScreen> createState() => _WalletScreenState();
@@ -526,8 +598,14 @@ class _WalletScreenState extends State<WalletScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Add payment method', style: _style(17, weight: FontWeight.w600)),
-                  const Spacer(),
+                  Expanded(
+                    child: Text(
+                      'Add payment method',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _style(17, weight: FontWeight.w600),
+                    ),
+                  ),
                   IconButton(
                     onPressed: () => Navigator.pop(sheetContext),
                     icon: const Icon(Icons.close_rounded),
@@ -574,9 +652,9 @@ class _WalletScreenState extends State<WalletScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: _style(12.5, weight: FontWeight.w600)),
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style(12.5, weight: FontWeight.w600)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: _style(9.5, weight: FontWeight.w400, color: _muted)),
+                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: _style(9.5, weight: FontWeight.w400, color: _muted)),
               ],
             ),
           ),
@@ -586,10 +664,6 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Future<void> _openVoucherForm() async {
-    await showVoucherUnavailableSheet(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -597,7 +671,7 @@ class _WalletScreenState extends State<WalletScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _header(context),
+            if (!widget.embedded) _header(context),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -728,10 +802,18 @@ class _WalletScreenState extends State<WalletScreen> {
                         color: _surface,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: _actionTile(
-                        icon: Icons.confirmation_number_outlined,
-                        title: 'Vouchers unavailable',
-                        onTap: _openVoucherForm,
+                      child: Semantics(
+                        enabled: false,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.confirmation_number_outlined, color: _muted, size: 21),
+                              const SizedBox(width: 17),
+                              Expanded(child: Text('Vouchers unavailable', style: _style(12, color: _muted))),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -788,9 +870,15 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
             ),
           ),
-          const Spacer(),
-          Text('Payment', style: _style(13, weight: FontWeight.w600)),
-          const Spacer(),
+          Expanded(
+            child: Text(
+              'Payment',
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _style(13, weight: FontWeight.w600),
+            ),
+          ),
           const SizedBox(width: 42),
         ],
       ),
@@ -856,12 +944,16 @@ class _WalletScreenState extends State<WalletScreen> {
               children: [
                 Icon(icon, color: selected ? _ink : _muted, size: 16),
                 const SizedBox(width: 7),
-                Text(
-                  label,
-                  style: _style(
-                    11.5,
-                    weight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected ? _ink : _muted,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _style(
+                      11.5,
+                      weight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: selected ? _ink : _muted,
+                    ),
                   ),
                 ),
               ],
@@ -905,10 +997,12 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: _style(12.5, weight: FontWeight.w600)),
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style(12.5, weight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text(
                       selected ? 'Default for rides' : detail,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: _style(
                         9.3,
                         weight: FontWeight.w400,

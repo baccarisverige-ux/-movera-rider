@@ -2044,7 +2044,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   void _openPayment() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const WalletScreen()),
+      MaterialPageRoute(builder: (_) => const WalletAndPaymentsScreen(initialTab: 1)),
     );
   }
 
