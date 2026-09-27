@@ -29,7 +29,6 @@ class PhoneVerification extends StatefulWidget {
 }
 
 class _PhoneVerificationState extends State<PhoneVerification> {
-  bool _showHome = false;
   bool _submitting = false;
   bool _resending = false;
   String _pin = '';
@@ -102,7 +101,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
     try {
       await _auth.verifyOtp(challenge: challenge, code: _pin);
       if (!mounted) return;
-      setState(() => _showHome = true);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const Home()),
+        (_) => false,
+      );
     } catch (_) {
       if (!mounted) return;
       MoveraToast.show(context, 'That verification code is not valid.');
@@ -127,12 +129,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       ),
     );
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        IgnorePointer(ignoring: !_showHome, child: const Home()),
-        if (!_showHome)
-          Scaffold(
+    return Scaffold(
             body: Padding(
               padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
               child: Column(
@@ -266,8 +263,6 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 ),
               ),
             ),
-          ),
-      ],
     );
   }
 }

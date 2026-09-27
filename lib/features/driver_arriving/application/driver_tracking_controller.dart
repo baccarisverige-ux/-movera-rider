@@ -13,6 +13,8 @@ class DriverTrackingController {
     RideRealtime? realtime,
     required this.pickupLat,
     required this.pickupLng,
+    this.destinationLat,
+    this.destinationLng,
     this.persistRideSnapshot = true,
     RideSession? ride,
   })  : _realtime = realtime ?? AppScope.instance.rideRealtime,
@@ -23,7 +25,10 @@ class DriverTrackingController {
   final bool persistRideSnapshot;
   final double pickupLat;
   final double pickupLng;
+  final double? destinationLat;
+  final double? destinationLng;
   StreamSubscription<RideRealtimeEvent>? _sub;
+  Timer? _staleCheck;
   MatchedDriver? driver;
   DriverEta? eta;
   RideStatus status = RideStatus.driverAssigned;
@@ -31,6 +36,13 @@ class DriverTrackingController {
   String? signalMessage;
   RideStatus? _lastPersistedStatus;
   void Function()? onChange;
+
+  /// Re-evaluates staleness on a timer, independent of new fixes arriving.
+  /// Without this, a marker whose updates simply stopped (a dropped
+  /// connection, a crashed driver client) never registers as stale, because
+  /// [DriverEta.fromFix] — the only other place staleness is computed — only
+  /// runs when an event actually arrives.
+  static const _staleCheckInterval = Duration(seconds: 5);
 
   void start({
     required String rideId,
@@ -40,47 +52,86 @@ class DriverTrackingController {
     driver = initial;
     this.onChange = onChange;
     _sub?.cancel();
-    _sub = _realtime.subscribe(rideId).listen((event) {
-      if (persistRideSnapshot) {
-        final accepted = (_ride ?? AppScope.instance.ride).backendReconcile(
-          event.status,
-          id: event.tripId,
-          version: event.version ?? event.sequence,
-          updatedAt: event.serverTime ?? event.occurredAt,
-        );
-        if (!accepted) return;
-      }
-      final statusChanged = event.status != status;
-      status = event.status;
-      lastSignal = event.signal;
-      signalMessage = event.message;
-      if (event.driver != null) driver = event.driver;
-      if (event.latitude != null && event.longitude != null) {
-        eta = DriverEta.fromFix(
-          latitude: event.latitude!,
-          longitude: event.longitude!,
-          pickupLat: pickupLat,
-          pickupLng: pickupLng,
-          locationAt: event.locationAt ?? event.at,
-          etaSeconds: event.etaSeconds,
-        );
-      } else if (eta != null && eta!.locationAt != null) {
-        eta = DriverEta.fromFix(
-          latitude: eta!.latitude ?? pickupLat,
-          longitude: eta!.longitude ?? pickupLng,
-          pickupLat: pickupLat,
-          pickupLng: pickupLng,
-          locationAt: eta!.locationAt!,
-          etaSeconds: event.etaSeconds ?? eta!.seconds,
-        );
-      }
-      if (statusChanged) {
-        unawaited(_persistLiveStatus());
-      }
+    _staleCheck?.cancel();
+    _sub = _realtime.subscribe(rideId).listen(
+      (event) {
+        // A location fix is independently useful even when the status it
+        // arrived with is rejected as stale by backendReconcile: dropping the
+        // whole event discarded a possibly-newer coordinate along with a
+        // status the app had already superseded. Only skip the status/signal
+        // side when the event is rejected; the position always applies if it
+        // is not itself older than what is already tracked.
+        final accepted = !persistRideSnapshot ||
+            (_ride ?? AppScope.instance.ride).backendReconcile(
+              event.status,
+              id: event.tripId,
+              version: event.version ?? event.sequence,
+              updatedAt: event.serverTime ?? event.occurredAt,
+            );
+        final statusChanged = accepted && event.status != status;
+        if (accepted) {
+          status = event.status;
+          lastSignal = event.signal;
+          signalMessage = event.message;
+        }
+        if (event.driver != null) driver = event.driver;
+        final incomingLocationAt = event.locationAt ?? event.at;
+        final currentLocationAt = eta?.locationAt;
+        final isNewerFix = currentLocationAt == null ||
+            !incomingLocationAt.isBefore(currentLocationAt);
+        if (event.latitude != null && event.longitude != null && isNewerFix) {
+          eta = DriverEta.fromFix(
+            latitude: event.latitude!,
+            longitude: event.longitude!,
+            pickupLat: pickupLat,
+            pickupLng: pickupLng,
+            destinationLat: destinationLat,
+            destinationLng: destinationLng,
+            locationAt: incomingLocationAt,
+            etaSeconds: event.etaSeconds,
+            status: status,
+          );
+        } else if (eta != null && eta!.locationAt != null) {
+          eta = DriverEta.fromFix(
+            latitude: eta!.latitude ?? pickupLat,
+            longitude: eta!.longitude ?? pickupLng,
+            pickupLat: pickupLat,
+            pickupLng: pickupLng,
+            destinationLat: destinationLat,
+            destinationLng: destinationLng,
+            locationAt: eta!.locationAt!,
+            etaSeconds: event.etaSeconds ?? eta!.seconds,
+            status: status,
+          );
+        }
+        if (statusChanged) {
+          unawaited(_persistLiveStatus());
+        }
+        this.onChange?.call();
+      },
+      onError: (Object error) {
+        connectionDegraded = true;
+        this.onChange?.call();
+      },
+      onDone: () {
+        connectionDegraded = true;
+        this.onChange?.call();
+      },
+    );
+    unawaited(_persistLiveStatus());
+    _staleCheck = Timer.periodic(_staleCheckInterval, (_) {
+      final current = eta;
+      if (current == null) return;
+      final refreshed = current.withStalenessCheckedAt(DateTime.now());
+      if (identical(refreshed, current)) return;
+      eta = refreshed;
       this.onChange?.call();
     });
-    unawaited(_persistLiveStatus());
   }
+
+  /// Set when the realtime stream itself errors or closes (see M-05). The
+  /// presenter should treat the marker as frozen/degraded, not just stale.
+  bool connectionDegraded = false;
 
   Future<void> _persistLiveStatus() async {
     if (!persistRideSnapshot || status.isTerminal) return;
@@ -100,5 +151,7 @@ class DriverTrackingController {
   void dispose() {
     _sub?.cancel();
     _sub = null;
+    _staleCheck?.cancel();
+    _staleCheck = null;
   }
 }

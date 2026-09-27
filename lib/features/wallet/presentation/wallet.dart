@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -162,6 +163,7 @@ class _WalletHomeState extends State<WalletHome> {
   double _balance = 0;
   bool _loading = true;
   bool _failed = false;
+  bool _topUpBusy = false;
 
   @override
   void initState() {
@@ -208,18 +210,22 @@ class _WalletHomeState extends State<WalletHome> {
     }
   }
 
-  Future<void> _saveBalance(double value) async {
+  Future<void> _saveBalance(double value, String idempotencyKey) async {
     final next = await _wallet.topUp(
       previous: _balance,
       amount: value - _balance,
+      idempotencyKey: idempotencyKey,
     );
     if (!mounted || next == null) return;
     setState(() => _balance = next);
   }
 
   Future<void> _openAddFunds() async {
-    if (!_demoPayments) return;
+    if (!_demoPayments || _topUpBusy) return;
     int amount = 200;
+    // Minted once per sheet open and reused through the whole submit path,
+    // so a retry of this same intent never creates a second charge.
+    final idempotencyKey = newIdempotencyKey('wallet');
     final funded = await MoveraSheet.show<bool>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -309,8 +315,12 @@ class _WalletHomeState extends State<WalletHome> {
         );
       },
     );
-    if (funded == true) {
-      await _saveBalance(_balance + amount);
+    if (funded != true || !mounted) return;
+    setState(() => _topUpBusy = true);
+    try {
+      await _saveBalance(_balance + amount, idempotencyKey);
+    } finally {
+      if (mounted) setState(() => _topUpBusy = false);
     }
   }
 
@@ -453,7 +463,9 @@ class _WalletHomeState extends State<WalletHome> {
                         width: double.infinity,
                         height: 48,
                         child: FilledButton(
-                          onPressed: _demoPayments ? _openAddFunds : null,
+                          onPressed: _demoPayments && !_topUpBusy
+                              ? _openAddFunds
+                              : null,
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: _ink,
@@ -461,10 +473,18 @@ class _WalletHomeState extends State<WalletHome> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: Text(
-                            _demoPayments ? 'Add funds (demo)' : 'Add funds unavailable',
-                            style: _style(14, weight: FontWeight.w700),
-                          ),
+                          child: _topUpBusy
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Text(
+                                  _demoPayments
+                                      ? 'Add funds (demo)'
+                                      : 'Add funds unavailable',
+                                  style: _style(14, weight: FontWeight.w700),
+                                ),
                         ),
                       ),
                     ],

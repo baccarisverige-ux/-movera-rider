@@ -5,13 +5,14 @@ class AppEnv {
     required this.flavor,
     required this.apiBaseUrl,
     required this.mapsEnabled,
-    this.authRequired = false,
+    bool? authRequired,
     this.firebaseApiKey = '',
     this.firebaseAppId = '',
     this.firebaseMessagingSenderId = '',
     this.firebaseProjectId = '',
     this.firebaseVapidKey = '',
-  });
+  }) : authRequired = authRequired ??
+            (flavor == AppFlavor.staging || flavor == AppFlavor.production);
 
   final AppFlavor flavor;
   final String apiBaseUrl;
@@ -48,7 +49,7 @@ class AppEnv {
     ),
     authRequired: bool.fromEnvironment(
       'MOVERA_AUTH_REQUIRED',
-      defaultValue: false,
+      defaultValue: _flavorName == 'staging' || _flavorName == 'production',
     ),
     firebaseApiKey: String.fromEnvironment('MOVERA_FIREBASE_API_KEY'),
     firebaseAppId: String.fromEnvironment('MOVERA_FIREBASE_APP_ID'),

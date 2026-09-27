@@ -1,5 +1,19 @@
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
+/// The wallet balance's source of truth.
+///
+/// [WalletStore] is the only implementation today, and it is client-local
+/// (a double in SharedPreferences/localStorage): anyone with access to the
+/// device or browser storage can edit it, and it is never synced against
+/// what a backend actually charged or refunded. A real implementation
+/// backed by a server-owned ledger must replace it before a release
+/// composition may treat the balance as authoritative — see
+/// `WalletComposition.validate`.
+abstract class WalletBalanceSource {
+  Future<double> loadBalance();
+  Future<void> saveBalance(double value);
+}
+
 class WalletPaymentSettings {
   WalletPaymentSettings({
     required this.defaultMethod,
@@ -12,7 +26,7 @@ class WalletPaymentSettings {
   final List<Map<String, String>> extraMethods;
 }
 
-class WalletStore {
+class WalletStore implements WalletBalanceSource {
   static const balanceKey = 'movera_wallet_balance';
   static const _legacyVoucherKeys = [
     'movera_voucher_code',
@@ -21,11 +35,13 @@ class WalletStore {
     'movera_used_vouchers',
   ];
 
+  @override
   Future<double> loadBalance() async {
     final prefs = await PreferencesStore.load();
     return prefs.getDouble(balanceKey) ?? 0;
   }
 
+  @override
   Future<void> saveBalance(double value) async {
     final prefs = await PreferencesStore.load();
     await prefs.setDouble(balanceKey, value);

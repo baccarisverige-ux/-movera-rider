@@ -1,5 +1,3 @@
-import 'dart:math';
-
 class RidePin {
   const RidePin({
     required this.pinId,
@@ -8,17 +6,20 @@ class RidePin {
     this.requiredForStart = false,
     this.rotatedAt,
     this.version = 1,
-    this.serverAuthoritative = true,
+    this.serverAuthoritative = false,
   });
 
   final String pinId;
   final String userId;
-  /// Rider-facing 4-digit PIN. Mock/local only — production backend is authoritative.
+  /// Rider-facing digits; empty when the server did not issue a valid PIN.
   final String pin;
   final bool requiredForStart;
   final DateTime? rotatedAt;
   final int version;
   final bool serverAuthoritative;
+  bool get isAvailable => RegExp(r'^\d{4}$').hasMatch(pin);
+
+  static const unavailable = RidePin(pinId: '', userId: '', pin: '');
 
   RidePin copyWith({
     String? pinId,
@@ -51,34 +52,17 @@ class RidePin {
       };
 
   factory RidePin.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return generate();
+    if (json == null) return unavailable;
     final raw = '${json['pin'] ?? ''}';
-    final pin = RegExp(r'^\d{4}$').hasMatch(raw) ? raw : generate().pin;
+    final pin = RegExp(r'^\d{4}$').hasMatch(raw) ? raw : '';
     return RidePin(
-      pinId: json['pinId'] as String? ?? 'pin_local',
-      userId: json['userId'] as String? ?? 'rider-local',
+      pinId: json['pinId'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
       pin: pin,
       requiredForStart: json['required'] == true || json['requiredForStart'] == true,
       rotatedAt: DateTime.tryParse('${json['rotatedAt'] ?? ''}'),
       version: json['version'] is int ? json['version'] as int : 1,
-      serverAuthoritative: json['serverAuthoritative'] != false,
-    );
-  }
-
-  static RidePin generate({
-    String userId = 'rider-local',
-    bool requiredForStart = false,
-    int? seed,
-  }) {
-    final random = seed == null ? Random.secure() : Random(seed);
-    final pin = random.nextInt(10000).toString().padLeft(4, '0');
-    final now = DateTime.now().toUtc();
-    return RidePin(
-      pinId: 'pin_${now.microsecondsSinceEpoch}',
-      userId: userId,
-      pin: pin,
-      requiredForStart: requiredForStart,
-      rotatedAt: now,
+      serverAuthoritative: json['serverAuthoritative'] == true && pin.isNotEmpty,
     );
   }
 }
