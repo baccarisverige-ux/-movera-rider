@@ -10,9 +10,14 @@ import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    RideSnapshotStore.epoch = 0;
+  });
 
   const testEnv = AppEnv(
     flavor: AppFlavor.test,
@@ -120,6 +125,9 @@ void main() {
       hasSession: () async => false,
       resync: (_) async {},
     );
+
+    await RideSnapshotStore.save(snapshot);
+    expect((await RideSnapshotStore.read())?.rideId, 'ride_phase73');
 
     final root = await coordinator.root();
 
