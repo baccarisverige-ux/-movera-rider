@@ -79,8 +79,15 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     unawaited(_openLiveRide(ride));
   }
 
-  Future<void> _openLiveRide(Reservation ride) async {
-    if (!mounted || !_routeIsCurrent) {
+  Future<void> _openLiveRide(Reservation snapshot) async {
+    // Same safety net as the Home chrono: re-read, and never (re)open a ride
+    // that has completed, been cancelled or no longer reveals its driver.
+    final ride = _reservations.byId(snapshot.reservationId);
+    if (!mounted ||
+        !_routeIsCurrent ||
+        ride == null ||
+        !ride.status.isUpcoming ||
+        !ride.revealsDriver) {
       _handedOff = false;
       return;
     }
