@@ -31,7 +31,7 @@ class SafetyMockApi {
       'required': required,
       'rotatedAt': now.toIso8601String(),
       'version': 1,
-      'serverAuthoritative': true,
+      'serverAuthoritative': false,
     };
   }
 
@@ -85,7 +85,7 @@ class SafetyMockApi {
             'code': 'PIN_INVALID',
             'valid': false,
             'rideId': rideId,
-            'serverAuthoritative': true,
+            'serverAuthoritative': false,
           },
         );
       }

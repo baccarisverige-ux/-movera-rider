@@ -44,7 +44,7 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
             style: SafetyUi.text(18, weight: FontWeight.w600),
           ),
           content: Text(
-            'Movera will create a new 4-digit PIN. Share it with your driver only when the ride begins.',
+            'Request a new PIN from Movera. Share it with your driver only when the ride begins.',
             style: SafetyUi.text(14, color: SafetyUi.muted, height: 1.4),
           ),
           actions: [
@@ -113,12 +113,18 @@ class _PinVerificationPageState extends State<PinVerificationPage> {
             ),
           ),
           const SizedBox(height: 22),
-          SafetyPinCadre(
-            pin: pin,
-            caption: _ctl.preferences.pinRequired
-                ? 'Share this PIN with your driver when the trip starts.'
-                : 'PIN is saved. Turn on verification to use it on rides.',
-          ),
+          if (_ctl.loading || !_ctl.hasLoaded)
+            const Center(child: CircularProgressIndicator())
+          else if (_ctl.pin.isAvailable)
+            SafetyPinCadre(
+              pin: pin,
+              caption: _ctl.preferences.pinRequired
+                  ? 'Share this PIN with your driver when the trip starts.'
+                  : 'PIN is saved. Turn on verification to use it on rides.',
+            )
+          else
+            Text('PIN unavailable — verify plate and driver name',
+                style: SafetyUi.text(14, color: SafetyUi.muted)),
           const SizedBox(height: 18),
           SizedBox(
             height: 52,

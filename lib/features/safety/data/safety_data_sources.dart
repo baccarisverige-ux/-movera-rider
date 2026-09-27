@@ -21,7 +21,7 @@ class SafetyCache {
     List<RideCheckEvent>? events,
     List<AudioRecording>? recordings,
   })  : preferences = preferences ?? const SafetyPreferences(),
-        pin = pin ?? RidePin.generate(),
+        pin = pin ?? RidePin.unavailable,
         contacts = contacts ?? <EmergencyContact>[],
         shares = shares ?? <String, TripShare>{},
         rideCheck = rideCheck ?? const RideCheckPolicy(),
@@ -149,10 +149,12 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
         final securePin = await _pinStore.read();
         if (securePin != null) {
           cache.pin = cache.pin.copyWith(pin: securePin);
-        } else if (cache.pin.pin != _pinPlaceholder) {
+        } else if (cache.pin.isAvailable && cache.pin.pin != _pinPlaceholder) {
           // First run on this store, or migrating an older plaintext cache
           // that still carries a real PIN: adopt it into secure storage.
           await _pinStore.write(cache.pin.pin);
+        } else {
+          cache.pin = cache.pin.copyWith(pin: '');
         }
       }
       _memory = cache;
@@ -172,7 +174,7 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
     _memory = _copy(cache);
     if (memoryOnly) return;
     if (_pinStore.isNativeSecure) {
-      await _pinStore.write(cache.pin.pin);
+      if (cache.pin.isAvailable) await _pinStore.write(cache.pin.pin);
     }
     try {
       await _persist(cache);

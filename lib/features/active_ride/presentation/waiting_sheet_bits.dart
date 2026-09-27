@@ -425,6 +425,14 @@ class WaitingNotesAndPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safety = SafetyController.shared;
+    return ListenableBuilder(
+      listenable: safety,
+      builder: (context, _) => _buildContent(context, safety),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, SafetyController safety) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -456,7 +464,11 @@ class WaitingNotesAndPin extends StatelessWidget {
             ],
           ),
         ],
-        if (SafetyController.shared.preferences.pinRequired) ...[
+        if (safety.loading || !safety.hasLoaded) ...[
+          const SizedBox(height: 12),
+          Text('Loading PIN…',
+              style: waitingText(12, color: const Color(0xFF5C656C))),
+        ] else if (safety.preferences.pinRequired) ...[
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -469,13 +481,14 @@ class WaitingNotesAndPin extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Show this PIN to your driver',
+                  safety.pin.isAvailable
+                      ? 'Show this PIN to your driver'
+                      : 'PIN unavailable — verify plate and driver name',
                   style: waitingText(12, color: const Color(0xFF5C656C)),
                 ),
-                Text(
-                  SafetyController.shared.pin.pin,
-                  style: waitingText(22, weight: FontWeight.w700),
-                ),
+                if (safety.pin.isAvailable)
+                  Text(safety.pin.pin,
+                      style: waitingText(22, weight: FontWeight.w700)),
               ],
             ),
           ),

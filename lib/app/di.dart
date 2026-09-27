@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/app/config/pin_composition.dart';
 import 'package:movera_rider/app/config/transport_composition.dart';
 import 'package:movera_rider/app/config/auth_composition.dart';
 import 'package:movera_rider/core/api/api_client.dart';
@@ -121,6 +122,10 @@ class AppScope {
       routing: routing,
     );
 
+    PinComposition.validate(
+      environment: environment,
+      usesMockPinIssuance: api.usesMockTransport,
+    );
     TransportComposition.validate(
       environment: environment,
       api: api,
