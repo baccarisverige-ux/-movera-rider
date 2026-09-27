@@ -1,3 +1,5 @@
+import 'package:movera_rider/shared/formatters/name_format.dart';
+
 /// Driver payload from matching. UI must not invent missing fields.
 class MatchedDriver {
   const MatchedDriver({
@@ -35,10 +37,7 @@ class MatchedDriver {
   String get displayFirstName =>
       hasFirstName ? normalizedFirstName : 'Driver';
 
-  String get initial {
-    final name = normalizedFirstName;
-    return name.isEmpty ? '' : name.substring(0, 1).toUpperCase();
-  }
+  String get initial => initialFromName(normalizedFirstName);
 
   String get vehicleLabel {
     final parts = [

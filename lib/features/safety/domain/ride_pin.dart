@@ -17,9 +17,13 @@ class RidePin {
   final DateTime? rotatedAt;
   final int version;
   final bool serverAuthoritative;
-  bool get isAvailable => RegExp(r'^\d{4}$').hasMatch(pin);
+  bool get isAvailable => isValidFormat(pin);
 
   static const unavailable = RidePin(pinId: '', userId: '', pin: '');
+
+  /// Whether [value] is a well-formed 4-digit ride PIN. The single source of
+  /// truth for this shape, reused anywhere a raw PIN string is validated.
+  static bool isValidFormat(String value) => RegExp(r'^\d{4}$').hasMatch(value);
 
   RidePin copyWith({
     String? pinId,
@@ -54,7 +58,7 @@ class RidePin {
   factory RidePin.fromJson(Map<String, dynamic>? json) {
     if (json == null) return unavailable;
     final raw = '${json['pin'] ?? ''}';
-    final pin = RegExp(r'^\d{4}$').hasMatch(raw) ? raw : '';
+    final pin = isValidFormat(raw) ? raw : '';
     return RidePin(
       pinId: json['pinId'] as String? ?? '',
       userId: json['userId'] as String? ?? '',

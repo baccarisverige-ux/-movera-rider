@@ -2,6 +2,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 
 class AuthRepository {
   AuthRepository({ApiClient? api, TokenStore? tokens})
@@ -56,7 +57,7 @@ class AuthRepository {
     if (challenge.isExpired) {
       throw StateError('OTP challenge has expired.');
     }
-    if (!RegExp(r'^\d{4}$').hasMatch(normalizedCode)) {
+    if (!RidePin.isValidFormat(normalizedCode)) {
       throw ArgumentError.value(code, 'code', 'A 4-digit code is required.');
     }
     final response = await _api.post(

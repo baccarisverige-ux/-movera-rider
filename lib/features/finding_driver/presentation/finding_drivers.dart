@@ -28,6 +28,7 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -472,17 +473,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     setWebOverlayOpen(cover);
   }
 
-  String _shortPlace(String value) {
-    final parts = value
-        .split(',')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .where((part) => !RegExp(r'^\d{3,}$').hasMatch(part))
-        .toList();
-    if (parts.isEmpty) return value;
-    if (parts.length == 1) return parts.first;
-    return '${parts[0]}, ${parts[1]}';
-  }
+  String _shortPlace(String value) => shortenPlace(value);
 
   double _minSheet(MediaQueryData media) {
     final base = _match.showPriceBump ? 520.0 : 332.0;

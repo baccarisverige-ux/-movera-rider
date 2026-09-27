@@ -1,5 +1,6 @@
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
+import 'package:movera_rider/shared/formatters/name_format.dart';
 
 class ReservationPlace {
   const ReservationPlace({
@@ -74,10 +75,7 @@ class ReservationDriver {
   String get displayFirstName =>
       hasFirstName ? normalizedFirstName : 'Driver';
 
-  String get initial {
-    final name = normalizedFirstName;
-    return name.isEmpty ? '' : name.substring(0, 1).toUpperCase();
-  }
+  String get initial => initialFromName(normalizedFirstName);
 
   Map<String, dynamic> toJson() => {
     'firstName': firstName,
