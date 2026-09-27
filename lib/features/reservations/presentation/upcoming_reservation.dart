@@ -34,6 +34,7 @@ class UpcomingReservationPage extends StatefulWidget {
 class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   late final ReservationController _reservations;
   bool _handedOff = false;
+  bool _actionBusy = false;
 
   @override
   void initState() {
@@ -102,35 +103,52 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   }
 
   Future<void> _editReservation(Reservation ride) async {
-    if (!ride.status.canEdit) return;
-    await Navigator.push(
-      context,
-      BottomToTopTransition(ScheduleRide(editing: ride)),
-    );
+    if (!ride.status.canEdit || _actionBusy) return;
+    setState(() => _actionBusy = true);
+    try {
+      await Navigator.push(
+        context,
+        BottomToTopTransition(ScheduleRide(editing: ride)),
+      );
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
   }
 
   Future<void> _cancel(Reservation ride) async {
-    final outcome = await showCancelReservationFlow(context, ride);
-    if (!outcome.cancelled) return;
-    await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+    if (_actionBusy) return;
+    setState(() => _actionBusy = true);
+    try {
+      final outcome = await showCancelReservationFlow(context, ride);
+      if (!outcome.cancelled) return;
+      await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
   }
 
   Future<void> _planReturn(Reservation ride) async {
-    await Navigator.push(
-      context,
-      RightToLeftTransition(
-        PlanReturnRidePage(
-          origin: ride,
-          controller: _reservations,
-          onScheduled: (context, id) => RideScheduledPage.open(
-            context,
-            reservationId: id,
+    if (_actionBusy) return;
+    setState(() => _actionBusy = true);
+    try {
+      await Navigator.push(
+        context,
+        RightToLeftTransition(
+          PlanReturnRidePage(
+            origin: ride,
             controller: _reservations,
-            replace: true,
+            onScheduled: (context, id) => RideScheduledPage.open(
+              context,
+              reservationId: id,
+              controller: _reservations,
+              replace: true,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
   }
 
   @override
@@ -284,7 +302,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ],
                 if (ride.status.canEdit) ...[
                   const SizedBox(height: 22),
-                  ReservationEditButton(onTap: () => _editReservation(ride)),
+                  ReservationEditButton(
+                    onTap: _actionBusy ? null : () => _editReservation(ride),
+                  ),
                   const SizedBox(height: 22),
                   Text(
                     'Need another ride?',
@@ -295,7 +315,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     color: kReservationSoft,
                     borderRadius: BorderRadius.circular(18),
                     child: InkWell(
-                      onTap: () => _planReturn(ride),
+                      onTap: _actionBusy ? null : () => _planReturn(ride),
                       borderRadius: BorderRadius.circular(18),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
@@ -369,7 +389,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     width: double.infinity,
                     height: 54,
                     child: TextButton(
-                      onPressed: () => _cancel(ride),
+                      onPressed: _actionBusy ? null : () => _cancel(ride),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFFF4F5F6),
                         foregroundColor: const Color(0xFFB42318),

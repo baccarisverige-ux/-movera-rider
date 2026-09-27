@@ -32,6 +32,19 @@ class ReservationController extends ChangeNotifier {
   ReservationDispatch? get _dispatch =>
       _environment.allowsMockTransport ? _mockDispatch : null;
 
+  // Phase 134: create/update/cancel had no in-flight tracking, so a rapid
+  // double-tap (or two independent callers) could race two store mutations
+  // against the same reservation. Concurrent calls are coalesced onto the
+  // same in-flight Future instead of issuing a second mutation - callers
+  // still get a real Reservation back, just the already-in-flight one's
+  // result, rather than being silently dropped.
+  Future<Reservation>? _pendingCreate;
+  final Map<String, Future<Reservation>> _pendingUpdateByReservationId = {};
+  final Map<String, Future<Reservation>> _pendingCancelByReservationId = {};
+  // Note: update and cancel are tracked separately, since a concurrent
+  // update-then-cancel (or vice versa) on the same reservation are distinct
+  // operations, not a double-tap of the same one.
+
   bool get usesMockDriverAssignment => _environment.allowsMockTransport;
 
   List<Reservation> get all => _store.cached;
@@ -59,13 +72,33 @@ class ReservationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Reservation> create(ReservationDraft draft) async {
+  Future<Reservation> create(ReservationDraft draft) {
+    final pending = _pendingCreate;
+    if (pending != null) return pending;
+    final future = _createNow(draft);
+    _pendingCreate = future;
+    future.whenComplete(() => _pendingCreate = null);
+    return future;
+  }
+
+  Future<Reservation> _createNow(ReservationDraft draft) async {
     final created = await _store.createReservation(draft);
     notifyListeners();
     return created;
   }
 
-  Future<Reservation> update(
+  Future<Reservation> update(String reservationId, ReservationPatch patch) {
+    final pending = _pendingUpdateByReservationId[reservationId];
+    if (pending != null) return pending;
+    final future = _updateNow(reservationId, patch);
+    _pendingUpdateByReservationId[reservationId] = future;
+    future.whenComplete(
+      () => _pendingUpdateByReservationId.remove(reservationId),
+    );
+    return future;
+  }
+
+  Future<Reservation> _updateNow(
     String reservationId,
     ReservationPatch patch,
   ) async {
@@ -74,7 +107,18 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
-  Future<Reservation> cancel(String reservationId, {String? reason}) async {
+  Future<Reservation> cancel(String reservationId, {String? reason}) {
+    final pending = _pendingCancelByReservationId[reservationId];
+    if (pending != null) return pending;
+    final future = _cancelNow(reservationId, reason: reason);
+    _pendingCancelByReservationId[reservationId] = future;
+    future.whenComplete(
+      () => _pendingCancelByReservationId.remove(reservationId),
+    );
+    return future;
+  }
+
+  Future<Reservation> _cancelNow(String reservationId, {String? reason}) async {
     final updated = await _store.cancelReservation(
       reservationId,
       reason: reason,
