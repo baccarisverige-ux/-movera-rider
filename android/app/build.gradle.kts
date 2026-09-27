@@ -5,6 +5,29 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Release signing is provided by CI or a local, untracked keystore. An unsigned
+// release is preferable to silently distributing an APK signed with the debug key.
+val releaseKeystorePath = System.getenv("MOVERA_RELEASE_KEYSTORE_PATH")
+val releaseStorePassword = System.getenv("MOVERA_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("MOVERA_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("MOVERA_RELEASE_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseKeystorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
+gradle.taskGraph.whenReady {
+    val packagesRelease = allTasks.any { task ->
+        task.project.path == ":app" &&
+            (task.name.matches(Regex("(?i)(assemble|bundle|package).*release.*")))
+    }
+    if (packagesRelease && !hasReleaseSigning) {
+        throw GradleException("Release signing requires all four MOVERA_RELEASE_* environment variables")
+    }
+}
+
 val mapsApiKey = (project.findProperty("MAPS_API_KEY") as String?)
     ?: System.getenv("MAPS_API_KEY")
     ?: "MISSING_MAPS_API_KEY"
@@ -24,10 +47,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.movera.rider"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -35,11 +55,29 @@ android {
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("moveraRelease") {
+                storeFile = file(releaseKeystorePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                check(storeFile?.isFile == true) { "Release keystore does not exist" }
+                check(storeFile?.canonicalFile != file("${System.getProperty("user.home")}/.android/debug.keystore").canonicalFile) {
+                    "A debug keystore cannot sign a release"
+                }
+                check(!keyAlias.equals("androiddebugkey", ignoreCase = true)) {
+                    "The Android debug key cannot sign a release"
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("moveraRelease")
+            }
         }
     }
 }
