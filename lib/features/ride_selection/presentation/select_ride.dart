@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -34,6 +35,50 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
+
+/// D-009: the expanded ride sheet used to reach 72 px below the status bar,
+/// hiding almost the whole map — including the destination pin — until
+/// Finding. Keep a real slice of map visible above it (large text still gets
+/// the full height it needs).
+@visibleForTesting
+double selectRideMaxSheetHeight(MediaQueryData media) {
+  final minH = (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
+  final largeText = media.textScaler.scale(1) >= 1.6;
+  final topClearance = largeText
+      ? 0.0
+      : math.max(72.0, media.size.height * 0.34 - media.padding.top);
+  final maxH = media.size.height - media.padding.top - topClearance;
+  return maxH < minH + 64 ? minH + 64 : maxH;
+}
+
+/// D-009: bounds that frame [pickup] and [destination] inside a map of
+/// [mapHeight] whose bottom [bottomObstruction] pixels are covered by the
+/// sheet. google_maps_flutter only takes one uniform padding, so the covered
+/// band is reserved by stretching the bounds southwards.
+@visibleForTesting
+({GeoPoint southwest, GeoPoint northeast, double padding}) selectRideCameraFit({
+  required GeoPoint pickup,
+  required GeoPoint destination,
+  required double mapHeight,
+  required double bottomObstruction,
+  double edgePadding = 56,
+}) {
+  final south = math.min(pickup.latitude, destination.latitude);
+  final north = math.max(pickup.latitude, destination.latitude);
+  final west = math.min(pickup.longitude, destination.longitude);
+  final east = math.max(pickup.longitude, destination.longitude);
+  final full = math.max(mapHeight - 2 * edgePadding, 1.0);
+  final usable = math.max(
+    mapHeight - math.max(bottomObstruction, 0.0) - 2 * edgePadding,
+    full * 0.2,
+  );
+  final stretchedSouth = north - (north - south) * (full / usable);
+  return (
+    southwest: GeoPoint(math.max(stretchedSouth, -85.0), west),
+    northeast: GeoPoint(north, east),
+    padding: edgePadding,
+  );
+}
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -352,19 +397,6 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  void _nudgePrice(int delta) {
-    final ride = _selectedRideOrNull;
-    if (ride == null) return;
-    final current = _priceFor(ride);
-    final next = _selection.changeOffer(
-      id: ride.id,
-      catalog: ride.price,
-      delta: delta,
-    );
-    if (next == current) return;
-    setState(() {});
-  }
-
   List<_RideOption> get _visibleRides {
     final rides = [..._allRides];
     switch (_filter) {
@@ -415,13 +447,7 @@ class _SelectRideState extends State<SelectRide>
   double _minSheet(MediaQueryData media) =>
       (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
 
-  double _maxSheet(MediaQueryData media) {
-    final minH = _minSheet(media);
-    final largeText = media.textScaler.scale(1) >= 1.6;
-    final topClearance = largeText ? 0.0 : 72.0;
-    final maxH = media.size.height - media.padding.top - topClearance;
-    return maxH < minH + 64 ? minH + 64 : maxH;
-  }
+  double _maxSheet(MediaQueryData media) => selectRideMaxSheetHeight(media);
 
   void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
     final range = _maxSheet(media) - _minSheet(media);
@@ -451,8 +477,9 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _fitRoute() async {
     if (!mounted) return;
-    final pickup = widget.pickupPosition;
+    final pickup = _pickupPosition;
     final destination = widget.destinationPosition;
+    final media = MediaQuery.of(context);
     final samePoint =
         (pickup.latitude - destination.latitude).abs() < 0.00008 &&
         (pickup.longitude - destination.longitude).abs() < 0.00008;
@@ -464,10 +491,21 @@ class _SelectRideState extends State<SelectRide>
         );
         return;
       }
+      // D-009: the map sits behind the (initially expanded) sheet, so frame
+      // both pins in the part of the map the sheet leaves visible.
+      final minSheet = _minSheet(media);
+      final sheetHeight =
+          minSheet + (_maxSheet(media) - minSheet) * _sheetSlide.value;
+      final fit = selectRideCameraFit(
+        pickup: GeoPoint(pickup.latitude, pickup.longitude),
+        destination: GeoPoint(destination.latitude, destination.longitude),
+        mapHeight: media.size.height - minSheet,
+        bottomObstruction: sheetHeight - minSheet,
+      );
       await AppScope.instance.maps.fitBounds(
-        GeoPoint(pickup.latitude, pickup.longitude),
-        GeoPoint(destination.latitude, destination.longitude),
-        padding: 56,
+        fit.southwest,
+        fit.northeast,
+        padding: fit.padding,
       );
     } catch (_) {}
   }
@@ -509,6 +547,8 @@ class _SelectRideState extends State<SelectRide>
         _pickupAddress = spot.address;
         _pickupPosition = spot.position;
         _pickupConfirmed = true;
+        // D-007: the map follows the re-confirmed pickup.
+        unawaited(_fitRoute());
       }
       setState(() => _selection.scheduleFor(when));
     });
@@ -938,13 +978,13 @@ class _SelectRideState extends State<SelectRide>
                   ? CustomGoogleMap(
                       key: const ValueKey('select-ride-map'),
                       initialPosition: CameraPosition(
-                        target: widget.pickupPosition,
+                        target: _pickupPosition,
                         zoom: 13.2,
                       ),
                       markers: {
                         Marker(
                           markerId: const MarkerId('pickup'),
-                          position: widget.pickupPosition,
+                          position: _pickupPosition,
                         ),
                         Marker(
                           markerId: const MarkerId('destination'),
@@ -954,7 +994,7 @@ class _SelectRideState extends State<SelectRide>
                       polylines: {
                         routePolyline(
                           id: 'route',
-                          from: widget.pickupPosition,
+                          from: _pickupPosition,
                           to: widget.destinationPosition,
                           color: _accent,
                         ),
@@ -986,8 +1026,8 @@ class _SelectRideState extends State<SelectRide>
                         AppScope.instance.map.drawRoute(
                           'select',
                           GeoPoint(
-                            widget.pickupPosition.latitude,
-                            widget.pickupPosition.longitude,
+                            _pickupPosition.latitude,
+                            _pickupPosition.longitude,
                           ),
                           GeoPoint(
                             widget.destinationPosition.latitude,
@@ -997,8 +1037,8 @@ class _SelectRideState extends State<SelectRide>
                         AppScope.instance.map.upsertMarker(
                           'pickup',
                           GeoPoint(
-                            widget.pickupPosition.latitude,
-                            widget.pickupPosition.longitude,
+                            _pickupPosition.latitude,
+                            _pickupPosition.longitude,
                           ),
                         );
                         AppScope.instance.map.upsertMarker(
@@ -1089,7 +1129,6 @@ class _SelectRideState extends State<SelectRide>
                                         ),
                                       ),
                                     ),
-                                    _priceStepper(),
                                   ],
                                 ),
                               ),
@@ -1164,69 +1203,6 @@ class _SelectRideState extends State<SelectRide>
             ),
             const SizedBox(width: 8),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _priceStepper() {
-    final ride = _selectedRideOrNull;
-    if (ride == null) return const SizedBox.shrink();
-    final price = _priceFor(ride);
-    final minimum = (ride.price * 0.65).roundToDouble();
-    final maximum = (ride.price * 1.8).roundToDouble();
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: _field,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _line),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _stepperButton(
-            Icons.remove_rounded,
-            enabled: price > minimum,
-            onTap: () => _nudgePrice(-10),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Text(
-              _kr(price),
-              style: _text(13.5, weight: FontWeight.w600),
-            ),
-          ),
-          _stepperButton(
-            Icons.add_rounded,
-            enabled: price < maximum,
-            onTap: () => _nudgePrice(10),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _stepperButton(
-    IconData icon, {
-    required bool enabled,
-    required VoidCallback onTap,
-  }) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: Material(
-        color: Colors.white,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: enabled ? onTap : null,
-          child: Icon(
-            icon,
-            size: 18,
-            color: enabled ? _ink : _muted.withValues(alpha: 0.45),
-          ),
         ),
       ),
     );
@@ -1390,7 +1366,16 @@ class _SelectRideState extends State<SelectRide>
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Text(ride.arrival, style: _text(12.5, color: _muted)),
+                          // Flexible so 200% text ellipsizes instead of
+                          // overflowing the card.
+                          Flexible(
+                            child: Text(
+                              ride.arrival,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _text(12.5, color: _muted),
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           const Icon(
                             Icons.person_outline_rounded,
