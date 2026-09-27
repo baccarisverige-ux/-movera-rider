@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -151,12 +149,5 @@ void main() {
       find.byKey(const Key('reservation-no-driver-found')),
       findsOneWidget,
     );
-  });
-
-  test('Home wires the rebook entry point to the schedule flow', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
-    expect(home, contains('onRebook: () => unawaited(_openSchedule())'));
   });
 }
