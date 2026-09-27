@@ -55,11 +55,15 @@ void main() {
               textScaler: const TextScaler.linear(2),
             ),
             child: const Scaffold(
-              body: SafetyRow(
-                mark: SafetyMarks.contacts,
-                title: 'Emergency contact',
-                subtitle: 'Let someone know where your ride is going.',
-                status: 'Unavailable',
+              body: ListView(
+                children: [
+                  SafetyRow(
+                    mark: SafetyMarks.contacts,
+                    title: 'Emergency contact',
+                    subtitle: 'Let someone know where your ride is going.',
+                    status: 'Unavailable',
+                  ),
+                ],
               ),
             ),
           ),
