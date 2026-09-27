@@ -54,9 +54,9 @@ void main() {
               size: size,
               textScaler: const TextScaler.linear(2),
             ),
-            child: const Scaffold(
+            child: Scaffold(
               body: ListView(
-                children: [
+                children: const [
                   SafetyRow(
                     mark: SafetyMarks.contacts,
                     title: 'Emergency contact',
