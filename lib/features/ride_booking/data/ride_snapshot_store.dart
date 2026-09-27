@@ -28,6 +28,7 @@ class RideSnapshot {
     this.notes = RideNotes.empty,
     this.driver,
     this.cancellationReason,
+    this.version,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -46,6 +47,13 @@ class RideSnapshot {
   final RideNotes notes;
   final MatchedDriver? driver;
   final String? cancellationReason;
+
+  /// The realtime transport's ordering number for [status], when known
+  /// (Phase 135). Lets a cold restore seed RideSession.authoritativeVersion,
+  /// so a stale event from a freshly-reconnected transport (which starts
+  /// its own numbering over from zero) is recognized as older instead of
+  /// silently accepted and regressing the restored ride.
+  final int? version;
 
   /// How long a saved ride may go untouched and still be worth restoring.
   ///
@@ -81,6 +89,7 @@ class RideSnapshot {
     RideNotes? notes,
     MatchedDriver? driver,
     String? cancellationReason,
+    int? version,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -99,6 +108,7 @@ class RideSnapshot {
       notes: notes ?? this.notes,
       driver: driver ?? this.driver,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      version: version ?? this.version,
     );
   }
 
@@ -120,6 +130,7 @@ class RideSnapshot {
     'notes': notes.toJson(),
     if (driver != null) 'driver': driver!.toJson(),
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
+    if (version != null) 'version': version,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -199,6 +210,7 @@ class RideSnapshot {
             )
           : null,
       cancellationReason: json['cancellationReason'] as String?,
+      version: (json['version'] as num?)?.toInt(),
     );
   }
 }
