@@ -466,7 +466,8 @@ class WaitingNotesAndPin extends StatelessWidget {
         ],
         if (safety.loading || !safety.hasLoaded) ...[
           const SizedBox(height: 12),
-          const Center(child: CircularProgressIndicator()),
+          Text('Loading PIN…',
+              style: waitingText(12, color: const Color(0xFF5C656C))),
         ] else if (safety.preferences.pinRequired) ...[
           const SizedBox(height: 12),
           Container(
