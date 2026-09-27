@@ -35,6 +35,13 @@ class _ScheduleRideState extends State<ScheduleRide> {
   static const Color _scheduleLine = Color(0xFFE4E7E8);
   static const Color _scheduleAccent = Color(0xFF356879);
 
+  /// U5 stopgap (same kill-switch as Home's `_stopsSupported`): stops typed
+  /// here reached `ScheduledRideSession.stops` → `SelectRide(stops:)` and were
+  /// then silently dropped — `ReservationDraft` has no stops, and there is no
+  /// multi-stop fare or routing. Hidden until multi-stop quoting, routing and
+  /// booking exist end to end (blocked on backend).
+  static const bool _stopsSupported = false;
+
   final TextEditingController _pickupController = TextEditingController(
     text: 'Current location',
   );
@@ -201,7 +208,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
   }
 
   void _addStop() {
-    if (_stopControllers.length >= 3) return;
+    if (!_stopsSupported || _stopControllers.length >= 3) return;
     final controller = TextEditingController();
     controller.addListener(_syncRouteToSession);
     setState(() => _stopControllers.add(controller));
@@ -317,20 +324,21 @@ class _ScheduleRideState extends State<ScheduleRide> {
                             icon: Icons.my_location_rounded,
                           ),
                           const Divider(height: 1, indent: 42),
-                          for (
-                            var index = 0;
-                            index < _stopControllers.length;
-                            index++
-                          ) ...[
-                            _scheduleAddressField(
-                              controller: _stopControllers[index],
-                              label: 'Stop ${index + 1}',
-                              hint: 'Enter stop address',
-                              icon: Icons.more_horiz_rounded,
-                              onRemove: () => _removeStop(index),
-                            ),
-                            const Divider(height: 1, indent: 42),
-                          ],
+                          if (_stopsSupported)
+                            for (
+                              var index = 0;
+                              index < _stopControllers.length;
+                              index++
+                            ) ...[
+                              _scheduleAddressField(
+                                controller: _stopControllers[index],
+                                label: 'Stop ${index + 1}',
+                                hint: 'Enter stop address',
+                                icon: Icons.more_horiz_rounded,
+                                onRemove: () => _removeStop(index),
+                              ),
+                              const Divider(height: 1, indent: 42),
+                            ],
                           _scheduleAddressField(
                             controller: _dropoffController,
                             label: 'Drop-off',
@@ -341,7 +349,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
                       ),
                     ),
                     const SizedBox(height: 13),
-                    if (_stopControllers.length < 3)
+                    if (_stopsSupported && _stopControllers.length < 3)
                       Align(
                         alignment: Alignment.centerLeft,
                         child: TextButton.icon(
