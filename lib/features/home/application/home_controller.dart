@@ -214,6 +214,40 @@ class HomeLocationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _accurateFixSeen = false;
+
+  /// Batch 10 Phase 110: a fast, coarse position for Home's map **camera
+  /// only**, while [detectCurrent] fetches the accurate fix.
+  ///
+  /// Layered: the OS's last known position (Android/iOS), else the app's own
+  /// last good fix (all platforms, incl. web). Returns null — so Home keeps
+  /// today's default view — when services are off, permission is not already
+  /// granted, nothing is cached, or the accurate fix has already landed.
+  /// Never requests permission, never changes [state], the puck or pickup.
+  Future<LatLng?> quickCameraFix() async {
+    try {
+      if (!await location.isLocationServiceEnabled()) return null;
+      // Read-only: the permission prompt stays owned by detectCurrent().
+      final permission = await location.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return null;
+      }
+      final hint =
+          await location.lastKnownFix() ?? await location.readLastGoodFix();
+      if (hint == null || _accurateFixSeen) return null;
+      return LatLng(hint.latitude, hint.longitude);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _rememberGoodFix(Position position) {
+    unawaited(
+      location.saveLastGoodFix(GeoPoint(position.latitude, position.longitude)),
+    );
+  }
+
   Future<DetectedLocation> detectCurrent() async {
     _setState(HomeLocationState.initializing);
     try {
@@ -260,6 +294,8 @@ class HomeLocationController extends ChangeNotifier {
             ),
           )
           .timeout(detectFixTimeout);
+      _accurateFixSeen = true;
+      _rememberGoodFix(position);
       final generation = _detectGuard.next();
       String? detected;
       try {
@@ -461,6 +497,8 @@ class HomeLocationController extends ChangeNotifier {
           ),
         )
         .timeout(latestFixTimeout);
+    _accurateFixSeen = true;
+    _rememberGoodFix(position);
     final target = LatLng(position.latitude, position.longitude);
     if (!hasCompassHeading &&
         position.heading.isFinite &&

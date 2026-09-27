@@ -298,12 +298,30 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   Future<void> _restoreAddressData() async {
+    unawaited(_centerCameraOnQuickFix());
     await _places.load();
     if (mounted) setState(() {});
     await _detectCurrentAddress();
   }
 
   Future<void> _persistAddressData() => _places.persist();
+
+  /// Coarse camera hint from [HomeLocationController.quickCameraFix].
+  LatLng? _cameraHint;
+
+  /// Batch 10 Phase 110: centre the camera on a fast cached fix while the
+  /// accurate one is fetched. Camera only — pickup, the puck and
+  /// [_currentLatLng] stay owned by [_detectCurrentAddress], whose accurate
+  /// fix still moves the camera when it lands.
+  Future<void> _centerCameraOnQuickFix() async {
+    final hint = await _locationCtl.quickCameraFix();
+    if (!mounted || hint == null || _currentLatLng != null) return;
+    _cameraHint = hint;
+    final maps = AppScope.instance.maps;
+    // Map not created yet: onMapCreated picks the hint up.
+    if (maps.activeOwner != MapOwners.home) return;
+    await maps.moveCamera(GeoPoint(hint.latitude, hint.longitude), zoom: 15);
+  }
 
   Future<void> _detectCurrentAddress() async {
     if (mounted) setState(() {});
@@ -2211,7 +2229,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             owner: MapOwners.home,
                           );
                           AppScope.instance.mapLifecycle.created();
-                          final target = _currentLatLng;
+                          final target = _currentLatLng ?? _cameraHint;
                           if (target != null) {
                             AppScope.instance.maps.animateCamera(
                               GeoPoint(target.latitude, target.longitude),
