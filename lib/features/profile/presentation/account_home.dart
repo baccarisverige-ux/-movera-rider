@@ -62,7 +62,8 @@ class _AccountHomePageState extends State<AccountHomePage> {
   @override
   Widget build(BuildContext context) {
     final ride = _profile.profile;
-    final name = ride.name.trim().isEmpty ? 'Profile not set' : ride.name;
+    // D-024: invite the rider to fill it in rather than a placeholder.
+    final name = ride.name.trim().isEmpty ? 'Add your name' : ride.name;
     final hasPhoto = ride.photoAsset.trim().isNotEmpty;
     final security = _security.available ? _security.state : null;
     final email = security == null

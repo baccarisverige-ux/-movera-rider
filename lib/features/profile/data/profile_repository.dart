@@ -18,9 +18,12 @@ class ProfileRepository {
 
   RiderProfileData get current => _profile;
 
+  static const emptyDisplayName = 'Welcome to Movera';
+
   String displayName() {
     final name = _profile.name.trim();
-    return name.isEmpty ? 'Profile not set' : name;
+    // D-024: a friendly greeting, not a literal placeholder.
+    return name.isEmpty ? emptyDisplayName : name;
   }
 
   Future<void> hydrate() async {

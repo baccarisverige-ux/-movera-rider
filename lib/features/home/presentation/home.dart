@@ -2099,7 +2099,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFEEF1E8),
       extendBody: true,
-      drawer: const RiderSideMenu(),
+      drawer: RiderSideMenu(
+        onStartBooking: () => unawaited(_openDestinationSheet()),
+      ),
       onDrawerChanged: (open) {
         if (mounted) setState(() => _drawerOpen = open);
       },
