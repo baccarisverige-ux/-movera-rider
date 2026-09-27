@@ -1,1 +1,1 @@
-export 'package:movera_rider/features/profile/presentation/profile.dart';
+export 'package:movera_rider/features/profile/presentation/account_home.dart';

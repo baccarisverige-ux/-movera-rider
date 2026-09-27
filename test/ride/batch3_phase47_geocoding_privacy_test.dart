@@ -84,4 +84,28 @@ void main() {
     expect(results.where((value) => value == 'Sveavägen').length, 2);
     expect(calls, 1);
   });
+
+  test('reverse geocoding retries a missing address instead of caching null', () async {
+    var calls = 0;
+    final api = ApiClient(
+      client: MockClient((request) async {
+        calls++;
+        return http.Response(
+          jsonEncode({'data': {'address': calls == 1 ? null : 'Sveavägen'}}),
+          200,
+        );
+      }),
+      env: const AppEnv(
+        flavor: AppFlavor.test,
+        apiBaseUrl: 'https://api.movera.test',
+        mapsEnabled: true,
+      ),
+      tokens: _Tokens(),
+    );
+    final geo = AppGeocoding(api: api);
+    const point = GeoPoint(59.334, 18.063);
+    expect(await geo.reverse(point), isNull);
+    expect(await geo.reverse(point), 'Sveavägen');
+    expect(calls, 2);
+  });
 }
