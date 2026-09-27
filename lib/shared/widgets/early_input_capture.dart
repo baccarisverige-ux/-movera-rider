@@ -13,6 +13,11 @@ import 'package:flutter/services.dart';
 /// [start] it at the moment of the tap — before any of that sequencing — and
 /// the keystrokes are buffered instead. [attach] hands them to the real field
 /// once it exists, and the capture steps aside as soon as the field has focus.
+///
+/// D-001: stepping aside is permanent. Once the field has had focus the
+/// handler is removed, and while any *other* text field is focused (a stop,
+/// the saved-place editor) keystrokes are never taken — they used to be
+/// written into the destination instead.
 class EarlyInputCapture {
   final StringBuffer _pending = StringBuffer();
 
@@ -31,15 +36,24 @@ class EarlyInputCapture {
   }
 
   void stop() {
+    _focusNode?.removeListener(_onFocusChanged);
     if (!_started) return;
     _started = false;
     HardwareKeyboard.instance.removeHandler(_onKey);
   }
 
+  bool get isCapturing => _started;
+
+  void _onFocusChanged() {
+    if (_focusNode?.hasFocus ?? false) stop();
+  }
+
   /// Point the capture at the real field, handing over anything typed so far.
   void attach(TextEditingController controller, FocusNode focusNode) {
+    _focusNode?.removeListener(_onFocusChanged);
     _controller = controller;
     _focusNode = focusNode;
+    if (_started) focusNode.addListener(_onFocusChanged);
     if (_pending.isEmpty) return;
     final buffered = _pending.toString();
     _pending.clear();
@@ -69,8 +83,13 @@ class EarlyInputCapture {
   }
 
   bool _onKey(KeyEvent event) {
-    // Once the field has focus it speaks for itself.
-    if (_focusNode?.hasFocus ?? false) return false;
+    // Once the field has focus it speaks for itself — for good.
+    if (_focusNode?.hasFocus ?? false) {
+      stop();
+      return false;
+    }
+    // Another text field owns the keyboard: its keys are not ours.
+    if (_anotherTextFieldHasFocus()) return false;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
 
     final text = _text;
@@ -86,5 +105,14 @@ class EarlyInputCapture {
 
     _apply(text + character);
     return true;
+  }
+
+  bool _anotherTextFieldHasFocus() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null || primary == _focusNode) return false;
+    final context = primary.context;
+    if (context == null) return false;
+    if (context.widget is EditableText) return true;
+    return context.findAncestorWidgetOfExactType<EditableText>() != null;
   }
 }

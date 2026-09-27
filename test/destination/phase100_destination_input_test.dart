@@ -1,0 +1,221 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
+import 'package:movera_rider/shared/widgets/early_input_capture.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Batch 9 Phase 100 — destination input integrity (D-001), hiding stops the
+/// client can't honour (U5 stopgap) and wiring the saved-place search (D-023).
+void main() {
+  setUpAll(() {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  Future<void> type(String text) async {
+    for (final character in text.split('')) {
+      final key = LogicalKeyboardKey(character.toLowerCase().codeUnitAt(0));
+      await simulateKeyDownEvent(key, character: character);
+      await simulateKeyUpEvent(key);
+    }
+  }
+
+  group('D-001 early input capture', () {
+    late EarlyInputCapture capture;
+    late TextEditingController destination;
+    late TextEditingController stop;
+    late FocusNode destinationFocus;
+    late FocusNode stopFocus;
+
+    setUp(() {
+      capture = EarlyInputCapture();
+      destination = TextEditingController();
+      stop = TextEditingController();
+      destinationFocus = FocusNode();
+      stopFocus = FocusNode();
+    });
+
+    tearDown(() {
+      capture.stop();
+      destination.dispose();
+      stop.dispose();
+      destinationFocus.dispose();
+      stopFocus.dispose();
+    });
+
+    Future<void> pumpFields(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                TextField(controller: destination, focusNode: destinationFocus),
+                TextField(controller: stop, focusNode: stopFocus),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('typing in a focused stop field never writes the destination', (
+      tester,
+    ) async {
+      await pumpFields(tester);
+      capture.start();
+      capture.attach(destination, destinationFocus);
+      destination.text = 'Centralen';
+
+      stopFocus.requestFocus();
+      await tester.pump();
+      await type('abc');
+      await simulateKeyDownEvent(LogicalKeyboardKey.backspace);
+      await simulateKeyUpEvent(LogicalKeyboardKey.backspace);
+
+      expect(destination.text, 'Centralen');
+    });
+
+    testWidgets('capture stops for good once the destination was focused', (
+      tester,
+    ) async {
+      await pumpFields(tester);
+      capture.start();
+      capture.attach(destination, destinationFocus);
+
+      destinationFocus.requestFocus();
+      await tester.pump();
+      expect(capture.isCapturing, isFalse);
+
+      // Focus leaves every text field; keys must not reach the destination.
+      destinationFocus.unfocus();
+      await tester.pump();
+      await type('xy');
+
+      expect(destination.text, isEmpty);
+      expect(capture.isCapturing, isFalse);
+    });
+  });
+
+  test('U5: the add-stop button and stop hint are hidden until stops ship', () {
+    final source = File(
+      'lib/features/home/presentation/home.dart',
+    ).readAsStringSync();
+    expect(source, contains('static const bool _stopsSupported = false;'));
+    final hint = source.indexOf("'Add a stop before your final destination.'");
+    expect(hint, greaterThan(0));
+    final gate = source.lastIndexOf('if (_stopsSupported) ...[', hint);
+    expect(
+      gate,
+      greaterThan(0),
+      reason: 'the stop hint row must sit behind _stopsSupported',
+    );
+    expect(
+      source,
+      contains('(_stopsSupported ? _routeStops : const <String>[])'),
+      reason: 'stale stops must not be prefilled into hidden fields',
+    );
+  });
+
+  group('D-023 saved-place search', () {
+    Future<void> pumpSearch(
+      WidgetTester tester, {
+      required Future<PlaceResult?> Function(String) geocode,
+      required void Function(String?) onResult,
+    }) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async {
+                    onResult(
+                      await Navigator.push<String>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              RiderSearchPickupLocation(geocode: geocode),
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Open search'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open search'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('submitting typed text geocodes it and returns the place', (
+      tester,
+    ) async {
+      final queries = <String>[];
+      String? result;
+      await pumpSearch(
+        tester,
+        geocode: (query) async {
+          queries.add(query);
+          return const PlaceResult(
+            address: 'Drottninggatan 10, Stockholm',
+            point: GeoPoint(59.33, 18.06),
+          );
+        },
+        onResult: (value) => result = value,
+      );
+
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        ' drottning 10 ',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(queries, ['drottning 10']);
+      expect(result, 'Drottninggatan 10, Stockholm');
+      expect(find.byType(RiderSearchPickupLocation), findsNothing);
+    });
+
+    testWidgets('an address that cannot be found stays put with an error', (
+      tester,
+    ) async {
+      String? result = 'untouched';
+      await pumpSearch(
+        tester,
+        geocode: (_) async => null,
+        onResult: (value) => result = value,
+      );
+
+      await tester.enterText(find.byType(TextFormField).first, 'nowhere');
+      await tester.tap(find.byKey(const ValueKey('saved-place-search')));
+      await tester.pumpAndSettle();
+
+      expect(result, 'untouched');
+      expect(find.byType(RiderSearchPickupLocation), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('saved-place-search-error')),
+        findsOneWidget,
+      );
+    });
+  });
+}

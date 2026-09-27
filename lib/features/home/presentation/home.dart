@@ -115,6 +115,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
+  /// U5 stopgap: stops are collected here but dropped by SelectRide, the
+  /// booking payload, RideSnapshot, Finding and Waiting — the rider would be
+  /// charged for a trip that silently ignores them. Hidden until multi-stop
+  /// quoting, routing and booking exist end to end (blocked on backend).
+  static const bool _stopsSupported = false;
+
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
   final MapParkingGuard _mapParkingGuard = MapParkingGuard();
 
@@ -625,7 +631,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final destinationController = TextEditingController(
       text: _destinationAddress ?? '',
     );
-    final stopControllers = _routeStops
+    // U5: stops are not honoured downstream yet, so no stale stop fields.
+    final stopControllers = (_stopsSupported ? _routeStops : const <String>[])
         .map((address) => TextEditingController(text: address))
         .toList();
     final pickupFocus = FocusNode();
@@ -1036,6 +1043,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
+                            if (_stopsSupported) ...[
                             6.width,
                             Material(
                               color: const Color(0xFFF0F2F3),
@@ -1076,8 +1084,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 ),
                               ),
                             ),
+                            ],
                           ],
                         ),
+                        if (_stopsSupported) ...[
                         9.height,
                         Row(
                           children: [
@@ -1099,6 +1109,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             ),
                           ],
                         ),
+                        ],
                         13.height,
                         Align(
                           alignment: Alignment.centerLeft,

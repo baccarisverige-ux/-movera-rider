@@ -67,7 +67,9 @@ void main() {
     expect(find.text('Search results'), findsOneWidget);
     expect(find.text('No search results'), findsOneWidget);
     expect(
-      find.text('Place search isn’t connected in this build yet.'),
+      find.text(
+        'Suggestions aren’t available yet. Type a full address and press Search.',
+      ),
       findsOneWidget,
     );
 
