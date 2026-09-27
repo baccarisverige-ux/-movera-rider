@@ -51,6 +51,8 @@ class DriverTrackingController {
   }) {
     driver = initial;
     this.onChange = onChange;
+    // A fresh subscription is a fresh feed; only its own errors degrade it.
+    connectionDegraded = false;
     _sub?.cancel();
     _staleCheck?.cancel();
     _sub = _realtime.subscribe(rideId).listen(
@@ -129,8 +131,9 @@ class DriverTrackingController {
     });
   }
 
-  /// Set when the realtime stream itself errors or closes (see M-05). The
-  /// presenter should treat the marker as frozen/degraded, not just stale.
+  /// Set when the realtime stream itself errors or closes (see M-05). Waiting
+  /// renders it as a "live updates paused" banner with a Retry (D-015), so a
+  /// dead feed no longer looks like a stationary driver.
   bool connectionDegraded = false;
 
   Future<void> _persistLiveStatus() async {
