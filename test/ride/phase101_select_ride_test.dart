@@ -10,6 +10,7 @@ import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.da
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 
 class _ImmediateQuotes implements QuoteRepository {
   @override
