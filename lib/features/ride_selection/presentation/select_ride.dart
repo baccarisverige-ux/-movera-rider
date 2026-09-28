@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -24,6 +23,9 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_filter.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
+import 'package:movera_rider/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
@@ -38,50 +40,6 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
-
-/// D-009: the expanded ride sheet used to reach 72 px below the status bar,
-/// hiding almost the whole map — including the destination pin — until
-/// Finding. Keep a real slice of map visible above it (large text still gets
-/// the full height it needs).
-@visibleForTesting
-double selectRideMaxSheetHeight(MediaQueryData media) {
-  final minH = (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
-  final largeText = media.textScaler.scale(1) >= 1.6;
-  final topClearance = largeText
-      ? 0.0
-      : math.max(72.0, media.size.height * 0.34 - media.padding.top);
-  final maxH = media.size.height - media.padding.top - topClearance;
-  return maxH < minH + 64 ? minH + 64 : maxH;
-}
-
-/// D-009: bounds that frame [pickup] and [destination] inside a map of
-/// [mapHeight] whose bottom [bottomObstruction] pixels are covered by the
-/// sheet. google_maps_flutter only takes one uniform padding, so the covered
-/// band is reserved by stretching the bounds southwards.
-@visibleForTesting
-({GeoPoint southwest, GeoPoint northeast, double padding}) selectRideCameraFit({
-  required GeoPoint pickup,
-  required GeoPoint destination,
-  required double mapHeight,
-  required double bottomObstruction,
-  double edgePadding = 56,
-}) {
-  final south = math.min(pickup.latitude, destination.latitude);
-  final north = math.max(pickup.latitude, destination.latitude);
-  final west = math.min(pickup.longitude, destination.longitude);
-  final east = math.max(pickup.longitude, destination.longitude);
-  final full = math.max(mapHeight - 2 * edgePadding, 1.0);
-  final usable = math.max(
-    mapHeight - math.max(bottomObstruction, 0.0) - 2 * edgePadding,
-    full * 0.2,
-  );
-  final stretchedSouth = north - (north - south) * (full / usable);
-  return (
-    southwest: GeoPoint(math.max(stretchedSouth, -85.0), west),
-    northeast: GeoPoint(north, east),
-    padding: edgePadding,
-  );
-}
 
 class SelectRide extends StatefulWidget {
   const SelectRide({
@@ -176,8 +134,6 @@ class SelectRide extends StatefulWidget {
   State<SelectRide> createState() => _SelectRideState();
 }
 
-enum _RideFilter { recommended, faster, cheaper }
-
 class _RideOption {
   const _RideOption({
     required this.id,
@@ -257,7 +213,7 @@ class _SelectRideState extends State<SelectRide>
     }).toList();
   }
 
-  _RideFilter _filter = _RideFilter.recommended;
+  SelectRideFilter _filter = SelectRideFilter.recommended;
   late final bool _ownsSelection = widget.selection == null;
   late final RideSelectionController _selection =
       widget.selection ??
@@ -400,20 +356,12 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  List<_RideOption> get _visibleRides {
-    final rides = [..._allRides];
-    switch (_filter) {
-      case _RideFilter.faster:
-        rides.sort((a, b) => a.etaMin.compareTo(b.etaMin));
-        break;
-      case _RideFilter.cheaper:
-        rides.sort((a, b) => a.price.compareTo(b.price));
-        break;
-      case _RideFilter.recommended:
-        break;
-    }
-    return rides;
-  }
+  List<_RideOption> get _visibleRides => orderRidesForFilter(
+    _allRides,
+    _filter,
+    etaMin: (ride) => ride.etaMin,
+    price: (ride) => ride.price,
+  );
 
   TextStyle _text(
     double size, {
@@ -1080,7 +1028,7 @@ class _SelectRideState extends State<SelectRide>
                         });
                       },
                     )
-                  : const _RouteCanvas(),
+                  : const SelectRideRouteCanvas(),
             ),
           ),
           Positioned(
@@ -1242,22 +1190,22 @@ class _SelectRideState extends State<SelectRide>
         children: [
           _filterChip(
             label: 'Recommended',
-            selected: _filter == _RideFilter.recommended,
-            onTap: () => setState(() => _filter = _RideFilter.recommended),
+            selected: _filter == SelectRideFilter.recommended,
+            onTap: () => setState(() => _filter = SelectRideFilter.recommended),
           ),
           const SizedBox(width: 8),
           _filterChip(
             label: 'Faster',
             icon: Icons.schedule_rounded,
-            selected: _filter == _RideFilter.faster,
-            onTap: () => setState(() => _filter = _RideFilter.faster),
+            selected: _filter == SelectRideFilter.faster,
+            onTap: () => setState(() => _filter = SelectRideFilter.faster),
           ),
           const SizedBox(width: 8),
           _filterChip(
             label: 'Cheaper',
             icon: Icons.payments_outlined,
-            selected: _filter == _RideFilter.cheaper,
-            onTap: () => setState(() => _filter = _RideFilter.cheaper),
+            selected: _filter == SelectRideFilter.cheaper,
+            onTap: () => setState(() => _filter = SelectRideFilter.cheaper),
           ),
         ],
       ),
@@ -1847,86 +1795,4 @@ class _SelectRideState extends State<SelectRide>
       child: logo,
     );
   }
-}
-
-class _RouteCanvas extends StatelessWidget {
-  const _RouteCanvas();
-
-  @override
-  Widget build(BuildContext context) {
-    return const CustomPaint(
-      painter: _RoutePainter(),
-      child: SizedBox.expand(),
-    );
-  }
-}
-
-class _RoutePainter extends CustomPainter {
-  const _RoutePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final sky = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFFDCE8DE), Color(0xFFEEF3E8), Color(0xFFF6F5F1)],
-      ).createShader(Offset.zero & size);
-    canvas.drawRect(Offset.zero & size, sky);
-
-    final water = Paint()
-      ..color = const Color(0xFFC9D9D4).withValues(alpha: 0.7);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          size.width * 0.08,
-          size.height * 0.18,
-          size.width * 0.38,
-          28,
-        ),
-        const Radius.circular(20),
-      ),
-      water,
-    );
-
-    final land = Paint()..color = const Color(0xFFD7E3D4);
-    canvas.drawCircle(Offset(size.width * 0.78, size.height * 0.42), 46, land);
-    canvas.drawCircle(Offset(size.width * 0.22, size.height * 0.62), 34, land);
-
-    final path = Path()
-      ..moveTo(size.width * 0.16, size.height * 0.72)
-      ..quadraticBezierTo(
-        size.width * 0.42,
-        size.height * 0.18,
-        size.width * 0.84,
-        size.height * 0.46,
-      );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = const Color(0xFF2D5878).withValues(alpha: 0.18)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = const Color(0xFF2D5878)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.5
-        ..strokeCap = StrokeCap.round,
-    );
-
-    void pin(Offset c, Color color) {
-      canvas.drawCircle(c, 9, Paint()..color = color);
-      canvas.drawCircle(c, 4.2, Paint()..color = Colors.white);
-    }
-
-    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1D252C));
-    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF2D5878));
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

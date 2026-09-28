@@ -11,6 +11,24 @@ void main() {
   Iterable<File> presentation() =>
       dartUnder('lib/features').where((f) => f.path.contains('/presentation/'));
 
+  // Phase 139 split parts of these screens into sibling files. Guards about
+  // "the Home screen" / "the Select Ride screen" must read all of them, or
+  // an isFalse check would keep passing while no longer covering moved code.
+  // Each guard does its own File(...).readAsStringSync() so CI's grep-style
+  // test counter (journey-integrity) still counts it.
+  const homeScreenFiles = [
+    'lib/features/home/presentation/home.dart',
+    'lib/features/home/presentation/home_map_style.dart',
+    'lib/features/home/presentation/widgets/home_map_layer.dart',
+  ];
+
+  const selectRideScreenFiles = [
+    'lib/features/ride_selection/presentation/select_ride.dart',
+    'lib/features/ride_selection/presentation/select_ride_filter.dart',
+    'lib/features/ride_selection/presentation/select_ride_geometry.dart',
+    'lib/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart',
+  ];
+
   test('presentation does not import raw http or shared_preferences', () {
     for (final file in presentation()) {
       final src = file.readAsStringSync();
@@ -109,17 +127,13 @@ void main() {
   });
 
   test('home does not own ride restoration', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('_restoreActiveRide'), isFalse);
     expect(home.contains('RideSnapshotStore'), isFalse);
   });
 
   test('home does not draw a trip polyline', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('Polyline('), isFalse);
     expect(home.contains('polylines:'), isFalse);
   });
@@ -175,17 +189,13 @@ void main() {
   });
 
   test('home does not import address repository', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('home_repository.dart'), isFalse);
     expect(home.contains('HomeAddressRepository'), isFalse);
   });
 
   test('select ride widget is not the source of ride/payment truth', () {
-    final ui = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
+    final ui = selectRideScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(ui.contains("String _selectedRideId"), isFalse);
     expect(ui.contains('int _selectedPayment'), isFalse);
     expect(ui.contains('DateTime? _scheduledFor'), isFalse);
@@ -204,9 +214,7 @@ void main() {
   });
 
   test('home does not own map overlay set fields', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('Set<Marker> _markers ='), isFalse);
     expect(home.contains('Set<Circle> _locationCircles ='), isFalse);
     expect(home.contains('Set<Polygon> _locationDirection ='), isFalse);
@@ -255,9 +263,7 @@ void main() {
       ).existsSync(),
       isFalse,
     );
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('PromotionsController'), isFalse);
     expect(home.contains('RidePromotionTicket'), isFalse);
     expect(home.contains('_promotionVisible'), isFalse);
@@ -326,18 +332,14 @@ void main() {
   });
 
   test('home does not add a compass permission screen', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('Enable compass'), isFalse);
     expect(home.contains('Motion permission'), isFalse);
     expect(home.contains('Device orientation'), isFalse);
   });
 
   test('select ride does not keep parallel quote expiry state', () {
-    final ui = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
+    final ui = selectRideScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(ui.contains('Map<String, DateTime> _quoteExpires'), isFalse);
     expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
   });
@@ -422,9 +424,7 @@ void main() {
     expect(src.contains('showQuickRideNotesSheet'), isTrue);
     expect(now.contains('ScheduledRideBooking.confirm'), isFalse);
     expect(now.contains('_reservations.create'), isFalse);
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('RideScheduledPage.open'), isTrue);
     expect(home.contains('FindingDrivers'), isFalse);
     expect(home.contains('WaitingForDriver'), isFalse);
@@ -449,9 +449,7 @@ void main() {
     ).readAsStringSync();
     expect(history.contains('ScheduleRide()'), isTrue);
     expect(history.contains('SelectRide('), isFalse);
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
     expect(home.contains('const ScheduleRide()'), isTrue);
     expect(home.contains('_handleDestinationTap'), isTrue);
@@ -463,9 +461,7 @@ void main() {
   });
 
   test('book now always opens Confirm pickup; GPS only prefills', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(
       home.contains('Book now always confirms pickup; GPS only prefills.'),
       isTrue,
