@@ -126,6 +126,9 @@ class AuthScaffold extends StatelessWidget {
                         if (AppEnv.current.authPreview) ...[
                           const SizedBox(height: 12),
                           TextButton(
+                            style: TextButton.styleFrom(
+                              foregroundColor: AuthColors.deepGreen,
+                            ),
                             onPressed: () => enterMoveraApp(context),
                             child: const Text('Skip for now (demo)'),
                           ),

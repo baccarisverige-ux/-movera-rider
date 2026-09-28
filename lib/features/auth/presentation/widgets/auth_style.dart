@@ -7,7 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// design review. Kept local to the auth feature so the rest of the app's
 /// theme is untouched.
 abstract final class AuthColors {
-  static const ground = Color(0xFFF7F8F6);
+  static const ground = Color(0xFFEEF1E8);
   static const ink = Color(0xFF17221C);
   static const muted = Color(0xFF65716B);
   static const faint = Color(0xFF89948E);
