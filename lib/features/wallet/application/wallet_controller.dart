@@ -89,8 +89,9 @@ class WalletController {
         idempotencyKey: key,
       );
     } catch (error, stack) {
-      // No intent was confirmed, so nothing can have been charged.
-      return failed(TopUpNotCharged(error: error), error, stack);
+      // The provider may have created an intent before the response was lost.
+      // Retry with the same idempotency key to recover its result safely.
+      return failed(TopUpUnconfirmed(error), error, stack);
     }
 
     String status;
