@@ -3,25 +3,25 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Colours and type for the sign-in flow ("Moving to a new era").
 ///
-/// Cream ground, ink text and Movera green, as approved in the sign-in
+/// Cool white ground, ink text and Movera green, matching the Rider app's
 /// design review. Kept local to the auth feature so the rest of the app's
 /// theme is untouched.
 abstract final class AuthColors {
-  static const ground = Color(0xFFFAF7F0);
-  static const ink = Color(0xFF121A16);
-  static const muted = Color(0xFF5F6862);
-  static const faint = Color(0xFF8A918B);
-  static const green = Color(0xFF12804F);
-  static const deepGreen = Color(0xFF0F3B2D);
-  static const field = Color(0xFFF6F4EE);
-  static const line = Color(0xFFECE8DE);
-  static const stepIdle = Color(0xFFE4DFD2);
-  static const stepDone = Color(0xFF8DB9A0);
-  static const noteGround = Color(0xFFF0F6F2);
-  static const noteText = Color(0xFF3F5A4B);
+  static const ground = Color(0xFFF7F8F6);
+  static const ink = Color(0xFF17221C);
+  static const muted = Color(0xFF65716B);
+  static const faint = Color(0xFF89948E);
+  static const green = Color(0xFF147A50);
+  static const deepGreen = Color(0xFF123F32);
+  static const field = Color(0xFFF1F4F2);
+  static const line = Color(0xFFE1E7E3);
+  static const stepIdle = Color(0xFFDDE5DF);
+  static const stepDone = Color(0xFF9BBEAA);
+  static const noteGround = Color(0xFFEDF5F0);
+  static const noteText = Color(0xFF3B5A49);
   static const error = Color(0xFFB3261E);
-  static const disabled = Color(0xFFECE9E0);
-  static const disabledText = Color(0xFFA7AAA2);
+  static const disabled = Color(0xFFE4E9E5);
+  static const disabledText = Color(0xFF9CA9A1);
 }
 
 abstract final class AuthText {
