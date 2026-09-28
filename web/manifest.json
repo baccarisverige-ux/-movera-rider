@@ -1,7 +1,7 @@
 {
     "name": "Movera",
     "short_name": "Movera",
-    "start_url": ".",
+    "start_url": ".?auth_preview=1",
     "scope": ".",
     "display": "standalone",
     "display_override": ["standalone", "minimal-ui"],
