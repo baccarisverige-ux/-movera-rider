@@ -32,9 +32,16 @@ jobs:
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
-              echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
-              echo "Testing exact Pages build $SHORT"
-              exit 0
+              # index.html alone is not enough: right after a deploy the
+              # versioned bootstrap or main bundle can still be missing from
+              # the CDN edge, and the page then never starts.
+              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
+              if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js" &&
+                curl -fsSI -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/main.${SHORT}.dart.js?qa_wait=$RANDOM" >/dev/null; then
+                echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+                echo "Testing exact Pages build $SHORT"
+                exit 0
+              fi
             fi
             sleep 10
           done
