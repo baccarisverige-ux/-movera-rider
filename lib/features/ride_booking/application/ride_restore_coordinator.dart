@@ -250,7 +250,10 @@ class RideRestoreCoordinator {
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
-      if (await _shouldRequireSignIn(snapshot)) return const SignIn();
+      if (await _shouldRequireSignIn(snapshot) ||
+          AppEnv.current.authPreview && snapshot == null) {
+        return const SignIn();
+      }
       return const Home();
     }
     try {
@@ -264,12 +267,17 @@ class RideRestoreCoordinator {
         reportRestoreSurface('signIn');
         return const SignIn();
       }
+      if (snapshot == null && AppEnv.current.authPreview) {
+        reportRestoreSurface('signInPreview');
+        return const SignIn();
+      }
       return pageFor(snapshot);
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
-      if (_authRequired() && !await _hasSession()) return const SignIn();
+      if (_authRequired() && !await _hasSession() ||
+          AppEnv.current.authPreview) return const SignIn();
       return const Home();
     }
   }
