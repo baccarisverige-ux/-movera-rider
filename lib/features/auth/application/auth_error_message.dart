@@ -1,7 +1,5 @@
-import 'dart:async';
-
-import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/api/rider_error_kind.dart';
 
 /// What the rider was doing when sign-in failed.
 enum AuthAction { sendCode, verifyCode, providerSignIn }
@@ -12,18 +10,21 @@ enum AuthAction { sendCode, verifyCode, providerSignIn }
 /// failure, including no connection. Riders now learn whether the code was
 /// wrong, expired, rate limited, or never reached the server.
 String authErrorMessage(Object error, AuthAction action, {String? provider}) {
-  if (_isOffline(error)) {
-    return 'No connection. Check your internet and try again.';
+  switch (riderErrorKind(error)) {
+    case RiderErrorKind.offline:
+      return 'No connection. Check your internet and try again.';
+    case RiderErrorKind.rateLimited:
+      final wait = riderRetryWait(error);
+      return wait == null
+          ? 'Too many tries. Wait a moment and try again.'
+          : 'Too many tries. Try again in $wait.';
+    case RiderErrorKind.serverTrouble:
+      return 'Movera is having trouble right now. Try again in a moment.';
+    case RiderErrorKind.refused:
+    case RiderErrorKind.unknown:
+      break;
   }
   if (error is ApiError) {
-    if (error.statusCode == 429 ||
-        error.code == 'RATE_LIMITED' ||
-        error.code == 'TOO_MANY_REQUESTS') {
-      final wait = error.retryAfter;
-      return wait == null || wait <= Duration.zero
-          ? 'Too many tries. Wait a moment and try again.'
-          : 'Too many tries. Try again in ${_seconds(wait)}.';
-    }
     switch (error.code) {
       case 'INVALID_OTP':
         return "That code isn't right. Check it and try again.";
@@ -33,9 +34,6 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
       case 'INVALID_PHONE':
         return 'Enter a valid Swedish mobile number.';
     }
-    if ((error.statusCode ?? 0) >= 500) {
-      return 'Movera is having trouble right now. Try again in a moment.';
-    }
   }
   return switch (action) {
     AuthAction.sendCode => "Couldn't send the code. Try again.",
@@ -43,14 +41,4 @@ String authErrorMessage(Object error, AuthAction action, {String? provider}) {
     AuthAction.providerSignIn =>
       "Couldn't sign in with ${provider ?? 'that account'}. Try again.",
   };
-}
-
-bool _isOffline(Object error) {
-  if (error is http.ClientException || error is TimeoutException) return true;
-  return error is ApiError && (error.code == 'NETWORK' || error.code == 'TIMEOUT');
-}
-
-String _seconds(Duration wait) {
-  final s = wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
-  return s == 1 ? '1 second' : '$s seconds';
 }

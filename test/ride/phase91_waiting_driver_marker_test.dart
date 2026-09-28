@@ -217,8 +217,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(attempts, 1);
+      // Phase 142: the rider is told the scheduled ride is still booked.
       expect(
-        find.text("Couldn't cancel your ride. Try again."),
+        find.text("Couldn't cancel. Your ride is still booked — try again."),
         findsOneWidget,
       );
       // Still on Waiting — the failure did not silently strand or advance it.

@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_edit_sheets.dart';
@@ -14,6 +15,7 @@ import 'package:movera_rider/features/reservations/presentation/reservation_widg
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_ride_terms.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class UpcomingReservationPage extends StatefulWidget {
@@ -122,6 +124,18 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
       final outcome = await showCancelReservationFlow(context, ride);
       if (!outcome.cancelled) return;
       await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+    } catch (error, stack) {
+      AppScope.instance.crashes.record(
+        error,
+        stack,
+        operation: 'reservation.cancel',
+      );
+      if (mounted) {
+        MoveraToast.show(
+          context,
+          reservationErrorMessage(error, ReservationAction.cancel),
+        );
+      }
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
