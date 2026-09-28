@@ -115,6 +115,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
   }
 
+  /// A screen the rider is actually looking at: [type] on the current (top)
+  /// route, not one still animating away underneath another screen.
+  Finder onTop(Type type) => find.byElementPredicate(
+    (e) =>
+        e.widget.runtimeType == type && (ModalRoute.of(e)?.isCurrent ?? false),
+    description: '$type on the current route',
+  );
+
   Future<void> waitFor(WidgetTester tester, Finder finder) async {
     for (var i = 0; i < 60 && finder.evaluate().isEmpty; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -203,21 +211,34 @@ void main() {
     );
     expect(c.all, isEmpty, reason: 'nothing may be booked before the picker');
 
+    // Drive the flow the way a rider does until the booking lands. The
+    // earliest legal slot can roll over at any step, and the app then asks
+    // again rather than booking a too-early time: the picker refuses
+    // Continue and re-selects the next slot, or select_ride.dart reopens the
+    // picker when the time went stale during pickup confirmation. One
+    // rollover causes at most one re-ask, so a normal run taps the picker's
+    // Continue once and a run spanning a rollover twice. An app that keeps
+    // re-asking still fails.
     final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
-    await tester.ensureVisible(continueButton);
-    await tester.tap(continueButton);
-    await tester.pump();
-    await waitFor(tester, find.byType(ConfirmPickupSpot));
-    if (find.byType(ConfirmPickupSpot).evaluate().isEmpty &&
-        find.byType(ScheduleDateTimeSelector).evaluate().isNotEmpty) {
-      // The earliest legal slot rolled over after the picker opened: the
-      // picker refuses its now-too-early slot, re-selects the next one and
-      // waits for another Continue. That is product behaviour; a rider taps
-      // Continue again. Only once, so a picker that always refuses fails.
-      await tester.tap(continueButton);
-      await tester.pump();
+    var pickerContinues = 0;
+    for (var step = 0; step < 8 && opened.isEmpty; step++) {
+      if (onTop(ConfirmPickupSpot).evaluate().isNotEmpty) {
+        await confirmPickupSpot(tester);
+      } else if (onTop(ScheduleDateTimeSelector).evaluate().isNotEmpty) {
+        pickerContinues++;
+        await tester.ensureVisible(continueButton);
+        await tester.tap(continueButton);
+        await tester.pump();
+      }
+      for (var i = 0; i < 10 && opened.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     }
-    await confirmPickupSpot(tester);
+    expect(
+      pickerContinues,
+      inInclusiveRange(1, 2),
+      reason: 'the picker is confirmed once, or twice across a slot rollover',
+    );
     await settleBooking(tester, opened);
     final slotAtEnd = StockholmSchedule.clampPickup(prefill);
 
@@ -261,6 +282,163 @@ void main() {
         tester,
         originOffset: const Duration(hours: -2, minutes: -55),
       );
+    },
+  );
+
+  /// Moves StockholmSchedule's clock by [skew] (read when the clock is read,
+  /// so tests can change it mid-flow) and restores the real clock after.
+  void Function(Duration skew) controllableScheduleClock() {
+    var skew = Duration.zero;
+    StockholmSchedule.clock = () => DateTime.now().add(skew);
+    addTearDown(() => StockholmSchedule.clock = DateTime.now);
+    return (next) => skew = next;
+  }
+
+  phase114Widgets(
+    'slot rollover while the picker is open: Continue re-selects the next '
+    'slot first, then books it',
+    (tester) async {
+      final setSkew = controllableScheduleClock();
+      final c = reservations();
+      final opened = <String>[];
+      final ride = origin(
+        StockholmSchedule.stockholmNow().subtract(const Duration(hours: 4)),
+      );
+      await pumpApp(
+        tester,
+        PlanReturnRidePage(
+          origin: ride,
+          controller: c,
+          onScheduled: (context, id) async => opened.add(id),
+        ),
+      );
+      await tapSchedule(tester);
+      await waitForNextStep(tester);
+      expect(find.byType(ScheduleDateTimeSelector), findsOneWidget);
+
+      // The earliest legal slot moves past the picker's selection.
+      setSkew(const Duration(minutes: StockholmSchedule.slotMinutes));
+      final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
+      await tester.ensureVisible(continueButton);
+      await tester.tap(continueButton);
+      await tester.pump();
+      await waitFor(tester, onTop(ConfirmPickupSpot));
+      expect(
+        onTop(ConfirmPickupSpot),
+        findsNothing,
+        reason: 'a now-too-early slot must not be accepted',
+      );
+      expect(onTop(ScheduleDateTimeSelector), findsOneWidget);
+
+      await tester.tap(continueButton);
+      await tester.pump();
+      await confirmPickupSpot(tester);
+      await settleBooking(tester, opened);
+
+      expect(c.all, hasLength(1));
+      final booked = c.all.single.scheduledPickupAt;
+      expect(StockholmSchedule.isLegalPickup(booked), isTrue);
+      expect(StockholmSchedule.isOnGrid(booked), isTrue);
+      expect(opened, [c.all.single.reservationId]);
+    },
+  );
+
+  phase114Widgets(
+    'slot rollover while confirming the pickup spot reopens the picker '
+    'instead of silently booking nothing',
+    (tester) async {
+      final setSkew = controllableScheduleClock();
+      final c = reservations();
+      final opened = <String>[];
+      final ride = origin(
+        StockholmSchedule.stockholmNow().subtract(const Duration(hours: 4)),
+      );
+      await pumpApp(
+        tester,
+        PlanReturnRidePage(
+          origin: ride,
+          controller: c,
+          onScheduled: (context, id) async => opened.add(id),
+        ),
+      );
+      await tapSchedule(tester);
+      await waitForNextStep(tester);
+      final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
+      await tester.ensureVisible(continueButton);
+      await tester.tap(continueButton);
+      await tester.pump();
+      await waitFor(tester, onTop(ConfirmPickupSpot));
+      expect(onTop(ConfirmPickupSpot), findsOneWidget);
+
+      // The earliest legal slot moves past the chosen time while the rider
+      // is on the pickup-spot screen.
+      setSkew(const Duration(minutes: StockholmSchedule.slotMinutes));
+      await confirmPickupSpot(tester);
+      await waitFor(tester, onTop(ScheduleDateTimeSelector));
+      expect(
+        onTop(ScheduleDateTimeSelector),
+        findsOneWidget,
+        reason: 'the now-too-early time must be re-picked, not dropped',
+      );
+      expect(c.all, isEmpty);
+
+      await tester.ensureVisible(continueButton);
+      await tester.tap(continueButton);
+      await tester.pump();
+      await settleBooking(tester, opened);
+
+      expect(c.all, hasLength(1));
+      final booked = c.all.single.scheduledPickupAt;
+      expect(StockholmSchedule.isLegalPickup(booked), isTrue);
+      expect(StockholmSchedule.isOnGrid(booked), isTrue);
+      expect(opened, [c.all.single.reservationId]);
+      expect(
+        onTop(ConfirmPickupSpot),
+        findsNothing,
+        reason: 'the pickup spot was already confirmed; it is not asked twice',
+      );
+    },
+  );
+
+  phase114Widgets(
+    'dismissing the picker reopened after a rollover books nothing',
+    (tester) async {
+      final setSkew = controllableScheduleClock();
+      final c = reservations();
+      final opened = <String>[];
+      final ride = origin(
+        StockholmSchedule.stockholmNow().subtract(const Duration(hours: 4)),
+      );
+      await pumpApp(
+        tester,
+        PlanReturnRidePage(
+          origin: ride,
+          controller: c,
+          onScheduled: (context, id) async => opened.add(id),
+        ),
+      );
+      await tapSchedule(tester);
+      await waitForNextStep(tester);
+      final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
+      await tester.ensureVisible(continueButton);
+      await tester.tap(continueButton);
+      await tester.pump();
+      await waitFor(tester, onTop(ConfirmPickupSpot));
+      setSkew(const Duration(minutes: StockholmSchedule.slotMinutes));
+      await confirmPickupSpot(tester);
+      await waitFor(tester, onTop(ScheduleDateTimeSelector));
+      expect(onTop(ScheduleDateTimeSelector), findsOneWidget);
+
+      moveraNavigatorKey.currentState!.pop();
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.byType(ScheduleDateTimeSelector), findsNothing);
+      expect(find.byType(ConfirmPickupSpot), findsNothing);
+      expect(onTop(SelectRide), findsOneWidget);
+      expect(c.all, isEmpty);
+      expect(opened, isEmpty);
     },
   );
 
