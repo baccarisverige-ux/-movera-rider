@@ -25,6 +25,7 @@ import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
 import 'package:movera_rider/features/home/presentation/home_map_style.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_map_layer.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
@@ -45,7 +46,6 @@ import 'package:movera_rider/features/home/presentation/widgets/saved_places_row
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/features/home/presentation/widgets/plan_ride_address_box.dart';
-import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -2083,7 +2083,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 children: [
                   Positioned.fill(
                     child: RepaintBoundary(
-                      child: _HomeMapLayer(
+                      child: HomeMapLayer(
                         location: _locationCtl,
                         parked: _mapParked,
                         padding: EdgeInsets.only(bottom: _sheetMinPixels),
@@ -2463,113 +2463,5 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         ),
       ),
     );
-  }
-}
-
-class _HomeMapLayer extends StatefulWidget {
-  const _HomeMapLayer({
-    required this.location,
-    required this.parked,
-    required this.padding,
-    required this.initialPosition,
-    required this.mapStyle,
-    required this.onCameraMove,
-    required this.onMapCreated,
-  });
-
-  final HomeLocationController location;
-  final ValueNotifier<bool> parked;
-  final EdgeInsets padding;
-  final CameraPosition initialPosition;
-  final String mapStyle;
-  final void Function(CameraPosition) onCameraMove;
-  final void Function(GoogleMapController) onMapCreated;
-
-  @override
-  State<_HomeMapLayer> createState() => _HomeMapLayerState();
-}
-
-class _HomeMapLayerState extends State<_HomeMapLayer> {
-  Widget? _cached;
-  Set<Marker>? _markers;
-  Set<Circle>? _circles;
-  Set<Polygon>? _polygons;
-  EdgeInsets? _padding;
-  bool? _parked;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.location.addListener(_onChange);
-    widget.parked.addListener(_onChange);
-  }
-
-  @override
-  void didUpdateWidget(_HomeMapLayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.location != widget.location) {
-      oldWidget.location.removeListener(_onChange);
-      widget.location.addListener(_onChange);
-    }
-    if (oldWidget.parked != widget.parked) {
-      oldWidget.parked.removeListener(_onChange);
-      widget.parked.addListener(_onChange);
-    }
-  }
-
-  void _onChange() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    widget.location.removeListener(_onChange);
-    widget.parked.removeListener(_onChange);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.parked.value) {
-      const parked = ColoredBox(color: Color(0xFFEEF1E8));
-      _cached = parked;
-      _parked = true;
-      return parked;
-    }
-    if (_cached != null &&
-        _parked == false &&
-        identical(_markers, widget.location.markers) &&
-        identical(_circles, widget.location.locationCircles) &&
-        identical(_polygons, widget.location.locationDirection) &&
-        _padding == widget.padding) {
-      return _cached!;
-    }
-    _parked = false;
-    _markers = widget.location.markers;
-    _circles = widget.location.locationCircles;
-    _polygons = widget.location.locationDirection;
-    _padding = widget.padding;
-    _cached = CustomGoogleMap(
-      key: const ValueKey('home-map'),
-      initialPosition: widget.initialPosition,
-      markers: widget.location.markers,
-      circles: widget.location.locationCircles,
-      polygons: widget.location.locationDirection,
-      padding: widget.padding,
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: false,
-      mapToolbarEnabled: false,
-      compassEnabled: false,
-      trafficEnabled: false,
-      buildingsEnabled: true,
-      indoorViewEnabled: false,
-      mapType: MapType.normal,
-      customMapStyle: widget.mapStyle,
-      onCameraMove: widget.onCameraMove,
-      onMapCreated: widget.onMapCreated,
-      onTap: (LatLng position) {},
-    );
-    return _cached!;
   }
 }

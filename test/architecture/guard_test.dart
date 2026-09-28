@@ -17,6 +17,7 @@ void main() {
   String homeScreenSource() => [
     'lib/features/home/presentation/home.dart',
     'lib/features/home/presentation/home_map_style.dart',
+    'lib/features/home/presentation/widgets/home_map_layer.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
 
   String selectRideScreenSource() => [
