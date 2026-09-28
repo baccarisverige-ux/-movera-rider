@@ -51,6 +51,21 @@
   </style>
 </head>
 <body>
+  <script>
+    // iOS home-screen icons saved before the manifest change can reopen the
+    // original URL without its query string. Set the demo preview flag before
+    // Flutter reads Uri.base, while preserving the current app path and ride.
+    (function() {
+      var installed = navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if (!installed || location.hostname !== 'baccarisverige-ux.github.io' ||
+          !location.pathname.startsWith('/-movera-rider/')) return;
+      var url = new URL(location.href);
+      if (url.searchParams.has('auth_preview') || url.searchParams.has('qa_wait')) return;
+      url.searchParams.set('auth_preview', '1');
+      history.replaceState(history.state, '', url);
+    })();
+  </script>
   <script src="movera_ride_snapshot_wipe.js"></script>
   <script>
     // A page restored from the back-forward cache already retains its live
