@@ -1,3 +1,4 @@
+import 'package:movera_rider/app/di.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -42,7 +43,7 @@ class _PhoneVerificationState extends State<PhoneVerification> {
   @override
   void initState() {
     super.initState();
-    _auth = widget.controller ?? AuthController();
+    _auth = widget.controller ?? AppScope.instance.auth;
     _challenge = widget.challenge;
     final challenge = _challenge;
     if (challenge != null) {

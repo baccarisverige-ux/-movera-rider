@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
@@ -24,7 +24,7 @@ class RideCompletedDriverInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final driver = RideCompleteController().driver();
+    final driver = AppScope.instance.rideComplete.driver();
     if (driver == null) {
       return const MoveraEmptyState(
         icon: Icons.person_search_outlined,

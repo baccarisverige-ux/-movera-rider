@@ -1,3 +1,4 @@
+import 'package:movera_rider/app/di.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -29,7 +30,7 @@ class _SignInState extends State<SignIn> {
   @override
   void initState() {
     super.initState();
-    _auth = widget.controller ?? AuthController();
+    _auth = widget.controller ?? AppScope.instance.auth;
   }
 
   Future<void> _signIn(String provider) async {

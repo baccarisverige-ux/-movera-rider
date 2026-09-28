@@ -82,7 +82,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   @override
   void initState() {
     super.initState();
-    _places = widget.places ?? SavedPlacesController();
+    _places = widget.places ?? AppScope.instance.savedPlaces;
     _places.hydrate().then((_) {
       if (mounted) setState(() {});
     });

@@ -158,7 +158,7 @@ class _WalletHomeState extends State<WalletHome> {
   static const Color _ink = Color(0xFF11181D);
   static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFE6E8E7);
-  late final WalletController _wallet = widget.wallet ?? WalletController();
+  late final WalletController _wallet = widget.wallet ?? AppScope.instance.walletController;
   bool get _demoPayments => AppScope.instance.environment.allowsMockTransport;
 
   double _balance = 0;
@@ -535,7 +535,7 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _surface = Color(0xFFF4F5F4);
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
-  final _wallet = WalletController();
+  final _wallet = AppScope.instance.walletController;
 
   bool _businessProfile = false;
   String _selectedMethod = 'apple';

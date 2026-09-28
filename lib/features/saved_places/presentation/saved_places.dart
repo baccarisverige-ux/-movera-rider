@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
@@ -25,7 +26,7 @@ class _SavedPlacesState extends State<SavedPlaces> {
   @override
   void initState() {
     super.initState();
-    _places = widget.controller ?? SavedPlacesController();
+    _places = widget.controller ?? AppScope.instance.savedPlaces;
     _reload();
   }
 

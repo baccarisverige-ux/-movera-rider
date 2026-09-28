@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
@@ -36,7 +37,7 @@ class _AddPlaceState extends State<AddPlace> {
   @override
   void initState() {
     super.initState();
-    _places = widget.controller ?? SavedPlacesController();
+    _places = widget.controller ?? AppScope.instance.savedPlaces;
     _nameController = TextEditingController(text: widget.initial?.title ?? '');
     _locationController =
         TextEditingController(text: widget.initial?.subtitle ?? '');

@@ -33,10 +33,13 @@ import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/sockets/socket_client.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
+import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
+import 'package:movera_rider/features/onboarding/application/onboarding_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
@@ -49,7 +52,12 @@ import 'package:movera_rider/features/ride_booking/application/ride_session.dart
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
+import 'package:movera_rider/features/support/application/support_controller.dart';
+import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 class AppScope {
@@ -188,6 +196,24 @@ class AppScope {
   final ReservationController reservations;
   final ProfileController profile;
   late final AccountSecurityController accountSecurity;
+
+  // Phase 138: these default-construct their own dependencies internally
+  // (several read AppScope.instance themselves), so each is declared as a
+  // lazy `late final` field initializer rather than built eagerly in the
+  // constructor above - AppScope.instance is not yet bound while this
+  // constructor is still running, so a screen reading one of these before
+  // that assignment completes would otherwise hit it uninitialized. Nothing
+  // does that in practice (screens read AppScope.instance.x from their own
+  // initState, always after app startup), so this only matters for
+  // correctness under construction order, not normal use.
+  late final AuthController auth = AuthController();
+  late final RideCompleteController rideComplete = RideCompleteController();
+  late final WalletController walletController = WalletController();
+  late final SavedPlacesController savedPlaces = SavedPlacesController();
+  late final SupportController support = SupportController();
+  late final OnboardingController onboarding = OnboardingController();
+  late final DestinationController destinationMemory = DestinationController();
+  late final RideSelectionRepository rideCatalog = RideSelectionRepository();
   HttpObservabilitySink? observabilitySink;
   FeatureFlags flags = FeatureFlags.current;
 

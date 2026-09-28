@@ -14,7 +14,6 @@ import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
-import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 
@@ -69,7 +68,7 @@ int _completionRank(RideStatus status) {
 }
 
 class _RideCompletedState extends State<RideCompleted> {
-  late final RideCompleteController _controller = widget.controller ?? RideCompleteController();
+  late final RideCompleteController _controller = widget.controller ?? AppScope.instance.rideComplete;
   StreamSubscription<RideRealtimeEvent>? _completionSub;
   late RideStatus _status;
   bool _leaving = false;
@@ -144,7 +143,7 @@ class _RideCompletedState extends State<RideCompleted> {
 
   Future<void> _chargeWallet(String rideId) async {
     try {
-      await WalletController().chargeCompletedRideById(rideId);
+      await AppScope.instance.walletController.chargeCompletedRideById(rideId);
     } catch (error) {
       AppLog.warning(
         'wallet.ride_charge_failed',
