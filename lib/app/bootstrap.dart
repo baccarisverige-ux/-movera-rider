@@ -6,12 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/app/router/home_fallback.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
@@ -57,6 +59,12 @@ Future<void> bootstrap() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  // Phase 143: RideRestoreCoordinator needs Home as a fallback destination
+  // but must not import home.dart directly - home.dart itself imports
+  // RideRestoreCoordinator (for takeSearchInterrupted()), and importing it
+  // back would make that a circular import. Registering the real builder
+  // here, before any restore logic can run, breaks the cycle.
+  registerHomeBuilder(() => const Home());
   installWebRidePagehide(RideRestoreCoordinator.instance.onPageHide);
   // Public web gets one navigation-only bridge for Safety. It exposes no
   // ride seeding, matching controls, or Safety mutations.

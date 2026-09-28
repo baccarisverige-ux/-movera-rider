@@ -632,4 +632,41 @@ void main() {
       expect(history.contains('archiveCancelledThenClear'), isTrue);
     },
   );
+
+  test('home.dart and ride_restore_coordinator.dart no longer import each other', () {
+    final coordinator = File(
+      'lib/features/ride_booking/application/ride_restore_coordinator.dart',
+    ).readAsStringSync();
+    expect(
+      coordinator.contains("package:movera_rider/features/home/presentation/home.dart"),
+      isFalse,
+      reason:
+          'RideRestoreCoordinator must reach Home through home_fallback.dart, '
+          'not by importing home.dart directly - that would recreate the '
+          'circular import Phase 143 removed (home.dart imports '
+          'ride_restore_coordinator.dart for takeSearchInterrupted()).',
+    );
+    expect(
+      coordinator.contains("package:movera_rider/app/router/home_fallback.dart"),
+      isTrue,
+    );
+    final fallback = File(
+      'lib/app/router/home_fallback.dart',
+    ).readAsStringSync();
+    expect(
+      fallback.contains("package:movera_rider/features/home/presentation/home.dart"),
+      isFalse,
+      reason:
+          'home_fallback.dart must stay a leaf with no dependency on '
+          'home.dart - the real Home builder is wired in from bootstrap.dart, '
+          'the one place both sides can be imported without a cycle.',
+    );
+    final home = File('lib/features/home/presentation/home.dart').readAsStringSync();
+    expect(
+      home.contains("package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart"),
+      isTrue,
+      reason: 'home.dart -> ride_restore_coordinator.dart is the one '
+          'direction this dependency is meant to flow.',
+    );
+  });
 }

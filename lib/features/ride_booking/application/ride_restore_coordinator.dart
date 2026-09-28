@@ -11,11 +11,11 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
+import 'package:movera_rider/app/router/home_fallback.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
-import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
@@ -62,7 +62,7 @@ class RideRestoreCoordinator {
   }
 
   Widget _gatedHome() {
-    if (!_authRequired()) return const Home();
+    if (!_authRequired()) return buildHome();
     return _AuthenticatedHomeGate(hasSession: _hasSession);
   }
   RestoredSurface showing = RestoredSurface.home;
@@ -166,7 +166,7 @@ class RideRestoreCoordinator {
     restores += 1;
     reportRestoreSurface(surface.name);
     if (snapshot == null || surface == RestoredSurface.home) {
-      return const Home();
+      return buildHome();
     }
     // Rebuilding the screen is not enough: the ride's identity lives in
     // AppScope, and a cold restore starts with it empty. Without this the
@@ -236,7 +236,7 @@ class RideRestoreCoordinator {
           rideId: snapshot.rideId,
         );
       case RestoredSurface.home:
-        return const Home();
+        return buildHome();
     }
   }
 
@@ -252,7 +252,7 @@ class RideRestoreCoordinator {
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
       if (await _shouldRequireSignIn(snapshot)) return const SignIn();
-      return const Home();
+      return buildHome();
     }
     try {
       final snapshot = await _reader();
@@ -271,7 +271,7 @@ class RideRestoreCoordinator {
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       if (_authRequired() && !await _hasSession()) return const SignIn();
-      return const Home();
+      return buildHome();
     }
   }
 
@@ -434,7 +434,7 @@ class _AuthenticatedHomeGate extends StatelessWidget {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        return snapshot.data == true ? const Home() : const SignIn();
+        return snapshot.data == true ? buildHome() : const SignIn();
       },
     );
   }
