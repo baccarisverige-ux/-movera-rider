@@ -4,9 +4,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 
 Future<void> showVoucherUnavailableSheet(BuildContext context) async {
@@ -166,6 +168,10 @@ class _WalletHomeState extends State<WalletHome> {
   bool _failed = false;
   bool _topUpBusy = false;
 
+  /// A top-up whose result is unknown. Retrying the same amount reuses its
+  /// idempotency key, so the retry can never become a second charge.
+  ({String key, int amount})? _unconfirmedTopUp;
+
   @override
   void initState() {
     super.initState();
@@ -211,22 +217,28 @@ class _WalletHomeState extends State<WalletHome> {
     }
   }
 
-  Future<void> _saveBalance(double value, String idempotencyKey) async {
-    final next = await _wallet.topUp(
+  Future<void> _topUp(int amount, String idempotencyKey) async {
+    final outcome = await _wallet.topUp(
       previous: _balance,
-      amount: value - _balance,
+      amount: amount.toDouble(),
       idempotencyKey: idempotencyKey,
     );
-    if (!mounted || next == null) return;
-    setState(() => _balance = next);
+    _unconfirmedTopUp = outcome is TopUpUnconfirmed
+        ? (key: idempotencyKey, amount: amount)
+        : null;
+    if (!mounted) return;
+    if (outcome is TopUpCredited) {
+      setState(() => _balance = outcome.balance);
+      return;
+    }
+    final message = topUpMessage(outcome);
+    if (message != null) MoveraToast.show(context, message);
   }
 
   Future<void> _openAddFunds() async {
     if (!_demoPayments || _topUpBusy) return;
-    int amount = 200;
-    // Minted once per sheet open and reused through the whole submit path,
-    // so a retry of this same intent never creates a second charge.
-    final idempotencyKey = newIdempotencyKey('wallet');
+    // After an unconfirmed top-up the same amount is offered again.
+    int amount = _unconfirmedTopUp?.amount ?? 200;
     final funded = await MoveraSheet.show<bool>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -317,9 +329,16 @@ class _WalletHomeState extends State<WalletHome> {
       },
     );
     if (funded != true || !mounted) return;
+    // One key for the whole submit path, so a retry of this same intent
+    // never creates a second charge. Retrying an unconfirmed top-up of the
+    // same amount reuses that top-up's key for the same reason.
+    final pending = _unconfirmedTopUp;
+    final idempotencyKey = pending != null && pending.amount == amount
+        ? pending.key
+        : newIdempotencyKey('wallet');
     setState(() => _topUpBusy = true);
     try {
-      await _saveBalance(_balance + amount, idempotencyKey);
+      await _topUp(amount, idempotencyKey);
     } finally {
       if (mounted) setState(() => _topUpBusy = false);
     }
