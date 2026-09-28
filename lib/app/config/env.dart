@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum AppFlavor { demo, dev, test, staging, production }
 
 class AppEnv {
@@ -66,6 +68,11 @@ class AppEnv {
       orElse: () => AppFlavor.demo,
     );
   }
+
+  /// Explicit web preview of the mock sign-in flow; never enables it in release builds.
+  bool get authPreview =>
+      kIsWeb && flavor == AppFlavor.demo &&
+      Uri.base.queryParameters['auth_preview'] == '1';
 
   bool get isProduction => flavor == AppFlavor.production;
   bool get isReleaseLike =>
