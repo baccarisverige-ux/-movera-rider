@@ -23,6 +23,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/presentation/quick_ride_notes_sheet.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_filter.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
@@ -133,8 +134,6 @@ class SelectRide extends StatefulWidget {
   State<SelectRide> createState() => _SelectRideState();
 }
 
-enum _RideFilter { recommended, faster, cheaper }
-
 class _RideOption {
   const _RideOption({
     required this.id,
@@ -214,7 +213,7 @@ class _SelectRideState extends State<SelectRide>
     }).toList();
   }
 
-  _RideFilter _filter = _RideFilter.recommended;
+  SelectRideFilter _filter = SelectRideFilter.recommended;
   late final bool _ownsSelection = widget.selection == null;
   late final RideSelectionController _selection =
       widget.selection ??
@@ -357,20 +356,12 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  List<_RideOption> get _visibleRides {
-    final rides = [..._allRides];
-    switch (_filter) {
-      case _RideFilter.faster:
-        rides.sort((a, b) => a.etaMin.compareTo(b.etaMin));
-        break;
-      case _RideFilter.cheaper:
-        rides.sort((a, b) => a.price.compareTo(b.price));
-        break;
-      case _RideFilter.recommended:
-        break;
-    }
-    return rides;
-  }
+  List<_RideOption> get _visibleRides => orderRidesForFilter(
+    _allRides,
+    _filter,
+    etaMin: (ride) => ride.etaMin,
+    price: (ride) => ride.price,
+  );
 
   TextStyle _text(
     double size, {
@@ -1199,22 +1190,22 @@ class _SelectRideState extends State<SelectRide>
         children: [
           _filterChip(
             label: 'Recommended',
-            selected: _filter == _RideFilter.recommended,
-            onTap: () => setState(() => _filter = _RideFilter.recommended),
+            selected: _filter == SelectRideFilter.recommended,
+            onTap: () => setState(() => _filter = SelectRideFilter.recommended),
           ),
           const SizedBox(width: 8),
           _filterChip(
             label: 'Faster',
             icon: Icons.schedule_rounded,
-            selected: _filter == _RideFilter.faster,
-            onTap: () => setState(() => _filter = _RideFilter.faster),
+            selected: _filter == SelectRideFilter.faster,
+            onTap: () => setState(() => _filter = SelectRideFilter.faster),
           ),
           const SizedBox(width: 8),
           _filterChip(
             label: 'Cheaper',
             icon: Icons.payments_outlined,
-            selected: _filter == _RideFilter.cheaper,
-            onTap: () => setState(() => _filter = _RideFilter.cheaper),
+            selected: _filter == SelectRideFilter.cheaper,
+            onTap: () => setState(() => _filter = SelectRideFilter.cheaper),
           ),
         ],
       ),

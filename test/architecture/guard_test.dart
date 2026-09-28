@@ -16,6 +16,7 @@ void main() {
   // check would keep passing while no longer covering the moved code.
   String selectRideScreenSource() => [
     'lib/features/ride_selection/presentation/select_ride.dart',
+    'lib/features/ride_selection/presentation/select_ride_filter.dart',
     'lib/features/ride_selection/presentation/select_ride_geometry.dart',
     'lib/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
