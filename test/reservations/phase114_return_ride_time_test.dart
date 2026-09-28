@@ -167,6 +167,7 @@ void main() {
   }) async {
     final c = reservations();
     final opened = <String>[];
+    final startedAt = DateTime.now();
     final ride = origin(StockholmSchedule.stockholmNow().add(originOffset));
     final prefill = ride.scheduledPickupAt.add(const Duration(hours: 3));
     expect(
@@ -174,6 +175,10 @@ void main() {
       isFalse,
       reason: 'precondition: origin + 3 h breaks the 30-minute lead rule',
     );
+    // The earliest legal slot only moves forward, so every clamp made during
+    // this test (picker open, Continue, booking) lands in
+    // [slotAtStart, slotAtEnd].
+    final slotAtStart = StockholmSchedule.clampPickup(prefill);
     await pumpApp(
       tester,
       PlanReturnRidePage(
@@ -197,16 +202,24 @@ void main() {
       reason: 'an illegal return prefill must open the shared validated picker',
     );
     expect(c.all, isEmpty, reason: 'nothing may be booked before the picker');
-    // The picker opens on the prefill clamped by the existing rules, i.e.
-    // the next legal slot (the minute boundary may tick during the test).
-    final slotBefore = StockholmSchedule.clampPickup(prefill);
 
     final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
     await tester.ensureVisible(continueButton);
     await tester.tap(continueButton);
     await tester.pump();
+    await waitFor(tester, find.byType(ConfirmPickupSpot));
+    if (find.byType(ConfirmPickupSpot).evaluate().isEmpty &&
+        find.byType(ScheduleDateTimeSelector).evaluate().isNotEmpty) {
+      // The earliest legal slot rolled over after the picker opened: the
+      // picker refuses its now-too-early slot, re-selects the next one and
+      // waits for another Continue. That is product behaviour; a rider taps
+      // Continue again. Only once, so a picker that always refuses fails.
+      await tester.tap(continueButton);
+      await tester.pump();
+    }
     await confirmPickupSpot(tester);
     await settleBooking(tester, opened);
+    final slotAtEnd = StockholmSchedule.clampPickup(prefill);
 
     expect(c.all, hasLength(1));
     final booked = c.all.single;
@@ -214,12 +227,15 @@ void main() {
     expect(booked.parentReservationId, 'rsv_origin');
     expect(booked.scheduledPickupAt, isNot(prefill));
     expect(
-      booked.scheduledPickupAt,
-      anyOf(slotBefore, StockholmSchedule.clampPickup(prefill)),
-      reason: 'the picker default is the clamped prefill',
+      booked.scheduledPickupAt.isBefore(slotAtStart) ||
+          booked.scheduledPickupAt.isAfter(slotAtEnd),
+      isFalse,
+      reason: 'the picker books the clamped prefill: the earliest legal slot '
+          'at some moment between $slotAtStart and $slotAtEnd, '
+          'got ${booked.scheduledPickupAt}',
     );
     expect(
-      StockholmSchedule.isLegalPickup(booked.scheduledPickupAt),
+      StockholmSchedule.isLegalPickup(booked.scheduledPickupAt, startedAt),
       isTrue,
       reason: 'the booked return pickup satisfies the 30-minute lead',
     );
