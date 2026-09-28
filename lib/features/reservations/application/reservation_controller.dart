@@ -77,7 +77,9 @@ class ReservationController extends ChangeNotifier {
     if (pending != null) return pending;
     final future = _createNow(draft);
     _pendingCreate = future;
-    future.whenComplete(() => _pendingCreate = null);
+    // The caller gets the error from [future]; the cleanup's own copy of it
+    // must not surface again as an uncaught error.
+    future.whenComplete(() => _pendingCreate = null).ignore();
     return future;
   }
 
@@ -92,9 +94,9 @@ class ReservationController extends ChangeNotifier {
     if (pending != null) return pending;
     final future = _updateNow(reservationId, patch);
     _pendingUpdateByReservationId[reservationId] = future;
-    future.whenComplete(
-      () => _pendingUpdateByReservationId.remove(reservationId),
-    );
+    future
+        .whenComplete(() => _pendingUpdateByReservationId.remove(reservationId))
+        .ignore();
     return future;
   }
 
@@ -112,9 +114,9 @@ class ReservationController extends ChangeNotifier {
     if (pending != null) return pending;
     final future = _cancelNow(reservationId, reason: reason);
     _pendingCancelByReservationId[reservationId] = future;
-    future.whenComplete(
-      () => _pendingCancelByReservationId.remove(reservationId),
-    );
+    future
+        .whenComplete(() => _pendingCancelByReservationId.remove(reservationId))
+        .ignore();
     return future;
   }
 
