@@ -257,6 +257,12 @@ void main() {
     expect(html.contains('movera-hd'), isFalse);
     expect(html.contains('TAP THIS PANEL'), isFalse);
     expect(html.contains('moveraInstallHeadingOverlay'), isFalse);
+    // Phase 47: geocoding goes through the authenticated Movera API only.
+    // A leftover moveraGeocodeAddress kept sending typed addresses to public
+    // Nominatim and crashed on the cache Phase 47 removed.
+    expect(html.contains('nominatim'), isFalse);
+    expect(html.contains('moveraGeocodeAddress'), isFalse);
+    expect(html.contains('moveraGeoCache'), isFalse);
   });
 
   test('the promotions feature is gone, not merely hidden', () {

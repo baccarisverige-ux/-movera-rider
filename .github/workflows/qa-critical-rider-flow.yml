@@ -54,8 +54,13 @@ jobs:
           const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
           const evidence = {};
 
+          // Flutter parks its 'Enable accessibility' placeholder at (-1,-1), outside
+          // the viewport, so a Playwright click on it never lands and every
+          // label lookup silently fell back to fixed coordinates. Click it
+          // through the DOM and wait for the semantics tree instead.
           async function enableA11y(page) {
-            try { await page.getByLabel('Enable accessibility').click({ timeout: 2500 }); } catch (_) {}
+            await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
+            await page.waitForFunction(() => document.querySelector('flt-semantics'), null, { timeout: 5000 }).catch(() => {});
             await page.waitForTimeout(400);
           }
 
@@ -344,18 +349,40 @@ jobs:
             const beforeStorage = await walletStorage(page);
             const before = balanceFromStorage(beforeStorage);
 
-            await page.touchscreen.tap(300, 88);
-            await page.waitForTimeout(700);
-            await page.screenshot({ path: 'qa-critical-wallet-menu.png', fullPage: true });
-            await page.touchscreen.tap(105, 188);
-            await page.waitForTimeout(1500);
-            await page.screenshot({ path: 'qa-critical-wallet-page.png', fullPage: true });
+            // Tap controls by their accessible name: the side menu (Phase 97)
+            // and the wallet page (Phase 76) have both moved since this
+            // scenario was written, and fixed coordinates silently landed on
+            // Ride History instead of Wallet.
+            async function tapButton(name, label) {
+              const button = page.getByRole('button', { name, exact: true });
+              await button.first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {
+                throw new Error(`Standalone Wallet: ${label} button '${name}' not found`);
+              });
+              await button.first().click();
+            }
+            async function openAddFunds(tag) {
+              await page.touchscreen.tap(300, 88);
+              await page.waitForTimeout(700);
+              await page.screenshot({ path: `qa-critical-wallet-menu${tag}.png`, fullPage: true });
+              await tapButton('Wallet', 'side menu');
+              await page.waitForTimeout(1500);
+              await page.screenshot({ path: `qa-critical-wallet-page${tag}.png`, fullPage: true });
+              await tapButton('Add funds (demo)', 'wallet page');
+              await page.waitForTimeout(800);
+            }
 
-            await page.touchscreen.tap(195, 516);
-            await page.waitForTimeout(800);
+            await openAddFunds('');
             await page.screenshot({ path: 'qa-critical-wallet-add-sheet.png', fullPage: true });
 
-            await page.touchscreen.tap(110, 599);
+            // Phase 76: picking an amount only selects it; the simulated
+            // payment runs on 'Simulate top-up'.
+            await tapButton('kr 200', 'amount');
+            await page.waitForTimeout(400);
+            const selected = balanceFromStorage(await walletStorage(page));
+            if (selected !== before) {
+              throw new Error(`Standalone Wallet: selecting an amount changed balance ${before} -> ${selected}`);
+            }
+            await tapButton('Simulate top-up', 'add-funds sheet');
             await page.waitForTimeout(1800);
             const afterStorage = await walletStorage(page);
             const after = balanceFromStorage(afterStorage);
@@ -369,18 +396,17 @@ jobs:
 
             await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
             await page.waitForTimeout(4500);
+            await enableA11y(page);
             const persistedStorage = await walletStorage(page);
             const persisted = balanceFromStorage(persistedStorage);
             if (persisted !== after) {
               throw new Error(`Standalone Wallet: persistence failed ${after} -> ${persisted}`);
             }
 
-            await page.touchscreen.tap(300, 88);
-            await page.waitForTimeout(500);
-            await page.touchscreen.tap(105, 188);
-            await page.waitForTimeout(1200);
-            await page.touchscreen.tap(195, 516);
-            await page.waitForTimeout(700);
+            // Dismissing the sheet, even with an amount picked, must not pay.
+            await openAddFunds('-dismiss');
+            await tapButton('kr 500', 'amount');
+            await page.waitForTimeout(400);
             await page.screenshot({ path: 'qa-critical-wallet-dismiss-before.png', fullPage: true });
             await page.keyboard.press('Escape');
             await page.waitForTimeout(800);
