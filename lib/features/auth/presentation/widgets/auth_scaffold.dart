@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scene.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
@@ -116,7 +118,20 @@ class AuthScaffold extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: card,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        card,
+                        if (AppEnv.current.authPreview) ...[
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () => enterMoveraApp(context),
+                            child: const Text('Skip for now (demo)'),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),

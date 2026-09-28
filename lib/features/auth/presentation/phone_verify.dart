@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/auth/application/auth_error_message.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
@@ -208,6 +209,13 @@ class _PhoneVerificationState extends State<PhoneVerification> {
                 ),
               ),
             ),
+          if (AppEnv.current.authPreview) ...[
+            const SizedBox(height: 12),
+            const AuthNote(
+              icon: Icons.info_outline_rounded,
+              text: 'Demo verification code: 1234',
+            ),
+          ],
           const SizedBox(height: 16),
           Center(child: _resendRow()),
           const SizedBox(height: 16),
