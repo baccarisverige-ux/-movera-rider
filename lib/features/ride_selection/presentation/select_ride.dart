@@ -672,6 +672,7 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _bookScheduled() async {
     try {
+      final pickupConfirmedBefore = _pickupConfirmed;
       if (_selection.scheduledFor == null) {
         await _chooseLater();
       } else if (_returnTimeNeedsPicker) {
@@ -680,7 +681,13 @@ class _SelectRideState extends State<SelectRide>
         await _chooseLater(initial: _selection.scheduledFor);
       }
       if (_selection.scheduledFor == null || !mounted) return;
-      if (_returnTimeNeedsPicker) return;
+      // Still stale after the picker: the rider dismissed it, so book nothing.
+      // Unless the pickup spot was confirmed in that same pass - then the
+      // chosen time went stale on the pickup screen, and the re-pick below
+      // must ask again rather than silently dropping the booking.
+      if (_returnTimeNeedsPicker && _pickupConfirmed == pickupConfirmedBefore) {
+        return;
+      }
       await _withParkedMap(() async {
         if (!mounted) return;
         if (!_pickupConfirmed) {

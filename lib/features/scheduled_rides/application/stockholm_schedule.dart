@@ -1,13 +1,20 @@
+import 'package:flutter/foundation.dart';
+
 /// Europe/Stockholm wall-clock pickup rules (CET/CEST, no extra deps).
 class StockholmSchedule {
   static const int leadMinutes = 30;
   static const int slotMinutes = 5;
 
+  /// Source of "now" when no explicit time is passed. Tests move it to make
+  /// the earliest legal slot roll over at a chosen step of a booking flow.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+
   /// Current wall-clock time in Europe/Stockholm.
   ///
   /// [now] is converted to UTC first so tests can pass `DateTime.utc(...)`.
   static DateTime stockholmNow([DateTime? now]) {
-    final utc = (now ?? DateTime.now()).toUtc();
+    final utc = (now ?? clock()).toUtc();
     final local = utc.add(Duration(hours: _cetCestOffsetHours(utc)));
     return DateTime(
       local.year,
