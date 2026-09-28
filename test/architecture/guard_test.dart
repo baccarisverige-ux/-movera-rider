@@ -130,6 +130,10 @@ void main() {
     final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('_restoreActiveRide'), isFalse);
     expect(home.contains('RideSnapshotStore'), isFalse);
+    // Phase 143: ride_restore_coordinator.dart builds Home, so Home must not
+    // import it back (that was a two-way import cycle). Home reads the
+    // interrupted-search flag from the leaf SearchInterruptedNotice instead.
+    expect(home.contains('ride_restore_coordinator.dart'), isFalse);
   });
 
   test('home does not draw a trip polyline', () {

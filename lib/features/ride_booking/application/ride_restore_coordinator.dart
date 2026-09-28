@@ -16,6 +16,7 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/ride_booking/application/search_interrupted_notice.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
@@ -30,17 +31,20 @@ class RideRestoreCoordinator {
     RideRealtimeResync? resync,
     bool Function()? authRequired,
     Future<bool> Function()? hasSession,
+    SearchInterruptedNotice? interruptedNotice,
   }) : _reader = reader ?? RideSnapshotStore.read,
        _skipRestore = skipRestore ?? defaultSkipRestore,
        _resync = resync ?? _defaultResync,
        _authRequired = authRequired ?? _defaultAuthRequired,
-       _hasSession = hasSession ?? _defaultHasSession;
+       _hasSession = hasSession ?? _defaultHasSession,
+       _interruptedNotice = interruptedNotice ?? SearchInterruptedNotice();
 
   final Future<RideSnapshot?> Function() _reader;
   final bool Function() _skipRestore;
   final RideRealtimeResync _resync;
   final bool Function() _authRequired;
   final Future<bool> Function() _hasSession;
+  final SearchInterruptedNotice _interruptedNotice;
 
   static Future<void> _defaultResync(String rideId) =>
       AppScope.instance.rideRealtime.reconnectAndResync(rideId);
@@ -69,19 +73,12 @@ class RideRestoreCoordinator {
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
 
-  /// Set when a ride search was dropped rather than restored, so Home can say
-  /// so instead of just appearing empty as though nothing had been going on.
-  bool _searchInterrupted = false;
-
-  /// Reads the flag and clears it, so the rider is told once.
-  bool takeSearchInterrupted() {
-    if (!_searchInterrupted) return false;
-    _searchInterrupted = false;
-    return true;
-  }
+  /// Reads the interrupted-search notice and clears it, so the rider is told
+  /// once.
+  bool takeSearchInterrupted() => _interruptedNotice.take();
 
   /// Record that a live ride was dropped rather than resumed.
-  void noteSearchInterrupted() => _searchInterrupted = true;
+  void noteSearchInterrupted() => _interruptedNotice.note();
 
   void _noteDropped(RestoredSurface surface) {
     if (surface == RestoredSurface.finding ||
@@ -93,7 +90,9 @@ class RideRestoreCoordinator {
   /// Tests: pretend Profile/Wallet is open so resume must not navigate.
   bool Function()? debugAtRoot;
 
-  static final instance = RideRestoreCoordinator();
+  static final instance = RideRestoreCoordinator(
+    interruptedNotice: SearchInterruptedNotice.shared,
+  );
 
   /// A live ride in this browser must survive reload, crash, PWA eviction
   /// and Safari tab recovery. localStorage is per-browser, so a stranger
