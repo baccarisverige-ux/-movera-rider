@@ -27,6 +27,7 @@ import 'package:movera_rider/features/active_ride/presentation/driver_call_unava
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -626,15 +627,26 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       await _parkMapForStageChange();
       if (!mounted) return;
       RideNavigator.home(context);
-    } catch (_) {
+    } catch (error, stack) {
+      final scheduled = widget.onCancel != null;
+      AppScope.instance.crashes.record(
+        error,
+        stack,
+        rideId: _rideId,
+        operation: scheduled ? 'reservation.cancel' : 'ride.cancel',
+      );
       if (!mounted) return;
       setState(() {
         _cancelling = false;
         _leaving = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Couldn't cancel your ride. Try again."),
+        SnackBar(
+          content: Text(
+            scheduled
+                ? reservationErrorMessage(error, ReservationAction.cancel)
+                : "Couldn't cancel. Your ride is still on — try again.",
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );

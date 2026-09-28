@@ -19,6 +19,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/application/scheduled_ride_checkout.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -33,6 +34,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
@@ -715,28 +717,44 @@ class _SelectRideState extends State<SelectRide>
           if (when == null || !mounted) return;
           _selection.scheduleFor(when);
         }
-        final created = await ScheduledRideCheckout.run(
-          context,
-          reservations: _reservations,
-          selection: _selection,
-          pickup: ReservationPlace(
-            label: _pickupAddress,
-            lat: _pickupPosition.latitude,
-            lng: _pickupPosition.longitude,
-          ),
-          destination: ReservationPlace(
-            label: widget.destinationAddress,
-            lat: widget.destinationPosition.latitude,
-            lng: widget.destinationPosition.longitude,
-          ),
-          pickupPosition: _pickupPosition,
-          note: _driverNote(widget.note),
-          parentReservationId: widget.parentReservationId,
-          editingReservationId: widget.editingReservationId,
-          original: widget.editingReservationId == null
-              ? null
-              : _reservations.byId(widget.editingReservationId!),
-        );
+        final Reservation? created;
+        try {
+          created = await ScheduledRideCheckout.run(
+            context,
+            reservations: _reservations,
+            selection: _selection,
+            pickup: ReservationPlace(
+              label: _pickupAddress,
+              lat: _pickupPosition.latitude,
+              lng: _pickupPosition.longitude,
+            ),
+            destination: ReservationPlace(
+              label: widget.destinationAddress,
+              lat: widget.destinationPosition.latitude,
+              lng: widget.destinationPosition.longitude,
+            ),
+            pickupPosition: _pickupPosition,
+            note: _driverNote(widget.note),
+            parentReservationId: widget.parentReservationId,
+            editingReservationId: widget.editingReservationId,
+            original: widget.editingReservationId == null
+                ? null
+                : _reservations.byId(widget.editingReservationId!),
+          );
+        } catch (error, stack) {
+          final action = widget.editingReservationId == null
+              ? ReservationAction.book
+              : ReservationAction.edit;
+          AppScope.instance.crashes.record(
+            error,
+            stack,
+            operation: 'reservation.${action.name}',
+          );
+          if (mounted) {
+            MoveraToast.show(context, reservationErrorMessage(error, action));
+          }
+          return;
+        }
         if (!mounted || created == null) return;
         final opener = widget.onScheduled;
         if (opener != null) {
