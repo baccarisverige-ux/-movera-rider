@@ -24,6 +24,7 @@ import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
+import 'package:movera_rider/features/home/presentation/home_map_style.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
@@ -135,87 +136,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   static const Color _premiumLine = Color(0xFFE7EBEE);
   static const Color _premiumAccent = Color(0xFF2D5878);
   static const Color _premiumAccentSoft = Color(0xFFEAF2F8);
-
-  static const String _premiumMapStyle = '''
-[
-  {
-    "elementType": "geometry",
-    "stylers": [{"color": "#eef1e8"}]
-  },
-  {
-    "elementType": "labels.icon",
-    "stylers": [{"visibility": "off"}]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#747974"}]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [{"color": "#f7f8f3"}, {"weight": 2}]
-  },
-  {
-    "featureType": "administrative",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#d9dcd4"}]
-  },
-  {
-    "featureType": "landscape",
-    "elementType": "geometry",
-    "stylers": [{"color": "#d8edb5"}]
-  },
-  {
-    "featureType": "landscape.man_made",
-    "elementType": "geometry",
-    "stylers": [{"color": "#f2f2ef"}]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "geometry",
-    "stylers": [{"color": "#c1e589"}]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry",
-    "stylers": [{"color": "#d8edb5"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{"color": "#ffffff"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#d9dcd5"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [{"color": "#fffdf5"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#d5d9cf"}]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "geometry",
-    "stylers": [{"color": "#e6e8e3"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{"color": "#8fcfe0"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#3f8294"}]
-  }
-]
-''';
 
   @override
   void initState() {
@@ -2168,7 +2088,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         parked: _mapParked,
                         padding: EdgeInsets.only(bottom: _sheetMinPixels),
                         initialPosition: _initialPosition,
-                        mapStyle: _premiumMapStyle,
+                        mapStyle: homeMapStyle,
                         onCameraMove: _handleMapCameraMove,
                         onMapCreated: (GoogleMapController controller) {
                           AppScope.instance.maps.attach(
