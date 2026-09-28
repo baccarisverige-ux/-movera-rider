@@ -75,7 +75,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('top-up outcome', () {
-    test('a failure before the payment exists charges nothing and can be '
+    test('a lost creation response stays unconfirmed and can be '
         'retried with the same key', () async {
       final store = _MemWallet()..balance = 50;
       final gateway = _ScriptedGateway()..createError = _offline;
@@ -86,8 +86,8 @@ void main() {
         amount: 200,
         idempotencyKey: 'top-a',
       );
-      expect(first, isA<TopUpNotCharged>());
-      expect((first as TopUpNotCharged).error, same(_offline));
+      expect(first, isA<TopUpUnconfirmed>());
+      expect((first as TopUpUnconfirmed).error, same(_offline));
       expect(store.balance, 50);
 
       gateway.createError = null;
@@ -193,7 +193,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('a failed top-up tells the rider they were not charged',
+  testWidgets('a lost creation response does not claim no charge',
       (tester) async {
     final store = _MemWallet()..balance = 50;
     final gateway = _ScriptedGateway()..createError = _offline;
@@ -210,8 +210,8 @@ void main() {
 
     expect(
       find.text(
-        "No connection, so the top-up didn't go through. You weren't "
-        "charged — try again when you're back online.",
+        "We couldn't confirm your top-up. If it went through, it will "
+        "show in your balance — trying again won't charge you twice.",
       ),
       findsOneWidget,
     );
