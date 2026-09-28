@@ -462,28 +462,6 @@
     window.moveraArmHeadingFromGesture();
     // Do not stop heading on pagehide — iOS fires it for the motion prompt
     // and for backgrounding, which previously killed listeners after grant.
-
-    window.moveraGeocodeAddress = async function(address) {
-      var clean = String(address || '').trim();
-      if (!clean) return null;
-      var key = 'search:' + clean.toLowerCase();
-      if (window.moveraGeoCache.has(key)) return window.moveraGeoCache.get(key);
-      var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=0&accept-language=en&q=' +
-        encodeURIComponent(clean);
-      var data = await window.moveraFetchJson(url);
-      if (!Array.isArray(data) || !data.length) return null;
-      var first = data[0];
-      var latitude = Number(first.lat);
-      var longitude = Number(first.lon);
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-      var result = JSON.stringify({
-        address: first.display_name ? String(first.display_name) : clean,
-        latitude: latitude,
-        longitude: longitude
-      });
-      window.moveraGeoCache.set(key, result);
-      return result;
-    };
   </script>
   <script src="flutter_bootstrap.js" defer></script>
 </body>
