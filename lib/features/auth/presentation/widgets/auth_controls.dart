@@ -268,7 +268,7 @@ class AuthPhoneField extends StatelessWidget {
         padding: const EdgeInsets.only(right: 12),
         margin: const EdgeInsets.only(right: 12),
         decoration: const BoxDecoration(
-          border: Border(right: BorderSide(color: Color(0xFFE2DED3))),
+          border: Border(right: BorderSide(color: Color(0xFFDCE5DE))),
         ),
         child: Row(
           children: [
@@ -299,7 +299,7 @@ class AuthPhoneField extends StatelessWidget {
           border: InputBorder.none,
           hintText: '70 123 45 67',
           hintStyle: AuthText.input().copyWith(
-            color: const Color(0xFFA3A69F),
+            color: const Color(0xFF9AA79F),
             fontWeight: FontWeight.w400,
           ),
           semanticCounterText: '',
@@ -381,7 +381,7 @@ class AuthTextField extends StatelessWidget {
           border: InputBorder.none,
           hintText: hint,
           hintStyle: AuthText.input().copyWith(
-            color: const Color(0xFFA3A69F),
+            color: const Color(0xFF9AA79F),
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -470,12 +470,12 @@ class AuthOrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: Color(0xFFEEEAE0), height: 1)),
+        const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text('or continue with', style: AuthText.small()),
         ),
-        const Expanded(child: Divider(color: Color(0xFFEEEAE0), height: 1)),
+        const Expanded(child: Divider(color: Color(0xFFE4EAE5), height: 1)),
       ],
     );
   }
