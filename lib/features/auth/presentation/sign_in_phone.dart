@@ -1,3 +1,4 @@
+import 'package:movera_rider/app/di.dart';
 import 'package:country_pickers/country.dart';
 import 'package:country_pickers/utils/utils.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,7 @@ class _SignInPhoneState extends State<SignInPhone> {
   @override
   void initState() {
     super.initState();
-    _auth = widget.controller ?? AuthController();
+    _auth = widget.controller ?? AppScope.instance.auth;
     selectedCountry = CountryPickerUtils.getCountryByIsoCode('SE');
     selectedCountryCode = '+46';
   }

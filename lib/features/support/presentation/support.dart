@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
-import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -32,7 +32,7 @@ class SupportHome extends StatelessWidget {
     );
   }
 
-  static final List<SupportRide> rides = SupportController().rides();
+  static List<SupportRide> get rides => AppScope.instance.support.rides();
 
   @override
   Widget build(BuildContext context) {
@@ -484,7 +484,7 @@ class SupportChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final script = SupportController().chat(ride: ride);
+    final script = AppScope.instance.support.chat(ride: ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(

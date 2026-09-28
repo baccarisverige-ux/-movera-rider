@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -20,7 +21,7 @@ class RideCompletedTripDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trip = (controller ?? RideCompleteController()).receipt();
+    final trip = (controller ?? AppScope.instance.rideComplete).receipt();
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
       child: Column(
@@ -90,7 +91,7 @@ class RideCompletedTripDetail extends StatelessWidget {
   Future<void> _openDispute(BuildContext context) async {
     final id = rideId?.trim();
     if (id == null || id.isEmpty) return;
-    final controller = this.controller ?? RideCompleteController();
+    final controller = this.controller ?? AppScope.instance.rideComplete;
     final detail = TextEditingController();
     var submitting = false;
     String? error;

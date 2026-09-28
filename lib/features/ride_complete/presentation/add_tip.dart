@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -19,7 +20,7 @@ class RideCompletedAddTip extends StatefulWidget {
 
 class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final RideCompleteController _ctl =
-      widget.controller ?? RideCompleteController();
+      widget.controller ?? AppScope.instance.rideComplete;
   late final List<String> _amounts = _ctl.tips();
   late final String? _driverName = _ctl.driver()?.name;
   String? _selected;

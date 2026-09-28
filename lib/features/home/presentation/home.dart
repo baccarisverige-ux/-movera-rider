@@ -21,7 +21,6 @@ import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
-import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
@@ -455,7 +454,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         customType: customType,
       );
       if (target == 'destination') {
-        DestinationController().remember(address: resolved);
+        AppScope.instance.destinationMemory.remember(address: resolved);
       }
     });
     await _persistAddressData();
