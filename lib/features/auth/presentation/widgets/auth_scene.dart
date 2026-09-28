@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 
-/// The calm sign-in illustration: sunlight, a generic skyline, an arched
+/// The calm sign-in illustration: a soft green glow, a generic skyline, an arched
 /// bridge over water, a road with the green route, trees and a street lamp.
 ///
 /// Drawn on a 390x230 design canvas scaled to the available width and
@@ -99,13 +99,13 @@ class _ScenePainter extends CustomPainter {
       60,
       Paint()
         ..shader = const RadialGradient(
-          colors: [Color(0xFFF9E2B0), Color(0xFFF8E9C9), Color(0x00F8EBD2)],
+          colors: [Color(0xFFD9EAE0), Color(0xFFE9F2EC), Color(0x00F7F8F6)],
           stops: [0, 0.6, 1],
         ).createShader(Rect.fromCircle(center: sun, radius: 60)),
     );
-    canvas.drawCircle(sun, 24, Paint()..color = const Color(0xCCF7DFAE));
+    canvas.drawCircle(sun, 24, Paint()..color = const Color(0x80E2EEE6));
     final bird = Paint()
-      ..color = const Color(0xFFA9B2AA)
+      ..color = const Color(0xFF9CAAA1)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
@@ -131,9 +131,9 @@ class _ScenePainter extends CustomPainter {
         ..lineTo(390, 150)
         ..lineTo(0, 150)
         ..close(),
-      Paint()..color = const Color(0xFFE9EEE6),
+      Paint()..color = const Color(0xFFECF1ED),
     );
-    final building = Paint()..color = const Color(0xFFDCE5DB);
+    final building = Paint()..color = const Color(0xFFDCE6DF);
     const blocks = [
       Rect.fromLTWH(18, 98, 22, 46),
       Rect.fromLTWH(44, 86, 18, 58),
@@ -176,15 +176,15 @@ class _ScenePainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFDCE8E6), Color(0xFFE9F0EE)],
+          colors: [Color(0xFFE3EBE7), Color(0xFFF0F4F1)],
         ).createShader(water),
     );
     canvas.drawOval(
       Rect.fromCenter(center: const Offset(300, 158), width: 60, height: 6),
-      Paint()..color = const Color(0xB3F6E3BC),
+      Paint()..color = const Color(0xB3D8E8DE),
     );
     final glint = Paint()
-      ..color = const Color(0xFFF4F8F7)
+      ..color = const Color(0xFFFFFFFF)
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round;
     for (final (a, b) in const [
@@ -196,7 +196,7 @@ class _ScenePainter extends CustomPainter {
       canvas.drawLine(a, b, glint);
     }
     final bridge = Paint()
-      ..color = const Color(0xFFC9D5CD)
+      ..color = const Color(0xFFC7D6CC)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
@@ -222,7 +222,7 @@ class _ScenePainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF1ECDF), Color(0xFFEDE6D6)],
+          colors: [Color(0xFFF2F5F2), Color(0xFFE9EEEA)],
         ).createShader(land),
     );
     Paint stroke(Color c, double w) => Paint()
@@ -230,13 +230,13 @@ class _ScenePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = w
       ..strokeCap = StrokeCap.round;
-    canvas.drawPath(_road, stroke(const Color(0xFFE4DCC8), 26));
-    canvas.drawPath(_road, stroke(const Color(0xFFF0EADB), 18));
+    canvas.drawPath(_road, stroke(const Color(0xFFDCE4DE), 26));
+    canvas.drawPath(_road, stroke(const Color(0xFFF7F8F6), 18));
     canvas.drawPath(
       _road,
       stroke(AuthColors.deepGreen, 3)
         ..shader = const LinearGradient(
-          colors: [AuthColors.deepGreen, Color(0xFF1FA46A)],
+          colors: [AuthColors.deepGreen, Color(0xFF1A8759)],
         ).createShader(const Rect.fromLTWH(0, 170, 390, 60)),
     );
   }
@@ -255,22 +255,22 @@ class _ScenePainter extends CustomPainter {
         ..close(),
       Paint()..color = const Color(0xFF2F3A34),
     );
-    canvas.drawCircle(const Offset(338, 123), 2.3, Paint()..color = const Color(0xFFF7DFAE));
+    canvas.drawCircle(const Offset(338, 123), 2.3, Paint()..color = const Color(0xFFE8F4EC));
 
     canvas.drawLine(
       const Offset(370, 150),
       const Offset(370, 176),
       Paint()
-        ..color = const Color(0xFF8B7F6A)
+        ..color = const Color(0xFF7C9183)
         ..strokeWidth = 3,
     );
     for (final (c, r, color) in const [
-      (Offset(366, 132), 24.0, Color(0xFFA7C2A2)),
-      (Offset(382, 116), 18.0, Color(0xFF98B793)),
-      (Offset(352, 118), 14.0, Color(0xFFB4CDAF)),
-      (Offset(376, 140), 14.0, Color(0xFF86A882)),
-      (Offset(20, 184), 14.0, Color(0xFFAFC8AA)),
-      (Offset(38, 178), 11.0, Color(0xFF9DBA98)),
+      (Offset(366, 132), 24.0, Color(0xFFB2CBB9)),
+      (Offset(382, 116), 18.0, Color(0xFF9EBEA7)),
+      (Offset(352, 118), 14.0, Color(0xFFC6D8CB)),
+      (Offset(376, 140), 14.0, Color(0xFF8EAF98)),
+      (Offset(20, 184), 14.0, Color(0xFFBDD4C3)),
+      (Offset(38, 178), 11.0, Color(0xFFA7C5AE)),
     ]) {
       canvas.drawCircle(c, r, Paint()..color = color);
     }
@@ -312,7 +312,7 @@ class _ScenePainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF1C5A45), AuthColors.deepGreen],
+          colors: [Color(0xFF18513D), AuthColors.deepGreen],
         ).createShader(const Rect.fromLTWH(5, 3, 58, 23)),
     );
     canvas.drawPath(
@@ -324,7 +324,7 @@ class _ScenePainter extends CustomPainter {
         ..cubicTo(44.7, 5.4, 46.2, 6.2, 47.2, 7.5)
         ..lineTo(50.6, 12.6)
         ..close(),
-      Paint()..color = const Color(0xFFD7E8DD),
+      Paint()..color = const Color(0xFFE2EEE6),
     );
     canvas.drawLine(
       const Offset(38, 5.6),
@@ -335,11 +335,11 @@ class _ScenePainter extends CustomPainter {
     );
     for (final x in const [19.0, 52.0]) {
       canvas.drawCircle(Offset(x, 25), 5, Paint()..color = const Color(0xFF1B211E));
-      canvas.drawCircle(Offset(x, 25), 2, Paint()..color = const Color(0xFFCFD2CB));
+      canvas.drawCircle(Offset(x, 25), 2, Paint()..color = const Color(0xFFD8E2DA));
     }
     canvas.drawRRect(
       RRect.fromRectAndRadius(const Rect.fromLTWH(58, 17, 4, 2.4), const Radius.circular(1)),
-      Paint()..color = const Color(0xFFF7DFAE),
+      Paint()..color = const Color(0xFFE8F4EC),
     );
     canvas.restore();
   }
