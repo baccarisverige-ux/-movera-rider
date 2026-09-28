@@ -179,7 +179,7 @@ class ActiveRideController {
     }
 
     // cancelledByDriver is a reversible dispatch outcome: the rider still owns
-    // the same ride and explicitly chose Keep searching. Reconcile shared
+    // the same ride, and the search restarts on its own. Reconcile shared
     // application state synchronously before navigation can reveal the parked
     // Finding route. Snapshot persistence is deliberately not on this critical
     // path: DriverTracking never persisted the terminal driver-drop snapshot,

@@ -24,7 +24,7 @@ import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sh
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_call_unavailable_dialog.dart';
-import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
@@ -447,13 +447,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final lostDriver = _tracking.driver ?? widget.driver;
     _tracking.dispose();
 
-    if (mounted) {
-      await showDriverCancelledSheet(context, driverName: lostDriver?.firstName);
-    }
+    // The rider is not asked anything: their ride is still on, so the search
+    // starts again straight away and a short notice says why the driver
+    // changed.
     if (!mounted) {
       _researching = false;
       return;
     }
+    showDriverCancelledNotice(context, driverName: lostDriver?.firstName);
 
     await _parkMapForStageChange();
     if (!mounted) {
@@ -477,8 +478,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // Re-open the shared session before restarting dispatch. The tracking
     // controller already reconciled the driver-drop event as terminal, and
     // without this explicit reversible dispatch transition the parked Finding
-    // route observes a stale cancelledByDriver session after the rider chooses
-    // Keep searching.
+    // route observes a stale cancelledByDriver session once the search restarts.
     final redispatchRideId = _rideId;
     await _ride.resumeSearchingAfterDriverCancel(rideId: redispatchRideId);
     if (!mounted) {

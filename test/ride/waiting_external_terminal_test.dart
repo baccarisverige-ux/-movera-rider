@@ -9,7 +9,7 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
-import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -154,12 +154,11 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    // The rider is told what happened...
-    expect(find.byType(DriverCancelledSheet), findsOneWidget);
-    expect(find.text('Keep searching'), findsOneWidget);
-
-    await tester.tap(find.text('Keep searching'));
+    // The rider is told what happened, and is not asked anything.
+    expect(find.byType(DriverCancelledNotice), findsWidgets);
+    expect(find.text('Keep searching'), findsNothing);
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    expect(find.text('Your driver cancelled'), findsOneWidget);
 
     // Normal navigation reverses one level instead of stacking a second
     // Finding route. This isolated host uses audit-root as the parent; in the
@@ -178,6 +177,8 @@ void main() {
     // This test only certifies the reverse route topology, so stop that future
     // mock assignment before Flutter verifies there are no leaked timers.
     realtime.holdAssignment();
+    await tester.pump(driverCancelledNoticeDuration);
+    await tester.pumpAndSettle();
   });
 
   testWidgets(

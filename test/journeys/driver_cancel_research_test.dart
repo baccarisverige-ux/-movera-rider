@@ -5,7 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
-import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -28,7 +28,7 @@ void main() {
   });
 
   testWidgets(
-    'Waiting -> driver cancels -> Keep searching -> replacement driver',
+    'Waiting -> driver cancels -> search restarts by itself -> replacement driver',
     (tester) async {
       const rideId = 'journey-driver-research';
       final realtime = MockRideRealtime(
@@ -104,11 +104,13 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 450));
 
-      expect(find.byType(DriverCancelledSheet), findsOneWidget);
-      expect(find.text('Keep searching'), findsOneWidget);
-
-      await tester.tap(find.text('Keep searching'));
+      // Nothing to tap: the rider is told, and the search is already back.
+      expect(find.text('Keep searching'), findsNothing);
+      expect(find.byType(DriverCancelledNotice), findsWidgets);
       await tester.pumpAndSettle(const Duration(milliseconds: 350));
+      // Once the search screen is back, the rider sees one notice on it.
+      expect(find.text('${firstDriver!.firstName} cancelled'), findsOneWidget);
+      expect(find.text(DriverCancelledNotice.body), findsOneWidget);
 
       expect(find.byType(WaitingForDriver), findsNothing);
       expect(find.text('finding-parent'), findsOneWidget);
@@ -123,13 +125,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(realtime.lastDriver, isNotNull);
-      expect(realtime.lastDriver!.id, isNot(firstDriver!.id));
+      expect(realtime.lastDriver!.id, isNot(firstDriver.id));
       expect(AppScope.instance.ride.rideId, rideId);
 
       // The replacement assignment starts the real mock GPS cadence. Stop it
       // before Flutter verifies that the widget test has no orphan timers.
       realtime.dispose();
-      await tester.pump();
+      await tester.pump(driverCancelledNoticeDuration);
+      await tester.pumpAndSettle();
+      expect(find.byType(DriverCancelledNotice), findsNothing);
     },
   );
 }
