@@ -1091,7 +1091,47 @@ class _SelectRideState extends State<SelectRide>
           ),
           AnimatedBuilder(
             animation: _sheetSlide,
-            builder: (context, _) {
+            // The drag handle + "Choose your ride" header never changes across
+            // animation ticks - only sheetHeight/collapsed/visibleRides below
+            // do. Hoisting it into `child` means it is built once per widget
+            // rebuild instead of on every frame of the drag animation.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragUpdate: (details) =>
+                  _onSheetDragUpdate(details, media),
+              onVerticalDragEnd: _onSheetDragEnd,
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _line,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Choose your ride',
+                            style: _text(
+                              22,
+                              weight: FontWeight.w700,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            builder: (context, header) {
               final minSheet = _minSheet(media);
               final maxSheet = _maxSheet(media);
               final sheetHeight =
@@ -1121,47 +1161,7 @@ class _SelectRideState extends State<SelectRide>
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onVerticalDragUpdate: (details) =>
-                              _onSheetDragUpdate(details, media),
-                          onVerticalDragEnd: _onSheetDragEnd,
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 10),
-                              Container(
-                                width: 38,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: _line,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  16,
-                                  16,
-                                  0,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Choose your ride',
-                                        style: _text(
-                                          22,
-                                          weight: FontWeight.w700,
-                                          letterSpacing: -0.4,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        header!,
                         if (!collapsed)
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),

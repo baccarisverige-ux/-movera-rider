@@ -446,44 +446,60 @@ class WaitingNotesAndPin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safety = SafetyController.shared;
+    // The notes chips depend only on `notes` (this widget's own field), not
+    // on SafetyController at all - building them once here, instead of
+    // inside ListenableBuilder's builder, avoids rebuilding them on every
+    // unrelated safety/PIN notification.
+    final notesContent = notes.isEmpty
+        ? const SizedBox.shrink()
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final label in notes.selected)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F6FB),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        label,
+                        style: waitingText(
+                          12,
+                          weight: FontWeight.w600,
+                          color: MoveraTokens.accent,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
     return ListenableBuilder(
       listenable: safety,
-      builder: (context, _) => _buildContent(context, safety),
+      child: notesContent,
+      builder: (context, child) => _buildContent(context, safety, child!),
     );
   }
 
-  Widget _buildContent(BuildContext context, SafetyController safety) {
+  Widget _buildContent(
+    BuildContext context,
+    SafetyController safety,
+    Widget notesContent,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!notes.isEmpty) ...[
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final label in notes.selected)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F6FB),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    label,
-                    style: waitingText(
-                      12,
-                      weight: FontWeight.w600,
-                      color: MoveraTokens.accent,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
+        notesContent,
         if (safety.loading || !safety.hasLoaded) ...[
           const SizedBox(height: 12),
           Text('Loading PIN…',

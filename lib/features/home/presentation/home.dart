@@ -2263,50 +2263,115 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               ),
             ),
             SheetViewport(
-              child: Sheet(
-                controller: _homeSheetController,
-                initialOffset: SheetOffset.absolute(_sheetMinPixels),
-                physics: MoveraSheetMotion.physics,
-                snapGrid: SheetSnapGrid(
-                  snaps: [
-                    SheetOffset.absolute(_sheetMinPixels),
-                    SheetOffset.absolute(_sheetMidPixels),
-                    const SheetOffset(1),
-                  ],
-                  minFlingSpeed: 520,
-                ),
-                scrollConfiguration: SheetScrollConfiguration.disabled,
-                child: PointerInterceptor(
-                  child: SizedBox(
-                    height: fullSheetPixels,
-                    width: double.infinity,
-                    child: AnimatedBuilder(
-                      animation: _homeSheetController,
-                      builder: (context, child) {
-                        final sheetHeight = _homeSheetController.hasClient
-                            ? (_homeSheetController.metrics?.offset ??
-                                  _sheetMinPixels)
-                            : _sheetMinPixels;
-                        final sheetProgress =
-                            ((sheetHeight - _sheetMinPixels) /
-                                    (_sheetMidPixels - _sheetMinPixels))
-                                .clamp(0.0, 1.0);
-                        final rawDetailProgress =
-                            ((sheetHeight - _sheetMidPixels) /
-                                    (fullSheetPixels - _sheetMidPixels))
-                                .clamp(0.0, 1.0);
-                        final detailProgress = Curves.easeInCubic.transform(
-                          rawDetailProgress,
-                        );
-                        return _premiumCollapsedSheet(
-                          sheetProgress,
-                          detailProgress,
-                          sheetHeight,
-                        );
-                      },
+              child: Builder(
+                builder: (context) {
+                  // These four pieces never depend on the drag animation
+                  // itself - only on state that changes via setState (the
+                  // destination/saved-places data, not the sheet offset).
+                  // Building them once per real rebuild, instead of inside
+                  // the AnimatedBuilder's per-frame builder below, avoids
+                  // reconstructing this subtree on every drag tick.
+                  final premiumToggleHandle = Semantics(
+                    button: true,
+                    label: 'Toggle home panel',
+                    child: Tooltip(
+                      message: 'Toggle home panel',
+                      child: InkWell(
+                        onTap: _toggleHomeSheet,
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          width: 48,
+                          height: 32,
+                          child: Center(
+                            child: Container(
+                              width: ResSize.w * 42,
+                              height: ResSize.h * 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCED4D8),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                  final premiumWhereToCard = WhereToCard(
+                    destinationAddress: _destinationAddress,
+                    onDestinationTap: _handleDestinationTap,
+                    onOpenSchedule: _openSchedule,
+                  );
+                  final premiumSavedPlacesContent = Column(
+                    children: [
+                      15.height,
+                      SavedPlacesRow(
+                        homeAddress: _homeAddress,
+                        workAddress: _workAddress,
+                        savedPlaces: _savedPlaces,
+                        onUseSavedPlace: _useSavedPlaceAsDestination,
+                        onAddPlace: _openAddPlacePicker,
+                      ),
+                    ],
+                  );
+                  final premiumDetailContent = Column(
+                    children: [
+                      AdvanceBookingCard(onOpenSchedule: _openSchedule),
+                      14.height,
+                      ComfortRideCarousel(
+                        onDestinationTap: _handleDestinationTap,
+                        onOpenSchedule: _openSchedule,
+                      ),
+                    ],
+                  );
+                  return Sheet(
+                    controller: _homeSheetController,
+                    initialOffset: SheetOffset.absolute(_sheetMinPixels),
+                    physics: MoveraSheetMotion.physics,
+                    snapGrid: SheetSnapGrid(
+                      snaps: [
+                        SheetOffset.absolute(_sheetMinPixels),
+                        SheetOffset.absolute(_sheetMidPixels),
+                        const SheetOffset(1),
+                      ],
+                      minFlingSpeed: 520,
+                    ),
+                    scrollConfiguration: SheetScrollConfiguration.disabled,
+                    child: PointerInterceptor(
+                      child: SizedBox(
+                        height: fullSheetPixels,
+                        width: double.infinity,
+                        child: AnimatedBuilder(
+                          animation: _homeSheetController,
+                          builder: (context, child) {
+                            final sheetHeight = _homeSheetController.hasClient
+                                ? (_homeSheetController.metrics?.offset ??
+                                      _sheetMinPixels)
+                                : _sheetMinPixels;
+                            final sheetProgress =
+                                ((sheetHeight - _sheetMinPixels) /
+                                        (_sheetMidPixels - _sheetMinPixels))
+                                    .clamp(0.0, 1.0);
+                            final rawDetailProgress =
+                                ((sheetHeight - _sheetMidPixels) /
+                                        (fullSheetPixels - _sheetMidPixels))
+                                    .clamp(0.0, 1.0);
+                            final detailProgress = Curves.easeInCubic
+                                .transform(rawDetailProgress);
+                            return _premiumCollapsedSheet(
+                              sheetProgress,
+                              detailProgress,
+                              sheetHeight,
+                              toggleHandle: premiumToggleHandle,
+                              whereToCard: premiumWhereToCard,
+                              savedPlacesContent: premiumSavedPlacesContent,
+                              detailContent: premiumDetailContent,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -2320,8 +2385,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   Widget _premiumCollapsedSheet(
     double sheetProgress,
     double detailProgress,
-    double sheetHeight,
-  ) {
+    double sheetHeight, {
+    required Widget toggleHandle,
+    required Widget whereToCard,
+    required Widget savedPlacesContent,
+    required Widget detailContent,
+  }) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -2348,37 +2417,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               ),
               child: Column(
                 children: [
-                  Semantics(
-                    button: true,
-                    label: 'Toggle home panel',
-                    child: Tooltip(
-                      message: 'Toggle home panel',
-                      child: InkWell(
-                        onTap: _toggleHomeSheet,
-                        borderRadius: BorderRadius.circular(14),
-                        child: SizedBox(
-                          width: 48,
-                          height: 32,
-                          child: Center(
-                            child: Container(
-                              width: ResSize.w * 42,
-                              height: ResSize.h * 4,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFCED4D8),
-                                borderRadius: BorderRadius.circular(11),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  toggleHandle,
                   12.height,
-                  WhereToCard(
-                    destinationAddress: _destinationAddress,
-                    onDestinationTap: _handleDestinationTap,
-                    onOpenSchedule: _openSchedule,
-                  ),
+                  whereToCard,
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
                     child: ClipRect(
@@ -2387,18 +2428,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         heightFactor: sheetProgress,
                         child: Opacity(
                           opacity: sheetProgress,
-                          child: Column(
-                            children: [
-                              15.height,
-                              SavedPlacesRow(
-                                homeAddress: _homeAddress,
-                                workAddress: _workAddress,
-                                savedPlaces: _savedPlaces,
-                                onUseSavedPlace: _useSavedPlaceAsDestination,
-                                onAddPlace: _openAddPlacePicker,
-                              ),
-                            ],
-                          ),
+                          child: savedPlacesContent,
                         ),
                       ),
                     ),
@@ -2413,18 +2443,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           opacity: detailProgress,
                           child: Padding(
                             padding: EdgeInsets.only(top: ResSize.h * 24),
-                            child: Column(
-                              children: [
-                                AdvanceBookingCard(
-                                  onOpenSchedule: _openSchedule,
-                                ),
-                                14.height,
-                                ComfortRideCarousel(
-                                  onDestinationTap: _handleDestinationTap,
-                                  onOpenSchedule: _openSchedule,
-                                ),
-                              ],
-                            ),
+                            child: detailContent,
                           ),
                         ),
                       ),
