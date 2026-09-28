@@ -11,6 +11,14 @@ void main() {
   Iterable<File> presentation() =>
       dartUnder('lib/features').where((f) => f.path.contains('/presentation/'));
 
+  // Phase 139 split parts of these screens into sibling files. Guards about
+  // "the Select Ride screen" must keep reading all of them, or an isFalse
+  // check would keep passing while no longer covering the moved code.
+  String selectRideScreenSource() => [
+    'lib/features/ride_selection/presentation/select_ride.dart',
+    'lib/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart',
+  ].map((path) => File(path).readAsStringSync()).join('\n');
+
   test('presentation does not import raw http or shared_preferences', () {
     for (final file in presentation()) {
       final src = file.readAsStringSync();
@@ -183,9 +191,7 @@ void main() {
   });
 
   test('select ride widget is not the source of ride/payment truth', () {
-    final ui = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
+    final ui = selectRideScreenSource();
     expect(ui.contains("String _selectedRideId"), isFalse);
     expect(ui.contains('int _selectedPayment'), isFalse);
     expect(ui.contains('DateTime? _scheduledFor'), isFalse);
@@ -335,9 +341,7 @@ void main() {
   });
 
   test('select ride does not keep parallel quote expiry state', () {
-    final ui = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
+    final ui = selectRideScreenSource();
     expect(ui.contains('Map<String, DateTime> _quoteExpires'), isFalse);
     expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
   });
