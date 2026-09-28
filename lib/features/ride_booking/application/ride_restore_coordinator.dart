@@ -276,8 +276,10 @@ class RideRestoreCoordinator {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
-      if (_authRequired() && !await _hasSession() ||
-          AppEnv.current.authPreview) return const SignIn();
+      if ((_authRequired() && !await _hasSession()) ||
+          AppEnv.current.authPreview) {
+        return const SignIn();
+      }
       return const Home();
     }
   }
