@@ -109,7 +109,7 @@ class AuthScaffold extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: const Color(0xFFF0ECE2)),
+                      border: Border.all(color: const Color(0xFFE4EAE5)),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x12281E14),
@@ -216,7 +216,7 @@ class _TopBar extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: const Color(0xFF7A827C),
+                color: const Color(0xFF738078),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
