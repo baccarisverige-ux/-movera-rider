@@ -1,19 +1,19 @@
-import 'package:movera_rider/app/di.dart';
 import 'package:flutter/material.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
-import 'package:movera_rider/features/auth/presentation/create_acc.dart';
-import 'package:movera_rider/features/auth/presentation/sign_in_phone.dart';
-import 'package:movera_rider/features/home/presentation/home.dart';
-import 'package:movera_rider/shared/design_system/movera_toast.dart';
-import 'package:movera_rider/shared/widgets/custom_btn.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
+import 'package:movera_rider/features/auth/application/auth_error_message.dart';
+import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/presentation/add_phone.dart';
+import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
+import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
+/// Step 1 for everyone: one phone field for new and returning riders, with
+/// Apple and Google underneath.
 class SignIn extends StatefulWidget {
   const SignIn({super.key, this.controller});
 
@@ -23,171 +23,178 @@ class SignIn extends StatefulWidget {
   State<SignIn> createState() => _SignInState();
 }
 
+enum _Busy { phone, apple, google }
+
 class _SignInState extends State<SignIn> {
   late final AuthController _auth;
-  String? _loadingProvider;
+  final _phone = TextEditingController();
+  final _phoneFocus = FocusNode();
+  _Busy? _busy;
+  String? _phoneError;
+  String? _providerError;
 
   @override
   void initState() {
     super.initState();
     _auth = widget.controller ?? AppScope.instance.auth;
+    _phone.addListener(_clearPhoneError);
   }
 
-  Future<void> _signIn(String provider) async {
-    if (_loadingProvider != null) return;
-    setState(() => _loadingProvider = provider);
+  @override
+  void dispose() {
+    _phone.dispose();
+    _phoneFocus.dispose();
+    super.dispose();
+  }
+
+  void _clearPhoneError() {
+    if (_phoneError != null) setState(() => _phoneError = null);
+  }
+
+  Future<void> _continue() async {
+    if (_busy != null) return;
+    final number = swedishNumberFromField(_phone.text);
+    if (number == null) {
+      setState(() => _phoneError = 'Enter a valid Swedish mobile number.');
+      return;
+    }
+    setState(() {
+      _busy = _Busy.phone;
+      _providerError = null;
+    });
     try {
-      await _auth.signIn(provider: provider);
+      final challenge = await _auth.requestOtp(phone: number);
       if (!mounted) return;
-      Navigator.pushReplacement(
+      _phoneFocus.unfocus();
+      await Navigator.push(
         context,
-        BottomToTopTransition(const Home()),
+        RightToLeftTransition(
+          PhoneVerification(challenge: challenge, controller: _auth),
+        ),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      MoveraToast.show(context, 'Could not sign in with $provider.');
+      setState(() => _phoneError = authErrorMessage(error, AuthAction.sendCode));
     } finally {
-      if (mounted) setState(() => _loadingProvider = null);
+      if (mounted) setState(() => _busy = null);
     }
   }
 
-  Widget _loader() => const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
+  Future<void> _provider(String provider) async {
+    if (_busy != null) return;
+    final label = provider == 'apple' ? 'Apple' : 'Google';
+    setState(() {
+      _busy = provider == 'apple' ? _Busy.apple : _Busy.google;
+      _providerError = null;
+      _phoneError = null;
+    });
+    try {
+      final result = await _auth.signIn(provider: provider);
+      if (!mounted) return;
+      switch (result) {
+        case ProviderSignedIn():
+          enterMoveraApp(context);
+        case ProviderPhoneRequired(:final link):
+          await Navigator.push(
+            context,
+            RightToLeftTransition(AddPhoneNumber(link: link, controller: _auth)),
+          );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _providerError = authErrorMessage(
+          error,
+          AuthAction.providerSignIn,
+          provider: label,
+        ),
       );
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            56.height,
-            TextWidget(text: 'Sign in', fontSize: 24, fontWeight: fwExtraBold),
-            9.height,
-            TextWidget(
-              text: 'Welcome back! Let’s get you riding',
-              color: AppColor.subtitle,
-              fontSize: 16,
-              fontWeight: fwMedium,
-            ),
-            50.height,
-            CustomButton(
-              icon: Padding(
-                padding: EdgeInsets.only(right: ResSize.w * 12),
-                child: Image.asset(AppAssets.mobile, height: ResSize.h * 24),
-              ),
-              centerContent: 'Continue with phone',
-              onPressed: _loadingProvider == null
-                  ? () {
-                      Navigator.push(
-                        context,
-                        BottomToTopTransition(
-                          CreateAccount(controller: _auth),
-                        ),
-                      );
-                    }
-                  : null,
-              borderColor: AppColor.border,
-              borderwidth: 0.5,
-              textColor: AppColor.title,
-              btncolor: Colors.transparent,
-              fontSize: 16,
-            ),
-            16.height,
-            Row(
-              children: [
-                Expanded(
-                  child: Divider(color: AppColor.border, thickness: 0.5),
-                ),
-                10.width,
-                TextWidget(
-                  text: 'or',
-                  color: AppColor.title,
-                  fontSize: 16,
-                  fontWeight: fwMedium,
-                ),
-                10.width,
-                Expanded(
-                  child: Divider(color: AppColor.border, thickness: 0.5),
-                ),
-              ],
-            ),
-            16.height,
-            CustomButton(
-              icon: Padding(
-                padding: EdgeInsets.only(right: ResSize.w * 12),
-                child: Image.asset(AppAssets.apple, height: ResSize.h * 24),
-              ),
-              centerContent: 'Continue with apple',
-              onPressed: _loadingProvider == null ? () => _signIn('apple') : null,
-              isLoading: _loadingProvider == 'apple',
-              loader: _loader(),
-              borderColor: AppColor.border,
-              borderwidth: 0.5,
-              textColor: AppColor.title,
-              btncolor: Colors.transparent,
-              fontSize: 16,
-            ),
-            16.height,
-            CustomButton(
-              icon: Padding(
-                padding: EdgeInsets.only(right: ResSize.w * 12),
-                child: Image.asset(AppAssets.google, height: ResSize.h * 24),
-              ),
-              centerContent: 'Continue with Google',
-              onPressed: _loadingProvider == null ? () => _signIn('google') : null,
-              isLoading: _loadingProvider == 'google',
-              loader: _loader(),
-              borderColor: AppColor.border,
-              borderwidth: 0.5,
-              textColor: AppColor.title,
-              btncolor: Colors.transparent,
-              fontSize: 16,
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenHorizPadding,
-            vertical: 8,
+    final idle = _busy == null;
+    return AuthScaffold(
+      step: 1,
+      headline: 'Moving to a\n',
+      headlineAccent: 'new era.',
+      headlineSize: 42,
+      lede: const Text('Fair prices. Trusted drivers.'),
+      card: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Enter your phone number', style: AuthText.cardTitle()),
+          const SizedBox(height: 2),
+          Text("We'll text you a 4-digit code.", style: AuthText.cardSub()),
+          const SizedBox(height: 14),
+          AuthPhoneField(
+            controller: _phone,
+            focusNode: _phoneFocus,
+            hasError: _phoneError != null,
+            onSubmitted: (_) => _continue(),
           ),
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          if (_phoneError != null) AuthErrorText(_phoneError!),
+          const SizedBox(height: 12),
+          AuthPrimaryButton(
+            label: 'Continue',
+            busy: _busy == _Busy.phone,
+            onPressed: idle ? _continue : null,
+          ),
+          const SizedBox(height: 14),
+          const AuthOrDivider(),
+          const SizedBox(height: 10),
+          Row(
             children: [
-              TextWidget(
-                text: 'Already have an account?',
-                color: AppColor.subtitle,
-                fontSize: 16,
-                fontWeight: fwMedium,
+              Expanded(
+                child: AuthProviderButton(
+                  label: 'Apple',
+                  leading: const Icon(Icons.apple, color: AuthColors.ink, size: 20),
+                  busy: _busy == _Busy.apple,
+                  onPressed: idle ? () => _provider('apple') : null,
+                ),
               ),
-              TextButton(
-                onPressed: _loadingProvider == null
-                    ? () {
-                        Navigator.push(
-                          context,
-                          RightToLeftTransition(
-                            SignInPhone(controller: _auth),
-                          ),
-                        );
-                      }
-                    : null,
-                child: TextWidget(
-                  text: 'Sign in',
-                  color: AppColor.primary,
-                  fontSize: 16,
-                  fontWeight: fwMedium,
+              const SizedBox(width: 12),
+              Expanded(
+                child: AuthProviderButton(
+                  label: 'Google',
+                  leading: Image.asset('assets/images/google.png'),
+                  busy: _busy == _Busy.google,
+                  onPressed: idle ? () => _provider('google') : null,
                 ),
               ),
             ],
           ),
-        ),
+          if (_providerError != null) AuthErrorText(_providerError!),
+          const SizedBox(height: 12),
+          Text.rich(
+            TextSpan(
+              text: 'By continuing you agree to our ',
+              children: [
+                TextSpan(
+                  text: 'Terms',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    color: AuthColors.ink,
+                  ),
+                ),
+                const TextSpan(text: ' and '),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    color: AuthColors.ink,
+                  ),
+                ),
+                const TextSpan(text: '.'),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            style: AuthText.small(),
+          ),
+        ],
       ),
     );
   }
