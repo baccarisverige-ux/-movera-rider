@@ -160,9 +160,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('Keep searching'), findsOneWidget);
-      await tester.tap(find.text('Keep searching'));
-      await tester.pump();
+      // The search restarts on its own; there is nothing to tap.
+      expect(find.text('Keep searching'), findsNothing);
 
       // Unmount the entire route tree while the async recovery chain is still
       // unwinding. Any post-await context use must be protected by mounted.

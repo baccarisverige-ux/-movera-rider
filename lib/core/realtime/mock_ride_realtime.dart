@@ -235,7 +235,7 @@ class MockRideRealtime implements RideRealtime {
         lastStatus != RideStatus.findingDriver) {
       _assignmentInFlight = false;
       // A driver drop can invalidate this attempt while its persistence call
-      // is in flight. If the rider already chose Keep searching, guarantee a
+      // is in flight. If the search has already restarted, guarantee a
       // fresh attempt instead of leaving redispatch without a timer.
       if (!cancelled &&
           !disposed &&

@@ -15,7 +15,7 @@ import 'package:movera_rider/features/history/data/on_demand_ride_history_store.
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
-import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/di.dart';
@@ -758,30 +758,20 @@ void main() {
       // bookkeeping is not part of the navigation contract under test.
       realtime.emit(RideStatus.cancelledByDriver);
       await tester.pump();
+
       for (
         var i = 0;
-        i < 20 && find.byType(DriverCancelledSheet).evaluate().isEmpty;
+        i < 20 && find.byType(DriverCancelledNotice).evaluate().isEmpty;
         i++
       ) {
         await tester.pump(const Duration(milliseconds: 100));
       }
 
-      expect(realtime.lastStatus, RideStatus.cancelledByDriver);
-      expect(AppScope.instance.ride.status, RideStatus.cancelledByDriver);
-      expect(find.byType(DriverCancelledSheet), findsOneWidget);
-
-      // The sheet can first become discoverable on the same pump that starts
-      // its 380 ms entrance transition. Let that real transition complete
-      // before hit-testing the CTA; ensureVisible cannot move a route that is
-      // still being translated in from below the viewport.
-      await tester.pump(const Duration(milliseconds: 430));
-      final keepSearching = find.widgetWithText(
-        FilledButton,
-        'Keep searching',
-      );
-      expect(keepSearching, findsOneWidget);
-
-      await tester.tap(keepSearching);
+      // No question for the rider: a notice explains, and the search is
+      // already back without any tap.
+      expect(realtime.lastStatus, RideStatus.findingDriver);
+      expect(find.byType(DriverCancelledNotice), findsWidgets);
+      expect(find.text('Keep searching'), findsNothing);
       for (
         var i = 0;
         i < 30 && find.byType(FindingDrivers).evaluate().isEmpty;
@@ -813,6 +803,7 @@ void main() {
 
       realtime.holdAssignment();
       navigatorKey.currentState!.popUntil((route) => route.isFirst);
+      await tester.pump(driverCancelledNoticeDuration);
       await tester.pumpAndSettle();
     },
   );
