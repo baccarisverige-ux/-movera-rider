@@ -287,9 +287,15 @@ void main() {
 
   /// Moves StockholmSchedule's clock by [skew] (read when the clock is read,
   /// so tests can change it mid-flow) and restores the real clock after.
+  ///
+  /// The base time is frozen when the test starts. With the real clock
+  /// underneath, a 5-minute slot boundary passing mid-test added a second,
+  /// unplanned rollover: the app then (correctly) asked for a new time again
+  /// and the test booked nothing. Only [skew] moves the clock now.
   void Function(Duration skew) controllableScheduleClock() {
     var skew = Duration.zero;
-    StockholmSchedule.clock = () => DateTime.now().add(skew);
+    final base = DateTime.now();
+    StockholmSchedule.clock = () => base.add(skew);
     addTearDown(() => StockholmSchedule.clock = DateTime.now);
     return (next) => skew = next;
   }
