@@ -16,6 +16,15 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
+
+  /// Phones that have verified a code before: their riders are returning.
+  final Set<String> knownPhones = {};
+
+  /// Apple/Google accounts that already have a verified phone.
+  final Set<String> linkedProviders = {};
+
+  /// Link tokens issued for provider sign-ins still waiting for a phone.
+  final Map<String, String> pendingLinks = {};
   final Map<String, Map<String, dynamic>> pushDevices = {};
   final Map<String, Map<String, dynamic>> paymentIntents = {};
   final Map<String, dynamic> accountSecurity = {
@@ -142,9 +151,14 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/otp/request' && method == 'POST') {
       final phone = body['phone'];
+      final linkToken = body['linkToken'];
       if (phone is! String || phone.trim().isEmpty) {
         status = 400;
         payload = {'code': 'INVALID_PHONE', 'requestId': requestId};
+      } else if (linkToken != null &&
+          (linkToken is! String || !pendingLinks.containsKey(linkToken))) {
+        status = 400;
+        payload = {'code': 'INVALID_LINK', 'requestId': requestId};
       } else {
         final sessionId = 'otp_${newRequestId()}';
         final expiresAt = DateTime.now()
@@ -152,8 +166,7 @@ class InProcessMockClient extends http.BaseClient {
             .add(const Duration(minutes: 5));
         otpSessions[sessionId] = {
           'phone': phone.trim(),
-          if (body['fullName'] is String)
-            'fullName': (body['fullName'] as String).trim(),
+          if (linkToken is String) 'linkToken': linkToken,
           'code': '1234',
           'expiresAt': expiresAt.toIso8601String(),
         };
@@ -186,10 +199,20 @@ class InProcessMockClient extends http.BaseClient {
           payload = {'code': 'INVALID_OTP', 'requestId': requestId};
         } else {
           otpSessions.remove(sessionId);
+          final normalizedPhone = phone.trim();
+          final isNewRider = knownPhones.add(normalizedPhone);
+          final linkToken = session['linkToken'];
+          final provider = linkToken is String ? pendingLinks.remove(linkToken) : null;
+          if (provider != null) {
+            // The provider account now has a verified phone.
+            linkedProviders.add(provider);
+          }
+          final kind = provider ?? 'phone';
           payload = {
             'code': 'OK',
-            'accessToken': 'mock-access-phone-$sessionId',
-            'refreshToken': 'mock-refresh-phone-$sessionId',
+            'accessToken': 'mock-access-$kind-$sessionId',
+            'refreshToken': 'mock-refresh-$kind-$sessionId',
+            'isNewRider': isNewRider,
             'requestId': requestId,
           };
         }
@@ -199,6 +222,16 @@ class InProcessMockClient extends http.BaseClient {
       if (provider is! String || provider.trim().isEmpty) {
         status = 400;
         payload = {'code': 'INVALID_PROVIDER', 'requestId': requestId};
+      } else if (!linkedProviders.contains(provider.trim())) {
+        // First sign-in with this account: no session until a phone is
+        // verified, only a short-lived link token.
+        final linkToken = 'link_${provider.trim()}_${newRequestId()}';
+        pendingLinks[linkToken] = provider.trim();
+        payload = {
+          'code': 'PHONE_REQUIRED',
+          'linkToken': linkToken,
+          'requestId': requestId,
+        };
       } else {
         payload = {
           'code': 'OK',

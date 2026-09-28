@@ -135,6 +135,78 @@ void main() {
     expect(await RideSnapshotStore.read(), isNull);
   });
 
+  test('a first verify reports a new rider; the same phone later does not', () async {
+    final client = InProcessMockClient();
+    final tokens = MemoryTokenStore();
+    final auth = AuthRepository(
+      api: ApiClient(env: testEnv, client: client, tokens: tokens),
+      tokens: tokens,
+    );
+
+    final first = await auth.verifyOtp(
+      challenge: await auth.requestOtp(phone: '+46701234567'),
+      code: '1234',
+    );
+    final again = await auth.verifyOtp(
+      challenge: await auth.requestOtp(phone: '+46701234567'),
+      code: '1234',
+    );
+
+    expect(first.isNewRider, isTrue);
+    expect(again.isNewRider, isFalse);
+  });
+
+  test(
+    'first provider sign-in needs a phone and saves no tokens until the '
+    'linked code is verified',
+    () async {
+      final client = InProcessMockClient();
+      final tokens = MemoryTokenStore();
+      final auth = AuthRepository(
+        api: ApiClient(env: testEnv, client: client, tokens: tokens),
+        tokens: tokens,
+      );
+
+      final result = await auth.signIn(provider: 'apple');
+
+      expect(result, isA<ProviderPhoneRequired>());
+      final link = (result as ProviderPhoneRequired).link;
+      expect(link.provider, 'apple');
+      expect(link.linkToken, isNotEmpty);
+      expect(await tokens.readAccess(), isNull);
+      expect(await tokens.readRefresh(), isNull);
+
+      final challenge = await auth.requestOtp(phone: '+46701234567', link: link);
+      expect(challenge.link, same(link));
+      expect(await tokens.readAccess(), isNull);
+
+      final verified = await auth.verifyOtp(challenge: challenge, code: '1234');
+      expect(verified.isNewRider, isTrue);
+      expect(await tokens.readAccess(), startsWith('mock-access-apple-'));
+
+      // With a verified phone on file, Apple now signs straight in.
+      await tokens.clear();
+      expect(await auth.signIn(provider: 'apple'), isA<ProviderSignedIn>());
+      expect(await tokens.readAccess(), 'mock-access-apple');
+    },
+  );
+
+  test('a code request with an unknown link token is refused', () async {
+    final tokens = MemoryTokenStore();
+    final auth = AuthRepository(
+      api: ApiClient(env: testEnv, client: InProcessMockClient(), tokens: tokens),
+      tokens: tokens,
+    );
+
+    await expectLater(
+      auth.requestOtp(
+        phone: '+46701234567',
+        link: const ProviderLink(provider: 'apple', linkToken: 'link_forged'),
+      ),
+      throwsA(isA<ApiError>().having((e) => e.code, 'code', 'INVALID_LINK')),
+    );
+  });
+
   test('expired OTP challenge is rejected before verify transport', () {
     final challenge = OtpChallenge(
       phone: '+46701234567',

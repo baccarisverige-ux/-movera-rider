@@ -12,9 +12,11 @@ class AuthRepository {
   final ApiClient _api;
   final TokenStore _tokens;
 
+  /// Sends a 4-digit code to [phone]. With [link], the code also confirms the
+  /// phone number of that pending Apple or Google sign-in.
   Future<OtpChallenge> requestOtp({
     required String phone,
-    String? fullName,
+    ProviderLink? link,
   }) async {
     final normalized = phone.replaceAll(' ', '').trim();
     if (normalized.isEmpty) {
@@ -24,7 +26,7 @@ class AuthRepository {
       '/api/v1/auth/otp/request',
       body: {
         'phone': normalized,
-        if (fullName?.trim().isNotEmpty == true) 'fullName': fullName!.trim(),
+        if (link != null) 'linkToken': link.linkToken,
       },
     );
     final requestId = response['requestId'];
@@ -46,10 +48,12 @@ class AuthRepository {
       sessionId: sessionId,
       expiresAt: expiresAt.toUtc(),
       retryAfter: Duration(seconds: retryAfterSeconds),
+      link: link,
     );
   }
 
-  Future<void> verifyOtp({
+  /// Verifies [code] and saves the session only after the backend accepts it.
+  Future<OtpVerifyResult> verifyOtp({
     required OtpChallenge challenge,
     required String code,
   }) async {
@@ -66,12 +70,20 @@ class AuthRepository {
         'phone': challenge.phone,
         'sessionId': challenge.sessionId,
         'code': normalizedCode,
+        if (challenge.link != null) 'linkToken': challenge.link!.linkToken,
       },
     );
     await _persistTokens(response);
+    return OtpVerifyResult(isNewRider: response['isNewRider'] == true);
   }
 
-  Future<void> signIn({required String provider}) async {
+  /// Signs in with Apple or Google.
+  ///
+  /// The backend either returns tokens (the account already has a verified
+  /// phone) or `PHONE_REQUIRED` with a short-lived link token. In the second
+  /// case nothing is saved: the session starts only once the phone code is
+  /// verified, so a phone number stays mandatory.
+  Future<ProviderSignInResult> signIn({required String provider}) async {
     final normalized = provider.trim();
     if (normalized.isEmpty) {
       throw ArgumentError.value(provider, 'provider', 'Provider is required.');
@@ -80,7 +92,22 @@ class AuthRepository {
       '/api/v1/auth/provider',
       body: {'provider': normalized},
     );
+    if (response['code'] == 'PHONE_REQUIRED') {
+      final linkToken = response['linkToken'];
+      if (linkToken is! String || linkToken.isEmpty) {
+        throw StateError('Phone-required response had no link token.');
+      }
+      final name = response['name'];
+      return ProviderPhoneRequired(
+        ProviderLink(
+          provider: normalized,
+          linkToken: linkToken,
+          name: name is String && name.trim().isNotEmpty ? name.trim() : null,
+        ),
+      );
+    }
     await _persistTokens(response);
+    return const ProviderSignedIn();
   }
 
   Future<void> _persistTokens(Map<String, dynamic> response) async {

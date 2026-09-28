@@ -14,28 +14,29 @@ class AuthController {
 
   Future<OtpChallenge> requestOtp({
     required String phone,
-    String? fullName,
+    ProviderLink? link,
   }) async {
-    final challenge = await _auth.requestOtp(
-      phone: phone,
-      fullName: fullName,
-    );
+    final challenge = await _auth.requestOtp(phone: phone, link: link);
     lastChallenge = challenge;
     return challenge;
   }
 
-  Future<void> verifyOtp({
+  Future<OtpVerifyResult> verifyOtp({
     required OtpChallenge challenge,
     required String code,
   }) async {
-    await _auth.verifyOtp(challenge: challenge, code: code);
+    final result = await _auth.verifyOtp(challenge: challenge, code: code);
     lastChallenge = null;
     await _registerPushBestEffort();
+    return result;
   }
 
-  Future<void> signIn({required String provider}) async {
-    await _auth.signIn(provider: provider);
-    await _registerPushBestEffort();
+  /// Apple or Google. Push registers only once a session exists, which for
+  /// a first-time provider rider is after the phone code.
+  Future<ProviderSignInResult> signIn({required String provider}) async {
+    final result = await _auth.signIn(provider: provider);
+    if (result is ProviderSignedIn) await _registerPushBestEffort();
+    return result;
   }
 
   Future<bool> hasSession() => _auth.hasSession();
