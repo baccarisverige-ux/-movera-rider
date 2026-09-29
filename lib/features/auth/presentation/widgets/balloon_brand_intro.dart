@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 
-/// The first-screen balloon becomes the multicolor "o" of Movera.
-/// No second wordmark replaces it during the reveal.
+/// The text stays in place. A released balloon rises into the existing "o"
+/// and becomes its multicolor location-pin form.
 class BalloonBrandIntro extends StatelessWidget {
   const BalloonBrandIntro({super.key, required this.progress});
 
@@ -45,32 +45,35 @@ class BalloonBrandIntro extends StatelessWidget {
                     final balloonX = originX + (targetX - originX) * rise;
                     final balloonY = 119 + (47 - 119) * rise;
                     final balloonOpacity = _phase(time, 0.51, 0.56);
-                    final opening = Curves.easeOut.transform(
-                      _phase(time, 0.77, 0.12),
+                    final morph = Curves.easeOut.transform(
+                      _phase(time, 0.72, 0.86),
                     );
-                    final letters = Curves.easeIn.transform(
-                      _phase(time, 0.79, 0.11),
-                    );
-                    final tagline = Curves.easeIn.transform(
-                      _phase(time, 0.88, 0.10),
-                    );
+                    final originalOOpacity = 1 - _phase(time, 0.70, 0.78);
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
                         Positioned(
                           left: center - 80,
                           top: 43,
-                          child: Opacity(
-                            opacity: letters,
-                            child: Text('M', style: brandStyle),
-                          ),
+                          child: Text('M', style: brandStyle),
                         ),
                         Positioned(
                           left: center - 10,
                           top: 43,
+                          child: Text('vera', style: brandStyle),
+                        ),
+                        Positioned(
+                          left: targetX,
+                          top: 47,
                           child: Opacity(
-                            opacity: letters,
-                            child: Text('vera', style: brandStyle),
+                            opacity: originalOOpacity,
+                            child: CustomPaint(
+                              size: const Size(32, 42),
+                              painter: const _PinBalloonPainter(
+                                shape: 1,
+                                placeholder: true,
+                              ),
+                            ),
                           ),
                         ),
                         Positioned(
@@ -80,7 +83,7 @@ class BalloonBrandIntro extends StatelessWidget {
                             opacity: balloonOpacity,
                             child: CustomPaint(
                               size: const Size(32, 42),
-                              painter: _BalloonLetterPainter(opening),
+                              painter: _PinBalloonPainter(shape: morph),
                             ),
                           ),
                         ),
@@ -88,19 +91,16 @@ class BalloonBrandIntro extends StatelessWidget {
                           left: 0,
                           right: 0,
                           top: 98,
-                          child: Opacity(
-                            opacity: tagline,
-                            child: Text(
-                              'Moving to a new era.',
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              style: GoogleFonts.poppins(
-                                fontSize: 24,
-                                height: 1.2,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: -0.5,
-                                color: AuthColors.deepGreen,
-                              ),
+                          child: Text(
+                            'Moving to a new era.',
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            style: GoogleFonts.poppins(
+                              fontSize: 24,
+                              height: 1.2,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.5,
+                              color: AuthColors.deepGreen,
                             ),
                           ),
                         ),
@@ -117,10 +117,11 @@ class BalloonBrandIntro extends StatelessWidget {
   }
 }
 
-class _BalloonLetterPainter extends CustomPainter {
-  const _BalloonLetterPainter(this.opening);
+class _PinBalloonPainter extends CustomPainter {
+  const _PinBalloonPainter({required this.shape, this.placeholder = false});
 
-  final double opening;
+  final double shape;
+  final bool placeholder;
 
   static const _colors = [
     Color(0xFF4285F4),
@@ -132,39 +133,52 @@ class _BalloonLetterPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const center = Offset(16, 16);
-    const radius = 15.0;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    for (var i = 0; i < 4; i++) {
-      canvas.drawArc(
-        rect,
-        -1.57079632679 + i * 1.57079632679,
-        1.57079632679 + 0.015,
-        true,
-        Paint()..color = _colors[i],
+    final tip = 31 + 11 * shape;
+    final outline = Path()
+      ..moveTo(16, tip)
+      ..cubicTo(8, 28, 1, 24, 1, 16)
+      ..arcToPoint(const Offset(31, 16), radius: const Radius.circular(15))
+      ..cubicTo(31, 24, 24, 28, 16, tip)
+      ..close();
+
+    if (placeholder) {
+      canvas.drawPath(
+        outline,
+        Paint()..color = const Color(0xFF72A98A),
       );
+    } else {
+      canvas.save();
+      canvas.clipPath(outline);
+      for (var i = 0; i < 4; i++) {
+        canvas.drawRect(
+          Rect.fromLTWH((i.isOdd ? 16 : 0).toDouble(),
+              (i >= 2 ? 16 : 0).toDouble(), 16, 30),
+          Paint()..color = _colors[i],
+        );
+      }
+      canvas.restore();
     }
-    if (opening > 0) {
+    if (shape > 0) {
       canvas.drawCircle(
         center,
-        7.6 * opening,
+        7.5 * shape,
         Paint()..color = AuthColors.ground,
       );
     }
-    if (opening < 1) {
-      final string = Paint()
-        ..color = AuthColors.muted.withValues(alpha: 1 - opening)
-        ..strokeWidth = 1.2
-        ..style = PaintingStyle.stroke;
+    if (!placeholder && shape < 1) {
       canvas.drawPath(
         Path()
-          ..moveTo(16, 31)
-          ..quadraticBezierTo(19, 36, 16, 42),
-        string,
+          ..moveTo(16, tip)
+          ..quadraticBezierTo(19, 37, 16, 42),
+        Paint()
+          ..color = AuthColors.muted.withValues(alpha: 1 - shape)
+          ..strokeWidth = 1.2
+          ..style = PaintingStyle.stroke,
       );
     }
   }
 
   @override
-  bool shouldRepaint(_BalloonLetterPainter oldDelegate) =>
-      oldDelegate.opening != opening;
+  bool shouldRepaint(_PinBalloonPainter oldDelegate) =>
+      oldDelegate.shape != shape || oldDelegate.placeholder != placeholder;
 }
