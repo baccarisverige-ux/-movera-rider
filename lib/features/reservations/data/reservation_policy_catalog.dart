@@ -6,7 +6,7 @@ class ReservationPolicyCatalog {
     pricingDisclaimer:
         'Reserved prices can differ from on-demand prices for the same route. The amount shown is your current reserved estimate for this category.',
     assignmentDisclaimer:
-        'Driver details will appear here when a driver is assigned.',
+        'Driver details will appear here when a driver is assigned. Assignment timing is not published yet.',
     waitingSummary:
         'No included waiting period is currently published.',
     cancellationSummary:
@@ -22,7 +22,7 @@ class ReservationPolicyCatalog {
       ReservationPolicySection(
         title: 'When a driver may be assigned',
         body:
-            'A driver is assigned closer to pickup. Until then, your reservation stays confirmed without an active search on the map.',
+            'Assignment timing is not published yet. Driver details appear when an assignment is confirmed.',
       ),
       ReservationPolicySection(
         title: 'Included waiting time',
@@ -52,7 +52,7 @@ class ReservationPolicyCatalog {
       ReservationPolicySection(
         title: 'Promotions',
         body:
-            'Eligible promotions, if any, are applied according to Movera rules at the time a driver is assigned.',
+            'No scheduled-ride promotion rule is published here. Only a promotion explicitly shown in confirmed booking details should be treated as applied.',
       ),
       ReservationPolicySection(
         title: 'Rider responsibilities',

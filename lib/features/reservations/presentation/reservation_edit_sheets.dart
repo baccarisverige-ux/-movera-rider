@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
-import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 Future<DateTime?> showReservationTimeSheet(
@@ -175,7 +175,7 @@ Future<String?> showReservationPaymentSheet(
   BuildContext context, {
   required String current,
 }) {
-  final methods = RideSelectionController().payments();
+  final methods = AppScope.instance.rideCatalog.payments();
   return MoveraSheet.show<String>(
     context: context,
     builder: (sheetContext) {

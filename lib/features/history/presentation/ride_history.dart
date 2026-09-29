@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
@@ -15,6 +16,10 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
 class RideHistory extends StatefulWidget {
   const RideHistory({super.key, this.reservations, this.onDemandReader});
+
+  /// Pop result asking the opener to start a booking (D-026). The side menu
+  /// answers it by opening Home's destination sheet.
+  static const startBookingResult = 'movera.rideHistory.startBooking';
 
   final ReservationController? reservations;
   final Future<List<Reservation>> Function()? onDemandReader;
@@ -129,7 +134,7 @@ class _RideHistoryState extends State<RideHistory> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Pick a time in advance, lock in your fare, and a driver will meet you when you need to leave.',
+                'Pick a time in advance. Your reservation, current reserved estimate, and driver-assignment status stay together under Upcoming.',
                 style: _text(14, color: _muted, height: 1.45),
               ),
               const SizedBox(height: 22),
@@ -422,7 +427,8 @@ class _RideHistoryState extends State<RideHistory> {
               ? 'Completed trips and their real ride details will appear here.'
               : 'Trips you cancel will appear here with their recorded reason.',
           actionLabel: 'Book a ride',
-          onAction: () => Navigator.maybePop(context),
+          onAction: () =>
+              Navigator.maybePop(context, RideHistory.startBookingResult),
         ),
       );
     }
@@ -447,6 +453,7 @@ class _RideHistoryState extends State<RideHistory> {
             reservationId: ride.reservationId,
             controller: _reservations,
           ),
+          settings: const RouteSettings(name: AppRoutes.reservationUpcoming),
         ),
       );
       return;
@@ -482,7 +489,7 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${ride.categoryName} · ${ReservationFormat.price(ride)}',
+              '${ride.categoryName} · Booked price ${ReservationFormat.price(ride)}',
               style: _text(15, weight: FontWeight.w700),
             ),
             const SizedBox(height: 5),
@@ -492,7 +499,7 @@ class _RideHistoryState extends State<RideHistory> {
             ),
             const SizedBox(height: 5),
             Text(
-              'Paid with ${ride.paymentMethod}',
+              'Payment method: ${ride.paymentMethod}',
               style: _text(13.5, color: _muted),
             ),
             if (ride.cancellationReason?.trim().isNotEmpty == true) ...[

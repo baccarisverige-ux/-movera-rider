@@ -1,5 +1,7 @@
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
@@ -23,8 +25,9 @@ class SafetyStore {
   SafetyStore({
     SafetyLocalDataSource? local,
     SafetyRemoteDataSource? remote,
+    ApiClient? api,
   })  : _local = local ?? PreferencesSafetyLocalDataSource(),
-        _remote = remote ?? ApiSafetyRemoteDataSource(ApiClient());
+        _remote = remote ?? ApiSafetyRemoteDataSource(api ?? AppScope.instance.api);
 
   static SafetyStore? _shared;
   static SafetyStore get shared => _shared ??= SafetyStore();
@@ -44,6 +47,9 @@ class SafetyStore {
 
   Future<void> load() async {
     _cache = await _local.load();
+    // A cached per-user PIN cannot prove that the current ride still uses it.
+    // Never display cached digits after a network failure or while refreshing.
+    _cache.pin = RidePin.unavailable;
     try {
       final prefs = await _remote.getPreferences();
       final pin = await _remote.getPin();
@@ -54,13 +60,14 @@ class SafetyStore {
       _cache.contacts = contacts;
       _cache.rideCheck = policy;
       await _local.save(_cache);
-    } catch (_) {
+    } catch (error, stackTrace) {
       // Offline: cached display data only. PIN/events remain server-authoritative
-      // when the real backend is connected.
-    }
-    if (_cache.pin.pin.isEmpty || !RegExp(r'^\d{4}$').hasMatch(_cache.pin.pin)) {
-      _cache.pin = RidePin.generate();
-      await _local.save(_cache);
+      // when the real backend is connected. Keep the degraded mode observable.
+      AppLog.error(
+        'safety.remote_load_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     _loaded = true;
   }
@@ -102,15 +109,14 @@ class SafetyStore {
 
   Future<RidePin> rotatePin({String? idempotencyKey}) async {
     await _ensure();
-    final previous = _cache.pin;
-    final optimistic = RidePin.generate(requiredForStart: previous.requiredForStart);
-    return _write(
-      () => _remote.rotatePin(idempotencyKey: idempotencyKey),
-      optimistic,
-      (value) {
-        _cache.pin = value.copyWith(requiredForStart: _cache.preferences.pinRequired);
-      },
-    );
+    if (failNextWrite) {
+      failNextWrite = false;
+      throw const SafetyException('SERVER_ERROR', 'Simulated write failure');
+    }
+    final confirmed = await _remote.rotatePin(idempotencyKey: idempotencyKey);
+    _cache.pin = confirmed.copyWith(requiredForStart: _cache.preferences.pinRequired);
+    await _local.save(_cache);
+    return _cache.pin;
   }
 
   Future<PinVerifyResult> verifyPin({required String rideId, required String pin}) async {
@@ -275,7 +281,13 @@ class SafetyStore {
         await _local.save(_cache);
       }
       return live ?? _cache.shares[rideId];
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'safety.share_refresh_failed',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'rideId': rideId},
+      );
       return _cache.shares[rideId];
     }
   }
@@ -328,6 +340,19 @@ class SafetyStore {
         _cache.events = [..._cache.events.where((e) => e.eventId != value.eventId), value];
       },
     );
+  }
+
+  Future<List<RideCheckEvent>> refreshEvents(String rideId) async {
+    if (rideId.trim().isEmpty) return const [];
+    await _ensure();
+    final events = await _remote.listSafetyEvents(rideId);
+    _cache.events = [
+      for (final event in _cache.events)
+        if (event.rideId != rideId) event,
+      ...events,
+    ];
+    await _local.save(_cache);
+    return events;
   }
 
   Future<RideCheckEvent> respondEvent({
@@ -388,12 +413,22 @@ class SafetyStore {
       ),
       next,
       (value) {
+        // Completion confirms metadata, not the private file on this device.
+        final local = value.copyWith(
+          localPath: recording.localPath,
+          durationMs: recording.durationMs,
+          endedAt: recording.endedAt,
+        );
         _cache.recordings = [
           for (final item in _cache.recordings)
-            if (item.id == value.id) value else item,
+            if (item.id == value.id) local else item,
         ];
       },
-    );
+    ).then((value) => value.copyWith(
+          localPath: recording.localPath,
+          durationMs: recording.durationMs,
+          endedAt: recording.endedAt,
+        ));
   }
 
   Future<void> deleteAudio(AudioRecording recording) async {

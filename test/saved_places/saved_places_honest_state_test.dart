@@ -3,24 +3,28 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
-import 'package:movera_rider/features/saved_places/data/saved_places_repository.dart';
-import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/confirm_location.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   test('saved places keep add actions without seeded location shortcuts', () {
-    final repository = SavedPlacesRepository();
+    final controller = SavedPlacesController();
 
     expect(
-      repository.options().map((option) => option.title),
+      controller.options().map((option) => option.title),
       orderedEquals(['Add Home', 'Add Work', 'Add School', 'Add Gym']),
     );
-    expect(repository.shortcuts(), isEmpty);
+    expect(controller.shortcuts(), isEmpty);
   });
 
   Future<void> pumpPickup(
@@ -63,7 +67,9 @@ void main() {
     expect(find.text('Search results'), findsOneWidget);
     expect(find.text('No search results'), findsOneWidget);
     expect(
-      find.text('Place search isn’t connected in this build yet.'),
+      find.text(
+        'Suggestions aren’t available yet. Type a full address and press Search.',
+      ),
       findsOneWidget,
     );
 
@@ -82,8 +88,70 @@ void main() {
     expect(find.text('Add location'), findsOneWidget);
   });
 
+  testWidgets(
+    'Add Place location picker reverses back to Add Place and keeps the selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => const MaterialApp(home: AddPlace()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add location'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pickup location'), findsOneWidget);
+
+      await tester.tap(find.text('CURRENT'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add new address'), findsOneWidget);
+      expect(find.text('Current location'), findsOneWidget);
+      expect(find.text('Pickup location'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'location picker opened by Add Place cannot recurse into another Add Place',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) => const MaterialApp(home: AddPlace()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add location'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Pickup location'), findsOneWidget);
+      expect(find.text('Add new address'), findsNothing);
+    },
+  );
+
   testWidgets('saved Home shortcut keeps selection instead of opening save flow',
       (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'movera_home_address': 'Klockarvägen 37',
+    });
     String? selected;
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -104,19 +172,7 @@ void main() {
                     selected = await Navigator.push<String>(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => RiderSearchPickupLocation(
-                          places: SavedPlacesController(
-                            store: SavedPlacesRepository(
-                              shortcuts: const [
-                                PlaceShortcut(
-                                  title: 'Home',
-                                  subtitle: 'Klockarvägen 37',
-                                  kind: 'home',
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        builder: (_) => const RiderSearchPickupLocation(),
                       ),
                     );
                   },

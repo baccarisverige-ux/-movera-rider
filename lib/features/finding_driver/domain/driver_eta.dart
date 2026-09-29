@@ -21,6 +21,14 @@ class DriverEta {
 
   static const staleAfter = Duration(seconds: 25);
 
+  /// Every stage the driver marker/ETA must treat as "en route to drop-off"
+  /// rather than "en route to pickup". `approachingDropoff` was previously
+  /// missed by callers that only checked tripStarted/tripInProgress.
+  static bool isInTrip(RideStatus status) =>
+      status == RideStatus.tripStarted ||
+      status == RideStatus.tripInProgress ||
+      status == RideStatus.approachingDropoff;
+
   static double metersBetween(
     double lat1,
     double lng1,
@@ -49,12 +57,25 @@ class DriverEta {
     required double pickupLat,
     required double pickupLng,
     required DateTime locationAt,
+    double? destinationLat,
+    double? destinationLng,
     int? etaSeconds,
     DateTime? now,
     RideStatus? status,
   }) {
     final clock = now ?? DateTime.now();
-    final distance = metersBetween(latitude, longitude, pickupLat, pickupLng);
+    // Once the trip is under way, "how far / how long" means distance to
+    // drop-off, not the pickup point the driver already reached.
+    final useDestination = status != null &&
+        isInTrip(status) &&
+        destinationLat != null &&
+        destinationLng != null;
+    final distance = metersBetween(
+      latitude,
+      longitude,
+      useDestination ? destinationLat : pickupLat,
+      useDestination ? destinationLng : pickupLng,
+    );
     final stale = clock.difference(locationAt) > staleAfter;
     final seconds = etaSeconds ?? secondsForDistance(distance);
     return DriverEta(
@@ -67,7 +88,28 @@ class DriverEta {
     );
   }
 
+  /// Recomputes staleness only, keeping every other field. Used by a
+  /// standing timer so a marker whose updates stopped arriving is caught
+  /// even though no new fix ever triggers [fromFix] again.
+  DriverEta withStalenessCheckedAt(DateTime now) {
+    final at = locationAt;
+    if (at == null) return this;
+    final isStale = now.difference(at) > staleAfter;
+    if (isStale == stale) return this;
+    return DriverEta(
+      seconds: seconds,
+      distanceMeters: distanceMeters,
+      locationAt: locationAt,
+      latitude: latitude,
+      longitude: longitude,
+      stale: isStale,
+    );
+  }
+
   String headline({RideStatus status = RideStatus.driverAssigned}) {
+    if (isInTrip(status)) {
+      return 'Ride in progress';
+    }
     if (status == RideStatus.driverWaiting) return 'Driver has arrived';
     if (stale) return 'Updating driver location…';
     final distance = distanceMeters;
@@ -83,6 +125,11 @@ class DriverEta {
     String? firstName,
     RideStatus status = RideStatus.driverAssigned,
   }) {
+    if (isInTrip(status)) {
+      return firstName == null
+          ? 'On the way to your drop-off.'
+          : '$firstName is taking you to drop-off.';
+    }
     if (stale) return 'Waiting for a fresh location update.';
     if (headline(status: status).contains('arrived')) {
       return firstName == null

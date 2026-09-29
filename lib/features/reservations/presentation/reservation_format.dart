@@ -1,5 +1,7 @@
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/shared/formatters/place_format.dart';
 
 abstract final class ReservationFormat {
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -18,9 +20,7 @@ abstract final class ReservationFormat {
     'Dec',
   ];
 
-  static String price(Reservation ride) {
-    return 'kr ${ride.price.toStringAsFixed(0)}';
-  }
+  static String price(Reservation ride) => formatKr(ride.price);
 
   static String _weekday(DateTime when) => _weekdays[when.weekday - 1];
 
@@ -51,7 +51,7 @@ abstract final class ReservationFormat {
   static const String notifyWhenAssigned =
       "We'll notify you as soon as a driver is assigned.";
 
-  static String kr(double amount) => 'kr ${amount.toStringAsFixed(0)}';
+  static String kr(double amount) => formatKr(amount);
 
   static String remainingCompact(DateTime when, {DateTime? now}) {
     final left = when.difference(now ?? DateTime.now());
@@ -91,17 +91,7 @@ abstract final class ReservationFormat {
     return (primary: '${minutes}m', secondary: null);
   }
 
-  static String shortPlace(String raw) {
-    final clean = raw.trim();
-    if (clean.isEmpty) return clean;
-    final parts = clean
-        .split(',')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .toList();
-    if (parts.length <= 2) return clean;
-    return '${parts[0]}, ${parts[1]}';
-  }
+  static String shortPlace(String raw) => shortenPlace(raw);
 
   static String cardDate(DateTime when) {
     final now = DateTime.now();

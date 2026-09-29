@@ -34,11 +34,12 @@ void main() {
     expect(selection.quoteExpiresAt.containsKey('movera'), isFalse);
   });
 
-  test('catalog selection without a server quote is not treated as expired', () {
+  test('catalog selection without a server quote is not authoritative', () {
     final selection = controller();
     selection.selectRide('xl', 399);
 
     expect(selection.priceFor('xl', 399), 399);
-    expect(selection.quoteIsFresh('xl'), isTrue);
+    expect(selection.quoteIsFresh('xl'), isFalse);
+    expect(selection.quoteIsAvailable('xl'), isFalse);
   });
 }

@@ -1,12 +1,14 @@
+import 'dart:ui' show SemanticsAction;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
-import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
+import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
@@ -20,6 +22,7 @@ import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
+import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 SafetyController buildController({SafetyStore? store}) {
@@ -34,6 +37,31 @@ SafetyController buildController({SafetyStore? store}) {
         remote: ApiSafetyRemoteDataSource(ApiClient(client: client)),
       );
   return SafetyController(session: session);
+}
+
+class TestSafetyRecorder implements SafetyRecorder {
+  bool permissionGranted = false;
+  String? capturedPath = '/device/safety/recording.m4a';
+  int permissionRequests = 0;
+  int starts = 0;
+  int stops = 0;
+  final deletedPaths = <String>[];
+
+  @override
+  bool get supported => true;
+  @override
+  Future<bool> requestPermission() async {
+    permissionRequests++;
+    return permissionGranted;
+  }
+  @override
+  Future<void> start(String recordingId) async { starts++; }
+  @override
+  Future<String?> stop() async { stops++; return capturedPath; }
+  @override
+  Future<void> cancel() async {}
+  @override
+  Future<void> delete(String path) async { deletedPaths.add(path); }
 }
 
 void main() {
@@ -60,11 +88,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Safety preferences'), findsOneWidget);
     expect(find.text('PIN verification'), findsOneWidget);
+    for (final label in const [
+      'PIN verification',
+      'Emergency contacts',
+      'Share trip status',
+      'RideCheck',
+    ]) {
+      final data =
+          tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
+      expect(data.label, label, reason: label);
+      expect(
+        data.flagsCollection.isButton,
+        isTrue,
+        reason: '$label should be a button',
+      );
+      expect(
+        data.hasAction(SemanticsAction.tap),
+        isTrue,
+        reason: '$label should be actionable',
+      );
+    }
     expect(find.text('Call 112'), findsNothing);
     expect(find.text('Record audio'), findsNothing);
     await tester.pumpWidget(MaterialApp(home: SafetyHub(controller: ctl)));
     await tester.pumpAndSettle();
     expect(find.text('Safety preferences'), findsOneWidget);
+  });
+
+  testWidgets('every Safety Hub row opens its real destination page', (
+    tester,
+  ) async {
+    for (final route in const <(String, String)>[
+      ('PIN verification', 'Verify rides with a PIN'),
+      ('Emergency contacts', 'No emergency contacts yet'),
+      ('Share trip status', 'Trip sharing'),
+      ('RideCheck', 'RideCheck alerts'),
+    ]) {
+      final ctl = buildController();
+      await ctl.load();
+      await tester.pumpWidget(
+        MaterialApp(
+          key: UniqueKey(),
+          home: SafetyHub(controller: ctl),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final row = find.bySemanticsLabel(route.$1);
+      expect(row, findsOneWidget, reason: route.$1);
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+
+      expect(find.text(route.$2), findsOneWidget, reason: route.$1);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('PIN page shows a framed 4-digit cadre', (tester) async {
@@ -108,7 +188,8 @@ void main() {
     });
     expect(parsed.pin, '4242');
     expect(parsed.requiredForStart, isTrue);
-    expect(RidePin.fromJson({'pin': 'nope'}).pin.length, 4);
+    expect(RidePin.fromJson({'pin': 'nope'}).pin, isEmpty);
+    expect(RidePin.fromJson(null).isAvailable, isFalse);
     expect(SafetyPreferences.fromJson(null).pinRequired, isFalse);
   });
 
@@ -208,6 +289,74 @@ void main() {
     expect(live.status, RideCheckStatus.pending);
   });
 
+  testWidgets('Safety Kit shows a server RideCheck alert and sends resolution', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final ctl = SafetyController(session: store);
+    await ctl.load();
+    final alert = await ctl.rideCheck.unexpectedStop(rideId: 'ride_alert');
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_alert', controller: ctl,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('RideCheck alert'), findsOneWidget);
+    await tester.tap(find.text("I'm okay"));
+    await tester.pumpAndSettle();
+    expect(find.text('RideCheck alert'), findsNothing);
+
+    final confirmed = await ctl.rideCheck.refresh('ride_alert');
+    expect(confirmed.single.eventId, alert.eventId);
+    expect(confirmed.single.status, RideCheckStatus.resolved);
+  });
+
+  test('failed SOS is not recorded as registered', () async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final ctl = SafetyController(session: store);
+    await ctl.load();
+    expect(await ctl.sos(), isFalse);
+    store.failNextWrite = true;
+    await expectLater(ctl.sos(rideId: 'ride_sos_failure'), throwsA(isA<SafetyException>()));
+    expect(ctl.events.where((event) => event.kind == SafetyKind.sos), isEmpty);
+    expect(await ctl.rideCheck.refresh('ride_sos_failure'), isEmpty);
+  });
+
+  testWidgets('Safety Kit distinguishes opened dialer from failed SOS registration', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final dialer = RecordingEmergencyDialer();
+    final ctl = SafetyController(
+      session: store,
+      emergency: EmergencyCallService(dialer: dialer),
+    );
+    await ctl.load();
+    store.failNextWrite = true;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_failed_sos', controller: ctl,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Contact 112'));
+    await tester.pumpAndSettle();
+    expect(dialer.calls, ['112']);
+    expect(find.text('Phone dialer opened, but Movera could not register your SOS.'),
+        findsOneWidget);
+  });
+
   test('emergency call is never automatic', () async {
     final dialer = RecordingEmergencyDialer();
     final service = EmergencyCallService(dialer: dialer);
@@ -225,24 +374,67 @@ void main() {
       remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
     );
     await store.load();
-    final perms = PermissionService();
-    final audio = SafetyAudioService(permissions: perms, store: store);
-    expect(() => audio.start(), throwsA(isA<SafetyAudioException>()));
-    audio.grantMicrophone();
+    final recorder = TestSafetyRecorder();
+    final audio = SafetyAudioService(recorder: recorder, store: store);
+    await expectLater(
+      audio.start(),
+      throwsA(isA<SafetyAudioException>().having((e) => e.code, 'code', 'MIC_DENIED')),
+    );
+    expect(recorder.permissionRequests, 1);
+    expect(recorder.starts, 0);
+    recorder.permissionGranted = true;
     final rec = await audio.start(rideId: 'ride_a');
     expect(audio.isRecording, isTrue);
-    expect(rec.localPath, isNotNull);
+    expect(rec.localPath, isNull);
+    expect(recorder.starts, 1);
     final stopped = await audio.stop();
     expect(stopped.endedAt, isNotNull);
+    expect(stopped.localPath, '/device/safety/recording.m4a');
+    expect(recorder.stops, 1);
     await audio.delete(stopped);
+    expect(recorder.deletedPaths, ['/device/safety/recording.m4a']);
+
+    recorder.capturedPath = null;
+    await audio.start(rideId: 'ride_b');
+    await expectLater(
+      audio.stop(),
+      throwsA(isA<SafetyAudioException>().having((e) => e.code, 'code', 'NO_AUDIO')),
+    );
+    expect(audio.isRecording, isFalse);
 
     final unsupported = SafetyAudioService(
-      permissions: PermissionService()
-        ..set(AppPermission.microphone, PermissionPhase.granted),
+      recorder: recorder,
       store: store,
       supported: false,
     );
-    expect(() => unsupported.start(), throwsA(isA<SafetyAudioException>()));
+    await expectLater(unsupported.start(), throwsA(isA<SafetyAudioException>()));
+  });
+
+  testWidgets('Safety Kit reports denied microphone access honestly', (
+    tester,
+  ) async {
+    final store = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(ApiClient(client: InProcessMockClient())),
+    );
+    final recorder = TestSafetyRecorder();
+    final controller = SafetyController(
+      session: store,
+      audio: SafetyAudioService(recorder: recorder, store: store),
+    );
+    await controller.load();
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideSafetyKitSheet(
+        rideId: 'ride_denied',
+        controller: controller,
+      )),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Record audio'));
+    await tester.pumpAndSettle();
+    expect(find.text('Microphone permission is required to record.'), findsOneWidget);
+    expect(recorder.permissionRequests, 1);
+    expect(recorder.starts, 0);
   });
 
   test('optimistic write rolls back on simulated server failure', () async {
@@ -275,4 +467,104 @@ void main() {
     expect(RideCheckEvent.fromJson({}).type, RideCheckEventType.manualSafetyCheck);
     expect(EmergencyContact.fromJson({}).name, '');
   });
+
+  testWidgets('Safety Kit finishes closing before Trip Share page opens', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  showRideSafetyKit(context, rideId: 'ride_handoff_share'),
+              child: const Text('Open Safety Kit'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Safety Kit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Safety tools'), findsOneWidget);
+
+    await tester.tap(find.text('Share trip'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Share trip status'), findsOneWidget);
+    expect(find.text('Trip sharing'), findsOneWidget);
+    expect(find.text('Safety tools'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Safety Kit share action creates an active share for the ride', (
+    tester,
+  ) async {
+    final session = SafetyStore(
+      local: PreferencesSafetyLocalDataSource(memoryOnly: true),
+      remote: ApiSafetyRemoteDataSource(
+        ApiClient(client: InProcessMockClient()),
+      ),
+    );
+    final ctl = SafetyController(session: session);
+    await ctl.load();
+    await ctl.addContact(
+      name: 'Trusted contact',
+      phone: '0701234567',
+      shareTrips: true,
+    );
+    await ctl.setTripShare(enabled: true);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RideSafetyKitSheet(
+            rideId: 'ride_share_action',
+            controller: ctl,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Share trip'));
+    await tester.pumpAndSettle();
+
+    final share = await session.getShare('ride_share_action');
+    expect(share, isNotNull);
+    expect(share!.isActive, isTrue);
+    expect(share.contactIds, contains(ctl.contacts.single.id));
+    expect(find.text('Trip sharing started for 1 trusted contact.'), findsOneWidget);
+  });
+
+  testWidgets('Safety Kit finishes closing before Safety Hub opens', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  showRideSafetyKit(context, rideId: 'ride_handoff_hub'),
+              child: const Text('Open Safety Kit'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open Safety Kit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Safety tools'), findsOneWidget);
+
+    await tester.tap(find.text('Safety preferences'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PIN verification'), findsOneWidget);
+    expect(find.text('Emergency contacts'), findsOneWidget);
+    expect(find.text('Safety tools'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }

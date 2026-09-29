@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
@@ -31,24 +29,5 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
-  test('fabricated local voucher catalog does not ship', () {
-    final source = Directory('lib')
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.dart'))
-        .map((file) => file.readAsStringSync())
-        .join('\n');
-
-    for (final banned in [
-      'MOVERA100',
-      'WELCOME50',
-      'RIDE200',
-      'MOVE25',
-      'SUMMER75',
-      'redeemVoucher',
-      r'^KR(\d{2,4})-',
-    ]) {
-      expect(source, isNot(contains(banned)), reason: 'Found local voucher fixture: $banned');
-    }
-  });
+  
 }

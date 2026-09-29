@@ -1,15 +1,51 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_dispatch.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 
 class ReservationController extends ChangeNotifier {
-  ReservationController({ReservationRepository? store})
-    : _store = store ?? LocalReservationRepository();
+  ReservationController({
+    ReservationRepository? store,
+    DateTime Function()? clock,
+    AppEnv environment = AppEnv.current,
+    ReservationDispatch? mockDispatch,
+  }) : _store = store ?? LocalReservationRepository(),
+       _clock = clock ?? DateTime.now,
+       _environment = environment,
+       _mockDispatch = mockDispatch;
 
   final ReservationRepository _store;
+  final DateTime Function() _clock;
+  final AppEnv _environment;
+
+  /// Simulated dispatch (Batch 10 Phase 109). Composed in `di.dart` only for
+  /// mock-transport builds, and additionally ignored here unless the
+  /// environment allows mock transport, so a backend build can never
+  /// self-assign a driver even if one were passed by mistake. When null the
+  /// lifecycle is exactly the pre-Phase-109 one.
+  final ReservationDispatch? _mockDispatch;
+
+  ReservationDispatch? get _dispatch =>
+      _environment.allowsMockTransport ? _mockDispatch : null;
+
+  // Phase 134: create/update/cancel had no in-flight tracking, so a rapid
+  // double-tap (or two independent callers) could race two store mutations
+  // against the same reservation. Concurrent calls are coalesced onto the
+  // same in-flight Future instead of issuing a second mutation - callers
+  // still get a real Reservation back, just the already-in-flight one's
+  // result, rather than being silently dropped.
+  Future<Reservation>? _pendingCreate;
+  final Map<String, Future<Reservation>> _pendingUpdateByReservationId = {};
+  final Map<String, Future<Reservation>> _pendingCancelByReservationId = {};
+  // Note: update and cancel are tracked separately, since a concurrent
+  // update-then-cancel (or vice versa) on the same reservation are distinct
+  // operations, not a double-tap of the same one.
+
+  bool get usesMockDriverAssignment => _environment.allowsMockTransport;
 
   List<Reservation> get all => _store.cached;
 
@@ -36,13 +72,35 @@ class ReservationController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Reservation> create(ReservationDraft draft) async {
+  Future<Reservation> create(ReservationDraft draft) {
+    final pending = _pendingCreate;
+    if (pending != null) return pending;
+    final future = _createNow(draft);
+    _pendingCreate = future;
+    // The caller gets the error from [future]; the cleanup's own copy of it
+    // must not surface again as an uncaught error.
+    future.whenComplete(() => _pendingCreate = null).ignore();
+    return future;
+  }
+
+  Future<Reservation> _createNow(ReservationDraft draft) async {
     final created = await _store.createReservation(draft);
     notifyListeners();
     return created;
   }
 
-  Future<Reservation> update(
+  Future<Reservation> update(String reservationId, ReservationPatch patch) {
+    final pending = _pendingUpdateByReservationId[reservationId];
+    if (pending != null) return pending;
+    final future = _updateNow(reservationId, patch);
+    _pendingUpdateByReservationId[reservationId] = future;
+    future
+        .whenComplete(() => _pendingUpdateByReservationId.remove(reservationId))
+        .ignore();
+    return future;
+  }
+
+  Future<Reservation> _updateNow(
     String reservationId,
     ReservationPatch patch,
   ) async {
@@ -51,7 +109,18 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
-  Future<Reservation> cancel(String reservationId, {String? reason}) async {
+  Future<Reservation> cancel(String reservationId, {String? reason}) {
+    final pending = _pendingCancelByReservationId[reservationId];
+    if (pending != null) return pending;
+    final future = _cancelNow(reservationId, reason: reason);
+    _pendingCancelByReservationId[reservationId] = future;
+    future
+        .whenComplete(() => _pendingCancelByReservationId.remove(reservationId))
+        .ignore();
+    return future;
+  }
+
+  Future<Reservation> _cancelNow(String reservationId, {String? reason}) async {
     final updated = await _store.cancelReservation(
       reservationId,
       reason: reason,
@@ -79,35 +148,152 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
-  Future<Reservation> assignMockDriver(
+  /// Applies an authoritative driver assignment from backend/realtime.
+  ///
+  /// This is intentionally separate from [assignMockDriver]: production
+  /// transports may call this method, while local/demo code remains gated by
+  /// the app environment.
+  Future<Reservation> applyDriverAssignment(
     String reservationId, {
-    ReservationDriver? driver,
+    required ReservationDriver driver,
   }) async {
     final updated = await _store.assignDriver(reservationId, driver: driver);
     notifyListeners();
     return updated;
   }
 
+  /// Applies an authoritative driver cancellation from backend/realtime.
+  Future<Reservation> applyDriverCancellation(String reservationId) {
+    return driverCancelled(reservationId);
+  }
+
+  Future<Reservation> assignMockDriver(
+    String reservationId, {
+    ReservationDriver? driver,
+  }) async {
+    if (!_environment.allowsMockTransport) {
+      throw StateError(
+        'Mock driver assignment is forbidden for ${_environment.flavor.name}.',
+      );
+    }
+    final updated = await _store.assignDriver(reservationId, driver: driver);
+    notifyListeners();
+    return updated;
+  }
+
+  /// How long after the scheduled pickup time a reservation may sit without
+  /// a driver before the client stops showing "searching" and tells the rider
+  /// honestly that no driver was found.
+  ///
+  /// Client-side mitigation only (Batch 9 Phase 106 / U4): reservations are
+  /// local-only today and nothing assigns a driver, so without this a due
+  /// ride stays in [ReservationStatus.driverAssignmentPending] forever. The
+  /// real fix is server-driven dispatch with explicit no_driver_found /
+  /// expired states.
+  static const noDriverFoundAfter = Duration(minutes: 5);
+
+  /// Reason recorded when the rider resolves a reservation that timed out
+  /// without a driver.
+  static const noDriverFoundReason = 'no_driver_found';
+
+  /// Whether [ride] has passed its pickup time by [noDriverFoundAfter] and
+  /// still has no driver assigned.
+  bool isNoDriverFound(Reservation ride, {DateTime? now}) {
+    final status = ride.status;
+    if (status != ReservationStatus.scheduled &&
+        status != ReservationStatus.driverAssignmentPending) {
+      return false;
+    }
+    if (ride.driver != null) return false;
+    final currentTime = now ?? _clock();
+    return !currentTime.isBefore(
+      ride.scheduledPickupAt.add(noDriverFoundAfter),
+    );
+  }
+
+  /// Upcoming reservations currently in the "No driver found" state.
+  List<Reservation> noDriverFound({DateTime? now}) =>
+      upcoming().where((ride) => isNoDriverFound(ride, now: now)).toList();
+
+  /// Cancels a reservation that timed out without a driver, recording why.
+  Future<Reservation> resolveNoDriverFound(String reservationId) {
+    return cancel(reservationId, reason: noDriverFoundReason);
+  }
+
   Future<void> startLiveIfDue({DateTime? now}) async {
-    final clock = now ?? DateTime.now();
+    final currentTime = now ?? _clock();
+    final dispatch = _dispatch;
     var changed = false;
-    for (final ride in upcoming()) {
-      if (ride.revealsDriver) continue;
-      if (ride.scheduledPickupAt.difference(clock).inMinutes > 2) continue;
-      if (ride.driver == null) {
-        if (ride.status != ReservationStatus.driverAssignmentPending) {
-          await _store.assignDriver(ride.reservationId);
-          changed = true;
+    for (final listed in upcoming()) {
+      var ride = listed;
+      final untilPickup = ride.scheduledPickupAt.difference(currentTime);
+
+      if (dispatch != null) {
+        if (ride.revealsDriver) {
+          // Already on the road (possibly restored after a restart): make
+          // sure the simulated trip is running. Idempotent.
+          _driveMockTrip(dispatch, ride);
+          continue;
         }
+        if (untilPickup <= dispatch.assignmentLead &&
+            ride.driver == null &&
+            (ride.status == ReservationStatus.scheduled ||
+                ride.status == ReservationStatus.driverAssignmentPending) &&
+            // Never resurrect a ride the rider has already been told has
+            // no driver.
+            !isNoDriverFound(ride, now: currentTime)) {
+          final driver = dispatch.driverFor(ride);
+          if (driver != null) {
+            ride = await assignMockDriver(ride.reservationId, driver: driver);
+            changed = true;
+          }
+        }
+      }
+
+      if (untilPickup > const Duration(minutes: 2)) continue;
+
+      if (ride.status == ReservationStatus.scheduled) {
+        // Starting assignment is a lifecycle transition; a missing payload
+        // stays pending and never invents driver identity.
+        await _store.assignDriver(ride.reservationId);
+        changed = true;
         continue;
       }
-      await _store.updateReservation(
-        ride.reservationId,
-        const ReservationPatch(status: ReservationStatus.driverEnRoute),
-      );
-      changed = true;
+
+      if (ride.status == ReservationStatus.driverAssigned &&
+          ride.driver != null) {
+        // Preserve the established contract: a real assigned driver becomes
+        // en-route when the pickup window opens. The clock changes status
+        // only; it never creates identity, movement or cancellation.
+        final enRoute = await _store.updateReservation(
+          ride.reservationId,
+          const ReservationPatch(status: ReservationStatus.driverEnRoute),
+        );
+        changed = true;
+        if (dispatch != null) _driveMockTrip(dispatch, enRoute);
+      }
     }
     if (changed) notifyListeners();
+  }
+
+  void _driveMockTrip(ReservationDispatch dispatch, Reservation ride) {
+    final id = ride.reservationId;
+    dispatch.driveTrip(id, ride.status, (from, to) async {
+      final current = byId(id);
+      // The rider cancelled, the driver dropped, or anything else moved the
+      // ride on: the simulation stops rather than overwrite it.
+      if (current == null || current.status != from || current.driver == null) {
+        return false;
+      }
+      await update(id, ReservationPatch(status: to));
+      return true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _mockDispatch?.dispose();
+    super.dispose();
   }
 
   Future<Reservation> planReturn(

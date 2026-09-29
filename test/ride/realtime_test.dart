@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
@@ -55,6 +56,29 @@ void main() {
     rt.emit(RideStatus.findingDriver, sequence: 1);
     await Future<void>.delayed(const Duration(milliseconds: 10));
     expect(statuses, contains(RideStatus.driverAssigned));
+    rt.dispose();
+  });
+
+  test('pickup communication signals use the rider realtime seam', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final events = <RideRealtimeEvent>[];
+    final sub = rt.subscribe('r1').listen(events.add);
+    await Future<void>.delayed(Duration.zero);
+
+    await rt.sendSignal(
+      rideId: 'r1',
+      signal: RideRealtimeSignal.riderOnTheWay,
+      message: "I'm on the way",
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      events.any((event) =>
+          event.signal == RideRealtimeSignal.riderOnTheWay &&
+          event.message == "I'm on the way"),
+      isTrue,
+    );
+    await sub.cancel();
     rt.dispose();
   });
 

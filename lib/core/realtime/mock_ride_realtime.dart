@@ -13,11 +13,17 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 /// Mock matching transport. Assignment is an event, not a widget timer.
 class MockRideRealtime implements RideRealtime {
+  @override
+  bool get supportsRiderSignals => true;
+
   MockRideRealtime({
     this.assignAfter = const Duration(seconds: 25),
     this.boardAfter = const Duration(seconds: 8),
     this.tripTick = const Duration(seconds: 3),
     this.tripTicks = 6,
+    this.paymentProcessingAfter = const Duration(milliseconds: 500),
+    this.paymentFinalizedAfter = const Duration(milliseconds: 500),
+    this.ratingPendingAfter = const Duration(milliseconds: 300),
     RealtimeConnection? connection,
     this.api,
   }) : connection = connection ?? RealtimeConnection();
@@ -30,6 +36,13 @@ class MockRideRealtime implements RideRealtime {
   /// Cadence and length of the trip itself, so a ride can actually finish.
   final Duration tripTick;
   final int tripTicks;
+
+  /// Demo-only post-trip cadence. Production replaces MockRideRealtime with
+  /// the real transport, where these statuses are backend-authored.
+  final Duration paymentProcessingAfter;
+  final Duration paymentFinalizedAfter;
+  final Duration ratingPendingAfter;
+
   final RealtimeConnection connection;
   final ApiClient? api;
   final _controller = StreamController<RideRealtimeEvent>.broadcast();
@@ -37,6 +50,9 @@ class MockRideRealtime implements RideRealtime {
   Timer? _gps;
   Timer? _board;
   Timer? _trip;
+  Timer? _paymentProcessing;
+  Timer? _paymentFinalized;
+  Timer? _ratingPending;
   int _tripTicksDone = 0;
   int _assignmentAttempt = 0;
   String? _rideId;
@@ -54,8 +70,52 @@ class MockRideRealtime implements RideRealtime {
   double? _pickupLng;
   double _progress = 0;
 
+  /// Set by the caller once the destination is known (Waiting doesn't exist
+  /// until after booking, so this can't be a constructor parameter). Left
+  /// null, trip ticks emit no movement at all — the same as before this was
+  /// added, so nothing regresses for a caller that never sets it.
+  double? destinationLat;
+  double? destinationLng;
+  double? _tripStartLat;
+  double? _tripStartLng;
+  RideStatus? _resumeStatus;
+  MatchedDriver? _resumeDriver;
+  int? _resumeVersion;
+
+  /// Primes the next [subscribe] call to resume from a previously known
+  /// status/driver/version instead of unconditionally resetting to
+  /// findingDriver (Phase 135).
+  ///
+  /// A fresh MockRideRealtime construction - always true after a page
+  /// reload - otherwise always resets to findingDriver and restarts the
+  /// 25-second assignment timer, even when the restored ride already had a
+  /// driver or was mid-trip. That reset event was then wrongly accepted as
+  /// authoritative because nothing had ever seeded RideSession's ordering
+  /// metadata, regressing a restored "driver found"/in-trip ride back to
+  /// "finding driver". [version] should be the same ordering number the
+  /// restore seeded RideSession.authoritativeVersion with, so this resumed
+  /// emission is recognized as continuing that ordering, not restarting it.
+  void primeResume({
+    required RideStatus status,
+    MatchedDriver? driver,
+    int? version,
+  }) {
+    _resumeStatus = status;
+    _resumeDriver = driver;
+    _resumeVersion = version;
+  }
+
   @override
   Stream<RideRealtimeEvent> subscribe(String rideId) {
+    // Consumed exactly once per call, on every path, so a primed value can
+    // never leak into a later, unrelated subscribe().
+    final resumeStatus = _resumeStatus;
+    final resumeDriver = _resumeDriver;
+    final resumeVersion = _resumeVersion;
+    _resumeStatus = null;
+    _resumeDriver = null;
+    _resumeVersion = null;
+
     if (_rideId == rideId && !disposed && !cancelled) {
       return _controller.stream;
     }
@@ -63,6 +123,9 @@ class MockRideRealtime implements RideRealtime {
     _gps?.cancel();
     _board?.cancel();
     _trip?.cancel();
+    _paymentProcessing?.cancel();
+    _paymentFinalized?.cancel();
+    _ratingPending?.cancel();
     _tripTicksDone = 0;
     _assignmentAttempt = 0;
     cancelled = false;
@@ -70,14 +133,54 @@ class MockRideRealtime implements RideRealtime {
     held = false;
     _assignmentInFlight = false;
     _rideId = rideId;
-    _sequence = 0;
-    lastStatus = RideStatus.findingDriver;
-    lastDriver = null;
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
+    _tripStartLat = null;
+    _tripStartLng = null;
     connection.markConnected();
+
+    if (resumeStatus != null && resumeStatus.isMatched) {
+      _sequence = resumeVersion ?? 0;
+      lastStatus = resumeStatus;
+      lastDriver = resumeDriver;
+      _pickupLat ??= 59.3293;
+      _pickupLng ??= 18.0686;
+      // A broadcast StreamController cannot deliver an event added before a
+      // listener exists - and the caller's own `.subscribe(id).listen(...)`
+      // chain only attaches its listener immediately *after* this method
+      // returns. Emitting synchronously here would silently vanish before
+      // DriverTrackingController ever sees it, leaving it stuck on its own
+      // constructor default (driverAssigned) until whatever timer/tick
+      // happens to fire next. Defer by one microtask so the just-attached
+      // listener actually receives the resumed status.
+      scheduleMicrotask(() {
+        if (cancelled || disposed || _rideId != rideId) return;
+        _emit(resumeStatus);
+      });
+      const tripStatuses = {
+        RideStatus.tripStarted,
+        RideStatus.tripInProgress,
+        RideStatus.approachingDropoff,
+      };
+      if (tripStatuses.contains(resumeStatus)) {
+        _tripStartLat ??= _pickupLat;
+        _tripStartLng ??= _pickupLng;
+        _runTripTicks();
+      } else {
+        // The remaining isMatched statuses are the pre-trip approach:
+        // driverAssigned, driverArriving, driverWaiting.
+        lastLat ??= _pickupLat! + 0.0072;
+        lastLng ??= _pickupLng! - 0.0048;
+        _startGps();
+      }
+      return _controller.stream;
+    }
+
+    _sequence = 0;
+    lastStatus = RideStatus.findingDriver;
+    lastDriver = null;
     _emit(RideStatus.findingDriver);
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
@@ -108,6 +211,7 @@ class MockRideRealtime implements RideRealtime {
     if (lastStatus.isMatched) return;
 
     _assignmentInFlight = true;
+    final assignmentAttempt = _assignmentAttempt;
     _assign?.cancel();
     _assign = null;
     _pickupLat ??= 59.3293;
@@ -124,8 +228,27 @@ class MockRideRealtime implements RideRealtime {
 
     await _persistAssignment(rideId);
 
-    if (cancelled || disposed || _rideId != rideId) {
+    if (cancelled ||
+        disposed ||
+        _rideId != rideId ||
+        assignmentAttempt != _assignmentAttempt ||
+        lastStatus != RideStatus.findingDriver) {
       _assignmentInFlight = false;
+      // A driver drop can invalidate this attempt while its persistence call
+      // is in flight. If the search has already restarted, guarantee a
+      // fresh attempt instead of leaving redispatch without a timer.
+      if (!cancelled &&
+          !disposed &&
+          !held &&
+          _rideId == rideId &&
+          lastStatus == RideStatus.findingDriver &&
+          assignmentAttempt != _assignmentAttempt) {
+        _assign?.cancel();
+        _assign = Timer(assignAfter, () {
+          if (cancelled || disposed || held || _rideId != rideId) return;
+          assignNow();
+        });
+      }
       return;
     }
 
@@ -143,6 +266,8 @@ class MockRideRealtime implements RideRealtime {
     double? latitude,
     double? longitude,
     int? etaSeconds,
+    RideRealtimeSignal? signal,
+    String? message,
   }) {
     if (_rideId == null || disposed || cancelled || lastStatus.isTerminal) {
       return;
@@ -153,17 +278,23 @@ class MockRideRealtime implements RideRealtime {
     if (latitude != null) lastLat = latitude;
     if (longitude != null) lastLng = longitude;
     if (latitude != null || longitude != null) lastLocationAt = DateTime.now();
+    final occurredAt = DateTime.now().toUtc();
     _controller.add(
       RideRealtimeEvent(
-        rideId: _rideId!,
+        tripId: _rideId!,
+        eventId: '${_rideId!}:$_sequence:${status.name}',
         status: status,
         sequence: _sequence,
-        at: DateTime.now(),
+        version: _sequence,
+        occurredAt: occurredAt,
+        serverTime: occurredAt,
         driver: lastDriver,
         latitude: lastLat,
         longitude: lastLng,
         etaSeconds: etaSeconds,
         locationAt: lastLocationAt,
+        signal: signal,
+        message: message,
       ),
     );
     if (status.isTerminal) {
@@ -215,6 +346,11 @@ class MockRideRealtime implements RideRealtime {
       if (status == RideStatus.driverWaiting) {
         _gps?.cancel();
         _gps = null;
+        emit(
+          RideStatus.driverWaiting,
+          signal: RideRealtimeSignal.driverArrived,
+          message: 'Your driver has arrived at the pickup point.',
+        );
         _startTrip();
       }
     });
@@ -231,25 +367,32 @@ class MockRideRealtime implements RideRealtime {
     if (lastStatus.isCompletedSurface || lastStatus.isTerminal) return;
 
     _stopMotion();
+    _assign?.cancel();
+    _assign = null;
     _assignmentAttempt += 1;
     lastDriver = null;
     lastLat = null;
     lastLng = null;
     lastLocationAt = null;
     _progress = 0;
+    _tripStartLat = null;
+    _tripStartLng = null;
+
+    // Publish the driver-drop outcome exactly once so Waiting can explain it.
+    // Do not tear the transport down: this terminal-looking dispatch event is
+    // reversible for the same ride and researchAfterDriverCancel owns restart.
     lastStatus = RideStatus.cancelledByDriver;
     _sequence += 1;
-
-    // Published straight to the stream rather than through emit(): emit treats
-    // any terminal status as the end of the ride and tears the subscription
-    // down, which is right for a rider's own cancellation and wrong here —
-    // this ride carries on with someone else driving it.
+    final now = DateTime.now().toUtc();
     _controller.add(
       RideRealtimeEvent(
-        rideId: rideId,
+        tripId: rideId,
+        eventId: '$rideId:$_sequence:${RideStatus.cancelledByDriver.name}',
         status: RideStatus.cancelledByDriver,
         sequence: _sequence,
-        at: DateTime.now(),
+        version: _sequence,
+        occurredAt: now,
+        serverTime: now,
       ),
     );
   }
@@ -258,15 +401,37 @@ class MockRideRealtime implements RideRealtime {
   @override
   void researchAfterDriverCancel() {
     final rideId = _rideId;
-    if (rideId == null || disposed) return;
-    if (lastStatus != RideStatus.cancelledByDriver) return;
+    if (rideId == null) return;
 
+    // Waiting disposes its tracking subscription before the driver-cancel
+    // sheet, but that must not dispose this shared transport: redispatch is
+    // the same live ride. emit() also latches `cancelled` for every terminal
+    // status, including this reversible driver drop. Clear that latch here
+    // whether or not the transport itself was disposed.
+    if (lastStatus != RideStatus.cancelledByDriver) return;
+    disposed = false;
     cancelled = false;
+    connection.markConnected();
+
+    // The previous assignment may still be unwinding an async persistence
+    // request. Its generation was invalidated by cancelByDriver(), so it must
+    // not block the rider-visible redispatch state. Reopen searching now; the
+    // stale assignment's post-await guard cannot publish because its captured
+    // attempt no longer matches.
     lastStatus = RideStatus.findingDriver;
     _emit(RideStatus.findingDriver);
     _assign?.cancel();
     _assign = Timer(assignAfter, () {
       if (cancelled || disposed || held || _rideId != rideId) return;
+      if (_assignmentInFlight) {
+        // Let the invalidated persistence unwind, then retry through the same
+        // guarded scheduling path instead of dropping redispatch completely.
+        _assign = Timer(const Duration(milliseconds: 1), () {
+          if (cancelled || disposed || held || _rideId != rideId) return;
+          assignNow();
+        });
+        return;
+      }
       assignNow();
     });
   }
@@ -279,34 +444,105 @@ class MockRideRealtime implements RideRealtime {
       return;
     }
     lastStatus = RideStatus.driverWaiting;
-    _emit(RideStatus.driverWaiting);
+    emit(
+      RideStatus.driverWaiting,
+      signal: RideRealtimeSignal.driverArrived,
+      message: 'Your driver has arrived at the pickup point.',
+    );
     _startTrip();
+  }
+
+  /// Moves the driver from pickup toward the destination as the trip ticks
+  /// pass, so the in-trip marker/route path is actually exercised by every
+  /// journey through this mock, not left sitting at pickup for the whole ride.
+  void _advanceTripPosition() {
+    final destLat = destinationLat;
+    final destLng = destinationLng;
+    final startLat = _tripStartLat;
+    final startLng = _tripStartLng;
+    if (destLat == null ||
+        destLng == null ||
+        startLat == null ||
+        startLng == null) {
+      return;
+    }
+    final t = (_tripTicksDone / tripTicks).clamp(0.0, 1.0);
+    lastLat = startLat + (destLat - startLat) * t;
+    lastLng = startLng + (destLng - startLng) * t;
+    lastLocationAt = DateTime.now();
   }
 
   /// The driver is at pickup; carry the ride through to completion so the
   /// rider reaches the finished-ride screen instead of waiting forever.
   void _startTrip() {
+    // The pickup-approach GPS loop belongs only to the pre-trip stage.
+    // Test-driven arrival can bypass the normal GPS distance threshold, so
+    // stop it here as well to avoid an orphan periodic timer after boarding.
+    _gps?.cancel();
+    _gps = null;
     _board?.cancel();
     _board = Timer(boardAfter, () {
       if (cancelled || disposed || _rideId == null) return;
       lastStatus = RideStatus.tripStarted;
+      _tripStartLat = lastLat;
+      _tripStartLng = lastLng;
       _emit(RideStatus.tripStarted);
-      _trip?.cancel();
-      _tripTicksDone = 0;
-      _trip = Timer.periodic(tripTick, (timer) {
-        if (cancelled || disposed || _rideId == null) {
-          timer.cancel();
-          return;
-        }
-        _tripTicksDone += 1;
-        if (_tripTicksDone >= tripTicks) {
-          timer.cancel();
-          lastStatus = RideStatus.tripCompleted;
-          _emit(RideStatus.tripCompleted);
-          return;
-        }
-        lastStatus = RideStatus.tripInProgress;
-        _emit(RideStatus.tripInProgress);
+      _runTripTicks();
+    });
+  }
+
+  /// The recurring tick loop shared by a normal boarding-triggered trip start
+  /// and a Phase 135 resume that primes straight into a trip-stage status.
+  void _runTripTicks() {
+    _trip?.cancel();
+    _tripTicksDone = 0;
+    _trip = Timer.periodic(tripTick, (timer) {
+      if (cancelled || disposed || _rideId == null) {
+        timer.cancel();
+        return;
+      }
+      _tripTicksDone += 1;
+      _advanceTripPosition();
+      if (_tripTicksDone >= tripTicks) {
+        timer.cancel();
+        lastStatus = RideStatus.tripCompleted;
+        _emit(RideStatus.tripCompleted);
+        // A real backend updates its own ride record before it ever pushes
+        // the "trip completed" realtime event, so post-trip feedback always
+        // lands against a ride the backend already agrees is finished.
+        // Mirror that here the same way _persistAssignment mirrors the
+        // driver-assigned handshake: without it, this mock's REST responder
+        // never learns the trip ended and rejects feedback submitted against
+        // an authoritative-looking rideId with 409 RIDE_NOT_COMPLETE.
+        if (_rideId != null) unawaited(_persistCompletion(_rideId!));
+        _startPostTripFlow();
+        return;
+      }
+      lastStatus = RideStatus.tripInProgress;
+      _emit(RideStatus.tripInProgress);
+    });
+  }
+
+  void _startPostTripFlow() {
+    _paymentProcessing?.cancel();
+    _paymentFinalized?.cancel();
+    _ratingPending?.cancel();
+
+    _paymentProcessing = Timer(paymentProcessingAfter, () {
+      if (cancelled || disposed || _rideId == null) return;
+      lastStatus = RideStatus.paymentProcessing;
+      _emit(RideStatus.paymentProcessing);
+
+      _paymentFinalized = Timer(paymentFinalizedAfter, () {
+        if (cancelled || disposed || _rideId == null) return;
+        lastStatus = RideStatus.paymentFinalized;
+        _emit(RideStatus.paymentFinalized);
+
+        _ratingPending = Timer(ratingPendingAfter, () {
+          if (cancelled || disposed || _rideId == null) return;
+          lastStatus = RideStatus.ratingPending;
+          _emit(RideStatus.ratingPending);
+        });
       });
     });
   }
@@ -357,6 +593,31 @@ class MockRideRealtime implements RideRealtime {
     } catch (_) {}
   }
 
+  Future<void> _persistCompletion(String rideId) async {
+    final client = api;
+    if (client == null) return;
+    try {
+      await client.post(
+        '/api/v1/rides/$rideId/status',
+        body: {'status': RideStatus.tripCompleted.name},
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> sendSignal({
+    required String rideId,
+    required RideRealtimeSignal signal,
+    String? message,
+  }) async {
+    if (_rideId != rideId || disposed || cancelled) return;
+    emit(
+      lastStatus,
+      signal: signal,
+      message: message,
+    );
+  }
+
   @override
   Future<void> reconnectAndResync(String rideId) async {
     connection.state = RealtimeState.reconnecting;
@@ -368,7 +629,9 @@ class MockRideRealtime implements RideRealtime {
       try {
         final json = await client.get('/api/v1/rides/$rideId');
         final raw = json['ride'];
-        if (raw is Map && raw['status'] is String) {
+        if (raw is Map &&
+            raw['id']?.toString() == rideId &&
+            raw['status'] is String) {
           status = RideStatus.values.firstWhere(
             (value) => value.name == raw['status'],
             orElse: () => status,
@@ -383,8 +646,13 @@ class MockRideRealtime implements RideRealtime {
         }
       } catch (_) {}
     }
-    lastStatus = status;
-    if (!cancelled && !disposed) _emit(status);
+    // Deliver the authoritative resync status before committing it to
+    // lastStatus. emit() guards against events after a terminal status; writing
+    // the incoming terminal status first would therefore make the event block
+    // itself and disappear from the Rider stream.
+    if (!cancelled && !disposed && _rideId == rideId) {
+      _emit(status);
+    }
   }
 
   @override
@@ -410,6 +678,12 @@ class MockRideRealtime implements RideRealtime {
     _board = null;
     _trip?.cancel();
     _trip = null;
+    _paymentProcessing?.cancel();
+    _paymentProcessing = null;
+    _paymentFinalized?.cancel();
+    _paymentFinalized = null;
+    _ratingPending?.cancel();
+    _ratingPending = null;
   }
 
   @override

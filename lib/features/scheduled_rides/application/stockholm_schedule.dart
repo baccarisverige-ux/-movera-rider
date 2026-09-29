@@ -1,13 +1,20 @@
+import 'package:flutter/foundation.dart';
+
 /// Europe/Stockholm wall-clock pickup rules (CET/CEST, no extra deps).
 class StockholmSchedule {
   static const int leadMinutes = 30;
   static const int slotMinutes = 5;
 
+  /// Source of "now" when no explicit time is passed. Tests move it to make
+  /// the earliest legal slot roll over at a chosen step of a booking flow.
+  @visibleForTesting
+  static DateTime Function() clock = DateTime.now;
+
   /// Current wall-clock time in Europe/Stockholm.
   ///
   /// [now] is converted to UTC first so tests can pass `DateTime.utc(...)`.
   static DateTime stockholmNow([DateTime? now]) {
-    final utc = (now ?? DateTime.now()).toUtc();
+    final utc = (now ?? clock()).toUtc();
     final local = utc.add(Duration(hours: _cetCestOffsetHours(utc)));
     return DateTime(
       local.year,
@@ -45,17 +52,27 @@ class StockholmSchedule {
     );
   }
 
-  /// Raise [dt] to [minimumPickup] when it is in the past (or too soon).
+  /// Raise [dt] to [minimumPickup] when it is in the past (or too soon), and
+  /// otherwise still grid-align it to the 5-minute slot. A time can be legal
+  /// (past the 30-minute lead) while off-grid — e.g. a return-ride prefill
+  /// inherited from an outbound time that was never itself grid-aligned —
+  /// and every caller of this method expects a slotted result back.
   static DateTime clampPickup(DateTime dt, [DateTime? now]) {
     final min = minimumPickup(now);
     if (dt.isBefore(min)) return min;
-    return DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
+    return roundToFive(DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute));
   }
 
   /// Continue-button predicate: pickup must be at/after Stockholm now+30.
   static bool isLegalPickup(DateTime dt, [DateTime? now]) {
     return !dt.isBefore(minimumPickup(now));
   }
+
+  /// Whether [dt] already sits on the 5-minute slot grid. A time can be a
+  /// legal pickup ([isLegalPickup]) while still being off-grid — e.g. a
+  /// return-ride prefill inherited from an outbound time that was never
+  /// itself grid-aligned.
+  static bool isOnGrid(DateTime dt) => dt.minute % slotMinutes == 0;
 
   /// Earliest time the time picker may land on for [date].
   static DateTime timePickerMinFor(DateTime date, [DateTime? now]) {

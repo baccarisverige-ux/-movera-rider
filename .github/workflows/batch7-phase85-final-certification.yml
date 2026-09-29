@@ -1,0 +1,376 @@
+name: Batch 7 Phase 85 Final Release Certification
+
+on:
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'integration_test/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyzer-and-unit:
+    name: Analyzer + full unit/widget matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+
+      - name: Strict analyzer
+        run: flutter analyze
+
+      - name: Phase 85 action/effect classification
+        run: flutter test test/release/phase85_action_effect_matrix_test.dart
+
+      - name: Phase 85 adversarial lifecycle matrix
+        run: flutter test test/release/phase85_adversarial_matrix_test.dart
+
+      - name: One continuous Home-to-Home journey
+        run: flutter test test/journeys/book_to_home_test.dart
+
+      - name: Full unit + widget suite
+        run: flutter test
+
+  integration-uat:
+    name: Integration UAT
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Linux desktop + display dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libgtk-3-dev libsecret-1-dev libjsoncpp-dev xvfb
+      - run: flutter pub get
+      - run: flutter config --enable-linux-desktop
+
+      - name: Ride booking integration
+        run: xvfb-run -a flutter test -d linux integration_test/ride_flow_test.dart
+      - name: Full Rider lifecycle UAT
+        run: xvfb-run -a flutter test -d linux integration_test/rider_full_uat_test.dart
+      - name: All Rider lifecycle paths
+        run: xvfb-run -a flutter test -d linux integration_test/pre15_all_lifecycle_paths_test.dart
+      - name: Booking wallet reservations profile UAT
+        run: xvfb-run -a flutter test -d linux integration_test/global_uat_flow_test.dart
+
+  release-builds:
+    name: Staging + production web builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+
+      - name: Exact release composition smoke
+        run: |
+          flutter test test/architecture/phase72_actual_release_composition_test.dart
+          flutter test test/architecture/transport_composition_test.dart
+          flutter test test/architecture/release_observability_test.dart
+
+      - name: Build staging
+        run: |
+          flutter build web --release             -t lib/main_staging.dart             --dart-define=MOVERA_FLAVOR=staging             --dart-define=MOVERA_API_BASE_URL=https://api.staging.movera.example
+          test -f build/web/main.dart.js
+          mkdir -p /tmp/movera-staging
+          cp -R build/web/. /tmp/movera-staging/
+
+      - name: Build production
+        run: |
+          rm -rf build/web
+          flutter build web --release             -t lib/main_production.dart             --dart-define=MOVERA_FLAVOR=production             --dart-define=MOVERA_API_BASE_URL=https://api.movera.example
+          test -f build/web/main.dart.js
+
+      - name: Record candidate SHA
+        run: |
+          test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+          printf '%s\n' "$GITHUB_SHA" > phase85-candidate-sha.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase85-release-build-evidence
+          path: phase85-candidate-sha.txt
+
+  responsive-browser:
+    name: Local Chromium + WebKit responsive matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+
+      - name: Build exact candidate demo web
+        run: |
+          flutter build web --release \
+            -t lib/main_demo.dart \
+            --dart-define=MOVERA_FLAVOR=demo
+          test -f build/web/main.dart.js
+
+      - name: Configure Google Maps exactly like the live deploy
+        env:
+          MAPS_WEB_API_KEY: ${{ secrets.MAPS1 || secrets.MAPS || secrets.GOOGLE_MAPS_WEB_API_KEY || secrets.GOOGLE_MAPS_API_KEY || secrets.MAPS_API_KEY }}
+        run: |
+          if [ -z "$MAPS_WEB_API_KEY" ]; then
+            echo "::error::Missing Google Maps API key for Phase 85 browser certification."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          p = Path('build/web/index.html')
+          s = p.read_text()
+          bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
+          maps = (
+              '  <script src="https://maps.googleapis.com/maps/api/js?key='
+              + os.environ['MAPS_WEB_API_KEY']
+              + '" async defer></script>'
+          )
+          if bootstrap not in s:
+              raise SystemExit('Flutter bootstrap tag not found')
+          if 'maps.googleapis.com/maps/api/js' not in s:
+              s = s.replace(bootstrap, maps + '\n' + bootstrap)
+          p.write_text(s)
+          PY
+          grep -q "maps.googleapis.com/maps/api/js" build/web/index.html
+
+      - name: Install Playwright browsers
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --save-dev playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps chromium webkit >/dev/null
+
+      - name: Serve exact candidate
+        run: |
+          python3 -m http.server 4173 --directory build/web >/tmp/phase85-http.log 2>&1 &
+          echo $! > /tmp/phase85-http.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/phase85-http.log
+          exit 1
+
+      - name: Browser + responsive effect matrix
+        run: |
+          cat > phase85-browser.mjs <<'JS'
+          import { chromium, webkit } from 'playwright';
+          import fs from 'fs';
+
+          const base = 'http://127.0.0.1:4173/';
+          const viewports = [
+            [320, 568],
+            [375, 667],
+            [390, 844],
+            [430, 932],
+            [768, 1024],
+            [1024, 768],
+          ];
+          const fatalPattern =
+            /RenderFlex overflowed|A RenderFlex|Null check operator|RangeError|Another exception|Uncaught TypeError|Assertion failed/i;
+          const evidence = { sha: process.env.GITHUB_SHA, chromium: [], webkit: [] };
+
+          async function inspect(browser, family, width, height) {
+            const context = await browser.newContext({
+              viewport: { width, height },
+              deviceScaleFactor: 1,
+              isMobile: width < 768,
+              hasTouch: true,
+              locale: 'en-US',
+              geolocation: { latitude: 59.33258, longitude: 18.0649 },
+              permissions: ['geolocation'],
+            });
+            const page = await context.newPage();
+            const errors = [];
+            page.on('pageerror', error => errors.push({
+              source: 'pageerror',
+              message: String(error),
+              stack: error?.stack || '',
+            }));
+            page.on('console', message => {
+              if (message.type() === 'error' && fatalPattern.test(message.text())) {
+                errors.push({
+                  source: 'console',
+                  message: message.text(),
+                  stack: '',
+                });
+              }
+            });
+            await page.goto(base + '?phase85=' + family + '-' + width + 'x' + height, {
+              waitUntil: 'networkidle',
+              timeout: 120000,
+            });
+            await page.waitForTimeout(3500);
+
+            try {
+              await page.getByLabel('Enable accessibility').click({ timeout: 1500 });
+              await page.waitForTimeout(250);
+            } catch (_) {}
+
+            const metrics = await page.evaluate(() => ({
+              width: window.innerWidth,
+              height: window.innerHeight,
+              docWidth: document.documentElement.scrollWidth,
+              hasFlutter:
+                !!document.querySelector('flutter-view') ||
+                !!document.querySelector('flt-glass-pane'),
+              hasGoogleMaps:
+                typeof window.google !== 'undefined' &&
+                !!window.google.maps,
+            }));
+            if (!metrics.hasFlutter) {
+              throw new Error(family + ' ' + width + 'x' + height + ': Flutter surface missing');
+            }
+            if (!metrics.hasGoogleMaps) {
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': Google Maps runtime missing from exact candidate',
+              );
+            }
+            if (metrics.docWidth > metrics.width + 2) {
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': horizontal overflow ' + metrics.docWidth + ' > ' + metrics.width,
+              );
+            }
+            await page.screenshot({
+              path: 'phase85-' + family + '-' + width + 'x' + height + '.png',
+              fullPage: true,
+            });
+            const record = { width, height, metrics, errors };
+            evidence[family].push(record);
+            fs.writeFileSync(
+              'phase85-browser-evidence.json',
+              JSON.stringify(evidence, null, 2),
+            );
+            if (errors.length) {
+              const scripts = await page.evaluate(() =>
+                Array.from(document.scripts).map(script => script.src).filter(Boolean),
+              );
+              const mainScript =
+                scripts.find(url => /main\.[a-f0-9]+\.dart\.js/.test(url)) ||
+                scripts.find(url => /main.*dart\.js/.test(url)) ||
+                null;
+              const stackText = errors
+                .map(error => error.message + '\n' + error.stack)
+                .join('\n');
+              const snippets = [];
+              if (mainScript) {
+                const source = await (await fetch(mainScript)).text();
+                const sourceLines = source.split('\n');
+                const wanted = new Set();
+                for (const match of stackText.matchAll(/\.dart\.js:(\d+):(\d+)/g)) {
+                  wanted.add(Number(match[1]));
+                }
+                for (const line of [...wanted].sort((a, b) => a - b)) {
+                  const from = Math.max(1, line - 8);
+                  const to = Math.min(sourceLines.length, line + 8);
+                  snippets.push({
+                    line,
+                    from,
+                    to,
+                    text: sourceLines
+                      .slice(from - 1, to)
+                      .map((text, index) => (from + index) + ': ' + text)
+                      .join('\n'),
+                  });
+                }
+              }
+              record.mainScript = mainScript;
+              record.bundleSnippets = snippets;
+              fs.writeFileSync(
+                'phase85-browser-evidence.json',
+                JSON.stringify(evidence, null, 2),
+              );
+              console.error(
+                'PHASE85_BROWSER_ERRORS ' +
+                family + ' ' + width + 'x' + height + ' ' +
+                JSON.stringify({ errors, mainScript, snippets }),
+              );
+              await context.close();
+              throw new Error(
+                family + ' ' + width + 'x' + height +
+                ': fatal runtime error(s): ' +
+                errors.map(error => error.message).join(' | '),
+              );
+            }
+
+            await context.close();
+            return record;
+          }
+
+          const chrome = await chromium.launch({ headless: true });
+          for (const [width, height] of viewports) {
+            await inspect(chrome, 'chromium', width, height);
+          }
+          await chrome.close();
+
+          const safari = await webkit.launch({ headless: true });
+          for (const [width, height] of [[390, 844], [430, 932], [844, 390]]) {
+            await inspect(safari, 'webkit', width, height);
+          }
+          await safari.close();
+
+          fs.writeFileSync('phase85-browser-evidence.json', JSON.stringify(evidence, null, 2));
+          console.log('PASS: Phase 85 local browser/responsive matrix on ' + process.env.GITHUB_SHA);
+          JS
+          node phase85-browser.mjs
+
+      - name: Same candidate SHA guard
+        run: test "$GITHUB_SHA" = "$(git rev-parse HEAD)"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase85-browser-evidence
+          path: |
+            phase85-browser-evidence.json
+            phase85-*.png
+          if-no-files-found: warn
+
+  final-candidate:
+    name: Exact candidate release gate
+    if: always()
+    needs:
+      - analyzer-and-unit
+      - integration-uat
+      - release-builds
+      - responsive-browser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every Phase 85 gate on this SHA
+        env:
+          UNIT: ${{ needs.analyzer-and-unit.result }}
+          UAT: ${{ needs.integration-uat.result }}
+          BUILDS: ${{ needs.release-builds.result }}
+          BROWSER: ${{ needs.responsive-browser.result }}
+        run: |
+          echo "candidate=$GITHUB_SHA"
+          echo "unit=$UNIT uat=$UAT builds=$BUILDS browser=$BROWSER"
+          test "$UNIT" = success
+          test "$UAT" = success
+          test "$BUILDS" = success
+          test "$BROWSER" = success

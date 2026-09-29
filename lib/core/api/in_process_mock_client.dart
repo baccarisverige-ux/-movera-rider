@@ -14,6 +14,52 @@ class InProcessMockClient extends http.BaseClient {
   final Duration latency;
   final Map<String, Map<String, dynamic>> idempotency = {};
   final Map<String, Map<String, dynamic>> rides = {};
+  final Map<String, Map<String, dynamic>> quotes = {};
+  final Map<String, Map<String, dynamic>> otpSessions = {};
+
+  /// Phones that have verified a code before: their riders are returning.
+  final Set<String> knownPhones = {};
+
+  /// Apple/Google accounts that already have a verified phone.
+  final Set<String> linkedProviders = {};
+
+  /// Link tokens issued for provider sign-ins still waiting for a phone.
+  final Map<String, String> pendingLinks = {};
+  final Map<String, Map<String, dynamic>> pushDevices = {};
+  final Map<String, Map<String, dynamic>> paymentIntents = {};
+  final Map<String, dynamic> accountSecurity = {
+    'phone': '',
+    'email': '',
+    'phoneVerifiedAt': null,
+    'emailVerifiedAt': null,
+    'passkeyEnabled': false,
+    'twoStepEnabled': false,
+    'authenticatorEnabled': false,
+    'passwordUpdatedAt': null,
+    'recoveryPhone': null,
+    'googleConnected': false,
+    'appleConnected': false,
+    'reauthenticatedAt': null,
+    'capabilities': {
+      'passkeys': false,
+      'password': false,
+      'authenticator': false,
+      'twoStep': false,
+      'recoveryPhone': false,
+      'connectedAccounts': false,
+      'reauthentication': false,
+      'signOutOtherDevices': false,
+    },
+    'sessions': [
+      {
+        'id': 'session_current',
+        'device': 'This device',
+        'place': '',
+        'source': 'Movera',
+        'current': true,
+      },
+    ],
+  };
   final SafetyMockApi safety = safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
@@ -58,12 +104,317 @@ class InProcessMockClient extends http.BaseClient {
     var status = 200;
     final parts = path.split('/');
 
-    if (path == '/api/v1/quotes' && method == 'POST') {
-      payload = {'code': 'OK', 'quote': _quote(body), 'requestId': requestId};
+    if (path == '/api/v1/locations/reverse-geocode' && method == 'POST') {
+      final latitude = body['latitude'];
+      final longitude = body['longitude'];
+      if (latitude is! num || longitude is! num) {
+        status = 400;
+        payload = {'code': 'INVALID_COORDINATES', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'data': {
+            'latitude': latitude.toDouble(),
+            'longitude': longitude.toDouble(),
+            // The in-process transport has no external geocoder. Preserve the
+            // real device coordinates and expose a neutral label instead of
+            // failing the entire location pipeline.
+            'address': 'Current location',
+          },
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/locations/geocode' && method == 'POST') {
+      final query = body['query'];
+      if (query is! String || query.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_QUERY', 'requestId': requestId};
+      } else {
+        final normalized = query.trim();
+        final hash = normalized.toLowerCase().codeUnits.fold<int>(
+          0,
+          (value, unit) => ((value * 31) + unit) & 0x7fffffff,
+        );
+        // Deterministic demo coordinates keep the frontend booking contract
+        // operational on GitHub Pages until the real geocoder is connected.
+        final latitude = 59.3293 + (((hash % 1201) - 600) / 100000.0);
+        final longitude = 18.0686 + ((((hash ~/ 1201) % 1601) - 800) / 100000.0);
+        payload = {
+          'code': 'OK',
+          'data': {
+            'address': normalized,
+            'latitude': latitude,
+            'longitude': longitude,
+          },
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/auth/otp/request' && method == 'POST') {
+      final phone = body['phone'];
+      final linkToken = body['linkToken'];
+      if (phone is! String || phone.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PHONE', 'requestId': requestId};
+      } else if (linkToken != null &&
+          (linkToken is! String || !pendingLinks.containsKey(linkToken))) {
+        status = 400;
+        payload = {'code': 'INVALID_LINK', 'requestId': requestId};
+      } else {
+        final sessionId = 'otp_${newRequestId()}';
+        final expiresAt = DateTime.now()
+            .toUtc()
+            .add(const Duration(minutes: 5));
+        otpSessions[sessionId] = {
+          'phone': phone.trim(),
+          if (linkToken is String) 'linkToken': linkToken,
+          'code': '1234',
+          'expiresAt': expiresAt.toIso8601String(),
+        };
+        payload = {
+          'code': 'OK',
+          'requestId': requestId,
+          'sessionId': sessionId,
+          'expiresAt': expiresAt.toIso8601String(),
+          'retryAfterSeconds': 30,
+        };
+      }
+    } else if (path == '/api/v1/auth/otp/verify' && method == 'POST') {
+      final phone = body['phone'];
+      final sessionId = body['sessionId'];
+      final code = body['code'];
+      final session = sessionId is String ? otpSessions[sessionId] : null;
+      if (session == null ||
+          phone is! String ||
+          code is! String ||
+          session['phone'] != phone.trim()) {
+        status = 400;
+        payload = {'code': 'INVALID_OTP_SESSION', 'requestId': requestId};
+      } else {
+        final expiresAt = DateTime.tryParse('${session['expiresAt'] ?? ''}');
+        if (expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc())) {
+          status = 410;
+          payload = {'code': 'OTP_EXPIRED', 'requestId': requestId};
+        } else if (session['code'] != code.trim()) {
+          status = 401;
+          payload = {'code': 'INVALID_OTP', 'requestId': requestId};
+        } else {
+          otpSessions.remove(sessionId);
+          final normalizedPhone = phone.trim();
+          final isNewRider = knownPhones.add(normalizedPhone);
+          final linkToken = session['linkToken'];
+          final provider = linkToken is String ? pendingLinks.remove(linkToken) : null;
+          if (provider != null) {
+            // The provider account now has a verified phone.
+            linkedProviders.add(provider);
+          }
+          final kind = provider ?? 'phone';
+          payload = {
+            'code': 'OK',
+            'accessToken': 'mock-access-$kind-$sessionId',
+            'refreshToken': 'mock-refresh-$kind-$sessionId',
+            'isNewRider': isNewRider,
+            'requestId': requestId,
+          };
+        }
+      }
+    } else if (path == '/api/v1/auth/provider' && method == 'POST') {
+      final provider = body['provider'];
+      if (provider is! String || provider.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PROVIDER', 'requestId': requestId};
+      } else if (!linkedProviders.contains(provider.trim())) {
+        // First sign-in with this account: no session until a phone is
+        // verified, only a short-lived link token.
+        final linkToken = 'link_${provider.trim()}_${newRequestId()}';
+        pendingLinks[linkToken] = provider.trim();
+        payload = {
+          'code': 'PHONE_REQUIRED',
+          'linkToken': linkToken,
+          'requestId': requestId,
+        };
+      } else {
+        payload = {
+          'code': 'OK',
+          'accessToken': 'mock-access-${provider.trim()}',
+          'refreshToken': 'mock-refresh-${provider.trim()}',
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/auth/refresh' && method == 'POST') {
+      final refreshToken = body['refreshToken'];
+      if (refreshToken is! String || !refreshToken.startsWith('mock-refresh-')) {
+        status = 401;
+        payload = {'code': 'INVALID_REFRESH', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'accessToken': 'mock-access-refreshed-${newRequestId()}',
+          'refreshToken': 'mock-refresh-rotated-${newRequestId()}',
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
+      payload = {'code': 'OK', 'requestId': requestId};
+    } else if (path == '/api/v1/push/devices' && method == 'POST') {
+      final token = body['token'];
+      final provider = body['provider'];
+      final platform = body['platform'];
+      if (token is! String ||
+          token.trim().isEmpty ||
+          provider != 'fcm' ||
+          platform is! String ||
+          platform.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PUSH_DEVICE', 'requestId': requestId};
+      } else {
+        final normalized = token.trim();
+        pushDevices[normalized] = {
+          'token': normalized,
+          'provider': 'fcm',
+          'platform': platform.trim(),
+        };
+        payload = {
+          'code': 'OK',
+          'status': 'registered',
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/push/devices/unregister' &&
+        method == 'POST') {
+      final token = body['token'];
+      if (token is! String || token.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_PUSH_DEVICE', 'requestId': requestId};
+      } else {
+        pushDevices.remove(token.trim());
+        payload = {
+          'code': 'OK',
+          'status': 'unregistered',
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/account/security' && method == 'GET') {
+      payload = {
+        'code': 'OK',
+        'security': accountSecurity,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/account/security/sessions/sign-out-others' &&
+        method == 'POST') {
+      final reauthenticatedAt = DateTime.tryParse(
+        '${accountSecurity['reauthenticatedAt'] ?? ''}',
+      );
+      final now = DateTime.now().toUtc();
+      final age = reauthenticatedAt == null
+          ? null
+          : now.difference(reauthenticatedAt.toUtc());
+      final fresh = age != null &&
+          !age.isNegative &&
+          age <= const Duration(minutes: 5);
+      if (!fresh) {
+        status = 403;
+        payload = {
+          'code': 'REAUTH_REQUIRED',
+          'message': 'Fresh reauthentication is required.',
+          'requestId': requestId,
+        };
+      } else {
+        final sessions = accountSecurity['sessions'];
+        if (sessions is List) {
+          accountSecurity['sessions'] = sessions
+              .whereType<Map>()
+              .where((item) => item['current'] == true)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+        }
+        accountSecurity['reauthenticatedAt'] = null;
+        payload = {
+          'code': 'OK',
+          'security': accountSecurity,
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/routes' && method == 'POST') {
+      final from = body['from'];
+      final to = body['to'];
+      final fromMap = from is Map ? Map<String, dynamic>.from(from) : const <String, dynamic>{};
+      final toMap = to is Map ? Map<String, dynamic>.from(to) : const <String, dynamic>{};
+      payload = {
+        'code': 'OK',
+        'points': [
+          {'lat': fromMap['lat'], 'lng': fromMap['lng']},
+          {'lat': toMap['lat'], 'lng': toMap['lng']},
+        ],
+        'provider': 'movera-controlled',
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/quotes' && method == 'POST') {
+      final quote = _quote(body);
+      quotes[quote['id'] as String] = quote;
+      payload = {'code': 'OK', 'quote': quote, 'requestId': requestId};
     } else if (path == '/api/v1/rides' && method == 'POST') {
-      final ride = _ride(body, requestId);
-      rides[ride['id'] as String] = ride;
-      payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      final validation = _validateQuoteBinding(body);
+      if (validation != null) {
+        status = 409;
+        payload = {
+          'code': validation,
+          'message': 'Booking quote is missing, expired or does not match.',
+          'requestId': requestId,
+        };
+      } else {
+        final ride = _ride(body, requestId);
+        rides[ride['id'] as String] = ride;
+        payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+      }
+    } else if (parts.length == 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'feedback' &&
+        method == 'POST') {
+      final ride = rides[parts[4]];
+      final rating = body['rating'];
+      final tipMinor = body['tipMinor'];
+      if (ride == null) {
+        status = 404;
+        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else if (!['tripCompleted', 'paymentFinalized', 'ratingPending'].contains(ride['status'])) {
+        status = 409;
+        payload = {'code': 'RIDE_NOT_COMPLETE', 'requestId': requestId};
+      } else if ((rating == null && tipMinor == null) ||
+          (rating != null && (rating is! num || rating < 1 || rating > 5 || rating * 2 != (rating * 2).round())) ||
+          (tipMinor != null && (tipMinor is! int || tipMinor <= 0 || tipMinor > 999900 || body['currency'] != 'SEK'))) {
+        status = 400;
+        payload = {'code': 'INVALID_FEEDBACK', 'requestId': requestId};
+      } else {
+        ride['feedback'] = {
+          if (rating != null) 'rating': rating,
+          if (tipMinor != null) 'tipMinor': tipMinor,
+          if (tipMinor != null) 'currency': 'SEK',
+        };
+        payload = {'code': 'OK', 'status': 'accepted', 'requestId': requestId};
+      }
+    } else if (parts.length >= 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'disputes' &&
+        method == 'POST') {
+      final id = parts[4];
+      final reason = body['reason'];
+      if (reason is! String || reason.trim().isEmpty) {
+        status = 400;
+        payload = {'code': 'INVALID_DISPUTE', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'dispute': {
+            'rideId': id,
+            'reason': reason,
+            if (body['detail'] is String) 'detail': body['detail'],
+            'status': 'submitted',
+          },
+          'requestId': requestId,
+        };
+      }
     } else if (parts.length >= 6 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
@@ -98,8 +449,10 @@ class InProcessMockClient extends http.BaseClient {
         parts.last == 'status' &&
         method == 'POST') {
       final id = parts[4];
-      final ride = rides[id] ?? {'id': id};
+      final ride = rides[id] ?? {'id': id, 'version': 0};
       ride['status'] = body['status'] ?? ride['status'];
+      ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
+      ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
       if (body['driver'] is Map) ride['driver'] = body['driver'];
       if (body['lat'] != null) ride['driverLat'] = body['lat'];
       if (body['lng'] != null) ride['driverLng'] = body['lng'];
@@ -126,10 +479,23 @@ class InProcessMockClient extends http.BaseClient {
             'ride': ride,
             'requestId': requestId,
           };
+        } else if (body.containsKey('offerIncreaseKr') &&
+            !_validOfferIncrease(body['offerIncreaseKr'], ride['price'])) {
+          status = 422;
+          payload = {
+            'code': 'INVALID_OFFER',
+            'message': 'Offer increase must be a positive whole amount',
+            'requestId': requestId,
+          };
         } else {
-          if (body['price'] != null) ride['price'] = body['price'];
-          if (body['offerIncreaseKr'] != null) {
-            ride['offerIncreaseKr'] = body['offerIncreaseKr'];
+          // D-012: the server prices an offer bump itself from the rider's
+          // intent (offerIncreaseKr). A client-sent `price` is never treated
+          // as authority and is ignored. (A real backend must also bound the
+          // bump; this in-process mock does not model fare limits.)
+          final increase = body['offerIncreaseKr'];
+          if (increase is num) {
+            ride['price'] = (ride['price'] as num) + increase;
+            ride['offerIncreaseKr'] = increase;
           }
           if (body['pickupAddress'] != null) {
             ride['pickupAddress'] = body['pickupAddress'];
@@ -160,15 +526,65 @@ class InProcessMockClient extends http.BaseClient {
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
     } else if (path == '/api/v1/payments' && method == 'POST') {
-      payload = {
-        'code': 'OK',
-        'intent': {
+      final amountMinor = body['amountMinor'];
+      final currency = body['currency'];
+      if (amountMinor is! int ||
+          amountMinor <= 0 ||
+          currency is! String ||
+          currency.trim().toUpperCase() != 'SEK') {
+        status = 400;
+        payload = {
+          'code': 'INVALID_PAYMENT_INTENT',
+          'requestId': requestId,
+        };
+      } else {
+        final intent = <String, dynamic>{
           'id': 'pi_$requestId',
+          'status': 'requires_confirmation',
+          'amountMinor': amountMinor,
+          'currency': 'SEK',
+        };
+        paymentIntents[intent['id'] as String] = intent;
+        payload = {
+          'code': 'OK',
+          'intent': Map<String, dynamic>.from(intent),
+          'requestId': requestId,
+        };
+      }
+    } else if (parts.length == 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'payments' &&
+        parts.last == 'confirm' &&
+        method == 'POST') {
+      final intent = paymentIntents[parts[4]];
+      if (intent == null) {
+        status = 404;
+        payload = {'code': 'PAYMENT_NOT_FOUND', 'requestId': requestId};
+      } else {
+        intent['status'] = 'succeeded';
+        payload = {
+          'code': 'OK',
           'status': 'succeeded',
-          'amountMinor': body['amountMinor'] ?? 0,
-        },
-        'requestId': requestId,
-      };
+          'intent': Map<String, dynamic>.from(intent),
+          'requestId': requestId,
+        };
+      }
+    } else if (parts.length == 5 &&
+        parts[1] == 'api' &&
+        parts[3] == 'payments' &&
+        method == 'GET') {
+      final intent = paymentIntents[parts[4]];
+      if (intent == null) {
+        status = 404;
+        payload = {'code': 'PAYMENT_NOT_FOUND', 'requestId': requestId};
+      } else {
+        payload = {
+          'code': 'OK',
+          'status': intent['status'],
+          'intent': Map<String, dynamic>.from(intent),
+          'requestId': requestId,
+        };
+      }
     } else if (path == '/api/v1/wallet/topup' && method == 'POST') {
       payload = {
         'code': 'OK',
@@ -226,13 +642,75 @@ class InProcessMockClient extends http.BaseClient {
     };
   }
 
+  String? _validateQuoteBinding(Map<String, dynamic> body) {
+    // Scheduled test bookings do not yet use the on-demand quote path.
+    if (body['scheduledAt'] != null) return null;
+    if (body['pickupAddress'] == null) return null;
+
+    final quoteId = body['quoteId'] as String?;
+    final signed = body['quoteSignedPayload'] as String?;
+    final expiryRaw = body['quoteExpiresAt'] as String?;
+    final quotedTotal = (body['quoteTotalMinor'] as num?)?.round();
+    if (quoteId == null ||
+        quoteId.isEmpty ||
+        signed == null ||
+        signed.isEmpty ||
+        expiryRaw == null ||
+        quotedTotal == null) {
+      return 'QUOTE_REQUIRED';
+    }
+
+    final quote = quotes[quoteId];
+    if (quote == null) return 'QUOTE_NOT_FOUND';
+    if (quote['signedPayload'] != signed) return 'QUOTE_SIGNATURE_MISMATCH';
+
+    final expiresAt = DateTime.tryParse(expiryRaw);
+    final serverExpiry = DateTime.tryParse(quote['expiresAt'] as String? ?? '');
+    if (expiresAt == null ||
+        serverExpiry == null ||
+        expiresAt.toUtc() != serverExpiry.toUtc() ||
+        !serverExpiry.isAfter(DateTime.now())) {
+      return 'QUOTE_EXPIRED';
+    }
+
+    final serverTotal = (quote['totalMinor'] as num?)?.round();
+    if (serverTotal == null || serverTotal != quotedTotal) {
+      return 'QUOTE_AMOUNT_MISMATCH';
+    }
+
+    final categoryId = (body['categoryId'] ?? '').toString();
+    if (quote['rideType'] != categoryId) return 'QUOTE_CATEGORY_MISMATCH';
+
+    final submittedPrice = (body['price'] as num?)?.toDouble();
+    if (submittedPrice == null ||
+        (submittedPrice * 100).round() != serverTotal) {
+      return 'QUOTE_PRICE_MISMATCH';
+    }
+
+    return null;
+  }
+
   Map<String, dynamic> _ride(Map<String, dynamic> body, String requestId) {
+    final categoryId =
+        (body['categoryId'] ?? body['rideType'] ?? 'movera').toString();
+    final paymentMethodId =
+        (body['paymentMethodId'] ?? body['paymentMethod'] ?? 'wallet').toString();
     return {
       'id': 'ride_$requestId',
       'status': body['scheduledAt'] != null ? 'bookingRequested' : 'findingDriver',
-      'rideType': body['rideType'] ?? 'movera',
+      'version': 1,
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      'categoryId': categoryId,
+      'paymentMethodId': paymentMethodId,
+      // Transitional aliases keep older read-side tests compatible while every
+      // new write uses the canonical backend vocabulary above.
+      'rideType': categoryId,
+      'paymentMethod': paymentMethodId,
       'price': body['price'],
-      'paymentMethod': body['paymentMethod'],
+      'quoteId': body['quoteId'],
+      'quoteSignedPayload': body['quoteSignedPayload'],
+      'quoteExpiresAt': body['quoteExpiresAt'],
+      'quoteTotalMinor': body['quoteTotalMinor'],
       'pickupAddress': body['pickupAddress'],
       'destinationAddress': body['destinationAddress'],
       'pickupLat': body['pickupLat'],
@@ -273,4 +751,10 @@ class InProcessMockClient extends http.BaseClient {
       contentLength: bytes.length,
     );
   }
+
+  static bool _validOfferIncrease(Object? increase, Object? currentPrice) =>
+      increase is num &&
+      increase > 0 &&
+      increase == increase.roundToDouble() &&
+      currentPrice is num;
 }

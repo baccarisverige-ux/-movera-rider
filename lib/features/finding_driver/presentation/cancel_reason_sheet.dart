@@ -14,8 +14,9 @@ Future<CancelOutcome> showCancelReasonSheet(
     builder: (_) => CancelReasonSheet(phase: phase),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
-  // Already confirmed cancel on the previous sheet. Dismiss still cancels.
-  return result ?? const CancelOutcome.cancel();
+  // Dismissing/backing out never cancels a ride. Cancellation is only
+  // committed by an explicit final action inside this sheet.
+  return result ?? const CancelOutcome.keep();
 }
 
 class CancelReasonSheet extends StatefulWidget {
@@ -72,6 +73,8 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             Text(
               widget.phase == CancelPhase.reservation
                   ? 'Optional. This helps us improve scheduled rides.'
+                  : widget.phase == CancelPhase.inTrip
+                  ? 'Optional. This helps us understand active-trip cancellations.'
                   : 'Optional. This helps us improve matching.',
               style: GoogleFonts.poppins(
                 fontSize: 13,

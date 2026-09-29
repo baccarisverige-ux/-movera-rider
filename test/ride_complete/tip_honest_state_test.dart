@@ -50,7 +50,7 @@ void main() {
     await tester.tap(find.text(TipCatalog.defaults.first));
     await tester.pumpAndSettle();
     expect(
-      find.text('${TipCatalog.defaults.first} added for your driver.'),
+      find.text('${TipCatalog.defaults.first} selected.'),
       findsOneWidget,
     );
   });

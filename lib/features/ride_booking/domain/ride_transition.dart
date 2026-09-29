@@ -62,20 +62,37 @@ const _allowed = <RideStatus, Set<RideStatus>>{
     RideStatus.cancelledByRider,
     RideStatus.cancelledByDriver,
   },
-  RideStatus.tripStarted: {RideStatus.tripInProgress},
+  RideStatus.tripStarted: {
+    RideStatus.tripInProgress,
+    RideStatus.cancelledByRider,
+  },
   RideStatus.tripInProgress: {
+    // Backends that do not emit an explicit approach event may complete
+    // directly; authoritative transports that do emit it can surface it first.
+    RideStatus.approachingDropoff,
     RideStatus.tripCompleted,
+    RideStatus.cancelledByRider,
+    RideStatus.cancelledBySystem,
+  },
+  RideStatus.approachingDropoff: {
+    RideStatus.tripCompleted,
+    RideStatus.cancelledByRider,
     RideStatus.cancelledBySystem,
   },
   RideStatus.tripCompleted: {
     RideStatus.paymentProcessing,
     RideStatus.paymentFailed,
+    RideStatus.closed,
   },
   RideStatus.paymentProcessing: {
     RideStatus.paymentFinalized,
     RideStatus.paymentFailed,
+    RideStatus.closed,
   },
-  RideStatus.paymentFinalized: {RideStatus.ratingPending},
+  RideStatus.paymentFinalized: {
+    RideStatus.ratingPending,
+    RideStatus.closed,
+  },
   RideStatus.ratingPending: {RideStatus.closed},
 };
 
@@ -88,10 +105,15 @@ class InvalidRideTransition implements Exception {
 }
 
 RideStatus transitionRide(RideStatus from, RideStatus to) {
-  if (from.isTerminal) throw InvalidRideTransition(from, to);
-  final next = _allowed[from];
-  if (next == null || !next.contains(to)) {
+  if (!canTransition(from, to)) {
     throw InvalidRideTransition(from, to);
   }
   return to;
+}
+
+/// Client mutations must follow this graph. Backend projections may jump.
+bool canTransition(RideStatus from, RideStatus to) {
+  if (from.isTerminal) return false;
+  final next = _allowed[from];
+  return next != null && next.contains(to);
 }

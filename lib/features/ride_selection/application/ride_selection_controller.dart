@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
+import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
@@ -12,22 +17,29 @@ class RideSelectionController {
     QuoteRepository? quotes,
     FareController? fare,
     FeatureFlags? flags,
+    DefaultPaymentStore? paymentStore,
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
   }) : _store = store ?? RideSelectionRepository(),
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
-       _flags = flags ?? AppScope.instance.flags;
+       _flags = flags ?? AppScope.instance.flags,
+       _paymentStore = paymentStore;
 
   final RideSelectionRepository _store;
   final QuoteRepository _quotes;
   final FareController _fare;
   final FeatureFlags _flags;
+  final DefaultPaymentStore? _paymentStore;
 
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
   final Map<String, DateTime> quoteExpiresAt = {};
+  final Map<String, RideQuote> authoritativeQuotes = {};
+  final Set<String> unavailableQuoteIds = <String>{};
   int _quoteGeneration = 0;
+  final Set<void Function()> _cancelQuoteTimeouts = <void Function()>{};
+  bool _disposed = false;
   bool usedFallback = false;
   String selectedRideId = 'movera';
   int selectedPayment = 1;
@@ -45,10 +57,32 @@ class RideSelectionController {
   List<RideCatalogItem> rides() => _store.rides();
 
   RideCatalogItem rideById(String id) {
-    return rides().firstWhere(
-      (ride) => ride.id == id,
-      orElse: () => rides().first,
-    );
+    final catalog = rides();
+    if (catalog.isEmpty) {
+      throw StateError('ride catalog is empty');
+    }
+    for (final ride in catalog) {
+      if (ride.id == id) return ride;
+    }
+    return catalog.first;
+  }
+
+  RideCatalogItem? rideByIdOrNull(String id) {
+    for (final ride in rides()) {
+      if (ride.id == id) return ride;
+    }
+    return null;
+  }
+
+  RideCatalogItem? ensureCatalogSelection() {
+    final catalog = rides();
+    if (catalog.isEmpty) return null;
+    final current = rideByIdOrNull(selectedRideId);
+    if (current != null) return current;
+    final fallback = catalog.first;
+    selectedRideId = fallback.id;
+    offeredPrices.putIfAbsent(fallback.id, () => fallback.price);
+    return fallback;
   }
 
   List<RidePaymentItem> payments() {
@@ -64,33 +98,148 @@ class RideSelectionController {
 
   int beginQuotes() => ++_quoteGeneration;
 
+  Future<T> _withManagedTimeout<T>(Future<T> source, Duration timeout) {
+    final completer = Completer<T>();
+    Timer? timer;
+
+    void cancel() {
+      timer?.cancel();
+      if (!completer.isCompleted) {
+        completer.completeError(const _QuoteLoadCancelled());
+      }
+    }
+
+    _cancelQuoteTimeouts.add(cancel);
+    timer = Timer(timeout, () {
+      _cancelQuoteTimeouts.remove(cancel);
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('Quote request timed out', timeout),
+        );
+      }
+    });
+
+    source.then<void>(
+      (value) {
+        timer?.cancel();
+        _cancelQuoteTimeouts.remove(cancel);
+        if (!completer.isCompleted) completer.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        timer?.cancel();
+        _cancelQuoteTimeouts.remove(cancel);
+        if (!completer.isCompleted) completer.completeError(error, stack);
+      },
+    );
+
+    return completer.future;
+  }
+
+  void cancelPendingQuotes() {
+    if (_disposed) return;
+    _quoteGeneration += 1;
+    final cancels = _cancelQuoteTimeouts.toList(growable: false);
+    _cancelQuoteTimeouts.clear();
+    for (final cancel in cancels) {
+      cancel();
+    }
+  }
+
+  bool get hasPendingQuoteRequests => _cancelQuoteTimeouts.isNotEmpty;
+
+  void dispose() {
+    if (_disposed) return;
+    cancelPendingQuotes();
+    _disposed = true;
+  }
+
   Future<void> loadQuotes({
     required int generation,
     required String pickup,
     required String destination,
     int distanceMeters = 3000,
+    int parallelism = PerformanceBudgets.quoteParallelism,
+    Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
     usedFallback = false;
-    for (final ride in rides()) {
+    final catalog = rides();
+    if (catalog.isEmpty) return;
+    final width = parallelism.clamp(1, catalog.length).toInt();
+
+    for (var start = 0; start < catalog.length; start += width) {
       if (generation != _quoteGeneration) return;
-      final quote = await _quotes.quote(
-        rideType: ride.id,
-        distanceMeters: distanceMeters,
-        pickup: pickup,
-        destination: destination,
+      final end = (start + width).clamp(0, catalog.length).toInt();
+      final batch = catalog.sublist(start, end);
+      await Future.wait<void>(
+        batch.map(
+          (ride) => _loadQuote(
+            rideId: ride.id,
+            generation: generation,
+            pickup: pickup,
+            destination: destination,
+            distanceMeters: distanceMeters,
+            timeout: timeout,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadQuote({
+    required String rideId,
+    required int generation,
+    required String pickup,
+    required String destination,
+    required int distanceMeters,
+    required Duration timeout,
+  }) async {
+    if (generation != _quoteGeneration) return;
+    try {
+      final quote = await _withManagedTimeout(
+        _quotes.quote(
+          rideType: rideId,
+          distanceMeters: distanceMeters,
+          pickup: pickup,
+          destination: destination,
+        ),
+        timeout,
       );
       if (generation != _quoteGeneration) return;
-      offeredPrices[ride.id] = quote.totalMinor / 100;
-      quoteIds[ride.id] = quote.id;
-      quoteExpiresAt[ride.id] = quote.expiresAt;
-      if (quote.signedPayload == 'fallback') usedFallback = true;
+      offeredPrices[rideId] = quote.totalMinor / 100;
+      quoteIds[rideId] = quote.id;
+      quoteExpiresAt[rideId] = quote.expiresAt;
+      authoritativeQuotes[rideId] = quote;
+      unavailableQuoteIds.remove(rideId);
+    } catch (_) {
+      if (generation != _quoteGeneration) return;
+      offeredPrices.remove(rideId);
+      quoteIds.remove(rideId);
+      quoteExpiresAt.remove(rideId);
+      authoritativeQuotes.remove(rideId);
+      unavailableQuoteIds.add(rideId);
     }
   }
 
   bool quoteIsFresh(String id, {DateTime? now}) {
     final expiresAt = quoteExpiresAt[id];
-    if (expiresAt == null) return quoteIds[id] == null;
+    if (expiresAt == null) return false;
     return expiresAt.isAfter(now ?? DateTime.now());
+  }
+
+  bool quoteIsAvailable(String id, {DateTime? now}) {
+    if (unavailableQuoteIds.contains(id)) return false;
+    final quote = authoritativeQuotes[id];
+    if (quote == null ||
+        quote.id.trim().isEmpty ||
+        quote.signedPayload == null ||
+        quote.signedPayload!.trim().isEmpty) {
+      return false;
+    }
+    if (!quoteIsFresh(id, now: now)) return false;
+    if (quote.rideType != id) return false;
+    final offered = offeredPrices[id];
+    if (offered == null) return false;
+    return (offered * 100).round() == quote.totalMinor;
   }
 
   void _discardExpiredQuote(String id, {DateTime? now}) {
@@ -99,6 +248,8 @@ class RideSelectionController {
     offeredPrices.remove(id);
     quoteIds.remove(id);
     quoteExpiresAt.remove(id);
+    authoritativeQuotes.remove(id);
+    unavailableQuoteIds.add(id);
   }
 
   double priceFor(String id, double catalog, {DateTime? now}) {
@@ -106,13 +257,35 @@ class RideSelectionController {
     return offeredPrices[id] ?? catalog;
   }
 
+  double? authoritativePriceFor(String id, {DateTime? now}) {
+    if (!quoteIsAvailable(id, now: now)) return null;
+    final quote = authoritativeQuotes[id]!;
+    return quote.totalMinor / 100;
+  }
+
   void selectRide(String id, double catalog) {
     selectedRideId = id;
     offeredPrices.putIfAbsent(id, () => catalog);
   }
 
+  RidePaymentItem? selectedPaymentItem() {
+    final list = payments();
+    if (list.isEmpty) {
+      selectedPayment = 0;
+      return null;
+    }
+    selectedPayment = selectedPayment.clamp(0, list.length - 1).toInt();
+    return list[selectedPayment];
+  }
+
   void selectPayment(int index) {
-    selectedPayment = index;
+    final list = payments();
+    if (list.isEmpty) {
+      selectedPayment = 0;
+      return;
+    }
+    selectedPayment = index.clamp(0, list.length - 1).toInt();
+    _persistSelectedBrand();
   }
 
   void selectPaymentNamed(String? name) {
@@ -123,6 +296,32 @@ class RideSelectionController {
       (item) => item.name.toLowerCase() == needle.toLowerCase(),
     );
     if (i >= 0) selectedPayment = i;
+  }
+
+  void selectPaymentByBrand(String? brand) {
+    final needle = brand?.trim();
+    if (needle == null || needle.isEmpty) return;
+    final list = payments();
+    final i = list.indexWhere((item) => item.brand == needle);
+    if (i >= 0) selectedPayment = i;
+  }
+
+  Future<void> restoreDefaultPayment() async {
+    final store = _paymentStore;
+    if (store == null) {
+      selectedPaymentItem();
+      return;
+    }
+    selectPaymentByBrand(await store.read());
+    selectedPaymentItem();
+  }
+
+  void _persistSelectedBrand() {
+    final store = _paymentStore;
+    if (store == null) return;
+    final selected = selectedPaymentItem();
+    if (selected == null) return;
+    unawaited(store.save(selected.brand));
   }
 
   void setBookingMode(BookingMode mode) {
@@ -147,6 +346,11 @@ class RideSelectionController {
     return quoteIds[id];
   }
 
+  RideQuote? quoteForBooking(String id, {DateTime? now}) {
+    _discardExpiredQuote(id, now: now);
+    return authoritativeQuotes[id];
+  }
+
   DateTime? expiryFor(String id) => quoteExpiresAt[id];
 
   double changeOffer({
@@ -159,4 +363,9 @@ class RideSelectionController {
     offeredPrices[id] = next;
     return next;
   }
+}
+
+
+class _QuoteLoadCancelled implements Exception {
+  const _QuoteLoadCancelled();
 }

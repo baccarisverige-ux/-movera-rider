@@ -1,0 +1,41 @@
+name: Batch 7 Phase 83 Chat Honest State Certification
+
+on:
+  pull_request:
+    paths:
+      - 'lib/features/messages/**'
+      - 'test/messages/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phase83:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Strict analysis
+        run: flutter analyze
+
+      - name: Phase 83 chat behavior
+        run: |
+          flutter test test/messages/messages_controller_test.dart
+          flutter test test/messages/phase83_chat_honest_state_test.dart
+
+      - name: No fabricated Rider send
+        run: |
+          grep -q "canSendMessages => false" lib/features/messages/application/messages_controller.dart
+          ! grep -q "_store.add(" lib/features/messages/application/messages_controller.dart
+          grep -q "Sending messages to your driver isn't available yet." lib/features/messages/application/messages_controller.dart
+          grep -q "Send message unavailable" lib/features/messages/presentation/chat.dart

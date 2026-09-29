@@ -1,5 +1,3 @@
-// ignore_for_file: deprecated_member_use, unused_element, unused_field
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -11,24 +9,29 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/core/maps/camera_mode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/map_lifecycle.dart';
+import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
-import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/home/application/home_sheet_controller.dart';
+import 'package:movera_rider/features/home/presentation/home_map_style.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_map_layer.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/profile/presentation/account_home.dart';
-import 'package:movera_rider/features/profile/presentation/profile.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
-import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/features/ride_booking/application/search_interrupted_notice.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
@@ -42,14 +45,14 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_top_acti
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
-import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/features/home/presentation/widgets/plan_ride_address_box.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
 typedef _SavedPlaceData = SavedPlaceData;
@@ -61,47 +64,48 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with WidgetsBindingObserver {
   final SheetController _homeSheetController = SheetController();
-  final PanelController _profilePanelController = PanelController();
-  Timer? _sheetIdleTimer;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _drawerOpen = false;
+  late final HomeSheetController _sheetCtl = HomeSheetController(
+    controller: _homeSheetController,
+    minPixels: () => _sheetMinPixels,
+    midPixels: () => _sheetMidPixels,
+  );
   late final HomeLocationController _locationCtl = HomeLocationController(
     location: AppScope.instance.location,
     geocoding: AppScope.instance.geocoding,
     motion: AppScope.instance.motion,
   );
   late final HomePlacesController _places = HomePlacesController();
+  StreamSubscription<void>? _savedPlacesSubscription;
   bool _showRecenterButton = true;
   BitmapDescriptor? _locationPuckCompact;
   BitmapDescriptor? _locationPuckExpanded;
   ui.Image? _puckCompactImage;
   ui.Image? _puckExpandedImage;
   int _webPuckPaintGen = 0;
+  final RotatedPuckCache _webPuckCache = RotatedPuckCache();
 
-  static const double _sheetMinHeight = 184;
+  // The search card ends around 113 logical px from the top of the sheet.
+  // Leave space for the floating navigation bar below it at the collapsed snap.
+  static const double _sheetMinHeight = 214;
   static const double _sheetMaxHeight = 294;
 
   bool _destinationSheetOpen = false;
-  bool _findingLocation = true;
-
   bool get _locationPulseExpanded => _locationCtl.pulseExpanded;
-  set _locationPulseExpanded(bool value) => _locationCtl.pulseExpanded = value;
   double get _locationHeading => _locationCtl.heading;
   set _locationHeading(double value) => _locationCtl.heading = value;
-  bool get _hasCompassHeading => _locationCtl.hasCompassHeading;
   set _hasCompassHeading(bool value) => _locationCtl.hasCompassHeading = value;
-  double get _lastMapZoom => _locationCtl.lastMapZoom;
   set _lastMapZoom(double value) => _locationCtl.lastMapZoom = value;
-  LatLng get _lastMapTarget => _locationCtl.lastMapTarget;
   set _lastMapTarget(LatLng value) => _locationCtl.lastMapTarget = value;
   String? get _pickupAddress => _places.pickupAddress;
   set _pickupAddress(String? value) => _places.pickupAddress = value;
   String? get _destinationAddress => _places.destinationAddress;
   set _destinationAddress(String? value) => _places.destinationAddress = value;
   String? get _homeAddress => _places.homeAddress;
-  set _homeAddress(String? value) => _places.homeAddress = value;
   String? get _workAddress => _places.workAddress;
-  set _workAddress(String? value) => _places.workAddress = value;
   List<String> get _routeStops => _places.routeStops;
   set _routeStops(List<String> value) => _places.routeStops = value;
   LatLng? get _currentLatLng => _places.currentLatLng;
@@ -109,23 +113,18 @@ class _HomeState extends State<Home> {
   LatLng? get _tripPickupLatLng => _places.tripPickupLatLng;
   set _tripPickupLatLng(LatLng? value) => _places.tripPickupLatLng = value;
   List<String> get _recentAddresses => _places.recentAddresses;
-  set _recentAddresses(List<String> value) => _places.recentAddresses = value;
   List<_SavedPlaceData> get _savedPlaces => _places.savedPlaces;
-  set _savedPlaces(List<_SavedPlaceData> value) => _places.savedPlaces = value;
 
   static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
-  GoogleMapController? _mapController;
+  /// U5 stopgap: stops are collected here but dropped by SelectRide, the
+  /// booking payload, RideSnapshot, Finding and Waiting — the rider would be
+  /// charged for a trip that silently ignores them. Hidden until multi-stop
+  /// quoting, routing and booking exist end to end (blocked on backend).
+  static const bool _stopsSupported = false;
+
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
-  bool get _homeMapParked => _mapParked.value;
-  Set<Marker> get _markers => _locationCtl.markers;
-  set _markers(Set<Marker> value) => _locationCtl.markers = value;
-  Set<Circle> get _locationCircles => _locationCtl.locationCircles;
-  set _locationCircles(Set<Circle> value) =>
-      _locationCtl.locationCircles = value;
-  Set<Polygon> get _locationDirection => _locationCtl.locationDirection;
-  set _locationDirection(Set<Polygon> value) =>
-      _locationCtl.locationDirection = value;
+  final MapParkingGuard _mapParkingGuard = MapParkingGuard();
 
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
@@ -138,93 +137,17 @@ class _HomeState extends State<Home> {
   static const Color _premiumAccent = Color(0xFF2D5878);
   static const Color _premiumAccentSoft = Color(0xFFEAF2F8);
 
-  static const String _premiumMapStyle = '''
-[
-  {
-    "elementType": "geometry",
-    "stylers": [{"color": "#eef1e8"}]
-  },
-  {
-    "elementType": "labels.icon",
-    "stylers": [{"visibility": "off"}]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#747974"}]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [{"color": "#f7f8f3"}, {"weight": 2}]
-  },
-  {
-    "featureType": "administrative",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#d9dcd4"}]
-  },
-  {
-    "featureType": "landscape",
-    "elementType": "geometry",
-    "stylers": [{"color": "#d8edb5"}]
-  },
-  {
-    "featureType": "landscape.man_made",
-    "elementType": "geometry",
-    "stylers": [{"color": "#f2f2ef"}]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "geometry",
-    "stylers": [{"color": "#c1e589"}]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry",
-    "stylers": [{"color": "#d8edb5"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{"color": "#ffffff"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#d9dcd5"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [{"color": "#fffdf5"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#d5d9cf"}]
-  },
-  {
-    "featureType": "transit",
-    "elementType": "geometry",
-    "stylers": [{"color": "#e6e8e3"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{"color": "#8fcfe0"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#3f8294"}]
-  }
-]
-''';
-
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     reportHomeBuilt();
     _homeSheetController.addListener(_syncHomeSheetState);
     _loadMarkers();
+    _savedPlacesSubscription = _places.changes.listen((_) async {
+      await _places.load();
+      if (mounted) setState(() {});
+    });
     _restoreAddressData();
     _startHeadingTracking();
     _announceInterruptedSearch();
@@ -234,16 +157,16 @@ class _HomeState extends State<Home> {
   /// with no explanation reads as though the ride was never requested, so say
   /// what happened.
   void _announceInterruptedSearch() {
-    // Two sources: builds that keep the snapshot leave the coordinator a flag;
-    // the web build's snapshot is gone before Flutter starts, so it leaves a
-    // note in the session instead.
+    // Two sources: builds that keep the snapshot have the restore coordinator
+    // set the shared notice; the web build's snapshot is gone before Flutter
+    // starts, so it leaves a note in the session instead.
     final interrupted =
-        RideRestoreCoordinator.instance.takeSearchInterrupted() |
+        SearchInterruptedNotice.shared.take() |
         takeWebSearchInterrupted();
     if (!interrupted) return;
     // Let the first frame settle so the messenger has a Scaffold to put this
     // in, and leave it up long enough to actually be read.
-    Future<void>.delayed(const Duration(milliseconds: 400), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       MoveraToast.show(
         context,
@@ -254,8 +177,34 @@ class _HomeState extends State<Home> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _locationCtl.pauseLiveUpdates();
+      return;
+    }
+    if (state != AppLifecycleState.resumed) return;
+    _locationCtl.resumeLiveUpdates();
+    if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
+      _locationCtl.recoverLiveLocation(
+        isMounted: () => mounted,
+        onFix: (latLng, heading) {
+          _currentLatLng = latLng;
+          _locationHeading = heading;
+          _updateLocationVisuals();
+        },
+      );
+    } else if (_currentLatLng == null) {
+      _detectCurrentAddress();
+    }
+  }
+
+  @override
   void dispose() {
-    _sheetIdleTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _savedPlacesSubscription?.cancel();
+    _sheetCtl.dispose();
     _locationCtl.dispose();
     _puckCompactImage?.dispose();
     _puckExpandedImage?.dispose();
@@ -269,6 +218,7 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _restoreAddressData() async {
+    unawaited(_centerCameraOnQuickFix());
     await _places.load();
     if (mounted) setState(() {});
     await _detectCurrentAddress();
@@ -276,25 +226,40 @@ class _HomeState extends State<Home> {
 
   Future<void> _persistAddressData() => _places.persist();
 
+  /// Coarse camera hint from [HomeLocationController.quickCameraFix].
+  LatLng? _cameraHint;
+
+  /// Batch 10 Phase 110: centre the camera on a fast cached fix while the
+  /// accurate one is fetched. Camera only — pickup, the puck and
+  /// [_currentLatLng] stay owned by [_detectCurrentAddress], whose accurate
+  /// fix still moves the camera when it lands.
+  Future<void> _centerCameraOnQuickFix() async {
+    final hint = await _locationCtl.quickCameraFix();
+    if (!mounted || hint == null || _currentLatLng != null) return;
+    _cameraHint = hint;
+    final maps = AppScope.instance.maps;
+    // Map not created yet: onMapCreated picks the hint up.
+    if (maps.activeOwner != MapOwners.home) return;
+    await maps.moveCamera(GeoPoint(hint.latitude, hint.longitude), zoom: 15);
+  }
+
   Future<void> _detectCurrentAddress() async {
-    if (mounted) setState(() => _findingLocation = true);
+    if (mounted) setState(() {});
     try {
       final detected = await _locationCtl.detectCurrent();
       if (!mounted) return;
-      if (detected.denied) {
-        setState(() {
-          _findingLocation = false;
-          _pickupAddress ??= 'Current location';
-        });
+      final target = detected.target;
+      if (detected.denied || target == null) {
+        // U2: no fix — never call a fallback point "Current location".
+        if (isPlaceholderPickupLabel(_pickupAddress)) {
+          setState(() => _pickupAddress = locationOffPickupLabel);
+        }
         return;
       }
-      final target = detected.target;
-      if (target == null) return;
       setState(() {
         _pickupAddress = detected.address;
         _currentLatLng = target;
-        _findingLocation = false;
-        _locationCtl.clearOverlays();
+          _locationCtl.clearOverlays();
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
@@ -318,10 +283,9 @@ class _HomeState extends State<Home> {
       );
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _findingLocation = false;
-        _pickupAddress ??= 'Current location';
-      });
+      if (isPlaceholderPickupLabel(_pickupAddress)) {
+        setState(() => _pickupAddress = locationOffPickupLabel);
+      }
     }
   }
 
@@ -350,8 +314,8 @@ class _HomeState extends State<Home> {
 
   String? _existingAddressFor(String target) => _places.existingFor(target);
 
-  Future<String> _normaliseAddress(String input) {
-    return _locationCtl.normaliseAddress(input);
+  Future<String> _normaliseAddress(String input, {int? generation}) {
+    return _locationCtl.normaliseAddress(input, generation: generation);
   }
 
   Future<void> _moveMapToAddress(String address) async {
@@ -363,7 +327,23 @@ class _HomeState extends State<Home> {
     );
   }
 
-  void _rememberAddress(String address) => _places.remember(address);
+  void _rememberAddress(String address) {
+    // D-004: raw "lat, lng" strings and placeholders are not places; never
+    // offer them back as Recents.
+    if (isRawCoordinateLabel(address) || isPlaceholderPickupLabel(address)) {
+      return;
+    }
+    _places.remember(address);
+  }
+
+  Future<String> _bookingPickup(String label, LatLng position) =>
+      bookingPickupAddress(
+        label: label,
+        position: position,
+        reverse: (point) => AppScope.instance.geocoding.reverse(
+          GeoPoint(point.latitude, point.longitude),
+        ),
+      );
 
   Future<void> _saveAddressFor(
     String target,
@@ -394,7 +374,7 @@ class _HomeState extends State<Home> {
         customType: customType,
       );
       if (target == 'destination') {
-        DestinationController().remember(address: resolved);
+        AppScope.instance.destinationMemory.remember(address: resolved);
       }
     });
     await _persistAddressData();
@@ -409,8 +389,8 @@ class _HomeState extends State<Home> {
     final capture = EarlyInputCapture()..start();
     try {
       if (!_destinationSheetOpen) {
-        _openDestinationSheet();
-        await Future<void>.delayed(const Duration(milliseconds: 360));
+        await _openDestinationSheet();
+        await WidgetsBinding.instance.endOfFrame;
         if (!mounted) return;
       }
       await _showRouteAddressPicker(
@@ -447,8 +427,13 @@ class _HomeState extends State<Home> {
       );
       if (pickupResult == null || !mounted) return null;
       final pickupPosition = pickupResult.position;
+      final bookingAddress = await _bookingPickup(
+        pickupResult.address,
+        pickupPosition,
+      );
+      if (!mounted) return null;
       setState(() {
-        _pickupAddress = pickupResult.address;
+        _pickupAddress = bookingAddress;
         _tripPickupLatLng = pickupResult.position;
       });
       if (!mounted) return null;
@@ -460,22 +445,20 @@ class _HomeState extends State<Home> {
         resolvedDestination = destinationResult.address;
         destinationPosition = destinationResult.point;
       } else {
-        final result = await _openPickupMapPicker(
-          destination,
-          isDestination: true,
-        );
-        if (result == null || !mounted) return null;
-        resolvedDestination = result.address.trim().isNotEmpty
-            ? result.address.trim()
-            : destination;
-        destinationPosition = result.position;
+        if (mounted) {
+          MoveraToast.show(
+            context,
+            'Choose a valid destination address.',
+          );
+        }
+        return null;
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
       return Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SelectRide(
-            pickupAddress: _pickupAddress ?? 'Current location',
+        RideStageTransition(
+          SelectRide(
+            pickupAddress: bookingAddress,
             destinationAddress: resolvedDestination,
             pickupPosition: confirmedPickupPosition,
             destinationPosition: confirmedDestinationPosition,
@@ -487,28 +470,39 @@ class _HomeState extends State<Home> {
               replace: true,
             ),
           ),
+          settings: const RouteSettings(name: AppRoutes.selectRide),
         ),
       );
     });
   }
 
   Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
-    final parkedNow = !_homeMapParked;
-    if (parkedNow) {
-      setWebOverlayOpen(false);
-      _mapParked.value = true;
-      AppScope.instance.mapLifecycle.park();
-      AppScope.instance.maps.detach(owner: MapOwners.home);
-      _mapController = null;
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-      if (!mounted) return null;
-    }
+    final parkedNow = _mapParkingGuard.enter();
     try {
+      if (parkedNow) {
+        final parkingWatch = Stopwatch()..start();
+        setWebOverlayOpen(false);
+        _mapParked.value = true;
+        _locationCtl.pauseLiveUpdates();
+        AppScope.instance.mapLifecycle.park();
+        AppScope.instance.maps.detach(owner: MapOwners.home);
+            // Let Flutter remove the platform map for one rendered frame before
+        // the next map-heavy ride screen mounts.
+        await WidgetsBinding.instance.endOfFrame;
+        parkingWatch.stop();
+        RouteTransitionMetrics.homeMapParking(parkingWatch.elapsed);
+        if (!mounted) return null;
+      }
       return await action();
     } finally {
-      if (parkedNow && mounted) {
+      final resumeNow = _mapParkingGuard.exit();
+      if (resumeNow && mounted) {
+        // U6: a finished (or abandoned) booking flow must not leave its
+        // pickup behind as the next booking's starting point.
+        _tripPickupLatLng = null;
         AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
+        _locationCtl.resumeLiveUpdates();
         _mapParked.value = false;
       }
     }
@@ -518,13 +512,29 @@ class _HomeState extends State<Home> {
     String address, {
     bool isDestination = false,
   }) async {
-    LatLng initialPosition =
-        _tripPickupLatLng ?? _currentLatLng ?? _initialPosition.target;
-    final cleanAddress = address.trim();
-    if (cleanAddress.isNotEmpty &&
-        cleanAddress.toLowerCase() != 'current location') {
+    var cleanAddress = address.trim();
+    // U6: only text the rider actually typed is forward-geocoded. The stored
+    // pickup label came from GPS, a dropped pin or an earlier booking, and a
+    // raw coordinate string is not a place — geocoding either one moved the
+    // picker to wherever the *previous* trip's address resolved to.
+    final storedLabel = _pickupAddress?.trim() ?? '';
+    final typedByRider =
+        !isPlaceholderPickupLabel(cleanAddress) &&
+        !isUnusablePickupLabel(cleanAddress) &&
+        cleanAddress != storedLabel;
+    // This booking's own confirmed pickup (cleared when the flow ends).
+    LatLng? chosen = _tripPickupLatLng;
+    if (typedByRider || isDestination) {
       final geocoded = await _locationCtl.geocodeLatLng(cleanAddress);
-      if (geocoded != null) initialPosition = geocoded;
+      if (geocoded != null) chosen = geocoded;
+    }
+    final gps = _currentLatLng;
+    final initialPosition = chosen ?? gps ?? _initialPosition.target;
+    // D-002: with no fix and no chosen pickup the picker opens on a default
+    // map point; it must not be confirmable as if it were the rider's spot.
+    final positionIsFallback = chosen == null && gps == null;
+    if (chosen == null) {
+      cleanAddress = gps != null ? 'Current location' : locationOffPickupLabel;
     }
     if (!mounted) return null;
     return _withParkedHomeMap(() async {
@@ -536,6 +546,9 @@ class _HomeState extends State<Home> {
             : cleanAddress,
         title: isDestination ? 'Confirm destination' : 'Confirm pickup spot',
         confirmLabel: isDestination ? 'Confirm destination' : 'Confirm pickup',
+        positionIsFallback: positionIsFallback,
+        // U6 / D-011: opened at GPS (or the fallback) — take a fresh fix.
+        refreshCurrentLocation: chosen == null,
       );
       if (result == null) return null;
       return PickupMapResult(
@@ -557,7 +570,8 @@ class _HomeState extends State<Home> {
     final destinationController = TextEditingController(
       text: _destinationAddress ?? '',
     );
-    final stopControllers = _routeStops
+    // U5: stops are not honoured downstream yet, so no stale stop fields.
+    final stopControllers = (_stopsSupported ? _routeStops : const <String>[])
         .map((address) => TextEditingController(text: address))
         .toList();
     final pickupFocus = FocusNode();
@@ -575,6 +589,7 @@ class _HomeState extends State<Home> {
     LatLng? confirmedPickupLatLng;
     var destinationConfirmedOnMap = false;
     LatLng? confirmedDestinationLatLng;
+    var confirmingDestinationNext = false;
 
     TextEditingController activeController() {
       if (activeField == 'pickup') return pickupController;
@@ -655,24 +670,42 @@ class _HomeState extends State<Home> {
                       (field != 'stop' || activeStopIndex == stopIndex);
                   return Row(
                     children: [
-                      Container(
+                      SizedBox(
                         width: ResSize.w * 27,
-                        alignment: Alignment.center,
-                        child: Container(
-                          width: ResSize.w * 10,
-                          height: ResSize.h * 10,
-                          decoration: BoxDecoration(
-                            color: field == 'destination'
-                                ? _premiumAccent
-                                : AppColor.white,
-                            shape: field == 'destination'
-                                ? BoxShape.rectangle
-                                : BoxShape.circle,
-                            borderRadius: field == 'destination'
-                                ? BorderRadius.circular(2)
-                                : null,
-                            border: Border.all(color: _premiumInk, width: 2),
-                          ),
+                        child: Center(
+                          child: badgeColor != null
+                              ? Semantics(
+                                  button: true,
+                                  label: field == 'pickup'
+                                      ? 'Set pickup on map'
+                                      : 'Select final destination',
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap:
+                                        onMapTap ??
+                                        () => activateField(
+                                          field,
+                                          controller,
+                                          stopIndex: stopIndex,
+                                        ),
+                                    child: PremiumRouteLocationBadge(
+                                      color: badgeColor,
+                                      size: ResSize.h * 27,
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  width: ResSize.w * 10,
+                                  height: ResSize.h * 10,
+                                  decoration: BoxDecoration(
+                                    color: AppColor.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: _premiumInk,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                       8.width,
@@ -732,30 +765,6 @@ class _HomeState extends State<Home> {
                           ),
                         ),
                       ),
-                      if (badgeColor != null)
-                        Semantics(
-                          button: true,
-                          label: field == 'pickup'
-                              ? 'Set pickup on map'
-                              : 'Select final destination',
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap:
-                                onMapTap ??
-                                () => activateField(
-                                  field,
-                                  controller,
-                                  stopIndex: stopIndex,
-                                ),
-                            child: Padding(
-                              padding: EdgeInsets.only(left: ResSize.w * 3),
-                              child: PremiumRouteLocationBadge(
-                                color: badgeColor,
-                                size: ResSize.h * 35.2,
-                              ),
-                            ),
-                          ),
-                        ),
                       if (removable)
                         IconButton(
                           onPressed: () {
@@ -847,22 +856,9 @@ class _HomeState extends State<Home> {
                     controller: destinationController,
                     focusNode: destinationFocus,
                     badgeColor: const Color(0xFF1769E8),
-                    onMapTap: () async {
-                      FocusScope.of(context).unfocus();
-                      final result = await _openPickupMapPicker(
-                        destinationController.text.trim(),
-                        isDestination: true,
-                      );
-                      if (result == null || !mounted) return;
-                      destinationController.text = result.address;
-                      destinationController.selection = TextSelection.collapsed(
-                        offset: destinationController.text.length,
-                      );
-                      setModalState(() {
-                        destinationConfirmedOnMap = true;
-                        confirmedDestinationLatLng = result.position;
-                        query = destinationController.text;
-                      });
+                    onMapTap: () {
+                      activateField('destination', destinationController);
+                      destinationFocus.requestFocus();
                     },
                   ),
                 );
@@ -882,24 +878,33 @@ class _HomeState extends State<Home> {
                     setModalState(() => query = text);
                   });
                 };
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                // MoveraSheet already applies the keyboard inset outside
+                // this builder. Applying it a second time pushed the primary
+                // Next action below the viewport while an address field was
+                // focused. Keep one keyboard owner and make this surface its
+                // own Material so ListTile ink/backgrounds remain visible.
+                return Material(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(32),
+                    topRight: Radius.circular(32),
                   ),
+                  clipBehavior: Clip.antiAlias,
                   child: Container(
-                    height: MediaQuery.of(context).size.height * 0.92,
+                    // MoveraSheet already owns the keyboard inset outside this
+                    // builder. Size this surface from the remaining visible
+                    // viewport, not from the full screen, otherwise the sheet
+                    // plus keyboard padding becomes taller than the screen and
+                    // pushes the primary Next action below the hit-test area.
+                    height:
+                        (MediaQuery.sizeOf(context).height -
+                            MediaQuery.viewInsetsOf(context).bottom) *
+                        0.92,
                     padding: EdgeInsets.fromLTRB(
-                      ResSize.w * 18,
+                      ResSize.w * 14,
                       ResSize.h * 10,
-                      ResSize.w * 18,
+                      ResSize.w * 14,
                       ResSize.h * 16,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(32),
-                        topRight: Radius.circular(32),
-                      ),
                     ),
                     child: Column(
                       children: [
@@ -935,91 +940,33 @@ class _HomeState extends State<Home> {
                         ),
                         14.height,
                         Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Expanded(
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: ResSize.w * 10,
-                                  vertical: ResSize.h * 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColor.white,
-                                  borderRadius: BorderRadius.circular(23),
-                                  border: Border.all(
-                                    color: _premiumInk,
-                                    width: 1.25,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.045,
-                                      ),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 7),
-                                    ),
-                                  ],
-                                ),
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      left: ResSize.w * 13,
-                                      top: ResSize.h * 25,
-                                      bottom: ResSize.h * 25,
-                                      child: Container(
-                                        width: 1.4,
-                                        color: _premiumInk.withValues(
-                                          alpha: 0.72,
-                                        ),
-                                      ),
-                                    ),
-                                    Column(children: routeRows),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            10.width,
-                            Material(
-                              color: const Color(0xFFF0F2F3),
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                onTap: stopControllers.length >= 3
-                                    ? null
-                                    : () {
-                                        final controller =
-                                            TextEditingController();
-                                        final focusNode = FocusNode();
-                                        setModalState(() {
-                                          stopControllers.add(controller);
-                                          stopFocusNodes.add(focusNode);
-                                          sheetDisposables.add(controller);
-                                          sheetDisposables.add(focusNode);
-                                          activeField = 'stop';
-                                          activeStopIndex =
-                                              stopControllers.length - 1;
-                                          query = '';
-                                        });
-                                        WidgetsBinding.instance
-                                            .addPostFrameCallback((_) {
-                                              focusNode.requestFocus();
-                                            });
-                                      },
-                                customBorder: const CircleBorder(),
-                                child: SizedBox(
-                                  width: ResSize.w * 48,
-                                  height: ResSize.h * 48,
-                                  child: Icon(
-                                    Icons.add_rounded,
-                                    color: stopControllers.length >= 3
-                                        ? _premiumMuted.withValues(alpha: 0.4)
-                                        : _premiumInk,
-                                    size: ResSize.h * 27,
-                                  ),
-                                ),
+                              child: PlanRideAddressBox(
+                                routeRows: routeRows,
+                                showAddStop: _stopsSupported,
+                                stopCount: stopControllers.length,
+                                onAddStop: () {
+                                  final controller = TextEditingController();
+                                  final focusNode = FocusNode();
+                                  setModalState(() {
+                                    stopControllers.add(controller);
+                                    stopFocusNodes.add(focusNode);
+                                    sheetDisposables.add(controller);
+                                    sheetDisposables.add(focusNode);
+                                    activeField = 'stop';
+                                    activeStopIndex = stopControllers.length - 1;
+                                    query = '';
+                                  });
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    focusNode.requestFocus();
+                                  });
+                                },
                               ),
                             ),
                           ],
                         ),
+                        if (_stopsSupported) ...[
                         9.height,
                         Row(
                           children: [
@@ -1041,6 +988,7 @@ class _HomeState extends State<Home> {
                             ),
                           ],
                         ),
+                        ],
                         13.height,
                         Align(
                           alignment: Alignment.centerLeft,
@@ -1217,12 +1165,17 @@ class _HomeState extends State<Home> {
                             onTap: destinationController.text.trim().isEmpty
                                 ? null
                                 : () async {
+                                    if (confirmingDestinationNext) return;
+                                    confirmingDestinationNext = true;
                                     FocusScope.of(context).unfocus();
                                     // Book now always confirms pickup; GPS only prefills.
                                     final result = await _openPickupMapPicker(
                                       pickupController.text.trim(),
                                     );
-                                    if (result == null || !mounted) return;
+                                    if (result == null || !mounted) {
+                                      confirmingDestinationNext = false;
+                                      return;
+                                    }
                                     pickupController.text = result.address;
                                     final exactPosition = result.position;
 
@@ -1241,21 +1194,20 @@ class _HomeState extends State<Home> {
                                         exactDestinationPosition =
                                             geocodedDestination.point;
                                       } else {
-                                        final result =
-                                            await _openPickupMapPicker(
-                                              destinationText,
-                                              isDestination: true,
-                                            );
-                                        if (result == null || !mounted) return;
-                                        destinationController.text =
-                                            result.address;
-                                        exactDestinationPosition =
-                                            result.position;
+                                        if (sheetContext.mounted) {
+                                          MoveraToast.show(
+                                            sheetContext,
+                                            'Choose a valid destination address.',
+                                          );
+                                        }
+                                        confirmingDestinationNext = false;
+                                        return;
                                       }
                                     }
                                     if (!mounted ||
                                         !sheetContext.mounted ||
                                         exactDestinationPosition == null) {
+                                      confirmingDestinationNext = false;
                                       return;
                                     }
                                     Navigator.pop(sheetContext, {
@@ -1309,24 +1261,41 @@ class _HomeState extends State<Home> {
     }
 
     if (draft == null || !mounted) return;
-    final pickup = await _normaliseAddress(draft['pickup'] as String? ?? '');
-    final destination = await _normaliseAddress(
-      draft['destination'] as String? ?? '',
-    );
+    final rawPickup = draft['pickup'] as String? ?? '';
+    final rawDestination = draft['destination'] as String? ?? '';
     final rawStops = (draft['stops'] as List<dynamic>? ?? <dynamic>[])
         .whereType<String>()
         .toList();
-    final stops = <String>[];
-    for (final stop in rawStops) {
-      final resolved = await _normaliseAddress(stop);
-      if (resolved.isNotEmpty) stops.add(resolved);
-    }
+    final routePreparationWatch = Stopwatch()..start();
+    final normaliseBatch = _locationCtl.beginNormalisationBatch();
+    final normalizedRoute = await Future.wait<String>([
+      _normaliseAddress(rawPickup, generation: normaliseBatch),
+      _normaliseAddress(rawDestination, generation: normaliseBatch),
+      ...rawStops.map(
+        (stop) => _normaliseAddress(stop, generation: normaliseBatch),
+      ),
+    ]);
+    routePreparationWatch.stop();
+    RouteTransitionMetrics.routePreparation(
+      routePreparationWatch.elapsed,
+      stopCount: rawStops.length,
+    );
+    var pickup = normalizedRoute[0];
+    final destination = normalizedRoute[1];
+    final stops = normalizedRoute
+        .skip(2)
+        .where((address) => address.isNotEmpty)
+        .toList();
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;
     final exactPickupPosition = pickupLat != null && pickupLng != null
         ? LatLng(pickupLat, pickupLng)
         : (_tripPickupLatLng ?? _currentLatLng);
+    if (exactPickupPosition != null) {
+      pickup = await _bookingPickup(pickup, exactPickupPosition);
+      if (!mounted) return;
+    }
     final destinationLat = draft['destinationLat'] as double?;
     final destinationLng = draft['destinationLng'] as double?;
     final exactDestinationPosition =
@@ -1357,7 +1326,7 @@ class _HomeState extends State<Home> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Please confirm pickup and destination on the map.',
+                'Please choose a valid pickup and destination.',
               ),
             ),
           );
@@ -1368,8 +1337,8 @@ class _HomeState extends State<Home> {
       // crashes the browser tab on Flutter web.
       await _withParkedHomeMap(() {
         return Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SelectRide(
+          RideStageTransition(
+            SelectRide(
               pickupAddress: pickup.isNotEmpty
                   ? pickup
                   : (_pickupAddress ?? 'Current location'),
@@ -1384,6 +1353,7 @@ class _HomeState extends State<Home> {
                 replace: true,
               ),
             ),
+            settings: const RouteSettings(name: AppRoutes.selectRide),
           ),
         );
       });
@@ -1829,42 +1799,27 @@ class _HomeState extends State<Home> {
     }
   }
 
-  Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
-    const width = 65.9;
-    const height = 75.3;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..scale(0.588, 0.588);
-    const center = Offset(56, 84);
-    // Narrow at the user, with a curved arc at the direction edge.
-    final beam = Path()
-      ..moveTo(56, 80)
-      ..lineTo(23, 18)
-      ..quadraticBezierTo(56, 1, 89, 18)
-      ..close();
-    final beamPaint = Paint()
-      ..shader = ui.Gradient.linear(const Offset(56, 4), center, [
-        const Color(0x08747B80),
-        const Color(0x35747B80),
-      ]);
-    canvas.drawPath(beam, beamPaint);
-    canvas.drawCircle(
-      center,
-      expanded ? 31 : 25,
-      Paint()..color = const Color(0x18747B80),
-    );
-    canvas.drawCircle(center, 20, Paint()..color = Colors.white);
-    canvas.drawCircle(center, 15, Paint()..color = const Color(0xFF747B80));
-    final image = await recorder.endRecording().toImage(
-      width.toInt(),
-      height.toInt(),
-    );
-    if (expanded) {
-      _puckExpandedImage = image;
+  void _setCoveredByMenuPage(bool covered) {
+    if (!mounted || _mapParked.value) return;
+    if (covered) {
+      _locationCtl.pauseLiveUpdates();
     } else {
-      _puckCompactImage = image;
+      _locationCtl.resumeLiveUpdates();
     }
-    final data = await image.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
+  }
+
+  Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
+    final visual = await MoveraRiderPuckMarker.createVisual(expanded: expanded);
+    // The rotated bitmaps were drawn from the old source images.
+    _webPuckCache.clear();
+    if (expanded) {
+      _puckExpandedImage?.dispose();
+      _puckExpandedImage = visual.image;
+    } else {
+      _puckCompactImage?.dispose();
+      _puckCompactImage = visual.image;
+    }
+    return visual.icon;
   }
 
   Future<void> _prepareLocationPuckIcons() async {
@@ -1878,6 +1833,28 @@ class _HomeState extends State<Home> {
   }) async {
     final src = expanded ? _puckExpandedImage : _puckCompactImage;
     if (src == null) return null;
+    // U7: one bitmap per 5° bucket and pulse state, built once and reused,
+    // instead of toImage + PNG encode on every heading sample and pulse.
+    final bucket = _webPuckCache.bucketFor(heading);
+    final cached = _webPuckCache.lookup(expanded: expanded, bucket: bucket);
+    if (cached != null) return cached;
+    final icon = await _rasteriseRotatedPuck(
+      src,
+      _webPuckCache.headingFor(bucket),
+    );
+    if (icon != null && identical(
+      src,
+      expanded ? _puckExpandedImage : _puckCompactImage,
+    )) {
+      _webPuckCache.store(expanded: expanded, bucket: bucket, icon: icon);
+    }
+    return icon;
+  }
+
+  Future<BitmapDescriptor?> _rasteriseRotatedPuck(
+    ui.Image src,
+    double heading,
+  ) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final cx = src.width * 0.5;
@@ -1891,7 +1868,7 @@ class _HomeState extends State<Home> {
     final data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();
     if (data == null) return null;
-    return BitmapDescriptor.fromBytes(data.buffer.asUint8List());
+    return BitmapDescriptor.bytes(data.buffer.asUint8List());
   }
 
   void _updateLocationVisuals() {
@@ -1980,29 +1957,16 @@ class _HomeState extends State<Home> {
 
   double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
 
-  bool get _isSheetAtMiddle {
-    if (!_homeSheetController.hasClient) return false;
-    final offset = _homeSheetController.metrics?.offset;
-    if (offset == null) return false;
-    return (offset - _sheetMidPixels).abs() <= ResSize.h * 1.5;
-  }
+  bool get _isSheetAtMiddle => _sheetCtl.isAtMiddle;
 
-  void _cancelSheetIdleTimer() {
-    _sheetIdleTimer?.cancel();
-    _sheetIdleTimer = null;
-  }
+  void _cancelSheetIdleTimer() => _sheetCtl.cancelIdleTimer();
 
   void _scheduleSheetIdleClose() {
-    if (!_isSheetAtMiddle || _sheetIdleTimer?.isActive == true) return;
-    _sheetIdleTimer = Timer(const Duration(seconds: 3), () {
-      _sheetIdleTimer = null;
-      if (!mounted || !_isSheetAtMiddle) return;
-      _animateHomeSheetTo(
-        SheetOffset.absolute(_sheetMinPixels),
-        duration: MoveraDurations.large,
-        curve: MoveraCurves.close,
-      );
-    });
+    _sheetCtl.scheduleIdleClose(
+      accessibleNavigation:
+          MediaQuery.maybeOf(context)?.accessibleNavigation ?? false,
+      isMounted: () => mounted,
+    );
   }
 
   void _syncHomeSheetState() {
@@ -2028,59 +1992,40 @@ class _HomeState extends State<Home> {
     SheetOffset target, {
     Duration duration = MoveraDurations.large,
     Curve curve = MoveraCurves.open,
-  }) async {
-    if (!_homeSheetController.hasClient) return;
-    await _homeSheetController.animateTo(
-      target,
-      duration: duration,
-      curve: curve,
-    );
-  }
+  }) => _sheetCtl.animateTo(target, duration: duration, curve: curve);
 
-  void _openDestinationSheet() {
-    if (!_destinationSheetOpen) {
-      setState(() => _destinationSheetOpen = true);
-    }
-    _animateHomeSheetTo(const SheetOffset(1));
+  Future<void> _openDestinationSheet() async {
+    if (!_destinationSheetOpen) setState(() => _destinationSheetOpen = true);
+    await _sheetCtl.open();
   }
 
   void _closeDestinationSheet() {
-    if (_destinationSheetOpen) {
-      setState(() => _destinationSheetOpen = false);
-    }
-    _animateHomeSheetTo(SheetOffset.absolute(_sheetMinPixels));
+    if (_destinationSheetOpen) setState(() => _destinationSheetOpen = false);
+    _sheetCtl.close();
   }
 
-  void _toggleHomeSheet() {
-    final offset = _homeSheetController.hasClient
-        ? (_homeSheetController.metrics?.offset ?? _sheetMinPixels)
-        : _sheetMinPixels;
-    final midpoint = (_sheetMinPixels + _sheetMidPixels) / 2;
-    final SheetOffset target;
-    if (offset > _sheetMidPixels + ResSize.h * 8) {
-      target = SheetOffset.absolute(_sheetMidPixels);
-    } else if (offset > midpoint) {
-      target = SheetOffset.absolute(_sheetMinPixels);
-    } else {
-      target = SheetOffset.absolute(_sheetMidPixels);
-    }
-    _animateHomeSheetTo(target, duration: MoveraDurations.large);
-  }
+  void _toggleHomeSheet() => _sheetCtl.toggle(
+    expandedThreshold: ResSize.h * 8,
+  );
 
   Future<void> _openSchedule() async {
     await _withParkedHomeMap(() {
       return Navigator.push(
         context,
-        BottomToTopTransition(const ScheduleRide()),
+        BottomToTopTransition(
+          const ScheduleRide(),
+          settings: const RouteSettings(name: AppRoutes.schedule),
+        ),
       );
     });
   }
 
   void _openPayment() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const WalletScreen()),
-    );
+    unawaited(_withParkedHomeMap(() {
+      return Navigator.of(context).push(
+        RightToLeftTransition(const WalletAndPaymentsScreen(initialTab: 1)),
+      );
+    }));
   }
 
   void _openAccount() {
@@ -2099,13 +2044,33 @@ class _HomeState extends State<Home> {
     final topInset = MediaQuery.of(context).padding.top + ResSize.h * 8;
     final fullSheetPixels = viewportHeight - topInset;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_destinationSheetOpen && !_drawerOpen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_drawerOpen) {
+          _scaffoldKey.currentState?.closeDrawer();
+        } else if (_destinationSheetOpen) {
+          _closeDestinationSheet();
+        }
+      },
+      child: Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFEEF1E8),
       extendBody: true,
-      drawer: const RiderSideMenu(),
+      drawer: RiderSideMenu(
+        onStartBooking: () => unawaited(_openDestinationSheet()),
+        // U7: menu pages cover Home without parking its map; stop the
+        // heading poll, pulse and puck repaint while they are on top.
+        onCoveredChanged: _setCoveredByMenuPage,
+      ),
+      onDrawerChanged: (open) {
+        if (mounted) setState(() => _drawerOpen = open);
+      },
       drawerScrimColor: Colors.black.withValues(alpha: 0.38),
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
+      body: FocusTraversalGroup(
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => _cancelSheetIdleTimer(),
         onPointerUp: (_) => _scheduleSheetIdleClose(),
         onPointerCancel: (_) => _scheduleSheetIdleClose(),
@@ -2118,21 +2083,20 @@ class _HomeState extends State<Home> {
                 children: [
                   Positioned.fill(
                     child: RepaintBoundary(
-                      child: _HomeMapLayer(
+                      child: HomeMapLayer(
                         location: _locationCtl,
                         parked: _mapParked,
                         padding: EdgeInsets.only(bottom: _sheetMinPixels),
                         initialPosition: _initialPosition,
-                        mapStyle: _premiumMapStyle,
+                        mapStyle: homeMapStyle,
                         onCameraMove: _handleMapCameraMove,
                         onMapCreated: (GoogleMapController controller) {
-                          _mapController = controller;
                           AppScope.instance.maps.attach(
                             controller,
                             owner: MapOwners.home,
                           );
                           AppScope.instance.mapLifecycle.created();
-                          final target = _currentLatLng;
+                          final target = _currentLatLng ?? _cameraHint;
                           if (target != null) {
                             AppScope.instance.maps.animateCamera(
                               GeoPoint(target.latitude, target.longitude),
@@ -2148,21 +2112,28 @@ class _HomeState extends State<Home> {
                       right: ResSize.w * 18,
                       bottom: _sheetMinPixels + ResSize.h * 14,
                       child: PointerInterceptor(
-                        child: Material(
-                          color: Colors.white,
-                          shape: const CircleBorder(),
-                          elevation: 8,
-                          shadowColor: Colors.black26,
-                          child: InkWell(
-                            onTap: _recenterOnUser,
-                            customBorder: const CircleBorder(),
-                            child: SizedBox(
-                              width: ResSize.w * 45,
-                              height: ResSize.h * 45,
-                              child: Icon(
-                                Icons.near_me_outlined,
-                                color: _premiumInk,
-                                size: ResSize.h * 22,
+                        child: Tooltip(
+                          message: 'Recenter map on your location',
+                          child: Semantics(
+                            button: true,
+                            label: 'Recenter map on your location',
+                            child: Material(
+                              color: Colors.white,
+                              shape: const CircleBorder(),
+                              elevation: 8,
+                              shadowColor: Colors.black26,
+                              child: InkWell(
+                                onTap: _recenterOnUser,
+                                customBorder: const CircleBorder(),
+                                child: const SizedBox(
+                                  width: 48,
+                                  height: 48,
+                                  child: Icon(
+                                    Icons.near_me_outlined,
+                                    color: _premiumInk,
+                                    size: 22,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -2183,13 +2154,15 @@ class _HomeState extends State<Home> {
                   Positioned(
                     left: screenHorizPadding,
                     top: ResSize.h * 60,
-                    child: const HomeReservationChrono(),
+                    child: HomeReservationChrono(
+                      onRebook: () => unawaited(_openSchedule()),
+                    ),
                   ),
                   Positioned.fill(
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
                         screenHorizPadding,
-                        ResSize.h * 60,
+                        ResSize.h * 50,
                         screenHorizPadding,
                         0,
                       ),
@@ -2210,69 +2183,134 @@ class _HomeState extends State<Home> {
               ),
             ),
             SheetViewport(
-              child: Sheet(
-                controller: _homeSheetController,
-                initialOffset: SheetOffset.absolute(_sheetMinPixels),
-                physics: MoveraSheetMotion.physics,
-                snapGrid: SheetSnapGrid(
-                  snaps: [
-                    SheetOffset.absolute(_sheetMinPixels),
-                    SheetOffset.absolute(_sheetMidPixels),
-                    const SheetOffset(1),
-                  ],
-                  minFlingSpeed: 520,
-                ),
-                scrollConfiguration: SheetScrollConfiguration.disabled,
-                child: PointerInterceptor(
-                  child: SizedBox(
-                    height: fullSheetPixels,
-                    width: double.infinity,
-                    child: AnimatedBuilder(
-                      animation: _homeSheetController,
-                      builder: (context, child) {
-                        final sheetHeight = _homeSheetController.hasClient
-                            ? (_homeSheetController.metrics?.offset ??
-                                  _sheetMinPixels)
-                            : _sheetMinPixels;
-                        final sheetProgress =
-                            ((sheetHeight - _sheetMinPixels) /
-                                    (_sheetMidPixels - _sheetMinPixels))
-                                .clamp(0.0, 1.0);
-                        final rawDetailProgress =
-                            ((sheetHeight - _sheetMidPixels) /
-                                    (fullSheetPixels - _sheetMidPixels))
-                                .clamp(0.0, 1.0);
-                        final detailProgress = Curves.easeInCubic.transform(
-                          rawDetailProgress,
-                        );
-                        return _premiumCollapsedSheet(
-                          sheetProgress,
-                          detailProgress,
-                          sheetHeight,
-                        );
-                      },
+              child: Builder(
+                builder: (context) {
+                  // These four pieces never depend on the drag animation
+                  // itself - only on state that changes via setState (the
+                  // destination/saved-places data, not the sheet offset).
+                  // Building them once per real rebuild, instead of inside
+                  // the AnimatedBuilder's per-frame builder below, avoids
+                  // reconstructing this subtree on every drag tick.
+                  final premiumToggleHandle = Semantics(
+                    button: true,
+                    label: 'Toggle home panel',
+                    child: Tooltip(
+                      message: 'Toggle home panel',
+                      child: InkWell(
+                        onTap: _toggleHomeSheet,
+                        borderRadius: BorderRadius.circular(14),
+                        child: SizedBox(
+                          width: 48,
+                          height: 32,
+                          child: Center(
+                            child: Container(
+                              width: ResSize.w * 42,
+                              height: ResSize.h * 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFCED4D8),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                  final premiumWhereToCard = WhereToCard(
+                    destinationAddress: _destinationAddress,
+                    onDestinationTap: _handleDestinationTap,
+                    onOpenSchedule: _openSchedule,
+                  );
+                  final premiumSavedPlacesContent = Column(
+                    children: [
+                      15.height,
+                      SavedPlacesRow(
+                        homeAddress: _homeAddress,
+                        workAddress: _workAddress,
+                        savedPlaces: _savedPlaces,
+                        onUseSavedPlace: _useSavedPlaceAsDestination,
+                        onAddPlace: _openAddPlacePicker,
+                      ),
+                    ],
+                  );
+                  final premiumDetailContent = Column(
+                    children: [
+                      AdvanceBookingCard(onOpenSchedule: _openSchedule),
+                      14.height,
+                      ComfortRideCarousel(
+                        onDestinationTap: _handleDestinationTap,
+                        onOpenSchedule: _openSchedule,
+                      ),
+                    ],
+                  );
+                  return Sheet(
+                    controller: _homeSheetController,
+                    initialOffset: SheetOffset.absolute(_sheetMinPixels),
+                    physics: MoveraSheetMotion.physics,
+                    snapGrid: SheetSnapGrid(
+                      snaps: [
+                        SheetOffset.absolute(_sheetMinPixels),
+                        SheetOffset.absolute(_sheetMidPixels),
+                        const SheetOffset(1),
+                      ],
+                      minFlingSpeed: 520,
+                    ),
+                    scrollConfiguration: SheetScrollConfiguration.disabled,
+                    child: PointerInterceptor(
+                      child: SizedBox(
+                        height: fullSheetPixels,
+                        width: double.infinity,
+                        child: AnimatedBuilder(
+                          animation: _homeSheetController,
+                          builder: (context, child) {
+                            final sheetHeight = _homeSheetController.hasClient
+                                ? (_homeSheetController.metrics?.offset ??
+                                      _sheetMinPixels)
+                                : _sheetMinPixels;
+                            final sheetProgress =
+                                ((sheetHeight - _sheetMinPixels) /
+                                        (_sheetMidPixels - _sheetMinPixels))
+                                    .clamp(0.0, 1.0);
+                            final rawDetailProgress =
+                                ((sheetHeight - _sheetMidPixels) /
+                                        (fullSheetPixels - _sheetMidPixels))
+                                    .clamp(0.0, 1.0);
+                            final detailProgress = Curves.easeInCubic
+                                .transform(rawDetailProgress);
+                            return _premiumCollapsedSheet(
+                              sheetProgress,
+                              detailProgress,
+                              sheetHeight,
+                              toggleHandle: premiumToggleHandle,
+                              whereToCard: premiumWhereToCard,
+                              savedPlacesContent: premiumSavedPlacesContent,
+                              detailContent: premiumDetailContent,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            RiderProfile(
-              controller: _profilePanelController,
-              onClose: () {
-                _profilePanelController.close();
-              },
-            ),
           ],
+          ),
         ),
       ),
+    ),
     );
   }
 
   Widget _premiumCollapsedSheet(
     double sheetProgress,
     double detailProgress,
-    double sheetHeight,
-  ) {
+    double sheetHeight, {
+    required Widget toggleHandle,
+    required Widget whereToCard,
+    required Widget savedPlacesContent,
+    required Widget detailContent,
+  }) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -2299,23 +2337,9 @@ class _HomeState extends State<Home> {
               ),
               child: Column(
                 children: [
-                  GestureDetector(
-                    onTap: _toggleHomeSheet,
-                    child: Container(
-                      width: ResSize.w * 42,
-                      height: ResSize.h * 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFCED4D8),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                    ),
-                  ),
+                  toggleHandle,
                   12.height,
-                  WhereToCard(
-                    destinationAddress: _destinationAddress,
-                    onDestinationTap: _handleDestinationTap,
-                    onOpenSchedule: _openSchedule,
-                  ),
+                  whereToCard,
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
                     child: ClipRect(
@@ -2324,18 +2348,7 @@ class _HomeState extends State<Home> {
                         heightFactor: sheetProgress,
                         child: Opacity(
                           opacity: sheetProgress,
-                          child: Column(
-                            children: [
-                              15.height,
-                              SavedPlacesRow(
-                                homeAddress: _homeAddress,
-                                workAddress: _workAddress,
-                                savedPlaces: _savedPlaces,
-                                onUseSavedPlace: _useSavedPlaceAsDestination,
-                                onAddPlace: _openAddPlacePicker,
-                              ),
-                            ],
-                          ),
+                          child: savedPlacesContent,
                         ),
                       ),
                     ),
@@ -2350,18 +2363,7 @@ class _HomeState extends State<Home> {
                           opacity: detailProgress,
                           child: Padding(
                             padding: EdgeInsets.only(top: ResSize.h * 24),
-                            child: Column(
-                              children: [
-                                AdvanceBookingCard(
-                                  onOpenSchedule: _openSchedule,
-                                ),
-                                14.height,
-                                ComfortRideCarousel(
-                                  onDestinationTap: _handleDestinationTap,
-                                  onOpenSchedule: _openSchedule,
-                                ),
-                              ],
-                            ),
+                            child: detailContent,
                           ),
                         ),
                       ),
@@ -2461,113 +2463,5 @@ class _HomeState extends State<Home> {
         ),
       ),
     );
-  }
-}
-
-class _HomeMapLayer extends StatefulWidget {
-  const _HomeMapLayer({
-    required this.location,
-    required this.parked,
-    required this.padding,
-    required this.initialPosition,
-    required this.mapStyle,
-    required this.onCameraMove,
-    required this.onMapCreated,
-  });
-
-  final HomeLocationController location;
-  final ValueNotifier<bool> parked;
-  final EdgeInsets padding;
-  final CameraPosition initialPosition;
-  final String mapStyle;
-  final void Function(CameraPosition) onCameraMove;
-  final void Function(GoogleMapController) onMapCreated;
-
-  @override
-  State<_HomeMapLayer> createState() => _HomeMapLayerState();
-}
-
-class _HomeMapLayerState extends State<_HomeMapLayer> {
-  Widget? _cached;
-  Set<Marker>? _markers;
-  Set<Circle>? _circles;
-  Set<Polygon>? _polygons;
-  EdgeInsets? _padding;
-  bool? _parked;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.location.addListener(_onChange);
-    widget.parked.addListener(_onChange);
-  }
-
-  @override
-  void didUpdateWidget(_HomeMapLayer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.location != widget.location) {
-      oldWidget.location.removeListener(_onChange);
-      widget.location.addListener(_onChange);
-    }
-    if (oldWidget.parked != widget.parked) {
-      oldWidget.parked.removeListener(_onChange);
-      widget.parked.addListener(_onChange);
-    }
-  }
-
-  void _onChange() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    widget.location.removeListener(_onChange);
-    widget.parked.removeListener(_onChange);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.parked.value) {
-      const parked = ColoredBox(color: Color(0xFFEEF1E8));
-      _cached = parked;
-      _parked = true;
-      return parked;
-    }
-    if (_cached != null &&
-        _parked == false &&
-        identical(_markers, widget.location.markers) &&
-        identical(_circles, widget.location.locationCircles) &&
-        identical(_polygons, widget.location.locationDirection) &&
-        _padding == widget.padding) {
-      return _cached!;
-    }
-    _parked = false;
-    _markers = widget.location.markers;
-    _circles = widget.location.locationCircles;
-    _polygons = widget.location.locationDirection;
-    _padding = widget.padding;
-    _cached = CustomGoogleMap(
-      key: const ValueKey('home-map'),
-      initialPosition: widget.initialPosition,
-      markers: widget.location.markers,
-      circles: widget.location.locationCircles,
-      polygons: widget.location.locationDirection,
-      padding: widget.padding,
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: false,
-      mapToolbarEnabled: false,
-      compassEnabled: false,
-      trafficEnabled: false,
-      buildingsEnabled: true,
-      indoorViewEnabled: false,
-      mapType: MapType.normal,
-      customMapStyle: widget.mapStyle,
-      onCameraMove: widget.onCameraMove,
-      onMapCreated: widget.onMapCreated,
-      onTap: (LatLng position) {},
-    );
-    return _cached!;
   }
 }

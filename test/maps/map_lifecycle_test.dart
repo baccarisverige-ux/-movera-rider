@@ -31,4 +31,27 @@ void main() {
     rt.markConnected();
     expect(rt.nextBackoff().inSeconds, 1);
   });
+  test('nested parking resumes only once at the outer boundary', () {
+    final guard = MapParkingGuard();
+
+    expect(guard.enter(), isTrue);
+    expect(guard.isParked, isTrue);
+    expect(guard.depth, 1);
+
+    expect(guard.enter(), isFalse);
+    expect(guard.depth, 2);
+
+    expect(guard.exit(), isFalse);
+    expect(guard.isParked, isTrue);
+    expect(guard.depth, 1);
+
+    expect(guard.exit(), isTrue);
+    expect(guard.isParked, isFalse);
+    expect(guard.depth, 0);
+
+    // A stale extra cleanup cannot trigger a second Home resume.
+    expect(guard.exit(), isFalse);
+  });
+
+
 }

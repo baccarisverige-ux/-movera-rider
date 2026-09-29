@@ -30,8 +30,15 @@ jobs:
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
-              echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
-              exit 0
+              # index.html alone is not enough: right after a deploy the
+              # versioned bootstrap or main bundle can still be missing from
+              # the CDN edge, and the page then never starts.
+              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
+              if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js" &&
+                curl -fsSI -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/main.${SHORT}.dart.js?qa_wait=$RANDOM" >/dev/null; then
+                echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+                exit 0
+              fi
             fi
             sleep 10
           done
@@ -46,11 +53,6 @@ jobs:
 
           const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
 
-          async function enableA11y(page) {
-            try { await page.getByLabel('Enable accessibility').click({ timeout: 2500 }); } catch (_) {}
-            await page.waitForTimeout(400);
-          }
-
           async function waitForMapOwner(page, expected, name) {
             try {
               await page.waitForFunction(
@@ -62,6 +64,24 @@ jobs:
               const actual = await page.evaluate(() => window.moveraMapOwner || '');
               throw new Error(`${name}: expected map owner ${expected}, got ${actual || 'none'}`, { cause: error });
             }
+          }
+
+          // A touch drag across the map, as a rider moves the pickup pin.
+          async function dragMap(page) {
+            const cdp = await page.context().newCDPSession(page);
+            const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', {
+              type,
+              touchPoints: type === 'touchEnd' ? [] : [{ x, y, radiusX: 8, radiusY: 8, force: 1 }],
+            });
+            const [x, fromY, toY, steps] = [195, 330, 170, 16];
+            await touch('touchStart', x, fromY);
+            for (let i = 1; i <= steps; i++) {
+              await touch('touchMove', x, fromY + (toY - fromY) * (i / steps));
+              await page.waitForTimeout(20);
+            }
+            await touch('touchEnd');
+            await cdp.detach();
+            await page.waitForTimeout(2500);
           }
 
           async function bookNowPath(browser, { gps, name }) {
@@ -79,10 +99,14 @@ jobs:
             page.on('pageerror', e => errors.push(String(e)));
             await page.goto(base + `?booknow=${name}&v=${Date.now()}`, { waitUntil: 'networkidle', timeout: 120000 });
             await page.waitForTimeout(4500);
-            await enableA11y(page);
+            // Run as a rider does, without Flutter's semantics tree: turning it
+            // on reroutes touch input, and the location-off path below needs a
+            // real touch drag to reach the map. (The old 'Enable accessibility'
+            // click never landed anyway: Flutter parks it at (-1,-1).) Label
+            // lookups therefore fall back to the positions below.
 
             const where = page.getByText('Where to', { exact: false });
-            if (await where.count()) await where.last.click();
+            if (await where.count()) await where.last().click();
             else await page.mouse.click(190, 708);
             await page.waitForTimeout(1200);
 
@@ -104,13 +128,27 @@ jobs:
             await page.waitForTimeout(700);
 
             const next = page.getByText('Next', { exact: true });
-            if (await next.count()) await next.last.click();
+            if (await next.count()) await next.last().click();
             else await page.mouse.click(195, 804);
             await page.waitForTimeout(3500);
             await page.screenshot({ path: `qa-book-now-${name}-pickup.png`, fullPage: true });
 
             await waitForMapOwner(page, 'pickup', name);
             const onPickup = true;
+
+            if (!gps) {
+              // Phase 98 (D-002): with location off the pin sits on a fallback
+              // point, so Confirm pickup stays disabled until the rider picks a
+              // spot. Prove the gate holds, then drag the map like a rider.
+              await page.mouse.click(195, 797);
+              await page.waitForTimeout(2500);
+              const gatedOwner = await page.evaluate(() => window.moveraMapOwner || '');
+              if (gatedOwner !== 'pickup') {
+                throw new Error(`${name}: Confirm pickup accepted the fallback point (map owner ${gatedOwner || 'none'})`);
+              }
+              await dragMap(page);
+              await page.screenshot({ path: `qa-book-now-${name}-pickup-dragged.png`, fullPage: true });
+            }
 
             await page.mouse.click(195, 797);
             await page.waitForTimeout(7000);
@@ -125,7 +163,7 @@ jobs:
             }
 
             const select = page.getByText('Select Movera', { exact: true });
-            if (await select.count()) await select.last.click();
+            if (await select.count()) await select.last().click();
             else {
               await page.mouse.click(195, 808);
               await page.waitForTimeout(900);

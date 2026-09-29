@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
-import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
@@ -36,8 +36,8 @@ void main() {
   final sheets = <String, Widget Function()>{
     'Driver arrived': () => const DriverArrivedSheet(driver: driver),
     'Driver arrived, unknown': () => const DriverArrivedSheet(),
-    'Driver cancelled': () => const DriverCancelledSheet(driverName: 'Elin'),
-    'Driver cancelled, unknown': () => const DriverCancelledSheet(),
+    'Driver cancelled': () => const DriverCancelledNotice(driverName: 'Elin'),
+    'Driver cancelled, unknown': () => const DriverCancelledNotice(),
     'Safety kit': () => const RideSafetyKitSheet(rideId: 'ride_sheet'),
     'Quick notes': () => const QuickRideNotesSheet(),
     'Reservation booked': () => const ReservationBookedPopup(),

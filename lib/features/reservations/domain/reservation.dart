@@ -1,4 +1,6 @@
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/trips/domain/trip.dart';
+import 'package:movera_rider/shared/formatters/name_format.dart';
 
 class ReservationPlace {
   const ReservationPlace({
@@ -65,6 +67,15 @@ class ReservationDriver {
   final String? vehicle;
   final String? plate;
   final String? photoAsset;
+
+  String get normalizedFirstName => firstName.trim();
+
+  bool get hasFirstName => normalizedFirstName.isNotEmpty;
+
+  String get displayFirstName =>
+      hasFirstName ? normalizedFirstName : 'Driver';
+
+  String get initial => initialFromName(normalizedFirstName);
 
   Map<String, dynamic> toJson() => {
     'firstName': firstName,
@@ -192,6 +203,8 @@ class Reservation {
     this.driver,
     this.note,
     this.cancellationReason,
+    this.cancellationActor,
+    this.cancelledAt,
     this.policyVersion,
     this.parentReservationId,
   });
@@ -213,6 +226,8 @@ class Reservation {
   final ReservationDriver? driver;
   final String? note;
   final String? cancellationReason;
+  final TripCancellationActor? cancellationActor;
+  final DateTime? cancelledAt;
   final String? policyVersion;
   final String? parentReservationId;
 
@@ -240,6 +255,8 @@ class Reservation {
     ReservationDriver? driver,
     String? note,
     String? cancellationReason,
+    TripCancellationActor? cancellationActor,
+    DateTime? cancelledAt,
     String? policyVersion,
     String? parentReservationId,
     bool clearDriver = false,
@@ -262,6 +279,8 @@ class Reservation {
       driver: clearDriver ? null : (driver ?? this.driver),
       note: note ?? this.note,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      cancellationActor: cancellationActor ?? this.cancellationActor,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
       policyVersion: policyVersion ?? this.policyVersion,
       parentReservationId: parentReservationId ?? this.parentReservationId,
     );
@@ -286,6 +305,8 @@ class Reservation {
     if (driver != null) 'driver': driver!.toJson(),
     if (note != null) 'note': note,
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
+    if (cancellationActor != null) 'cancellationActor': cancellationActor!.name,
+    if (cancelledAt != null) 'cancelledAt': cancelledAt!.toIso8601String(),
     if (policyVersion != null) 'policyVersion': policyVersion,
     if (parentReservationId != null) 'parentReservationId': parentReservationId,
   };
@@ -307,6 +328,11 @@ class Reservation {
         map['scheduledPickupAt'] as String? ?? map['pickupAt'] as String? ?? '',
       );
       if (created == null || pickupAt == null) return null;
+      final rawStatus = map['status'] as String?;
+      final status = rawStatus == null
+          ? ReservationStatus.scheduled
+          : ReservationStatus.tryParse(rawStatus);
+      if (status == null) return null;
       return Reservation(
         reservationId: id,
         createdAt: created,
@@ -325,10 +351,14 @@ class Reservation {
         price: (map['price'] as num?)?.toDouble() ?? 0,
         currency: (map['currency'] as String?) ?? 'SEK',
         paymentMethod: (map['paymentMethod'] as String?) ?? 'Apple Pay',
-        status: ReservationStatus.parse(map['status'] as String?),
+        status: status,
         driver: ReservationDriver.tryParse(map['driver']),
         note: map['note'] as String?,
         cancellationReason: map['cancellationReason'] as String?,
+        cancellationActor: _parseCancellationActor(
+          map['cancellationActor'] as String?,
+        ),
+        cancelledAt: DateTime.tryParse(map['cancelledAt'] as String? ?? ''),
         policyVersion: map['policyVersion'] as String?,
         parentReservationId: map['parentReservationId'] as String?,
       );
@@ -336,4 +366,13 @@ class Reservation {
       return null;
     }
   }
+}
+
+
+TripCancellationActor? _parseCancellationActor(String? name) {
+  if (name == null) return null;
+  for (final actor in TripCancellationActor.values) {
+    if (actor.name == name) return actor;
+  }
+  return null;
 }

@@ -1,5 +1,4 @@
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 
 class ScheduledRideSession {
@@ -48,7 +47,7 @@ class ScheduledRideSession {
 
   void captureRideType(String type, {String? quoteId}) {
     rideType = type;
-    this.quoteId = quoteId ?? this.quoteId ?? 'q_sched_$type';
+    this.quoteId = quoteId ?? this.quoteId;
   }
 
   Future<String> confirm({Future<String> Function()? book}) async {
@@ -61,11 +60,6 @@ class ScheduledRideSession {
               scheduledAt: scheduledAt?.toIso8601String(),
             ))();
     submissionStatus = 'confirmed';
-    markScheduled();
     return bookingId!;
-  }
-
-  void markScheduled() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.bookingRequested);
   }
 }

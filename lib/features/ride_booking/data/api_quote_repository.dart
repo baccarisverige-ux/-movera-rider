@@ -1,17 +1,12 @@
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
-import 'package:movera_rider/core/utils/stale_guard.dart';
-import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 
 class ApiQuoteRepository implements QuoteRepository {
-  ApiQuoteRepository({required this.api, QuoteRepository? fallback})
-    : fallback = fallback ?? CatalogQuoteRepository();
+  ApiQuoteRepository({required this.api});
 
   final ApiClient api;
-  final QuoteRepository fallback;
-  final StaleGuard stale = StaleGuard();
   bool lastUsedFallback = false;
 
   @override
@@ -23,7 +18,6 @@ class ApiQuoteRepository implements QuoteRepository {
     String? destination,
   }) async {
     lastUsedFallback = false;
-    final generation = stale.next();
     try {
       final json = await api.post(
         '/api/v1/quotes',
@@ -36,9 +30,6 @@ class ApiQuoteRepository implements QuoteRepository {
           'apiVersion': 'v1',
         },
       );
-      if (!stale.isCurrent(generation)) {
-        throw const FormatException('stale quote');
-      }
       final raw = json['quote'];
       if (raw is! Map) {
         throw const FormatException('malformed quote');
@@ -46,13 +37,22 @@ class ApiQuoteRepository implements QuoteRepository {
       final map = Map<String, dynamic>.from(raw);
       final total = (map['totalMinor'] ?? map['amountMinor']) as num?;
       if (total == null) throw const FormatException('malformed quote');
+      final rawId = map['quoteId'] ?? map['id'];
+      if (rawId is! String || rawId.trim().isEmpty) {
+        throw const FormatException('quote id missing');
+      }
+      final signedPayload = map['signedPayload'];
+      if (signedPayload is! String || signedPayload.trim().isEmpty) {
+        throw const FormatException('quote signature missing');
+      }
       final expires = DateTime.tryParse(map['expiresAt'] as String? ?? '');
+      if (expires == null) throw const FormatException('quote expiry missing');
       final quote = RideQuote(
-        id: (map['quoteId'] ?? map['id'] ?? 'q_$rideType').toString(),
+        id: rawId.trim(),
         rideType: (map['rideType'] ?? rideType).toString(),
         totalMinor: total.round(),
         currency: (map['currency'] ?? 'SEK').toString(),
-        expiresAt: expires ?? DateTime.now().add(const Duration(minutes: 2)),
+        expiresAt: expires,
         baseMinor:
             (map['breakdown'] is Map
                     ? (map['breakdown']['baseMinor'] as num?)
@@ -77,27 +77,21 @@ class ApiQuoteRepository implements QuoteRepository {
                     : null)
                 ?.round() ??
             0,
-        signedPayload: map['signedPayload'] as String? ?? 'mock-api',
+        signedPayload: signedPayload.trim(),
       );
       if (quote.expired) throw StateError('expired quote');
       return quote;
     } catch (error, stack) {
-      lastUsedFallback = true;
+      lastUsedFallback = false;
       AppLog.error(
-        'quote.fallback',
+        'quote.unavailable',
         extra: {
           'rideType': rideType,
           'reason': error.toString(),
-          'fallback': true,
         },
       );
-      AppLog.error('quote.fallback.stack', extra: {'stack': stack.toString()});
-      return fallback.quote(
-        rideType: rideType,
-        distanceMeters: distanceMeters,
-        pickup: pickup,
-        destination: destination,
-      );
+      AppLog.error('quote.unavailable.stack', extra: {'stack': stack.toString()});
+      rethrow;
     }
   }
 }

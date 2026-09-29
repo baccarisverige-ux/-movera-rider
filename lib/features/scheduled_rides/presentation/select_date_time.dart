@@ -15,6 +15,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   final Widget body;
   final ScheduledRideSession? session;
   final bool popOnConfirm;
+  final DateTime Function()? now;
 
   const ScheduleDateTimeSelector({
     super.key,
@@ -23,11 +24,16 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.onBack,
     this.session,
     this.popOnConfirm = false,
+    this.now,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
   /// switches to Book for later on the category cards.
-  static Future<DateTime?> choose(BuildContext context, {DateTime? initial}) {
+  static Future<DateTime?> choose(
+    BuildContext context, {
+    DateTime? initial,
+    DateTime Function()? now,
+  }) {
     final session = ScheduledRideSession();
     if (initial != null) session.captureSchedule(initial);
     return Navigator.of(context).push<DateTime>(
@@ -36,6 +42,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           body: const SizedBox.shrink(),
           session: session,
           popOnConfirm: true,
+          now: now,
           onConfirm: () {},
         ),
       ),
@@ -56,15 +63,24 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   late DateTime _selectedDateTime;
   bool _pickupMode = true;
   bool _continuing = false;
+  String? _pickupCorrectionMessage;
 
   @override
   void initState() {
     super.initState();
     setWebOverlayOpen(true);
     final existing = widget.session?.scheduledAt;
-    _selectedDateTime = existing != null
-        ? StockholmSchedule.clampPickup(existing)
-        : StockholmSchedule.defaultPickup();
+    final now = widget.now?.call();
+    if (existing != null) {
+      final corrected = StockholmSchedule.clampPickup(existing, now);
+      _selectedDateTime = corrected;
+      if (corrected != existing) {
+        _pickupCorrectionMessage =
+            'Pickup time updated to the next available slot.';
+      }
+    } else {
+      _selectedDateTime = StockholmSchedule.defaultPickup(now);
+    }
     _commitSchedule();
   }
 
@@ -76,21 +92,44 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   void _goNext() {
     if (_continuing) return;
-    if (!StockholmSchedule.isLegalPickup(_selectedDateTime)) {
+
+    final now = widget.now?.call();
+    if (!StockholmSchedule.isLegalPickup(_selectedDateTime, now)) {
+      final corrected = StockholmSchedule.clampPickup(_selectedDateTime, now);
       setState(() {
-        _selectedDateTime = StockholmSchedule.clampPickup(_selectedDateTime);
+        _selectedDateTime = corrected;
+        _pickupCorrectionMessage =
+            'Pickup time updated to the next available slot.';
       });
       _commitSchedule();
       return;
     }
+
     _continuing = true;
+    _pickupCorrectionMessage = null;
     _commitSchedule();
+
     if (widget.popOnConfirm) {
       Navigator.pop(context, _selectedDateTime);
       return;
     }
+
     setState(() {});
     widget.onConfirm();
+  }
+
+  void _applyPickedDateTime(DateTime candidate) {
+    final corrected = StockholmSchedule.clampPickup(
+      candidate,
+      widget.now?.call(),
+    );
+    setState(() {
+      _selectedDateTime = corrected;
+      _pickupCorrectionMessage = corrected == candidate
+          ? null
+          : 'Pickup time updated to the next available slot.';
+    });
+    _commitSchedule();
   }
 
   void _commitSchedule() {
@@ -116,10 +155,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   Future<void> _chooseDate() async {
     var draftDate = _selectedDateTime;
-    final first = StockholmSchedule.stockholmNow();
+    final first = StockholmSchedule.stockholmNow(widget.now?.call());
     final last = first.add(const Duration(days: 365));
     if (draftDate.isBefore(first)) {
-      draftDate = StockholmSchedule.clampPickup(draftDate);
+      draftDate = StockholmSchedule.clampPickup(draftDate, widget.now?.call());
     }
     final result = await MoveraSheet.show<DateTime>(
       context: context,
@@ -223,22 +262,22 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
       },
     );
     if (result == null || !mounted) return;
-    setState(() {
-      _selectedDateTime = StockholmSchedule.clampPickup(
-        DateTime(
-          result.year,
-          result.month,
-          result.day,
-          _selectedDateTime.hour,
-          _selectedDateTime.minute,
-        ),
-      );
-    });
-    _commitSchedule();
+    _applyPickedDateTime(
+      DateTime(
+        result.year,
+        result.month,
+        result.day,
+        _selectedDateTime.hour,
+        _selectedDateTime.minute,
+      ),
+    );
   }
 
   Future<void> _chooseTime() async {
-    final min = StockholmSchedule.timePickerMinFor(_selectedDateTime);
+    final min = StockholmSchedule.timePickerMinFor(
+      _selectedDateTime,
+      widget.now?.call(),
+    );
     var draft = _selectedDateTime;
     if (draft.isBefore(min)) draft = min;
     var draftHour = draft.hour;
@@ -382,18 +421,15 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
     hourController.dispose();
     minuteController.dispose();
     if (result == null || !mounted) return;
-    setState(() {
-      _selectedDateTime = StockholmSchedule.clampPickup(
-        DateTime(
-          _selectedDateTime.year,
-          _selectedDateTime.month,
-          _selectedDateTime.day,
-          result.hour,
-          result.minute,
-        ),
-      );
-    });
-    _commitSchedule();
+    _applyPickedDateTime(
+      DateTime(
+        _selectedDateTime.year,
+        _selectedDateTime.month,
+        _selectedDateTime.day,
+        result.hour,
+        result.minute,
+      ),
+    );
   }
 
   Widget _sheetAction({
@@ -691,36 +727,74 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   }
 
   Widget _continueButton() {
-    final legal = StockholmSchedule.isLegalPickup(_selectedDateTime);
+    final legal = StockholmSchedule.isLegalPickup(
+      _selectedDateTime,
+      widget.now?.call(),
+    );
+    final enabled = legal && !_continuing;
     final bottom = MediaQuery.viewPaddingOf(context).bottom;
     return PointerInterceptor(
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: (_) => _goNext(),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.fromLTRB(
-            20,
-            10,
-            20,
-            16 + bottom + (kIsWeb ? 28 : 0),
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(top: BorderSide(color: _line)),
-          ),
-          child: Container(
-            height: 52,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: legal ? _ink : _ink.withValues(alpha: 0.38),
-              borderRadius: BorderRadius.circular(17),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          10,
+          20,
+          16 + bottom + (kIsWeb ? 28 : 0),
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: _line)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_pickupCorrectionMessage != null) ...[
+              Text(
+                _pickupCorrectionMessage!,
+                textAlign: TextAlign.center,
+                style: _style(
+                  11,
+                  weight: FontWeight.w500,
+                  color: _muted,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: Semantics(
+                container: true,
+                label: 'Schedule Continue',
+                button: true,
+                enabled: enabled,
+                child: ExcludeSemantics(
+                  child: ElevatedButton(
+                    onPressed: enabled ? _goNext : null,
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: _ink,
+                      disabledBackgroundColor: _ink.withValues(alpha: 0.38),
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(17),
+                      ),
+                    ),
+                    child: Text(
+                      _continuing ? 'Continuing…' : 'Continue',
+                      style: _style(
+                        14,
+                        weight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-            child: Text(
-              _continuing ? 'Continuing…' : 'Continue',
-              style: _style(14, weight: FontWeight.w600, color: Colors.white),
-            ),
-          ),
+          ],
         ),
       ),
     );

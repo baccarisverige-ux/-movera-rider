@@ -40,6 +40,28 @@ void main() {
     expect(prefs.containsKey('movera_used_vouchers'), isFalse);
   });
 
+  test('legacy unverified payment labels and defaults are removed', () async {
+    SharedPreferences.setMockInitialValues({
+      'movera_payment_methods': '[{"id":"card_4242","title":"Card ending 4242","detail":"Debit or credit card"},{"id":"paypal","detail":"Connected"}]',
+      'movera_default_payment': 'card_4242',
+    });
+    final store = WalletStore();
+    final settings = await store.loadPayments();
+    expect(settings.extraMethods, isEmpty);
+    expect(settings.defaultMethod, 'apple');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('movera_payment_methods'), isFalse);
+    expect(prefs.getString('movera_default_payment'), 'apple');
+
+    await store.savePayments(WalletPaymentSettings(
+      defaultMethod: 'paypal',
+      business: false,
+      extraMethods: [{'id': 'paypal', 'detail': 'Connected'}],
+    ));
+    expect((await store.loadPayments()).defaultMethod, 'apple');
+    expect(prefs.containsKey('movera_payment_methods'), isFalse);
+  });
+
   test('top-up idempotency key reused', () async {
     final gw = MockPaymentGateway();
     final a = await gw.create(
@@ -59,7 +81,7 @@ void main() {
     final store = _MemWallet()..balance = 50;
     final wallet = WalletController(store: store);
     final topped = await wallet.topUp(previous: 50, amount: 200);
-    expect(topped, 250);
+    expect((topped as TopUpCredited).balance, 250);
     final charged = await wallet.chargeRide(previous: 250, amount: 80);
     expect(charged, 170);
     final refunded = await wallet.refund(previous: 170, amount: 80);
@@ -75,11 +97,11 @@ void main() {
       idempotencyKey: 'top-1',
     );
     final b = await wallet.topUp(
-      previous: a ?? 0,
+      previous: (a as TopUpCredited).balance,
       amount: 100,
       idempotencyKey: 'top-1',
     );
-    expect(a, 100);
-    expect(b, 100);
+    expect(a.balance, 100);
+    expect((b as TopUpCredited).balance, 100);
   });
 }

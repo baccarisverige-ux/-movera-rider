@@ -61,14 +61,24 @@ void main() {
     expect(c.showing, RestoredSurface.waiting);
   });
 
-  test('trip active uses waiting surface', () {
+  test('trip active and approaching dropoff use waiting surface', () {
     final c = RideRestoreCoordinator(reader: () async => null);
     expect(c.pageFor(snap(RideStatus.tripInProgress)), isA<WaitingForDriver>());
+    expect(
+      c.pageFor(snap(RideStatus.approachingDropoff)),
+      isA<WaitingForDriver>(),
+    );
+    expect(c.showing, RestoredSurface.waiting);
   });
 
-  test('completed', () {
+  test('completed restores the exact post-trip status and ride id', () {
     final c = RideRestoreCoordinator(reader: () async => null);
-    expect(c.pageFor(snap(RideStatus.tripCompleted)), isA<RideCompleted>());
+    final completed = c.pageFor(snap(RideStatus.ratingPending));
+    expect(completed, isA<RideCompleted>());
+    final page = completed as RideCompleted;
+    expect(page.status, RideStatus.ratingPending);
+    expect(page.rideId, 'r1');
+    expect(c.showing, RestoredSurface.complete);
   });
 
   test('cancelled and stale go home', () {
@@ -94,6 +104,46 @@ void main() {
     c.goHome();
     expect(c.showing, RestoredSurface.home);
     expect(shown, isA<Home>());
+  });
+
+  test('goHome can reveal existing Home without rebuilding the root child', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    Widget? shown;
+    c.onReplaceRoot = (page) => shown = page;
+    c.showing = RestoredSurface.home;
+
+    c.goHome(replaceRoot: false);
+
+    expect(c.showing, RestoredSurface.home);
+    expect(shown, isNull);
+  });
+
+  test('replaceRootSurface updates a restored stage without replacing Navigator root', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    Widget? shown;
+    c.onReplaceRoot = (page) => shown = page;
+
+    final replaced = c.replaceRootSurface(
+      const Home(),
+      RestoredSurface.finding,
+    );
+
+    expect(replaced, isTrue);
+    expect(c.showing, RestoredSurface.finding);
+    expect(shown, isA<Home>());
+  });
+
+  test('replaceRootSurface reports unavailable when restore gate is absent', () {
+    final c = RideRestoreCoordinator(reader: () async => null);
+    c.showing = RestoredSurface.waiting;
+
+    final replaced = c.replaceRootSurface(
+      const Home(),
+      RestoredSurface.finding,
+    );
+
+    expect(replaced, isFalse);
+    expect(c.showing, RestoredSurface.waiting);
   });
 
   test('resume is idempotent when already showing', () async {
@@ -146,17 +196,16 @@ void main() {
     expect(await c.resumeIfNeeded(), isNull);
   });
 
-  test('public web cold start ignores assigned snapshot', () async {
+  test('public web cold start restores an assigned snapshot', () async {
     final c = RideRestoreCoordinator(
       reader: () async => snap(RideStatus.driverAssigned),
-      skipRestore: () => true,
     );
     final page = await c.root();
-    expect(page, isA<Home>());
-    expect(c.showing, RestoredSurface.home);
+    expect(page, isA<WaitingForDriver>());
+    expect(c.showing, RestoredSurface.waiting);
   });
 
-  test('public web resume does not restore finding', () async {
+  test('forced skipRestore still ignores finding on resume', () async {
     Widget? replaced;
     final c = RideRestoreCoordinator(
       reader: () async => snap(RideStatus.findingDriver),
@@ -170,7 +219,7 @@ void main() {
     expect(c.showing, RestoredSurface.home);
   });
 
-  test('pagehide clears snapshot and skipRestore forces Home from waiting',
+  test('pagehide keeps the snapshot so a crash can restore the trip',
       () async {
     await RideSnapshotStore.save(snap(RideStatus.driverAssigned));
     expect(await RideSnapshotStore.read(), isNotNull);
@@ -178,7 +227,6 @@ void main() {
     Widget? shown;
     final c = RideRestoreCoordinator(
       reader: RideSnapshotStore.read,
-      skipRestore: () => true,
     );
     c.onReplaceRoot = (page) => shown = page;
     c.showing = RestoredSurface.waiting;
@@ -186,20 +234,18 @@ void main() {
     c.onPageHide();
     await Future<void>.delayed(Duration.zero);
 
-    expect(await RideSnapshotStore.read(), isNull);
-    expect(c.showing, RestoredSurface.home);
-    expect(shown, isA<Home>());
+    expect(await RideSnapshotStore.read(), isNotNull);
+    expect(c.showing, RestoredSurface.waiting);
+    expect(shown, isNull);
   });
 
-  test('pagehide clears snapshot but does not force Home when restore allowed',
-      () async {
+  test('pagehide during finding also keeps the search', () async {
     await RideSnapshotStore.save(snap(RideStatus.findingDriver));
     expect(await RideSnapshotStore.read(), isNotNull);
 
     Widget? shown;
     final c = RideRestoreCoordinator(
       reader: RideSnapshotStore.read,
-      skipRestore: () => false,
     );
     c.onReplaceRoot = (page) => shown = page;
     c.showing = RestoredSurface.finding;
@@ -207,7 +253,7 @@ void main() {
     c.onPageHide();
     await Future<void>.delayed(Duration.zero);
 
-    expect(await RideSnapshotStore.read(), isNull);
+    expect(await RideSnapshotStore.read(), isNotNull);
     expect(c.showing, RestoredSurface.finding);
     expect(shown, isNull);
   });

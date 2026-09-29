@@ -21,6 +21,7 @@ class SafetyHub extends StatefulWidget {
 
 class _SafetyHubState extends State<SafetyHub> {
   late final SafetyController _ctl;
+  bool _opening = false;
 
   @override
   void initState() {
@@ -41,8 +42,14 @@ class _SafetyHubState extends State<SafetyHub> {
   }
 
   Future<void> _open(Widget page) async {
-    await Navigator.push(context, RightToLeftTransition(page));
-    await _ctl.load();
+    if (_opening) return;
+    _opening = true;
+    try {
+      await Navigator.push(context, RightToLeftTransition(page));
+      await _ctl.load();
+    } finally {
+      _opening = false;
+    }
   }
 
   @override
@@ -98,7 +105,7 @@ class _SafetyHubState extends State<SafetyHub> {
                 SafetyRow(
                   mark: SafetyMarks.rideCheck,
                   title: 'RideCheck',
-                  subtitle: 'Get help if a ride stops unexpectedly or goes off route.',
+                  subtitle: 'Save your alert preference for when monitoring is available.',
                   status: _ctl.rideCheckStatusLabel(),
                   onTap: () => _open(RideCheckPage(controller: _ctl)),
                   showDivider: false,

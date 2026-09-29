@@ -11,6 +11,24 @@ void main() {
   Iterable<File> presentation() =>
       dartUnder('lib/features').where((f) => f.path.contains('/presentation/'));
 
+  // Phase 139 split parts of these screens into sibling files. Guards about
+  // "the Home screen" / "the Select Ride screen" must read all of them, or
+  // an isFalse check would keep passing while no longer covering moved code.
+  // Each guard does its own File(...).readAsStringSync() so CI's grep-style
+  // test counter (journey-integrity) still counts it.
+  const homeScreenFiles = [
+    'lib/features/home/presentation/home.dart',
+    'lib/features/home/presentation/home_map_style.dart',
+    'lib/features/home/presentation/widgets/home_map_layer.dart',
+  ];
+
+  const selectRideScreenFiles = [
+    'lib/features/ride_selection/presentation/select_ride.dart',
+    'lib/features/ride_selection/presentation/select_ride_filter.dart',
+    'lib/features/ride_selection/presentation/select_ride_geometry.dart',
+    'lib/features/ride_selection/presentation/widgets/select_ride_route_canvas.dart',
+  ];
+
   test('presentation does not import raw http or shared_preferences', () {
     for (final file in presentation()) {
       final src = file.readAsStringSync();
@@ -109,17 +127,17 @@ void main() {
   });
 
   test('home does not own ride restoration', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('_restoreActiveRide'), isFalse);
     expect(home.contains('RideSnapshotStore'), isFalse);
+    // Phase 143: ride_restore_coordinator.dart builds Home, so Home must not
+    // import it back (that was a two-way import cycle). Home reads the
+    // interrupted-search flag from the leaf SearchInterruptedNotice instead.
+    expect(home.contains('ride_restore_coordinator.dart'), isFalse);
   });
 
   test('home does not draw a trip polyline', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('Polyline('), isFalse);
     expect(home.contains('polylines:'), isFalse);
   });
@@ -175,17 +193,13 @@ void main() {
   });
 
   test('home does not import address repository', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('home_repository.dart'), isFalse);
     expect(home.contains('HomeAddressRepository'), isFalse);
   });
 
   test('select ride widget is not the source of ride/payment truth', () {
-    final ui = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
+    final ui = selectRideScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(ui.contains("String _selectedRideId"), isFalse);
     expect(ui.contains('int _selectedPayment'), isFalse);
     expect(ui.contains('DateTime? _scheduledFor'), isFalse);
@@ -204,9 +218,7 @@ void main() {
   });
 
   test('home does not own map overlay set fields', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('Set<Marker> _markers ='), isFalse);
     expect(home.contains('Set<Circle> _locationCircles ='), isFalse);
     expect(home.contains('Set<Polygon> _locationDirection ='), isFalse);
@@ -245,6 +257,12 @@ void main() {
     expect(html.contains('movera-hd'), isFalse);
     expect(html.contains('TAP THIS PANEL'), isFalse);
     expect(html.contains('moveraInstallHeadingOverlay'), isFalse);
+    // Phase 47: geocoding goes through the authenticated Movera API only.
+    // A leftover moveraGeocodeAddress kept sending typed addresses to public
+    // Nominatim and crashed on the cache Phase 47 removed.
+    expect(html.contains('nominatim'), isFalse);
+    expect(html.contains('moveraGeocodeAddress'), isFalse);
+    expect(html.contains('moveraGeoCache'), isFalse);
   });
 
   test('the promotions feature is gone, not merely hidden', () {
@@ -255,15 +273,34 @@ void main() {
       ).existsSync(),
       isFalse,
     );
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('PromotionsController'), isFalse);
     expect(home.contains('RidePromotionTicket'), isFalse);
     expect(home.contains('_promotionVisible'), isFalse);
+    expect(
+      File('lib/core/feature_flags/feature_flags.dart').readAsStringSync(),
+      isNot(contains('enablePromotions')),
+    );
   });
 
-  test('side menu does not list Promotions or Scheduled Rides', () {
+  test('dead XEntity scaffolds and driver-part zips are gone', () {
+    const stubs = [
+      'lib/features/auth/domain/auth.dart',
+      'lib/features/fare/domain/fare.dart',
+      'lib/features/payments/domain/payments.dart',
+      'lib/features/pickup/domain/pickup.dart',
+      'lib/features/onboarding/domain/onboarding.dart',
+      'lib/features/ride_booking/domain/entities/driver.dart',
+    ];
+    for (final path in stubs) {
+      expect(File(path).existsSync(), isFalse, reason: path);
+    }
+    final tracked = Process.runSync('git', ['ls-files']).stdout as String;
+    expect(tracked.contains('driver-part-'), isFalse);
+  });
+
+
+  test('side menu lists only currently reachable production destinations', () {
     final menu = File(
       'lib/features/home/presentation/side_menu.dart',
     ).readAsStringSync();
@@ -276,9 +313,10 @@ void main() {
     expect(menu.contains('Payments'), isTrue);
     expect(menu.contains('Safety'), isTrue);
     expect(menu.contains('Support'), isTrue);
-    expect(menu.contains('Invite Friends'), isTrue);
+    // Referrals have no live destination yet, so the drawer must hide them.
+    expect(menu.contains('Invite Friends'), isFalse);
     expect(menu.contains('About'), isTrue);
-    expect(menu.contains('Become a driver'), isTrue);
+    expect(menu.contains('Become a driver'), isFalse);
   });
 
   test('safety presentation stays off the data and platform layers', () {
@@ -304,18 +342,14 @@ void main() {
   });
 
   test('home does not add a compass permission screen', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('Enable compass'), isFalse);
     expect(home.contains('Motion permission'), isFalse);
     expect(home.contains('Device orientation'), isFalse);
   });
 
   test('select ride does not keep parallel quote expiry state', () {
-    final ui = File(
-      'lib/features/ride_selection/presentation/select_ride.dart',
-    ).readAsStringSync();
+    final ui = selectRideScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(ui.contains('Map<String, DateTime> _quoteExpires'), isFalse);
     expect(ui.contains('Map<String, String> _quoteIds'), isFalse);
   });
@@ -400,9 +434,7 @@ void main() {
     expect(src.contains('showQuickRideNotesSheet'), isTrue);
     expect(now.contains('ScheduledRideBooking.confirm'), isFalse);
     expect(now.contains('_reservations.create'), isFalse);
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('RideScheduledPage.open'), isTrue);
     expect(home.contains('FindingDrivers'), isFalse);
     expect(home.contains('WaitingForDriver'), isFalse);
@@ -427,9 +459,7 @@ void main() {
     ).readAsStringSync();
     expect(history.contains('ScheduleRide()'), isTrue);
     expect(history.contains('SelectRide('), isFalse);
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
     expect(home.contains('const ScheduleRide()'), isTrue);
     expect(home.contains('_handleDestinationTap'), isTrue);
@@ -441,9 +471,7 @@ void main() {
   });
 
   test('book now always opens Confirm pickup; GPS only prefills', () {
-    final home = File(
-      'lib/features/home/presentation/home.dart',
-    ).readAsStringSync();
+    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(
       home.contains('Book now always confirms pickup; GPS only prefills.'),
       isTrue,

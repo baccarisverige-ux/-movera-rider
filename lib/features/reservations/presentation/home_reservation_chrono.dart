@@ -2,27 +2,43 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/upcoming_reservation.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-/// Home reservation timer. White face, status on the ring only.
+/// Home reservation timer. White face with a neutral ring; the ride's state is
+/// carried by a small corner badge (shape + colour): check = driver assigned,
+/// clock = booked (no driver yet), dots = searching, ! = no driver found.
 class HomeReservationChrono extends StatefulWidget {
-  const HomeReservationChrono({super.key, this.controller, this.now});
+  const HomeReservationChrono({
+    super.key,
+    this.controller,
+    this.now,
+    this.onRebook,
+  });
 
   final ReservationController? controller;
   final DateTime Function()? now;
 
+  /// Opens the scheduling flow so the rider can book a new time after a
+  /// reservation timed out without a driver. When null, the "No driver
+  /// found" sheet offers cancel only.
+  final VoidCallback? onRebook;
+
   static const ink = Color(0xFF172127);
   static const confirmed = Color(0xFF1F9D5B);
   static const searching = Color(0xFFE08A2A);
+  static const noDriver = Color(0xFFD64545);
 
   @override
   State<HomeReservationChrono> createState() => _HomeReservationChronoState();
@@ -31,10 +47,13 @@ class HomeReservationChrono extends StatefulWidget {
 class _HomeReservationChronoState extends State<HomeReservationChrono> {
   Timer? _tick;
   String? _openedLiveId;
+  String? _promptedNoDriverId;
+  bool _noDriverSheetOpen = false;
 
   @override
   void initState() {
     super.initState();
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
       unawaited(_onTick());
     });
@@ -47,23 +66,99 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     await _reservations.startLiveIfDue(now: _now);
     if (mounted) setState(() {});
     _openLiveIfNeeded();
+    _promptNoDriverIfNeeded();
   }
 
-  void _openLiveIfNeeded() {
-    final ride = _nextRide();
-    if (ride == null || !ride.revealsDriver) return;
-    if (_openedLiveId == ride.reservationId) return;
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
     if (!mounted) return;
-    _openedLiveId = ride.reservationId;
+    // Scheduled rides can become live while Profile, Wallet or another child
+    // route is open above Home. Never hijack that route; retry only after the
+    // user returns to Home and Navigator has finished the pop.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ReservationLiveRide.open(context, ride);
+      if (!mounted || !_routeIsCurrent) return;
+      _openLiveIfNeeded();
+      _promptNoDriverIfNeeded();
     });
   }
 
+  bool _isNoDriverFound(Reservation ride) =>
+      _reservations.isNoDriverFound(ride, now: _now);
+
+  /// Surfaces the "No driver found" state once per reservation instead of
+  /// leaving the rider watching a "Now" chrono indefinitely.
+  void _promptNoDriverIfNeeded() {
+    if (!mounted || !_routeIsCurrent || _noDriverSheetOpen) return;
+    final ride = _nextRide();
+    if (ride == null || !_isNoDriverFound(ride)) return;
+    if (_promptedNoDriverId == ride.reservationId) return;
+    _promptedNoDriverId = ride.reservationId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_routeIsCurrent) return;
+      unawaited(_showNoDriverFound(ride));
+    });
+  }
+
+  Future<void> _showNoDriverFound(Reservation ride) async {
+    if (_noDriverSheetOpen) return;
+    _noDriverSheetOpen = true;
+    try {
+      final choice = await MoveraSheet.show<_NoDriverChoice>(
+        context: context,
+        builder: (sheetContext) => MoveraSheet(
+          child: _NoDriverFoundSheet(canRebook: widget.onRebook != null),
+        ),
+      );
+      if (!mounted || choice == null) return;
+      final current = _reservations.byId(ride.reservationId);
+      // A driver may have been assigned while the sheet was open.
+      if (current == null || !_isNoDriverFound(current)) return;
+      await _reservations.resolveNoDriverFound(ride.reservationId);
+      if (!mounted) return;
+      if (choice == _NoDriverChoice.rebook) widget.onRebook?.call();
+    } finally {
+      _noDriverSheetOpen = false;
+    }
+  }
+
+  void _openLiveIfNeeded() {
+    if (!mounted || !_routeIsCurrent) return;
+    final ride = _nextRide();
+    if (ride == null || !ride.revealsDriver) return;
+    if (_openedLiveId == ride.reservationId) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_routeIsCurrent) return;
+      unawaited(_openLiveRide(ride));
+    });
+  }
+
+  Future<void> _openLiveRide(Reservation snapshot) async {
+    if (!mounted || !_routeIsCurrent || _openedLiveId == snapshot.reservationId) return;
+    // The snapshot can be a frame old (post-frame callback, stale tap). Only
+    // open a ride that is still genuinely upcoming and still reveals its
+    // driver — never one that has completed or been cancelled meanwhile.
+    final ride = _reservations.byId(snapshot.reservationId);
+    if (ride == null || !ride.status.isUpcoming || !ride.revealsDriver) return;
+    _openedLiveId = ride.reservationId;
+    await ReservationLiveRide.open(
+      context,
+      ride,
+      controller: _reservations,
+    );
+    if (!mounted || _openedLiveId != ride.reservationId) return;
+    _openedLiveId = null;
+    _openLiveIfNeeded();
+  }
+
   void _openRide(Reservation ride) {
+    if (_isNoDriverFound(ride)) {
+      _promptedNoDriverId = ride.reservationId;
+      unawaited(_showNoDriverFound(ride));
+      return;
+    }
     if (ride.revealsDriver) {
-      ReservationLiveRide.open(context, ride);
+      unawaited(_openLiveRide(ride));
       return;
     }
     Navigator.of(context).push(
@@ -72,12 +167,14 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
           reservationId: ride.reservationId,
           controller: _reservations,
         ),
+        settings: const RouteSettings(name: AppRoutes.reservationUpcoming),
       ),
     );
   }
 
   @override
   void dispose() {
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _tick?.cancel();
     super.dispose();
   }
@@ -101,9 +198,33 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
       builder: (context, _) {
         final ride = _nextRide();
         if (ride == null) return const SizedBox.shrink();
-        final ring = ride.isSearchingDriver
-            ? HomeReservationChrono.searching
-            : HomeReservationChrono.confirmed;
+        final noDriver = _isNoDriverFound(ride);
+        // "Confirmed" (check) only when a driver is really on the ride:
+        // status.hasDriver && driver != null. A booked ride with no driver
+        // yet gets the clock, never the check.
+        final (Color badgeColor, IconData badgeIcon, String badgeKey) = noDriver
+            ? (
+                HomeReservationChrono.noDriver,
+                Icons.priority_high_rounded,
+                'reservation-chrono-badge-no-driver',
+              )
+            : ride.driverAssigned
+            ? (
+                HomeReservationChrono.confirmed,
+                Icons.check_rounded,
+                'reservation-chrono-badge-confirmed',
+              )
+            : ride.isSearchingDriver
+            ? (
+                HomeReservationChrono.searching,
+                Icons.more_horiz_rounded,
+                'reservation-chrono-badge-searching',
+              )
+            : (
+                const Color(0xFF6B757B),
+                Icons.schedule_rounded,
+                'reservation-chrono-badge-booked',
+              );
         final parts = ReservationFormat.remainingParts(
           ride.scheduledPickupAt,
           now: _now,
@@ -115,62 +236,101 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
         return PointerInterceptor(
           child: Semantics(
             button: true,
-            label: 'Reservation in $compact',
+            label: noDriver
+                ? 'No driver found. Rebook or cancel'
+                : 'Reservation in $compact',
             child: GestureDetector(
               onTap: () => _openRide(ride),
               child: SizedBox(
                 width: 54,
                 height: 54,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x24000000),
-                        blurRadius: 18,
-                        offset: Offset(0, 7),
-                      ),
-                    ],
-                  ),
-                  child: CustomPaint(
-                    painter: _ChronoFace(ring: ring),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 7, 8, 6),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            AppAssets.scheduleRideCar,
-                            height: 11,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox(height: 11),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            parts.primary,
-                            style: GoogleFonts.poppins(
-                              fontSize: parts.secondary == null ? 13 : 11,
-                              fontWeight: FontWeight.w700,
-                              color: HomeReservationChrono.ink,
-                              height: 1,
+                child: Stack(
+                  // The badge overhangs the disc by 6 px; the layout box and
+                  // tap target stay 54x54 (the badge is decorative).
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x24000000),
+                              blurRadius: 18,
+                              offset: Offset(0, 7),
+                            ),
+                          ],
+                        ),
+                        child: CustomPaint(
+                          painter: _ChronoFace(noDriver: noDriver),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 7, 8, 6),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  AppAssets.scheduleRideCar,
+                                  height: 11,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      const SizedBox(height: 11),
+                                ),
+                                const SizedBox(height: 1),
+                                if (noDriver)
+                                  const Icon(
+                                    Icons.person_off_outlined,
+                                    key: Key('reservation-chrono-no-driver'),
+                                    size: 18,
+                                    color: HomeReservationChrono.noDriver,
+                                  )
+                                else ...[
+                                  Text(
+                                    parts.primary,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: parts.secondary == null
+                                          ? 13
+                                          : 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: HomeReservationChrono.ink,
+                                      height: 1,
+                                    ),
+                                  ),
+                                  if (parts.secondary != null)
+                                    Text(
+                                      parts.secondary!,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF6B757B),
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                ],
+                              ],
                             ),
                           ),
-                          if (parts.secondary != null)
-                            Text(
-                              parts.secondary!,
-                              style: GoogleFonts.poppins(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF6B757B),
-                                height: 1.1,
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    Positioned(
+                      top: -6,
+                      right: -6,
+                      child: ExcludeSemantics(
+                        child: Container(
+                          key: ValueKey<String>(badgeKey),
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: badgeColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: Icon(badgeIcon, size: 12, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -181,10 +341,86 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
   }
 }
 
-class _ChronoFace extends CustomPainter {
-  const _ChronoFace({required this.ring});
+enum _NoDriverChoice { rebook, cancel }
 
-  final Color ring;
+class _NoDriverFoundSheet extends StatelessWidget {
+  const _NoDriverFoundSheet({required this.canRebook});
+
+  final bool canRebook;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        key: const Key('reservation-no-driver-found'),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'No driver found',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: HomeReservationChrono.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              canRebook
+                  ? 'We couldn\'t find a driver for your scheduled pickup. '
+                        'Rebook for a new time or cancel this reservation.'
+                  : 'We couldn\'t find a driver for your scheduled pickup. '
+                        'Cancel this reservation and book again.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: const Color(0xFF6B757B),
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (canRebook) ...[
+              FilledButton(
+                key: const Key('reservation-no-driver-rebook'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HomeReservationChrono.ink,
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                onPressed: () =>
+                    Navigator.of(context).pop(_NoDriverChoice.rebook),
+                child: const Text('Rebook'),
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton(
+              key: const Key('reservation-no-driver-cancel'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: HomeReservationChrono.ink,
+                minimumSize: const Size.fromHeight(48),
+              ),
+              onPressed: () =>
+                  Navigator.of(context).pop(_NoDriverChoice.cancel),
+              child: const Text('Cancel reservation'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChronoFace extends CustomPainter {
+  const _ChronoFace({required this.noDriver});
+
+  /// Neutral ring for every state except "no driver found" (red). The ride's
+  /// state lives in the corner badge, not in the ring colour.
+  static const neutralRing = Color(0x55172127);
+
+  final bool noDriver;
+
+  Color get ring => noDriver ? HomeReservationChrono.noDriver : neutralRing;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -216,5 +452,5 @@ class _ChronoFace extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ChronoFace oldDelegate) =>
-      oldDelegate.ring != ring;
+      oldDelegate.noDriver != noDriver;
 }

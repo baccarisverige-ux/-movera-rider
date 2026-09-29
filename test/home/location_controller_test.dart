@@ -5,18 +5,18 @@ import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
-import 'package:movera_rider/shared/services/location_address.dart';
+import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 
 class _SlowGeo extends AppGeocoding {
   Duration delay = const Duration(milliseconds: 40);
   String resolved = 'Resolved address';
 
   @override
-  Future<AddressCoordinates?> geocodeAddress(String address) async {
+  Future<PlaceResult?> forward(String address) async {
     await Future<void>.delayed(delay);
-    return AddressCoordinates(
-      latitude: 59.33,
-      longitude: 18.06,
+    return PlaceResult(
+      point: const GeoPoint(59.33, 18.06),
       address: resolved,
     );
   }
@@ -24,6 +24,9 @@ class _SlowGeo extends AppGeocoding {
 
 class _DeniedLocation extends LocationRepository {
   int permissionRequests = 0;
+
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
 
   @override
   Future<LocationPermission> checkPermission() async => LocationPermission.denied;
@@ -69,7 +72,7 @@ void main() {
     expect(location.permissionRequests, 1);
     expect(detected.denied, isTrue);
     expect(detected.target, isNull);
-    expect(detected.address, 'Current location');
+    expect(detected.address, locationOffPickupLabel);
     expect(detected.heading, 0);
     ctl.dispose();
   });

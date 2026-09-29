@@ -1,206 +1,308 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
-import 'package:movera_rider/features/home/presentation/home.dart';
-import 'package:movera_rider/shared/design_system/movera_toast.dart';
-import 'package:movera_rider/shared/widgets/custom_btn.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/features/auth/application/auth_error_message.dart';
+import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
+import 'package:movera_rider/features/auth/presentation/rider_name.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:pinput/pinput.dart';
 
+/// Step 2: enter the 4-digit code. Verify unlocks at four digits; resend
+/// unlocks when the server's retry window has passed.
 class PhoneVerification extends StatefulWidget {
-  const PhoneVerification({super.key, this.phoneNumber});
+  const PhoneVerification({
+    super.key,
+    this.challenge,
+    this.phoneNumber,
+    this.controller,
+  });
 
-  /// The number the rider just entered. Null when it is not known, in which
-  /// case the screen says so rather than naming a number nobody typed.
+  final OtpChallenge? challenge;
   final String? phoneNumber;
+  final AuthController? controller;
 
   @override
   State<PhoneVerification> createState() => _PhoneVerificationState();
 }
 
 class _PhoneVerificationState extends State<PhoneVerification> {
-  bool _showHome = false;
+  late final AuthController _auth;
+  final _pin = TextEditingController();
+  final _pinFocus = FocusNode();
+  OtpChallenge? _challenge;
+  int _secondsUntilResend = 0;
+  Timer? _ticker;
+  bool _submitting = false;
+  bool _resending = false;
+  String? _error;
+  String? _info;
+
+  String? get _phone => _challenge?.phone ?? widget.phoneNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    _auth = widget.controller ?? AppScope.instance.auth;
+    _challenge = widget.challenge;
+    final challenge = _challenge;
+    if (challenge != null) _startResendWindow(challenge.retryAfter);
+    _pin.addListener(_pinChanged);
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _pin.dispose();
+    _pinFocus.dispose();
+    super.dispose();
+  }
+
+  void _pinChanged() {
+    setState(() {
+      if (_error != null) _error = null;
+    });
+  }
+
+  /// Counts the server's retry window down once a second.
+  void _startResendWindow(Duration wait) {
+    _ticker?.cancel();
+    _secondsUntilResend =
+        wait.inSeconds + (wait.inMilliseconds % 1000 == 0 ? 0 : 1);
+    if (_secondsUntilResend <= 0) return;
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() => _secondsUntilResend--);
+      if (_secondsUntilResend <= 0) timer.cancel();
+    });
+  }
+
+  Future<void> _resend() async {
+    if (_resending) return;
+    final phone = _phone?.trim();
+    if (phone == null || phone.isEmpty) {
+      setState(() => _error = 'Go back and enter your phone number again.');
+      return;
+    }
+    setState(() {
+      _resending = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      final next = await _auth.requestOtp(phone: phone, link: _challenge?.link);
+      if (!mounted) return;
+      _pin.clear();
+      setState(() {
+        _challenge = next;
+        _info = 'New code sent.';
+      });
+      _startResendWindow(next.retryAfter);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = authErrorMessage(error, AuthAction.sendCode));
+    } finally {
+      if (mounted) setState(() => _resending = false);
+    }
+  }
+
+  Future<void> _verify() async {
+    if (_submitting) return;
+    final challenge = _challenge;
+    final code = _pin.text.trim();
+    if (challenge == null) {
+      setState(() => _error = 'Go back and request a new code.');
+      return;
+    }
+    if (challenge.isExpired) {
+      setState(() => _error = 'This code has expired. Tap Resend code for a new one.');
+      return;
+    }
+    if (!RidePin.isValidFormat(code)) return;
+    setState(() {
+      _submitting = true;
+      _error = null;
+      _info = null;
+    });
+    try {
+      final result = await _auth.verifyOtp(challenge: challenge, code: code);
+      if (!mounted) return;
+      _ticker?.cancel();
+      if (result.isNewRider) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(
+            builder: (_) => RiderNameScreen(initialName: challenge.link?.name),
+          ),
+          (_) => false,
+        );
+      } else {
+        enterMoveraApp(context);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = authErrorMessage(error, AuthAction.verifyCode));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final defaultPinTheme = PinTheme(
-      width: 50,
-      height: 50,
-      textStyle: GoogleFonts.poppins(
-        fontSize: ResSize.setSp(20),
-        color: AppColor.title,
-        fontWeight: fwSemiBold,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        color: AppColor.textfieldFill,
-      ),
-    );
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Keep the real Home widget alive behind verification. This lets the
-        // Google Maps platform view, tiles and Movera styling initialize while
-        // the user is entering the verification code. When Continue is tapped
-        // we reveal this exact Home instance instead of creating a fresh map.
-        IgnorePointer(ignoring: !_showHome, child: const Home()),
-        if (!_showHome)
-          Scaffold(
-            body: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final phone = _phone;
+    final complete = RidePin.isValidFormat(_pin.text.trim());
+    return AuthScaffold(
+      step: 2,
+      onBack: () => Navigator.of(context).maybePop(),
+      headline: 'Enter your ',
+      headlineAccent: 'code',
+      lede: phone == null || phone.trim().isEmpty
+          ? const Text("We've sent a code to your phone.")
+          : Text.rich(
+              TextSpan(
+                text: 'Sent to ',
                 children: [
-                  56.height,
-                  Transform.translate(
-                    offset: Offset(ResSize.w * -10, 0),
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      tooltip: 'Back',
-                      icon: Icon(
-                        Icons.arrow_back_ios_rounded,
-                        color: AppColor.title,
-                        size: ResSize.h * 22,
-                      ),
-                    ),
-                  ),
-                  18.height,
-                  TextWidget(
-                    text: "Phone verification",
-                    fontSize: 24,
-                    fontWeight: fwExtraBold,
-                  ),
-                  9.height,
-                  RichText(
-                    textAlign: TextAlign.start,
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: widget.phoneNumber == null
-                              ? 'We sent a verification code to your phone.'
-                              : 'Verification code has been sent to',
-                          style: GoogleFonts.poppins(
-                            fontSize: ResSize.setSp(16),
-                            fontWeight: fwNormal,
-                            color: AppColor.subtitle,
-                          ),
-                        ),
-                        if (widget.phoneNumber != null)
-                          TextSpan(
-                            text: ' ${widget.phoneNumber}.',
-                            style: GoogleFonts.poppins(
-                              decoration: TextDecoration.underline,
-                              fontSize: ResSize.setSp(16),
-                              fontWeight: fwMedium,
-                              color: AppColor.title,
-                            ),
-                          ),
-                        TextSpan(
-                          text: " Enter your 4-digit code",
-                          style: GoogleFonts.poppins(
-                            fontSize: ResSize.setSp(16),
-                            fontWeight: fwNormal,
-                            color: AppColor.subtitle,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  24.height,
-                  Container(
-                    padding: EdgeInsets.symmetric(vertical: ResSize.h * 14),
-                    decoration: BoxDecoration(
-                      color: AppColor.secondary,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        10.height,
-                        Center(
-                          child: Pinput(
-                            length: 4,
-                            defaultPinTheme: defaultPinTheme,
-                            focusedPinTheme: defaultPinTheme.copyDecorationWith(
-                              borderRadius: BorderRadius.circular(6),
-                              color: AppColor.textfieldFill,
-                            ),
-                            followingPinTheme: defaultPinTheme,
-                            separatorBuilder: (index) => 26.width,
-                            showCursor: true,
-                            onCompleted: (pin) {},
-                          ),
-                        ),
-                        14.height,
-                        // Wrap, not Row: "Didn't get a code?" plus the action
-                        // overflowed the screen by 46px at 390 wide.
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            TextWidget(
-                              text: "Didn’t get a code?",
-                              color: AppColor.title,
-                              fontSize: 15,
-                              fontWeight: fwNormal,
-                            ),
-                            TextButton(
-                              // Was labelled "Sign in" — an answer to a
-                              // different question — and did nothing at all.
-                              onPressed: () {
-                                AuthController().requestOtp(
-                                  phone: widget.phoneNumber ?? '',
-                                );
-                                MoveraToast.show(
-                                  context,
-                                  widget.phoneNumber == null
-                                      ? 'We sent another code to your phone.'
-                                      : 'We sent another code to '
-                                            '${widget.phoneNumber}.',
-                                );
-                              },
-                              child: TextWidget(
-                                text: "Resend code",
-                                color: AppColor.primary,
-                                fontSize: 15,
-                                fontWeight: fwNormal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  TextSpan(
+                    text: SwedishPhone.display(phone.trim()),
+                    style: const TextStyle(
+                      color: AuthColors.ink,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            bottomNavigationBar: SizedBox(
-              height: ResSize.h * 80,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                child: Column(
-                  children: [
-                    CustomButton(
-                      centerContent: "Continue",
-                      onPressed: () {
-                        AuthController().signIn(provider: 'phone');
-                        setState(() {
-                          _showHome = true;
-                        });
-                      },
-                    ),
-                  ],
+      card: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Pinput(
+            length: 4,
+            controller: _pin,
+            focusNode: _pinFocus,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            forceErrorState: _error != null,
+            onCompleted: (_) => setState(() {}),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            defaultPinTheme: _box(AuthColors.field, Colors.transparent),
+            focusedPinTheme: _box(Colors.white, AuthColors.deepGreen, ring: true),
+            submittedPinTheme: _box(AuthColors.field, Colors.transparent),
+            errorPinTheme: _box(Colors.white, AuthColors.error),
+          ),
+          if (_error != null) AuthErrorText(_error!),
+          if (_info != null && _error == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  _info!,
+                  textAlign: TextAlign.center,
+                  style: AuthText.cardSub().copyWith(color: AuthColors.green),
                 ),
               ),
             ),
+          if (AppEnv.current.authPreview) ...[
+            const SizedBox(height: 12),
+            const AuthNote(
+              icon: Icons.info_outline_rounded,
+              text: 'Demo verification code: 1234',
+            ),
+          ],
+          const SizedBox(height: 16),
+          Center(child: _resendRow()),
+          const SizedBox(height: 16),
+          const AuthNote(
+            icon: Icons.verified_user_outlined,
+            text: 'Movera will never call or text you asking for this code.',
           ),
-      ],
+          const SizedBox(height: 14),
+          AuthPrimaryButton(
+            label: 'Verify',
+            showArrow: false,
+            busy: _submitting,
+            onPressed: complete ? _verify : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  PinTheme _box(Color fill, Color border, {bool ring = false}) {
+    return PinTheme(
+      width: 68,
+      height: 66,
+      textStyle: GoogleFonts.poppins(
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+        color: AuthColors.ink,
+      ),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border, width: 1.5),
+        boxShadow: ring
+            ? const [BoxShadow(color: Color(0x1A12804F), spreadRadius: 4)]
+            : null,
+      ),
+    );
+  }
+
+  Widget _resendRow() {
+    final wait = _secondsUntilResend;
+    final style = AuthText.cardSub();
+    if (_resending) {
+      return const SizedBox(
+        height: 20,
+        width: 20,
+        child: CircularProgressIndicator(strokeWidth: 2, color: AuthColors.deepGreen),
+      );
+    }
+    if (wait > 0) {
+      final mm = wait ~/ 60;
+      final ss = (wait % 60).toString().padLeft(2, '0');
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.schedule_rounded, size: 16, color: AuthColors.muted),
+          const SizedBox(width: 7),
+          Text.rich(
+            TextSpan(
+              text: 'Resend code in ',
+              children: [
+                TextSpan(
+                  text: '$mm:$ss',
+                  style: const TextStyle(
+                    color: AuthColors.green,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+            style: style,
+          ),
+        ],
+      );
+    }
+    return TextButton(
+      onPressed: _resend,
+      style: TextButton.styleFrom(
+        foregroundColor: AuthColors.green,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        minimumSize: const Size(0, 36),
+      ),
+      child: Text(
+        'Resend code',
+        style: GoogleFonts.poppins(fontSize: 13.5, fontWeight: FontWeight.w600),
+      ),
     );
   }
 }

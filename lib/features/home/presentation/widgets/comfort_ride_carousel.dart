@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -24,7 +24,10 @@ class ComfortRideCarousel extends StatelessWidget {
     final viewportWidth = MediaQuery.of(context).size.width;
     final cardWidth = (viewportWidth * 0.78).clamp(270.0, 330.0).toDouble();
     final imageHeight = ResSize.h * 112;
-    final bandHeight = ResSize.h * 64;
+    // Text can wrap to two lines on compact/rescaled layouts. A purely scaled
+    // 64px band shrank below the content's intrinsic height and produced a
+    // RenderFlex overflow. Keep a compact but safe minimum content band.
+    final bandHeight = (ResSize.h * 68).clamp(78.0, 90.0).toDouble();
 
     return SizedBox(
       height: imageHeight + bandHeight + ResSize.h * 2,
@@ -181,18 +184,26 @@ class _HomePromoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      TextWidget(
-                        text: title,
-                        color: _premiumInk,
-                        fontSize: 13.6,
-                        fontWeight: fwBold,
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: _premiumInk,
+                          fontSize: ResSize.setSp(13.6),
+                          fontWeight: fwBold,
+                        ),
                       ),
                       3.height,
-                      TextWidget(
-                        text: subtitle,
-                        color: _premiumMuted,
-                        fontSize: 9.2,
-                        fontWeight: fwNormal,
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.poppins(
+                          color: _premiumMuted,
+                          fontSize: ResSize.setSp(9.2),
+                          fontWeight: fwNormal,
+                        ),
                       ),
                     ],
                   ),

@@ -36,9 +36,16 @@ jobs:
           for i in $(seq 1 48); do
             HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
-              echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
-              echo "Testing live Pages build $SHORT"
-              exit 0
+              # index.html alone is not enough: right after a deploy the
+              # versioned bootstrap or main bundle can still be missing from
+              # the CDN edge, and the page then never starts.
+              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
+              if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js" &&
+                curl -fsSI -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/main.${SHORT}.dart.js?qa_wait=$RANDOM" >/dev/null; then
+                echo "LIVE_BUILD=$SHORT" >> "$GITHUB_ENV"
+                echo "Testing live Pages build $SHORT"
+                exit 0
+              fi
             fi
             sleep 10
           done
@@ -54,8 +61,13 @@ jobs:
           const base = 'https://baccarisverige-ux.github.io/-movera-rider/';
           const evidence = {};
 
+          // Flutter parks its 'Enable accessibility' placeholder at (-1,-1), outside
+          // the viewport, so a Playwright click on it never lands and every
+          // label lookup silently fell back to fixed coordinates. Click it
+          // through the DOM and wait for the semantics tree instead.
           async function enableA11y(page) {
-            try { await page.getByLabel('Enable accessibility').click({ timeout: 2500 }); } catch (_) {}
+            await page.evaluate(() => document.querySelector('flt-semantics-placeholder')?.click());
+            await page.waitForFunction(() => document.querySelector('flt-semantics'), null, { timeout: 5000 }).catch(() => {});
             await page.waitForTimeout(400);
           }
 
@@ -254,25 +266,78 @@ jobs:
             await enterFinding(page, 'cancel-standalone');
             await page.screenshot({ path: 'qa-critical-cancel-finding.png', fullPage: true });
 
-            await page.touchscreen.tap(36, 32);
-            await page.waitForTimeout(700);
-            await page.screenshot({ path: 'qa-critical-cancel-confirm.png', fullPage: true });
+            async function openCurrentCancel() {
+              const owner = await page.evaluate(() => window.moveraMapOwner || 'none');
+              if (owner === 'waiting') {
+                const cancel = page.getByLabel('Cancel ride', { exact: true });
+                if (await cancel.count()) await cancel.last().click();
+                else await page.touchscreen.tap(36, 32);
+              } else {
+                await page.touchscreen.tap(36, 32);
+              }
+              await page.waitForTimeout(700);
+            }
 
-            await page.touchscreen.tap(195, 739);
+            async function confirmFirstCancelStep() {
+              const request = page.getByText('Cancel request', { exact: true });
+              if (await request.count()) {
+                await request.last().click();
+                return;
+              }
+              const ride = page.getByText('Cancel ride', { exact: true });
+              if (await ride.count()) {
+                await ride.last().click();
+                return;
+              }
+              // Flutter canvas semantics do not always expose modal button text.
+              // The viewport is fixed at 390x844 and this is the proven
+              // destructive-button center used by the existing live QA.
+              await page.touchscreen.tap(195, 739);
+            }
+
+            // First pass: abandon cancellation. The active ride must survive.
+            await openCurrentCancel();
+            await page.screenshot({ path: 'qa-critical-cancel-confirm.png', fullPage: true });
+            await confirmFirstCancelStep();
             await page.waitForTimeout(1000);
             await page.screenshot({ path: 'qa-critical-cancel-reason.png', fullPage: true });
             await page.keyboard.press('Escape');
             await page.waitForTimeout(1500);
 
+            const afterAbortOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
+            if (!['finding', 'waiting'].includes(afterAbortOwner)) {
+              throw new Error(
+                `Standalone Cancel: abandoning cancel must keep active ride, got ${afterAbortOwner}`,
+              );
+            }
+            const afterAbortSnapshot = await activeRideSnapshot(page);
+            if (String(afterAbortSnapshot.status || '').toLowerCase().includes('cancel')) {
+              throw new Error(
+                `Standalone Cancel: abandoning cancel mutated status to ${afterAbortSnapshot.status}`,
+              );
+            }
+            await page.screenshot({ path: 'qa-critical-cancel-aborted.png', fullPage: true });
+
+            // Second pass: complete cancellation explicitly, then Home must be stable.
+            await openCurrentCancel();
+            await confirmFirstCancelStep();
+            await page.waitForTimeout(700);
+            const skip = page.getByText('Skip', { exact: true });
+            if (await skip.count()) {
+              await skip.last().click();
+            } else {
+              // Flutter canvas semantics may hide the header action. The
+              // critical QA viewport is fixed at 390x844; evidence from this
+              // exact sheet places Skip safely at this stable target.
+              await page.touchscreen.tap(48, 254);
+            }
+
             await page.waitForFunction(
-              () => !['finding', 'waiting'].includes(window.moveraMapOwner || 'none'),
+              () => (window.moveraMapOwner || 'none') === 'home',
               null,
               { timeout: 10000 },
             );
             const afterCancelOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
-            if (afterCancelOwner !== 'home') {
-              throw new Error(`Standalone Cancel: expected Home after cancel, got ${afterCancelOwner}`);
-            }
 
             await page.waitForTimeout(28000);
             const stableOwner = await page.evaluate(() => window.moveraMapOwner || 'none');
@@ -281,7 +346,7 @@ jobs:
             }
             await page.screenshot({ path: 'qa-critical-cancel-home.png', fullPage: true });
             await context.close();
-            return { afterCancelOwner, stableOwner };
+            return { afterAbortOwner, afterCancelOwner, stableOwner };
           });
 
           await runScenario('wallet_standalone', async () => {
@@ -291,18 +356,40 @@ jobs:
             const beforeStorage = await walletStorage(page);
             const before = balanceFromStorage(beforeStorage);
 
-            await page.touchscreen.tap(300, 88);
-            await page.waitForTimeout(700);
-            await page.screenshot({ path: 'qa-critical-wallet-menu.png', fullPage: true });
-            await page.touchscreen.tap(105, 188);
-            await page.waitForTimeout(1500);
-            await page.screenshot({ path: 'qa-critical-wallet-page.png', fullPage: true });
+            // Tap controls by their accessible name: the side menu (Phase 97)
+            // and the wallet page (Phase 76) have both moved since this
+            // scenario was written, and fixed coordinates silently landed on
+            // Ride History instead of Wallet.
+            async function tapButton(name, label) {
+              const button = page.getByRole('button', { name, exact: true });
+              await button.first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {
+                throw new Error(`Standalone Wallet: ${label} button '${name}' not found`);
+              });
+              await button.first().click();
+            }
+            async function openAddFunds(tag) {
+              await page.touchscreen.tap(300, 88);
+              await page.waitForTimeout(700);
+              await page.screenshot({ path: `qa-critical-wallet-menu${tag}.png`, fullPage: true });
+              await tapButton('Wallet', 'side menu');
+              await page.waitForTimeout(1500);
+              await page.screenshot({ path: `qa-critical-wallet-page${tag}.png`, fullPage: true });
+              await tapButton('Add funds (demo)', 'wallet page');
+              await page.waitForTimeout(800);
+            }
 
-            await page.touchscreen.tap(195, 516);
-            await page.waitForTimeout(800);
+            await openAddFunds('');
             await page.screenshot({ path: 'qa-critical-wallet-add-sheet.png', fullPage: true });
 
-            await page.touchscreen.tap(110, 599);
+            // Phase 76: picking an amount only selects it; the simulated
+            // payment runs on 'Simulate top-up'.
+            await tapButton('kr 200', 'amount');
+            await page.waitForTimeout(400);
+            const selected = balanceFromStorage(await walletStorage(page));
+            if (selected !== before) {
+              throw new Error(`Standalone Wallet: selecting an amount changed balance ${before} -> ${selected}`);
+            }
+            await tapButton('Simulate top-up', 'add-funds sheet');
             await page.waitForTimeout(1800);
             const afterStorage = await walletStorage(page);
             const after = balanceFromStorage(afterStorage);
@@ -316,18 +403,17 @@ jobs:
 
             await page.reload({ waitUntil: 'networkidle', timeout: 120000 });
             await page.waitForTimeout(4500);
+            await enableA11y(page);
             const persistedStorage = await walletStorage(page);
             const persisted = balanceFromStorage(persistedStorage);
             if (persisted !== after) {
               throw new Error(`Standalone Wallet: persistence failed ${after} -> ${persisted}`);
             }
 
-            await page.touchscreen.tap(300, 88);
-            await page.waitForTimeout(500);
-            await page.touchscreen.tap(105, 188);
-            await page.waitForTimeout(1200);
-            await page.touchscreen.tap(195, 516);
-            await page.waitForTimeout(700);
+            // Dismissing the sheet, even with an amount picked, must not pay.
+            await openAddFunds('-dismiss');
+            await tapButton('kr 500', 'amount');
+            await page.waitForTimeout(400);
             await page.screenshot({ path: 'qa-critical-wallet-dismiss-before.png', fullPage: true });
             await page.keyboard.press('Escape');
             await page.waitForTimeout(800);

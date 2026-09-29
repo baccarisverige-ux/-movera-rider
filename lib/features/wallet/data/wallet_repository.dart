@@ -1,6 +1,18 @@
-import 'dart:convert';
-
 import 'package:movera_rider/core/storage/preferences_store.dart';
+
+/// The wallet balance's source of truth.
+///
+/// [WalletStore] is the only implementation today, and it is client-local
+/// (a double in SharedPreferences/localStorage): anyone with access to the
+/// device or browser storage can edit it, and it is never synced against
+/// what a backend actually charged or refunded. A real implementation
+/// backed by a server-owned ledger must replace it before a release
+/// composition may treat the balance as authoritative — see
+/// `WalletComposition.validate`.
+abstract class WalletBalanceSource {
+  Future<double> loadBalance();
+  Future<void> saveBalance(double value);
+}
 
 class WalletPaymentSettings {
   WalletPaymentSettings({
@@ -14,7 +26,7 @@ class WalletPaymentSettings {
   final List<Map<String, String>> extraMethods;
 }
 
-class WalletStore {
+class WalletStore implements WalletBalanceSource {
   static const balanceKey = 'movera_wallet_balance';
   static const _legacyVoucherKeys = [
     'movera_voucher_code',
@@ -23,11 +35,13 @@ class WalletStore {
     'movera_used_vouchers',
   ];
 
+  @override
   Future<double> loadBalance() async {
     final prefs = await PreferencesStore.load();
     return prefs.getDouble(balanceKey) ?? 0;
   }
 
+  @override
   Future<void> saveBalance(double value) async {
     final prefs = await PreferencesStore.load();
     await prefs.setDouble(balanceKey, value);
@@ -36,37 +50,40 @@ class WalletStore {
   Future<WalletPaymentSettings> loadPayments() async {
     final prefs = await PreferencesStore.load();
     await _removeLegacyVoucherState(prefs);
-    final savedMethods = prefs.getString('movera_payment_methods');
-    var extra = <Map<String, String>>[];
-    if (savedMethods != null) {
-      try {
-        final decoded = jsonDecode(savedMethods) as List<dynamic>;
-        extra = decoded
-            .whereType<Map>()
-            .map(
-              (item) => item.map(
-                (key, value) => MapEntry(key.toString(), value.toString()),
-              ),
-            )
-            .toList();
-      } catch (_) {}
+    // Earlier builds stored unverified cards and provider labels locally.
+    // None represent tokenized or authorized payment methods.
+    if (prefs.getString('movera_payment_methods') != null) {
+      await prefs.remove('movera_payment_methods');
+    }
+    final savedDefault = prefs.getString('movera_default_payment');
+    final defaultMethod = savedDefault == 'paypal' ||
+            savedDefault == 'klarna' ||
+            savedDefault == 'card' ||
+            (savedDefault?.startsWith('card_') ?? false)
+        ? 'apple'
+        : savedDefault ?? 'apple';
+    if (savedDefault != defaultMethod) {
+      await prefs.setString('movera_default_payment', defaultMethod);
     }
     return WalletPaymentSettings(
-      defaultMethod: prefs.getString('movera_default_payment') ?? 'apple',
+      defaultMethod: defaultMethod,
       business: prefs.getBool('movera_payment_business') ?? false,
-      extraMethods: extra,
     );
   }
 
   Future<void> savePayments(WalletPaymentSettings settings) async {
     final prefs = await PreferencesStore.load();
     await _removeLegacyVoucherState(prefs);
-    await prefs.setString('movera_default_payment', settings.defaultMethod);
-    await prefs.setBool('movera_payment_business', settings.business);
+    final method = settings.defaultMethod;
     await prefs.setString(
-      'movera_payment_methods',
-      jsonEncode(settings.extraMethods),
+      'movera_default_payment',
+      method == 'paypal' || method == 'klarna' || method == 'card' ||
+              method.startsWith('card_')
+          ? 'apple'
+          : method,
     );
+    await prefs.setBool('movera_payment_business', settings.business);
+    await prefs.remove('movera_payment_methods');
   }
 
   Future<void> _removeLegacyVoucherState(dynamic prefs) async {

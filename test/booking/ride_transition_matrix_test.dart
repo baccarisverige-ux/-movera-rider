@@ -65,20 +65,35 @@ void main() {
       RideStatus.cancelledByRider,
       RideStatus.cancelledByDriver,
     },
-    RideStatus.tripStarted: {RideStatus.tripInProgress},
+    RideStatus.tripStarted: {
+      RideStatus.tripInProgress,
+      RideStatus.cancelledByRider,
+    },
     RideStatus.tripInProgress: {
+      RideStatus.approachingDropoff,
       RideStatus.tripCompleted,
+      RideStatus.cancelledByRider,
+      RideStatus.cancelledBySystem,
+    },
+    RideStatus.approachingDropoff: {
+      RideStatus.tripCompleted,
+      RideStatus.cancelledByRider,
       RideStatus.cancelledBySystem,
     },
     RideStatus.tripCompleted: {
       RideStatus.paymentProcessing,
       RideStatus.paymentFailed,
+      RideStatus.closed,
     },
     RideStatus.paymentProcessing: {
       RideStatus.paymentFinalized,
       RideStatus.paymentFailed,
+      RideStatus.closed,
     },
-    RideStatus.paymentFinalized: {RideStatus.ratingPending},
+    RideStatus.paymentFinalized: {
+      RideStatus.ratingPending,
+      RideStatus.closed,
+    },
     RideStatus.ratingPending: {RideStatus.closed},
   };
 
@@ -137,6 +152,7 @@ void main() {
       RideStatus.driverWaiting,
       RideStatus.tripStarted,
       RideStatus.tripInProgress,
+      RideStatus.approachingDropoff,
     });
     expect(RideStatus.values.where((status) => status.isCompletedSurface).toSet(), {
       RideStatus.tripCompleted,

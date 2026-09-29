@@ -1,20 +1,25 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
-import 'package:movera_rider/core/debug/movera_qa.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/web/web_search_interrupted.dart';
-import 'package:movera_rider/core/web/web_standalone.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
+import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
+import 'package:movera_rider/features/ride_booking/application/search_interrupted_notice.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 
 enum RestoredSurface { home, finding, waiting, complete }
@@ -23,28 +28,57 @@ class RideRestoreCoordinator {
   RideRestoreCoordinator({
     RideSnapshotStoreReader? reader,
     bool Function()? skipRestore,
+    RideRealtimeResync? resync,
+    bool Function()? authRequired,
+    Future<bool> Function()? hasSession,
+    SearchInterruptedNotice? interruptedNotice,
   }) : _reader = reader ?? RideSnapshotStore.read,
-       _skipRestore = skipRestore ?? defaultSkipRestore;
+       _skipRestore = skipRestore ?? defaultSkipRestore,
+       _resync = resync ?? _defaultResync,
+       _authRequired = authRequired ?? _defaultAuthRequired,
+       _hasSession = hasSession ?? _defaultHasSession,
+       _interruptedNotice = interruptedNotice ?? SearchInterruptedNotice();
 
   final Future<RideSnapshot?> Function() _reader;
   final bool Function() _skipRestore;
+  final RideRealtimeResync _resync;
+  final bool Function() _authRequired;
+  final Future<bool> Function() _hasSession;
+  final SearchInterruptedNotice _interruptedNotice;
+
+  static Future<void> _defaultResync(String rideId) =>
+      AppScope.instance.rideRealtime.reconnectAndResync(rideId);
+
+  static bool _defaultAuthRequired() => AppEnv.current.authRequired;
+
+  static Future<bool> _defaultHasSession() async {
+    final access = await AppScope.instance.tokens.readAccess();
+    final refresh = await AppScope.instance.tokens.readRefresh();
+    return access?.isNotEmpty == true && refresh?.isNotEmpty == true;
+  }
+
+  Future<bool> _shouldRequireSignIn(RideSnapshot? snapshot) async {
+    if (!_authRequired()) return false;
+    if (await _hasSession()) return false;
+    // No snapshot may be replayed after its owner has lost the session.
+    await RideSnapshotStore.clear();
+    return true;
+  }
+
+  Widget _gatedHome() {
+    if (!_authRequired()) return const Home();
+    return _AuthenticatedHomeGate(hasSession: _hasSession);
+  }
   RestoredSurface showing = RestoredSurface.home;
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
 
-  /// Set when a ride search was dropped rather than restored, so Home can say
-  /// so instead of just appearing empty as though nothing had been going on.
-  bool _searchInterrupted = false;
-
-  /// Reads the flag and clears it, so the rider is told once.
-  bool takeSearchInterrupted() {
-    if (!_searchInterrupted) return false;
-    _searchInterrupted = false;
-    return true;
-  }
+  /// Reads the interrupted-search notice and clears it, so the rider is told
+  /// once.
+  bool takeSearchInterrupted() => _interruptedNotice.take();
 
   /// Record that a live ride was dropped rather than resumed.
-  void noteSearchInterrupted() => _searchInterrupted = true;
+  void noteSearchInterrupted() => _interruptedNotice.note();
 
   void _noteDropped(RestoredSurface surface) {
     if (surface == RestoredSurface.finding ||
@@ -56,20 +90,16 @@ class RideRestoreCoordinator {
   /// Tests: pretend Profile/Wallet is open so resume must not navigate.
   bool Function()? debugAtRoot;
 
-  static final instance = RideRestoreCoordinator();
+  static final instance = RideRestoreCoordinator(
+    interruptedNotice: SearchInterruptedNotice.shared,
+  );
 
-  /// Public GitHub Pages has no QA hooks. A leftover mock snapshot must not
-  /// open Driver found / Finding when someone taps the live link.
-  ///
-  /// An installed PWA is the exception: it is the rider's own app, not a link
-  /// a stranger tapped, so its ride must survive a reload. iOS in particular
-  /// evicts standalone web apps aggressively — a system permission dialog
-  /// alone can terminate and reload the app mid-booking — and dropping the
-  /// search there stranded riders on Home.
-  static bool defaultSkipRestore() =>
-      kIsWeb && !moveraQaHooksEnabled && !isInstalledWebApp();
+  /// A live ride in this browser must survive reload, crash, PWA eviction
+  /// and Safari tab recovery. localStorage is per-browser, so a stranger
+  /// tapping the public link never sees someone else's trip.
+  static bool defaultSkipRestore() => false;
 
-  void goHome() {
+  void goHome({bool replaceRoot = true}) {
     // Deliberately back to Home: nothing to explain on the next load.
     clearSearchLive();
     showing = RestoredSurface.home;
@@ -79,23 +109,30 @@ class RideRestoreCoordinator {
         await RideSnapshotStore.clear();
       } catch (_) {}
     }());
-    onReplaceRoot?.call(const Home());
+    // Normal pushed ride flows already reveal the existing Home when the
+    // navigator pops to root. Rebuilding the root Home again causes a visible
+    // double transition and unnecessary map/controller churn. Cold-restored
+    // ride surfaces still need an explicit root replacement.
+    if (replaceRoot) onReplaceRoot?.call(_gatedHome());
   }
 
-  /// Chrome Refresh / bfcache leave fires pagehide (not visibilitychange).
-  /// Always drop the snapshot; on public web also force Home if Finding/Waiting
-  /// was still on screen from an incomplete reload.
+  bool replaceRootSurface(Widget page, RestoredSurface surface) {
+    final replace = onReplaceRoot;
+    if (replace == null) return false;
+    showing = surface;
+    reportRestoreSurface(surface.name);
+    replace(page);
+    return true;
+  }
+
+  /// Chrome Refresh / bfcache leave fires pagehide. The live snapshot stays
+  /// so a crash or reload can reopen the same trip.
   void onPageHide() {
     unawaited(() async {
       try {
-        await RideSnapshotStore.clear();
+        await RideSnapshotStore.touchCurrent();
       } catch (_) {}
     }());
-    if (_skipRestore() &&
-        (showing == RestoredSurface.finding ||
-            showing == RestoredSurface.waiting)) {
-      goHome();
-    }
   }
 
   RestoredSurface surfaceFor(RideSnapshot? snapshot) {
@@ -112,6 +149,7 @@ class RideRestoreCoordinator {
       case RideStatus.driverWaiting:
       case RideStatus.tripStarted:
       case RideStatus.tripInProgress:
+      case RideStatus.approachingDropoff:
         return RestoredSurface.waiting;
       default:
         if (snapshot.status.isCompletedSurface) {
@@ -133,12 +171,36 @@ class RideRestoreCoordinator {
     // AppScope, and a cold restore starts with it empty. Without this the
     // restored search has no rideId, so Cancel reaches no ride to cancel and
     // raising the offer refuses because it cannot name the ride it belongs to.
-    AppScope.instance.ride.restoreFromBackend(
+    // Phase 135: seed authoritativeVersion from the snapshot's own ordering
+    // number so a subsequent lower-versioned event - like the findingDriver
+    // reset a freshly-reconnected mock transport unconditionally emits - is
+    // correctly rejected as stale instead of silently regressing this
+    // restore. Without a persisted version there is nothing to protect
+    // against; that gap is closed as soon as the first live event persists
+    // one (see DriverTrackingController._persistLiveStatus).
+    AppScope.instance.ride.backendReconcile(
       snapshot.status,
       id: snapshot.rideId,
+      version: snapshot.version,
+      updatedAt: snapshot.savedAt,
     );
     final pickup = LatLng(snapshot.pickupLat, snapshot.pickupLng);
     final drop = LatLng(snapshot.destinationLat, snapshot.destinationLng);
+    if (surface == RestoredSurface.waiting) {
+      // Phase 135: this is the other half of the fix. Only this call site
+      // actually knows the restore is genuine (a normal live continuation
+      // never goes through pageFor), so priming happens here rather than in
+      // WaitingForDriver itself, which cannot tell a real restore apart from
+      // a screen mounting fresh mid-session with an already-matched status.
+      final realtime = AppScope.instance.rideRealtime;
+      if (realtime is MockRideRealtime && snapshot.status.isMatched) {
+        realtime.primeResume(
+          status: snapshot.status,
+          driver: snapshot.driver,
+          version: snapshot.version,
+        );
+      }
+    }
     switch (surface) {
       case RestoredSurface.finding:
         return FindingDrivers(
@@ -164,7 +226,14 @@ class RideRestoreCoordinator {
           driver: snapshot.driver,
         );
       case RestoredSurface.complete:
-        return const RideCompleted();
+        // Cold restore rebuilds this in-memory completion context from the
+        // still-owned snapshot so driver/vehicle/route/booked-price cards are
+        // truthful after reload or process death.
+        LastCompletedRide.remember(snapshot);
+        return RideCompleted(
+          status: snapshot.status,
+          rideId: snapshot.rideId,
+        );
       case RestoredSurface.home:
         return const Home();
     }
@@ -173,15 +242,18 @@ class RideRestoreCoordinator {
   Future<Widget> root() async {
     reportRestoreSurface('hold');
     if (_skipRestore()) {
-      // Read the snapshot before dropping it: on builds that keep it, this is
-      // the evidence a search was in flight. (On web the snapshot is already
-      // gone by now, so Home reads the session note instead.)
+      RideSnapshot? snapshot;
       try {
-        _noteDropped(surfaceFor(await _reader()));
+        snapshot = await _reader();
+        _noteDropped(surfaceFor(snapshot));
       } catch (_) {}
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
+      if (await _shouldRequireSignIn(snapshot) ||
+          AppEnv.current.authPreview && snapshot == null) {
+        return const SignIn();
+      }
       return const Home();
     }
     try {
@@ -190,11 +262,24 @@ class RideRestoreCoordinator {
         'ride.restore.cold',
         extra: {'status': snapshot?.status.name ?? 'none'},
       );
+      if (await _shouldRequireSignIn(snapshot)) {
+        showing = RestoredSurface.home;
+        reportRestoreSurface('signIn');
+        return const SignIn();
+      }
+      if (snapshot == null && AppEnv.current.authPreview) {
+        reportRestoreSurface('signInPreview');
+        return const SignIn();
+      }
       return pageFor(snapshot);
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
+      if ((_authRequired() && !await _hasSession()) ||
+          AppEnv.current.authPreview) {
+        return const SignIn();
+      }
       return const Home();
     }
   }
@@ -209,6 +294,80 @@ class RideRestoreCoordinator {
     } catch (_) {
       return true;
     }
+  }
+
+  /// Immediately gives a newly created on-demand ride a visible owner when
+  /// the Select Ride surface disappears before it can push Finding.
+  ///
+  /// This is a post-create recovery path, not normal resume. The backend ride
+  /// already exists, so silently waiting for a later app lifecycle event would
+  /// leave a live orphan ride.
+  Future<bool> recoverCreatedFinding(
+    String rideId, {
+    RideRealtime? realtime,
+  }) async {
+    final expectedId = rideId.trim();
+    if (expectedId.isEmpty) return false;
+
+    final snapshot = await _reader();
+    if (snapshot == null ||
+        snapshot.rideId?.trim() != expectedId ||
+        snapshot.status.isTerminal ||
+        !snapshot.isFresh) {
+      return false;
+    }
+
+    AppScope.instance.ride.backendReconcile(
+      snapshot.status,
+      id: expectedId,
+    );
+
+    final finding = FindingDrivers(
+      pickupAddress: snapshot.pickupAddress,
+      destinationAddress: snapshot.destinationAddress,
+      pickupPosition: LatLng(snapshot.pickupLat, snapshot.pickupLng),
+      destinationPosition: LatLng(
+        snapshot.destinationLat,
+        snapshot.destinationLng,
+      ),
+      rideType: snapshot.rideType,
+      price: snapshot.price,
+      paymentMethod: snapshot.paymentMethod,
+      notes: snapshot.notes,
+      realtime: realtime,
+    );
+
+    final nav = moveraNavigatorKey.currentState;
+    final replace = onReplaceRoot;
+    if (replace != null) {
+      // Default app topology: remove Home's platform map for one full frame
+      // before the recovered Finding map mounts.
+      showing = RestoredSurface.finding;
+      reportRestoreSurface('recoveringFinding');
+      replace(const _RideRecoveryBarrier());
+      if (nav != null && nav.canPop()) {
+        nav.popUntil((route) => route.isFirst);
+      }
+      await WidgetsBinding.instance.endOfFrame;
+      replace(finding);
+      reportRestoreSurface(RestoredSurface.finding.name);
+      return true;
+    }
+
+    // Isolated hosts/tests may not mount RideRestoreGate. The navigator is
+    // still a valid immediate recovery owner in that topology.
+    if (nav == null) return false;
+    showing = RestoredSurface.finding;
+    reportRestoreSurface(RestoredSurface.finding.name);
+    unawaited(
+      nav.push<void>(
+        RideStageTransition(
+          finding,
+          settings: const RouteSettings(name: AppRoutes.findingDriver),
+        ),
+      ),
+    );
+    return true;
   }
 
   Future<Widget?> resumeIfNeeded() async {
@@ -227,7 +386,7 @@ class RideRestoreCoordinator {
     final id = snapshot?.rideId;
     if (id != null) {
       try {
-        await AppScope.instance.rideRealtime.reconnectAndResync(id);
+        await _resync(id);
       } catch (_) {}
       try {
         snapshot = await _reader();
@@ -240,10 +399,52 @@ class RideRestoreCoordinator {
     }
     final next = surfaceFor(snapshot);
     if (next == showing) return null;
-    final page = pageFor(snapshot);
+    final page = next == RestoredSurface.home ? _gatedHome() : pageFor(snapshot);
     onReplaceRoot?.call(page);
     return page;
   }
 }
 
 typedef RideSnapshotStoreReader = Future<RideSnapshot?> Function();
+typedef RideRealtimeResync = Future<void> Function(String rideId);
+
+
+class _RideRecoveryBarrier extends StatelessWidget {
+  const _RideRecoveryBarrier();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFFF6F5F1),
+      child: Center(
+        child: Semantics(
+          label: 'Restoring active ride',
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _AuthenticatedHomeGate extends StatelessWidget {
+  const _AuthenticatedHomeGate({required this.hasSession});
+
+  final Future<bool> Function() hasSession;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: hasSession(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const ColoredBox(
+            color: Color(0xFFFFFFFF),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return snapshot.data == true ? const Home() : const SignIn();
+      },
+    );
+  }
+}

@@ -8,14 +8,21 @@ import 'package:movera_rider/features/notifications/presentation/notifications.d
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RiderSideMenu extends StatelessWidget {
-  const RiderSideMenu({super.key});
+  const RiderSideMenu({super.key, this.onStartBooking, this.onCoveredChanged});
+
+  /// Called when a menu page asks to go straight to booking (for example
+  /// Ride History's empty-state "Book a ride") instead of back to the menu.
+  final VoidCallback? onStartBooking;
+
+  /// U7: told `true` when a full-screen menu page is pushed over Home and
+  /// `false` once it is popped, so Home can pause its puck work while hidden.
+  final ValueChanged<bool>? onCoveredChanged;
 
   static const Color _ink = Color(0xFF1C2329);
   static const Color _muted = Color(0xFF7A858E);
@@ -28,8 +35,32 @@ class RiderSideMenu extends StatelessWidget {
     final nav = Navigator.of(context);
     final scaffold = Scaffold.of(context);
     scaffold.closeDrawer();
-    await nav.push(RightToLeftTransition(page));
-    if (scaffold.mounted) scaffold.openDrawer();
+
+    // U7: push straight away and let the drawer close underneath. Waiting
+    // for the close animation first added its full length to every
+    // menu-to-page transition.
+    if (!nav.mounted) return;
+    onCoveredChanged?.call(true);
+    final Object? result;
+    try {
+      result = await nav.push<Object?>(RightToLeftTransition(page));
+    } finally {
+      onCoveredChanged?.call(false);
+    }
+    if (!scaffold.mounted) return;
+    if (result == RideHistory.startBookingResult) {
+      onStartBooking?.call();
+      return;
+    }
+    // U1: the menu page was opened from the drawer, so Back returns to the
+    // drawer. Only reopen it once Home is genuinely the top route again —
+    // never when the page was replaced or something else now sits above Home.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!scaffold.mounted || scaffold.isDrawerOpen) return;
+      final homeRoute = ModalRoute.of(scaffold.context);
+      if (homeRoute != null && !homeRoute.isCurrent) return;
+      scaffold.openDrawer();
+    });
   }
 
   @override
@@ -66,7 +97,6 @@ class RiderSideMenu extends StatelessWidget {
                       14.height,
                       _menuCard(context),
                       14.height,
-                      _becomeDriverCard(),
                     ],
                   ),
                 ),
@@ -146,32 +176,8 @@ class RiderSideMenu extends StatelessWidget {
                       fontSize: 18,
                       fontWeight: fwSemiBold,
                     ),
-                    4.height,
-                    TextWidget(
-                      text: 'Rider',
-                      color: _muted,
-                      fontSize: 13,
-                      fontWeight: fwMedium,
-                    ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          14.height,
-          Row(
-            children: [
-              Icon(
-                Icons.star_border_rounded,
-                color: _accent,
-                size: 18 * ResSize.h,
-              ),
-              6.width,
-              TextWidget(
-                text: 'No rating yet',
-                color: _muted,
-                fontSize: 13.5,
-                fontWeight: fwMedium,
               ),
             ],
           ),
@@ -187,7 +193,7 @@ class RiderSideMenu extends StatelessWidget {
             icon: Icons.account_balance_wallet_outlined,
             image: null,
             title: 'Wallet',
-            onTap: () => _pushPage(context, const WalletHome()),
+            onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
           ),
           (
             icon: Icons.history_rounded,
@@ -199,7 +205,10 @@ class RiderSideMenu extends StatelessWidget {
             icon: Icons.credit_card_outlined,
             image: null,
             title: 'Payments',
-            onTap: () => _pushPage(context, const WalletScreen()),
+            onTap: () => _pushPage(
+              context,
+              const WalletAndPaymentsScreen(initialTab: 1),
+            ),
           ),
           // Notifications and Saved places were both finished screens with no
           // way in: nothing in the app built either of them.
@@ -228,12 +237,6 @@ class RiderSideMenu extends StatelessWidget {
             onTap: () => _pushPage(context, const SupportHome()),
           ),
           (
-            icon: Icons.mail_outline_rounded,
-            image: null,
-            title: 'Invite Friends',
-            onTap: () => _pushPage(context, const ReferAndEarn()),
-          ),
-          (
             icon: Icons.info_outline_rounded,
             image: null,
             title: 'About',
@@ -242,7 +245,7 @@ class RiderSideMenu extends StatelessWidget {
               const HelpArticle(
                 title: 'About Movera',
                 body:
-                    'Movera is a premium ride app for Sweden. Book Movera, Comfort, Premium, Priority, XL, Electric, and Pet — then pay with card, Swish, Apple Pay, or cash.',
+                    'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
               ),
             ),
           ),
@@ -273,73 +276,59 @@ class RiderSideMenu extends StatelessWidget {
     required bool isFirst,
     required bool isLast,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.vertical(
-          top: isFirst ? const Radius.circular(22) : Radius.zero,
-          bottom: isLast ? const Radius.circular(22) : Radius.zero,
-        ),
-        splashColor: _accent.withValues(alpha: 0.05),
-        highlightColor: _accent.withValues(alpha: 0.03),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            ResSize.w * 18,
-            ResSize.h * 16,
-            ResSize.w * 18,
-            ResSize.h * 16,
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: ResSize.w * 26,
-                height: ResSize.h * 26,
-                child: image != null
-                    ? Image.asset(
-                        excludeFromSemantics: true,
-                        image,
-                        fit: BoxFit.contain,
-                      )
-                    : Icon(icon, size: 22 * ResSize.h, color: _icon),
+    return Semantics(
+      button: true,
+      label: title,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.vertical(
+              top: isFirst ? const Radius.circular(22) : Radius.zero,
+              bottom: isLast ? const Radius.circular(22) : Radius.zero,
+            ),
+            splashColor: _accent.withValues(alpha: 0.05),
+            highlightColor: _accent.withValues(alpha: 0.03),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                ResSize.w * 18,
+                ResSize.h * 16,
+                ResSize.w * 18,
+                ResSize.h * 16,
               ),
-              16.width,
-              Expanded(
-                child: TextWidget(
-                  text: title,
-                  color: _ink,
-                  fontSize: 16,
-                  fontWeight: fwMedium,
-                ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: ResSize.w * 26,
+                    height: ResSize.h * 26,
+                    child: image != null
+                        ? Image.asset(
+                            excludeFromSemantics: true,
+                            image,
+                            fit: BoxFit.contain,
+                          )
+                        : Icon(icon, size: 22 * ResSize.h, color: _icon),
+                  ),
+                  16.width,
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: ResSize.setSp(16),
+                        fontWeight: fwMedium,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _becomeDriverCard() {
-    return _cardSurface(
-      padding: EdgeInsets.symmetric(
-        horizontal: ResSize.w * 18,
-        vertical: ResSize.h * 16,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.directions_car_outlined,
-            size: 22 * ResSize.h,
-            color: _accent,
-          ),
-          16.width,
-          TextWidget(
-            text: 'Become a driver',
-            color: _ink,
-            fontSize: 16,
-            fontWeight: fwMedium,
-          ),
-        ],
       ),
     );
   }
@@ -361,11 +350,17 @@ class RiderSideMenu extends StatelessWidget {
             height: ResSize.h * 18,
           ),
           8.width,
-          TextWidget(
-            text: 'Movera Rider',
-            color: _muted,
-            fontSize: 11,
-            fontWeight: fwMedium,
+          Flexible(
+            child: Text(
+              'Movera Rider',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: _muted,
+                fontSize: ResSize.setSp(11),
+                fontWeight: fwMedium,
+              ),
+            ),
           ),
         ],
       ),

@@ -27,9 +27,10 @@ class ScheduledRideBooking {
       throw StateError('scheduled booking needs a pickup time');
     }
     final ride = selection.rideById(selection.selectedRideId);
-    final payments = selection.payments();
-    final payment =
-        payments[selection.selectedPayment.clamp(0, payments.length - 1)];
+    final payment = selection.selectedPaymentItem();
+    if (payment == null) {
+      throw StateError('scheduled booking needs an available payment method');
+    }
     final dropoff = when.add(Duration(minutes: ride.etaMin));
     final nextPrice = price ?? selection.priceFor(ride.id, ride.price);
     if (editingReservationId != null) {

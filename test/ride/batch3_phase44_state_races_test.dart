@@ -1,0 +1,101 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+
+void main() {
+  test('driver redispatch reopens only the same cancelled ride', () async {
+    final shared = AppScope.instance.ride;
+    shared
+      ..rideId = null
+      ..authoritativeVersion = null
+      ..authoritativeUpdatedAt = null
+      ..backendReconcile(RideStatus.cancelledByDriver, id: 'redispatch-r1');
+
+    await ActiveRideController().resumeSearchingAfterDriverCancel(
+      rideId: 'redispatch-r1',
+    );
+    expect(shared.status, RideStatus.findingDriver);
+    expect(shared.rideId, 'redispatch-r1');
+
+    shared.backendReconcile(RideStatus.cancelledByDriver, id: 'redispatch-r1');
+    await ActiveRideController().resumeSearchingAfterDriverCancel(
+      rideId: 'wrong-r2',
+    );
+    expect(shared.status, RideStatus.cancelledByDriver);
+    expect(shared.rideId, 'redispatch-r1');
+  });
+
+  test('authoritative backend may skip client-only intermediate states', () {
+    final ride = RideSession()..rideId = 'r1';
+    expect(
+      ride.backendReconcile(
+        RideStatus.driverArriving,
+        id: 'r1',
+        version: 1,
+        updatedAt: DateTime.utc(2026, 9, 24, 11),
+      ),
+      isTrue,
+    );
+    expect(
+      ride.backendReconcile(
+        RideStatus.paymentFinalized,
+        id: 'r1',
+        version: 2,
+        updatedAt: DateTime.utc(2026, 9, 24, 11, 1),
+      ),
+      isTrue,
+    );
+    expect(ride.status, RideStatus.paymentFinalized);
+  });
+
+  test('stale authoritative projection cannot move the ride backwards', () {
+    final ride = RideSession()..rideId = 'r1';
+    expect(
+      ride.backendReconcile(
+        RideStatus.findingDriver,
+        id: 'r1',
+        version: 5,
+        updatedAt: DateTime.utc(2026, 9, 24, 12, 5),
+      ),
+      isTrue,
+    );
+    expect(
+      ride.backendReconcile(
+        RideStatus.driverAssigned,
+        id: 'r1',
+        version: 4,
+        updatedAt: DateTime.utc(2026, 9, 24, 12, 4),
+      ),
+      isFalse,
+    );
+    expect(ride.status, RideStatus.findingDriver);
+    expect(ride.authoritativeVersion, 5);
+  });
+
+  test('new ride id starts a fresh authoritative ordering domain', () {
+    final ride = RideSession()..rideId = 'r1';
+    expect(
+      ride.backendReconcile(
+        RideStatus.driverWaiting,
+        id: 'r1',
+        version: 99,
+        updatedAt: DateTime.utc(2026, 9, 24, 12),
+      ),
+      isTrue,
+    );
+    expect(
+      ride.backendReconcile(
+        RideStatus.findingDriver,
+        id: 'r2',
+        version: 1,
+        updatedAt: DateTime.utc(2026, 9, 24, 11),
+      ),
+      isTrue,
+    );
+    expect(ride.rideId, 'r2');
+    expect(ride.status, RideStatus.findingDriver);
+    expect(ride.authoritativeVersion, 1);
+  });
+}

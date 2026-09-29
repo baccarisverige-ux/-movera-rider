@@ -407,7 +407,7 @@ class ReservationEditChip extends StatelessWidget {
 class ReservationEditButton extends StatelessWidget {
   const ReservationEditButton({super.key, required this.onTap});
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

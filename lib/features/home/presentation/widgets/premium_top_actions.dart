@@ -18,7 +18,10 @@ class PremiumTopActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Transform.scale(
+      scale: 0.82,
+      alignment: Alignment.topRight,
+      child: Container(
       height: MoveraIconButton.minTap + 8,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
@@ -60,6 +63,7 @@ class PremiumTopActions extends StatelessWidget {
             onTap: onAccountTap,
           ),
         ],
+      ),
       ),
     );
   }

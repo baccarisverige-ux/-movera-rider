@@ -11,6 +11,8 @@ void reportSafetySnapshot(String json) {}
 
 void installSafetyQaOpener(void Function() open) {}
 
+void installSafetyNavigationBridge(bool Function() open) {}
+
 void reportSearchSnapshot(String json) {}
 
 void installMatchingQaHooks({

@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// iOS terminates and reloads a standalone web app readily — the system
 /// location prompt during Book Now is enough. The rider's ride must outlive
-/// that reload, while a stranger tapping the public link still gets Home.
+/// that reload, including a Safari tab on the public link.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -41,17 +41,17 @@ void main() {
     expect(page, isA<Widget>());
   });
 
-  test('public link still lands on Home with the ride dropped', () async {
+  test('public Safari tab also comes back to Finding', () async {
     final snapshot = searching();
     final coordinator = RideRestoreCoordinator(
       reader: () async => snapshot,
-      skipRestore: () => true, // browser tab on the public link
     );
 
-    await coordinator.root();
+    final page = await coordinator.root();
 
-    expect(coordinator.showing, RestoredSurface.home);
-    expect(coordinator.takeSearchInterrupted(), isTrue);
+    expect(coordinator.showing, RestoredSurface.finding);
+    expect(page, isA<Widget>());
+    expect(coordinator.takeSearchInterrupted(), isFalse);
   });
 
   test('non-web builds never report themselves as an installed web app', () {

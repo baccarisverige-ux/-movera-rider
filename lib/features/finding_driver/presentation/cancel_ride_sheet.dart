@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
-/// Confirm cancel, then optionally collect a why-reason.
+/// Confirm cancel, then collect the rider's final decision.
 ///
-/// **Cancel-first:** after **Cancel request**, matching + snapshot are cleared
-/// before the why-sheet (via [onCancelConfirmed] or [commitCancelFirst]).
-/// **Keep ride** on the why-sheet must not undo cancel.
+/// This helper is intentionally side-effect free until the final reason/skip
+/// step returns a cancellation outcome. Closing either sheet or choosing
+/// Keep ride must leave matching/active-trip state untouched.
 Future<CancelOutcome> showCancelRideSheet(
   BuildContext context, {
   required bool takingLonger,
@@ -24,21 +23,21 @@ Future<CancelOutcome> showCancelRideSheet(
     barrierDismissible: false,
     builder: (_) => CancelRideSheet(
       takingLonger: takingLonger,
-      matched: phase == CancelPhase.matched,
+      phase: phase,
     ),
   );
   SheetCoordinator.instance.close(RideSheet.cancel);
-  if (confirmed != true) return const CancelOutcome.keep();
+  if (confirmed != true || !context.mounted) {
+    return const CancelOutcome.keep();
+  }
 
+  final outcome = await showCancelReasonSheet(context, phase: phase);
+  if (!outcome.cancelled) return const CancelOutcome.keep();
+
+  // Legacy callback remains supported, but now fires only after the rider
+  // completed the final cancellation action.
   if (onCancelConfirmed != null) {
     await onCancelConfirmed();
-  } else {
-    await commitCancelFirst();
-  }
-  if (!context.mounted) return const CancelOutcome.cancel();
-  final outcome = await showCancelReasonSheet(context, phase: phase);
-  if (!outcome.cancelled) {
-    return const CancelOutcome.cancel();
   }
   return outcome;
 }
@@ -47,16 +46,20 @@ class CancelRideSheet extends StatelessWidget {
   const CancelRideSheet({
     super.key,
     required this.takingLonger,
-    this.matched = false,
+    this.phase = CancelPhase.searching,
   });
 
   final bool takingLonger;
-  final bool matched;
+  final CancelPhase phase;
 
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
-    final body = matched
+    final matched = phase == CancelPhase.matched;
+    final inTrip = phase == CancelPhase.inTrip;
+    final body = inTrip
+        ? 'Your trip is already in progress. Cancelling will end this ride and return you to Home.'
+        : matched
         ? 'Your driver is already on the way. If you cancel now, you will need to request again.'
         : takingLonger
         ? 'This is taking longer than usual. We are still searching for a nearby driver. If you cancel, you will need to request again.'
@@ -120,7 +123,7 @@ class CancelRideSheet extends StatelessWidget {
                 ),
               ),
               child: Text(
-                'Cancel request',
+                inTrip ? 'Cancel ride' : 'Cancel request',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
@@ -141,7 +144,7 @@ class CancelRideSheet extends StatelessWidget {
                 ),
               ),
               child: Text(
-                matched
+                (matched || inTrip)
                     ? 'Keep ride'
                     : takingLonger
                     ? 'Keep searching'

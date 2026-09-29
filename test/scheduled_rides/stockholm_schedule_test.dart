@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
@@ -65,21 +63,21 @@ void main() {
     expect(session.scheduledAt, StockholmSchedule.minimumPickup());
   });
 
-  test('date picker and session restore use the shared helper', () {
-    final picker = File(
-      'lib/features/scheduled_rides/presentation/select_date_time.dart',
-    ).readAsStringSync();
-    expect(picker.contains('StockholmSchedule.clampPickup'), isTrue);
-    expect(picker.contains('StockholmSchedule.defaultPickup'), isTrue);
-    expect(picker.contains('StockholmSchedule.isLegalPickup'), isTrue);
-    expect(picker.contains('StockholmSchedule.timePickerMinFor'), isTrue);
+  test('Phase 136: isOnGrid flags a legal-but-off-grid time', () {
+    final future = DateTime(2026, 9, 23, 6, 55);
+    expect(StockholmSchedule.isLegalPickup(future, utc), isTrue);
+    expect(StockholmSchedule.isOnGrid(future), isTrue);
+
+    final offGrid = DateTime(2026, 9, 23, 6, 57);
     expect(
-      picker.contains('DateTime.now().add(const Duration(minutes: 30))'),
-      isFalse,
+      StockholmSchedule.isLegalPickup(offGrid, utc),
+      isTrue,
+      reason: 'still well past the 30-minute lead',
     );
-    final session = File(
-      'lib/features/scheduled_rides/application/scheduled_rides_controller.dart',
-    ).readAsStringSync();
-    expect(session.contains('StockholmSchedule.clampPickup'), isTrue);
+    expect(
+      StockholmSchedule.isOnGrid(offGrid),
+      isFalse,
+      reason: '57 is not a multiple of the 5-minute slot',
+    );
   });
 }

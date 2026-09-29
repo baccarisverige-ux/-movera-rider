@@ -11,14 +11,11 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: ['Odenplan'],
     );
-    // Derived from the pickup rules, not a calendar date. A hardcoded
-    // 2026-09-23 passed until that day arrived, after which captureSchedule
-    // correctly clamped it to now+30 and this test failed for a reason that
-    // had nothing to do with the session it is testing.
-    final when = StockholmSchedule.roundToFive(
-      StockholmSchedule.stockholmNow().add(const Duration(days: 7)),
+    final when = DateTime(2099, 9, 23, 10, 30);
+    session.captureSchedule(
+      when,
+      timezone: 'Europe/Stockholm',
     );
-    session.captureSchedule(when, timezone: 'Europe/Stockholm');
     session.captureNote('Ring the bell');
     session.capturePayment('Cash');
     session.captureRideType('movera');
@@ -30,17 +27,17 @@ void main() {
     expect(session.note, 'Ring the bell');
     expect(session.paymentMethod, 'Cash');
     expect(session.rideType, 'movera');
-    expect(session.quoteId, 'q_sched_movera');
+    expect(
+      session.quoteId,
+      isNull,
+      reason: 'a scheduled quote id must come from a real quote source',
+    );
     expect(session.bookingId, isNull);
   });
 
   test('captureSchedule clamps a past pickup to Stockholm now+30', () {
     final session = ScheduledRideSession();
-    // Likewise relative: this one has to stay in the past to exercise the
-    // clamp, which a fixed date only guarantees by luck.
-    session.captureSchedule(
-      StockholmSchedule.stockholmNow().subtract(const Duration(days: 1)),
-    );
+    session.captureSchedule(DateTime(2026, 9, 13, 10, 30));
     expect(session.scheduledAt, isNotNull);
     expect(StockholmSchedule.isLegalPickup(session.scheduledAt!), isTrue);
     expect(session.scheduledAt, StockholmSchedule.minimumPickup());
@@ -53,11 +50,7 @@ void main() {
       dropoff: 'Stockholm Central Station',
       stops: const [],
     );
-    session.captureSchedule(
-      StockholmSchedule.roundToFive(
-        StockholmSchedule.stockholmNow().add(const Duration(days: 7)),
-      ),
-    );
+    session.captureSchedule(DateTime(2099, 9, 23, 10, 30));
     session.capturePayment('Wallet');
     session.captureRideType('movera', quoteId: 'q_sched_1');
     final id = await session.confirm(book: () async => 'b_sched_1');

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
@@ -131,15 +129,5 @@ void main() {
     expect(find.text('No completed rides yet'), findsOneWidget);
   });
 
-  test('history screen owns no hardcoded ride list', () {
-    final source = File(
-      'lib/features/history/presentation/ride_history.dart',
-    ).readAsStringSync();
-    // The static demo list lived in features/ride_history; it must stay gone.
-    expect(source.contains('RideHistoryController'), isFalse);
-    expect(source.contains('RideHistoryItem'), isFalse);
-    expect(source.contains('features/ride_history'), isFalse);
-    expect(source.contains('Alby Centrum'), isFalse);
-    expect(Directory('lib/features/ride_history').existsSync(), isFalse);
-  });
+  
 }

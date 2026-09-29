@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/support/application/support_controller.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -31,7 +32,7 @@ class SupportHome extends StatelessWidget {
     );
   }
 
-  static final List<SupportRide> rides = SupportController().rides();
+  static List<SupportRide> get rides => AppScope.instance.support.rides();
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +55,7 @@ class SupportHome extends StatelessWidget {
                   child: _PillButton(
                     icon: Icons.mail_outline_rounded,
                     label: 'Messages',
-                    onTap: () => Navigator.push(
+                    onTap: () => guardedPush(
                       context,
                       RightToLeftTransition(const SupportMessages()),
                     ),
@@ -102,7 +103,7 @@ class SupportHome extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
-                  onTap: () => Navigator.push(
+                  onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(const SelectSupportRide()),
                   ),
@@ -125,7 +126,7 @@ class SupportHome extends StatelessWidget {
               for (final ride in recent)
                 _RideCard(
                   ride: ride,
-                  onTap: () => Navigator.push(
+                  onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(SelectIssue(ride: ride)),
                   ),
@@ -142,14 +143,14 @@ class SupportHome extends StatelessWidget {
               children: [
                 _TopicChip(
                   label: 'Rides',
-                  onTap: () => Navigator.push(
+                  onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(const SelectSupportRide()),
                   ),
                 ),
                 _TopicChip(
                   label: 'Payments',
-                  onTap: () => Navigator.push(
+                  onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
                       const HelpArticle(
@@ -162,7 +163,7 @@ class SupportHome extends StatelessWidget {
                 ),
                 _TopicChip(
                   label: 'Account',
-                  onTap: () => Navigator.push(
+                  onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(
                       const HelpArticle(
@@ -181,7 +182,7 @@ class SupportHome extends StatelessWidget {
             _ActionCard(
               title: 'Support messaging',
               icon: Icons.headset_mic_rounded,
-              onTap: () => Navigator.push(
+              onTap: () => guardedPush(
                 context,
                 RightToLeftTransition(const HowCanWeHelp()),
               ),
@@ -190,7 +191,7 @@ class SupportHome extends StatelessWidget {
             _ActionCard(
               title: 'Browse help articles',
               icon: Icons.menu_book_rounded,
-              onTap: () => Navigator.push(
+              onTap: () => guardedPush(
                 context,
                 RightToLeftTransition(const HelpArticles()),
               ),
@@ -199,7 +200,7 @@ class SupportHome extends StatelessWidget {
             _ActionCard(
               title: 'Cases',
               icon: Icons.forum_outlined,
-              onTap: () => Navigator.push(
+              onTap: () => guardedPush(
                 context,
                 RightToLeftTransition(const SupportMessages()),
               ),
@@ -219,12 +220,12 @@ class HowCanWeHelp extends StatelessWidget {
     return _SupportScaffold(
       title: 'How can we help you?',
       trailing: _exit(context),
-      child: Column(
+      child: ListView(
         children: [
           _LineItem(
             icon: Icons.directions_car_filled_outlined,
             title: 'I need help with a ride',
-            onTap: () => Navigator.push(
+            onTap: () => guardedPush(
               context,
               RightToLeftTransition(const SelectSupportRide()),
             ),
@@ -232,7 +233,7 @@ class HowCanWeHelp extends StatelessWidget {
           _LineItem(
             icon: Icons.chat_bubble_outline_rounded,
             title: 'Something else',
-            onTap: () => Navigator.push(
+            onTap: () => guardedPush(
               context,
               RightToLeftTransition(const SupportChat()),
             ),
@@ -275,7 +276,7 @@ class SelectSupportRide extends StatelessWidget {
               for (final ride in entry.value)
                 _RideRow(
                   ride: ride,
-                  onTap: () => Navigator.push(
+                  onTap: () => guardedPush(
                     context,
                     RightToLeftTransition(SelectIssue(ride: ride)),
                   ),
@@ -321,7 +322,7 @@ class SelectIssue extends StatelessWidget {
           for (final issue in issues)
             _LineItem(
               title: issue,
-              onTap: () => Navigator.push(
+              onTap: () => guardedPush(
                 context,
                 RightToLeftTransition(SupportChat(ride: ride, issue: issue)),
               ),
@@ -329,7 +330,7 @@ class SelectIssue extends StatelessWidget {
           _LineItem(
             title: 'Something else',
             accent: true,
-            onTap: () => Navigator.push(
+            onTap: () => guardedPush(
               context,
               RightToLeftTransition(SupportChat(ride: ride)),
             ),
@@ -381,7 +382,7 @@ class HelpArticles extends StatelessWidget {
           for (final topic in topics)
             _LineItem(
               title: topic.$1,
-              onTap: () => Navigator.push(
+              onTap: () => guardedPush(
                 context,
                 RightToLeftTransition(
                   HelpArticle(title: topic.$1, body: topic.$2),
@@ -415,7 +416,7 @@ class HelpArticle extends StatelessWidget {
               width: double.infinity,
               height: 52,
               child: FilledButton(
-                onPressed: () => Navigator.push(
+                onPressed: () => guardedPush(
                   context,
                   RightToLeftTransition(const HowCanWeHelp()),
                 ),
@@ -483,7 +484,7 @@ class SupportChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final script = SupportController().chat(ride: ride);
+    final script = AppScope.instance.support.chat(ride: ride);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -674,7 +675,7 @@ class _SupportScaffold extends StatelessWidget {
 
 Widget _exit(BuildContext context) {
   return TextButton(
-    onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+    onPressed: () => Navigator.popUntil(context, AppRoutes.isHomeRoute),
     child: Text(
       'Exit',
       style: SupportHome.text(

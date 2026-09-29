@@ -22,6 +22,7 @@ void main() {
           body: SingleChildScrollView(
             child: PriceBumpCard(
               currentPrice: 259,
+              maxPrice: 466,
               steps: const [50, 100, 150, 200],
               onConfirm: confirmed.add,
               onKeepWaiting: () {},

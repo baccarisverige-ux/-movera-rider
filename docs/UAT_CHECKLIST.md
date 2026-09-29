@@ -8,18 +8,23 @@ hooks unless built with debug or `--dart-define=MOVERA_QA=true`.
 
 - `Global E2E UAT` (`.github/workflows/global-e2e-uat.yml`) — every push/PR:
   runs the full `flutter test` unit/widget suite (all areas under `test/`)
-  plus `integration_test/` against the in-process mock backend, including
-  `integration_test/global_uat_flow_test.dart` which drives booking, wallet
-  top-up/debit, reservation create+cancel, and profile update through the
-  real controllers in one flow.
+  plus `integration_test/` against the in-process mock backend. Phase 13
+  permanently adds `integration_test/rider_full_uat_test.dart`, which drives
+  the full ride lifecycle through ratingPending, driver-cancel re-search,
+  external terminal states, reconnect/resync, ride-scoped messages/unread
+  state, and Safety controller/store behavior. The existing
+  `integration_test/global_uat_flow_test.dart` continues to drive booking,
+  wallet top-up/debit, reservation create+cancel, and profile update through
+  the real controllers in one flow.
 - `Architecture gates` (`.github/workflows/architecture-gates.yml`) — analyze
   + unit/widget suite.
 - `QA live Rider flow` / `QA Book now two paths` — live-site Playwright E2E,
   ride-booking path only (see below); these still require manual/QA-build
   follow-up for the areas they skip.
 
-Everything below this line is manual / live-site verification not yet
-automated end-to-end.
+The controller/contract scenarios above are now automated. The checklist
+below remains for live-browser/device behavior that cannot be truthfully
+fabricated by the public build.
 
 ## Smoke
 

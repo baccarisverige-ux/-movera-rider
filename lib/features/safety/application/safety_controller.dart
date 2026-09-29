@@ -24,7 +24,7 @@ class SafetyController extends ChangeNotifier {
     RideCheckService? rideCheck,
   })  : _events = store ?? SafetyRepository.shared,
         _session = session ?? SafetyStore.shared,
-        emergency = emergency ?? EmergencyCallService(),
+        emergency = emergency ?? EmergencyCallService.shared,
         audio = audio ?? SafetyAudioService(store: session ?? SafetyStore.shared),
         rideCheck = rideCheck ??
             RideCheckService(store: session ?? SafetyStore.shared);
@@ -68,6 +68,7 @@ class SafetyController extends ChangeNotifier {
   final SafetyAudioService audio;
   final RideCheckService rideCheck;
   bool loading = false;
+  bool hasLoaded = false;
   String? error;
 
   List<SafetyEvent> get events => _events.events;
@@ -94,7 +95,23 @@ class SafetyController extends ChangeNotifier {
   }
 
   String rideCheckStatusLabel() =>
-      rideCheckPolicy.enabled ? 'On' : 'Off';
+      rideCheckPolicy.enabled ? 'Preference saved' : 'Off';
+
+  List<RideCheckEvent> pendingRideCheckEvents(String rideId) =>
+      rideCheck.events().where((event) =>
+          event.rideId == rideId &&
+          event.status == RideCheckStatus.pending &&
+          event.payload['kind'] != 'sos').toList();
+
+  Future<void> refreshRideCheckEvents(String rideId) async {
+    await rideCheck.refresh(rideId);
+    notifyListeners();
+  }
+
+  Future<void> resolveRideCheck(RideCheckEvent event) async {
+    await rideCheck.resolve(event);
+    notifyListeners();
+  }
 
   void _publishSnapshot() {
     reportSafetySnapshot(
@@ -111,10 +128,28 @@ class SafetyController extends ChangeNotifier {
     _events.add(SafetyEvent(kind: kind, at: DateTime.now(), rideId: rideId));
   }
 
-  void shareTrip({String? rideId}) =>
-      record(SafetyKind.shareTrip, rideId: rideId);
-
-  void sos({String? rideId}) => record(SafetyKind.sos, rideId: rideId);
+  Future<bool> sos({String? rideId}) async {
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return false;
+    try {
+      await rideCheck.sos(rideId: id);
+      record(SafetyKind.sos, rideId: id);
+      notifyListeners();
+      return true;
+    } catch (error, stackTrace) {
+      AppLog.warning(
+        'safety.sos.backend_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+      AppLog.error(
+        'safety.sos.backend_failed.detail',
+        error: error,
+        stackTrace: stackTrace,
+        extra: {'rideId': id},
+      );
+      rethrow;
+    }
+  }
 
   Future<void> load() async {
     loading = true;
@@ -142,6 +177,7 @@ class SafetyController extends ChangeNotifier {
       AppLog.error('safety.load_failed');
     } finally {
       loading = false;
+      hasLoaded = true;
       notifyListeners();
     }
   }

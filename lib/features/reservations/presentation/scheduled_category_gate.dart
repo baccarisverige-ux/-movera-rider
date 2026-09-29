@@ -80,7 +80,7 @@ Future<LatLng> resolveScheduledPoint(String label) async {
         .geocodeAddress(clean)
         .timeout(const Duration(milliseconds: 900));
     if (result != null) {
-      return LatLng(result.latitude, result.longitude);
+      return LatLng(result.point.latitude, result.point.longitude);
     }
   } catch (_) {}
   return kScheduledFallbackPoint;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -17,6 +18,10 @@ class HomeAddressSnapshot {
 }
 
 class HomeAddressRepository {
+  static final StreamController<void> _changes = StreamController<void>.broadcast();
+
+  Stream<void> get changes => _changes.stream;
+
   Future<HomeAddressSnapshot> load() async {
     final prefs = await PreferencesStore.load();
     final places = <Map<String, String>>[];
@@ -56,5 +61,6 @@ class HomeAddressRepository {
     }
     await prefs.setStringList('movera_recent_addresses', data.recent);
     await prefs.setString('movera_saved_places', jsonEncode(data.places));
+    _changes.add(null);
   }
 }

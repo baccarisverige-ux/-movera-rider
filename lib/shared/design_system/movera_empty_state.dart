@@ -29,69 +29,71 @@ class MoveraEmptyState extends StatelessWidget {
     return Semantics(
       container: true,
       label: '$title. $message',
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 4 : 24,
-          vertical: compact ? 10 : 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: compact ? 48 : 64,
-              height: compact ? 48 : 64,
-              decoration: const BoxDecoration(
-                color: _soft,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: _accent, size: compact ? 24 : 30),
-            ),
-            SizedBox(height: compact ? 12 : 18),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: compact ? 15 : 19,
-                fontWeight: FontWeight.w700,
-                color: _ink,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: compact ? 12 : 13.5,
-                fontWeight: FontWeight.w500,
-                color: _muted,
-                height: 1.45,
-              ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: onAction,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _ink,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 22,
-                    vertical: 13,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 4 : 24,
+            vertical: compact ? 10 : 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: compact ? 48 : 64,
+                height: compact ? 48 : 64,
+                decoration: const BoxDecoration(
+                  color: _soft,
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  actionLabel!,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Icon(icon, color: _accent, size: compact ? 24 : 30),
+              ),
+              SizedBox(height: compact ? 12 : 18),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: compact ? 15 : 19,
+                  fontWeight: FontWeight.w700,
+                  color: _ink,
                 ),
               ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: compact ? 12 : 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: _muted,
+                  height: 1.45,
+                ),
+              ),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: 18),
+                FilledButton(
+                  onPressed: onAction,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _ink,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 13,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: Text(
+                    actionLabel!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

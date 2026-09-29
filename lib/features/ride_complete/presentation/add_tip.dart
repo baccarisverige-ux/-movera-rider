@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -7,9 +9,10 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 
 class RideCompletedAddTip extends StatefulWidget {
-  const RideCompletedAddTip({super.key, this.controller});
+  const RideCompletedAddTip({super.key, this.controller, this.onTipChanged});
 
   final RideCompleteController? controller;
+  final ValueChanged<int?>? onTipChanged;
 
   @override
   State<RideCompletedAddTip> createState() => _RideCompletedAddTipState();
@@ -17,13 +20,42 @@ class RideCompletedAddTip extends StatefulWidget {
 
 class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
   late final RideCompleteController _ctl =
-      widget.controller ?? RideCompleteController();
+      widget.controller ?? AppScope.instance.rideComplete;
   late final List<String> _amounts = _ctl.tips();
   late final String? _driverName = _ctl.driver()?.name;
   String? _selected;
+  bool _customSelected = false;
+  final TextEditingController _customController = TextEditingController();
 
   void _choose(String amount) {
-    setState(() => _selected = _selected == amount ? null : amount);
+    _customController.clear();
+    final selected = _selected == amount ? null : amount;
+    setState(() {
+      _customSelected = false;
+      _selected = selected;
+    });
+    widget.onTipChanged?.call(selected == null ? null : int.parse(selected.split(' ').first) * 100);
+  }
+
+  void _setCustomAmount(String raw) {
+    final value = int.tryParse(raw);
+    setState(() {
+      if (value == null || value <= 0) {
+        _customSelected = false;
+        _selected = null;
+        widget.onTipChanged?.call(null);
+        return;
+      }
+      _customSelected = true;
+      _selected = '$value kr';
+      widget.onTipChanged?.call(value * 100);
+    });
+  }
+
+  @override
+  void dispose() {
+    _customController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,17 +92,45 @@ class _RideCompletedAddTipState extends State<RideCompletedAddTip> {
                 for (final amount in _amounts)
                   _TipChip(
                     amount: amount,
-                    selected: _selected == amount,
+                    selected: !_customSelected && _selected == amount,
                     onTap: () => _choose(amount),
                   ),
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 190,
+            child: TextField(
+              key: const ValueKey<String>('custom-tip-field'),
+              controller: _customController,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              onChanged: _setCustomAmount,
+              textAlign: TextAlign.center,
+              decoration: InputDecoration(
+                labelText: 'Custom amount',
+                hintText: 'Enter amount',
+                suffixText: 'kr',
+                counterText: '',
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 10),
           TextWidget(
             text: _selected == null
-                ? 'Tips go to your driver in full.'
-                : '$_selected added for your driver.',
+                ? 'Tip is optional.'
+                : _customSelected
+                ? 'Custom tip: $_selected selected.'
+                : '$_selected selected.',
             color: AppColor.subtitle,
             fontSize: 12,
             fontWeight: fwMedium,

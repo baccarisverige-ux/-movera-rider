@@ -11,14 +11,25 @@ class AppLifecycleObserver with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLog.info('app.lifecycle', extra: {'state': state.name});
-    if (state == AppLifecycleState.resumed) {
-      RideSnapshotStore.read().then((snapshot) {
-        AppLog.info(
-          'app.resume.refresh',
-          extra: {'ride': snapshot?.status.name ?? 'none'},
-        );
-      });
-      RideRestoreCoordinator.instance.resumeIfNeeded();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        RideSnapshotStore.read().then((snapshot) {
+          AppLog.info(
+            'app.resume.refresh',
+            extra: {'ride': snapshot?.status.name ?? 'none'},
+          );
+        });
+        RideRestoreCoordinator.instance.resumeIfNeeded();
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        RideSnapshotStore.touchCurrent().catchError((Object error) {
+          AppLog.error(
+            'app.lifecycle.persist_failed',
+            extra: {'reason': error.toString()},
+          );
+        });
     }
   }
 }

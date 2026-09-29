@@ -16,6 +16,12 @@ class BookingController {
     required String rideType,
     required double price,
     required String paymentMethod,
+    String? quoteId,
+    String? quoteSignedPayload,
+    DateTime? quoteExpiresAt,
+    int? quoteTotalMinor,
+    String? rideTypeLabel,
+    String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
   }) {
     return _store.submitFinding(
@@ -28,7 +34,17 @@ class BookingController {
       rideType: rideType,
       price: price,
       paymentMethod: paymentMethod,
+      quoteId: quoteId,
+      quoteSignedPayload: quoteSignedPayload,
+      quoteExpiresAt: quoteExpiresAt,
+      quoteTotalMinor: quoteTotalMinor,
+      rideTypeLabel: rideTypeLabel,
+      paymentMethodLabel: paymentMethodLabel,
       notes: notes,
     );
   }
+  Future<String> reconcileCreatedFinding(String createdRideId) {
+    return _store.reconcileCreatedFinding(createdRideId);
+  }
+
 }

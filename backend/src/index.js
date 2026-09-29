@@ -4,6 +4,41 @@ const safety = require('./modules/safety');
 
 const idempotency = new Map();
 const rides = new Map();
+const pushDevices = new Map();
+const paymentIntents = new Map();
+const accountSecurity = {
+  phone: '',
+  email: '',
+  phoneVerifiedAt: null,
+  emailVerifiedAt: null,
+  passkeyEnabled: false,
+  twoStepEnabled: false,
+  authenticatorEnabled: false,
+  passwordUpdatedAt: null,
+  recoveryPhone: null,
+  googleConnected: false,
+  appleConnected: false,
+  reauthenticatedAt: null,
+  capabilities: {
+    passkeys: false,
+    password: false,
+    authenticator: false,
+    twoStep: false,
+    recoveryPhone: false,
+    connectedAccounts: false,
+    reauthentication: false,
+    signOutOtherDevices: false,
+  },
+  sessions: [
+    {
+      id: 'session_current',
+      device: 'This device',
+      place: '',
+      source: 'Movera',
+      current: true,
+    },
+  ],
+};
 
 function send(res, status, body, requestId) {
   res.statusCode = status;
@@ -52,6 +87,74 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/health' && method === 'GET') {
     send(res, 200, { ok: true }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/push/devices' && method === 'POST') {
+    const body = await readBody(req);
+    const token = typeof body.token === 'string' ? body.token.trim() : '';
+    const platform =
+      typeof body.platform === 'string' ? body.platform.trim() : '';
+    if (!token || body.provider !== 'fcm' || !platform) {
+      send(res, 400, { code: 'INVALID_PUSH_DEVICE' }, requestId);
+      return;
+    }
+    pushDevices.set(token, {
+      token,
+      provider: 'fcm',
+      platform,
+      updatedAt: new Date().toISOString(),
+    });
+    send(res, 200, { code: 'OK', status: 'registered' }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/push/devices/unregister' && method === 'POST') {
+    const body = await readBody(req);
+    const token = typeof body.token === 'string' ? body.token.trim() : '';
+    if (!token) {
+      send(res, 400, { code: 'INVALID_PUSH_DEVICE' }, requestId);
+      return;
+    }
+    pushDevices.delete(token);
+    send(res, 200, { code: 'OK', status: 'unregistered' }, requestId);
+    return;
+  }
+
+  if (url === '/api/v1/account/security' && method === 'GET') {
+    send(res, 200, { code: 'OK', security: accountSecurity }, requestId);
+    return;
+  }
+
+  if (
+    url === '/api/v1/account/security/sessions/sign-out-others' &&
+    method === 'POST'
+  ) {
+    const reauthenticatedAt = accountSecurity.reauthenticatedAt
+      ? new Date(accountSecurity.reauthenticatedAt)
+      : null;
+    const ageMs = reauthenticatedAt
+      ? Date.now() - reauthenticatedAt.getTime()
+      : Number.POSITIVE_INFINITY;
+    const fresh =
+      Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 5 * 60 * 1000;
+    if (!fresh) {
+      send(
+        res,
+        403,
+        {
+          code: 'REAUTH_REQUIRED',
+          message: 'Fresh reauthentication is required.',
+        },
+        requestId,
+      );
+      return;
+    }
+    accountSecurity.sessions = accountSecurity.sessions.filter(
+      (session) => session.current === true,
+    );
+    accountSecurity.reauthenticatedAt = null;
+    send(res, 200, { code: 'OK', security: accountSecurity }, requestId);
     return;
   }
 
@@ -154,16 +257,69 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/api/v1/payments' && method === 'POST') {
     const body = await readBody(req);
-    const payload = {
-      code: 'OK',
-      intent: {
-        id: `pi_${requestId}`,
-        status: 'succeeded',
-        amountMinor: body.amountMinor || 0,
-      },
+    const amountMinor = body.amountMinor;
+    const currency =
+      typeof body.currency === 'string' ? body.currency.trim().toUpperCase() : '';
+    if (!Number.isInteger(amountMinor) || amountMinor <= 0 || currency !== 'SEK') {
+      send(res, 400, { code: 'INVALID_PAYMENT_INTENT' }, requestId);
+      return;
+    }
+    const intent = {
+      id: `pi_${requestId}`,
+      status: 'requires_confirmation',
+      amountMinor,
+      currency: 'SEK',
     };
+    paymentIntents.set(intent.id, intent);
+    const payload = { code: 'OK', intent: { ...intent } };
     if (key) idempotency.set(key, payload);
     send(res, 200, payload, requestId);
+    return;
+  }
+
+  if (
+    parts[0] === 'api' &&
+    parts[1] === 'v1' &&
+    parts[2] === 'payments' &&
+    parts[3] &&
+    parts[4] === 'confirm' &&
+    parts.length === 5 &&
+    method === 'POST'
+  ) {
+    const intent = paymentIntents.get(parts[3]);
+    if (!intent) {
+      send(res, 404, { code: 'PAYMENT_NOT_FOUND' }, requestId);
+      return;
+    }
+    intent.status = 'succeeded';
+    send(
+      res,
+      200,
+      { code: 'OK', status: intent.status, intent: { ...intent } },
+      requestId,
+    );
+    return;
+  }
+
+  if (
+    parts[0] === 'api' &&
+    parts[1] === 'v1' &&
+    parts[2] === 'payments' &&
+    parts[3] &&
+    parts.length === 4 &&
+    method === 'GET'
+  ) {
+    const intent = paymentIntents.get(parts[3]);
+    if (!intent) {
+      send(res, 404, { code: 'PAYMENT_NOT_FOUND' }, requestId);
+      return;
+    }
+    send(
+      res,
+      200,
+      { code: 'OK', status: intent.status, intent: { ...intent } },
+      requestId,
+    );
     return;
   }
 

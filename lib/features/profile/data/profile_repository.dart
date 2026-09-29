@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
 
 class ProfileRepository {
@@ -17,9 +18,12 @@ class ProfileRepository {
 
   RiderProfileData get current => _profile;
 
+  static const emptyDisplayName = 'Welcome to Movera';
+
   String displayName() {
     final name = _profile.name.trim();
-    return name.isEmpty ? 'Profile not set' : name;
+    // D-024: a friendly greeting, not a literal placeholder.
+    return name.isEmpty ? emptyDisplayName : name;
   }
 
   Future<void> hydrate() async {
@@ -34,22 +38,57 @@ class ProfileRepository {
         final loaded = RiderProfileData.fromJson(
           Map<String, dynamic>.from(decoded),
         );
-        final sanitized = _sanitizeLegacyDemoProfile(loaded);
+        final sanitized = _presentationOnly(
+          _sanitizeLegacyDemoProfile(loaded),
+        );
         _profile = sanitized;
-        if (!_sameProfile(loaded, sanitized)) {
-          await prefs.setString(storageKey, jsonEncode(sanitized.toJson()));
+        final persisted = _presentationJson(sanitized);
+        if (!_sameProfile(loaded, sanitized) ||
+            jsonEncode(decoded) != jsonEncode(persisted)) {
+          await prefs.setString(storageKey, jsonEncode(persisted));
         }
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLog.error('profile.hydrate_failed', error: error, stackTrace: stackTrace);
+    }
   }
 
   Future<RiderProfileData> save(RiderProfileData next) async {
-    _profile = next;
+    final sanitized = _presentationOnly(next);
+    _profile = sanitized;
     try {
       final prefs = await PreferencesStore.load();
-      await prefs.setString(storageKey, jsonEncode(next.toJson()));
-    } catch (_) {}
+      await prefs.setString(storageKey, jsonEncode(_presentationJson(sanitized)));
+    } catch (error, stackTrace) {
+      AppLog.error('profile.save_failed', error: error, stackTrace: stackTrace);
+      rethrow;
+    }
     return _profile;
+  }
+
+  Map<String, dynamic> _presentationJson(RiderProfileData source) => {
+        'name': source.name,
+        'gender': source.gender,
+        'language': source.language,
+        'photoAsset': source.photoAsset,
+        'rideUpdates': source.rideUpdates,
+        'promotions': source.promotions,
+        'emailUpdates': source.emailUpdates,
+      };
+
+  RiderProfileData _presentationOnly(RiderProfileData source) {
+    return source.copyWith(
+      email: '',
+      phone: '',
+      passkeyEnabled: false,
+      twoStepEnabled: false,
+      authenticatorEnabled: false,
+      passwordUpdatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      googleConnected: false,
+      appleConnected: false,
+      logins: const [],
+      clearRecovery: true,
+    );
   }
 
   RiderProfileData _sanitizeLegacyDemoProfile(RiderProfileData source) {

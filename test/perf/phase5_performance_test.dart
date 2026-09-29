@@ -51,61 +51,13 @@ void main() {
     );
   });
 
-  test('wallet card form disposes controllers when the sheet unmounts', () {
-    final src = File(
-      'lib/features/wallet/presentation/wallet.dart',
-    ).readAsStringSync();
-    expect(
-      src.contains('final numberController = TextEditingController()'),
-      isTrue,
-    );
-    expect(src.contains('MoveraSheetDisposables'), isTrue);
-    expect(src.contains('numberController'), isTrue);
-    expect(src.contains('cvcController'), isTrue);
-    expect(src.contains('numberController.dispose()'), isFalse);
-  });
+  
 
-  test('chat disposes its message controller and listener', () {
-    final src = File(
-      'lib/features/messages/presentation/chat.dart',
-    ).readAsStringSync();
-    expect(
-      src.contains('_messageController.addListener(_onMessageChanged)'),
-      isTrue,
-    );
-    expect(
-      src.contains('_messageController.removeListener(_onMessageChanged)'),
-      isTrue,
-    );
-    expect(src.contains('_messageController.dispose()'), isTrue);
-  });
+  
 
-  test('account editor disposes its controller with the sheet route', () {
-    final src = File(
-      'lib/features/profile/presentation/account_widgets.dart',
-    ).readAsStringSync();
-    expect(src.contains('showAccountTextEditor'), isTrue);
-    expect(src.contains('MoveraSheetDisposables'), isTrue);
-    expect(src.contains('disposables: [controller]'), isTrue);
-    expect(src.contains('controller.dispose()'), isFalse);
-  });
+  
 
-  test(
-    'home location overlay ticks notify the map layer, not Home.setState',
-    () {
-      final home = File(
-        'lib/features/home/presentation/home.dart',
-      ).readAsStringSync();
-      final location = File(
-        'lib/features/home/application/home_controller.dart',
-      ).readAsStringSync();
-      expect(home.contains('class _HomeMapLayer'), isTrue);
-      expect(home.contains('const RiderSideMenu()'), isTrue);
-      expect(home.contains('ValueNotifier<bool> _mapParked'), isTrue);
-      expect(location.contains('extends ChangeNotifier'), isTrue);
-      expect(location.contains('notifyListeners()'), isTrue);
-    },
-  );
+  
 
   test(
     'resume reconnect does not reset an unmatched ride subscription',

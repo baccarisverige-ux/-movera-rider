@@ -1,16 +1,22 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/realtime/api_ride_realtime.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
+import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/finding_driver/domain/nearby_vehicle.dart';
 import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -26,11 +32,20 @@ class FindingDriverController {
     RideRealtime? realtime,
     RideSession? ride,
     ApiClient? api,
+    OnDemandArchiveWriter? historyArchiveWriter,
     this.delayedAfter = SearchCopy.delayedAfter,
-  }) : _store = store ?? FindingDriverRepository(),
+    Duration? priceBumpAfter,
+    this.searchTimeout = const Duration(minutes: 3),
+  }) : priceBumpAfter =
+           priceBumpAfter ??
+           (AppScope.instance.environment.allowsMockTransport
+               ? SearchCopy.demoPriceBumpAfter
+               : SearchCopy.priceBumpAfter),
+       _store = store ?? FindingDriverRepository(),
        _realtime = realtime ?? AppScope.instance.rideRealtime,
        _ride = ride,
-       _api = api;
+       _api = api,
+       _historyArchiveWriter = historyArchiveWriter;
 
   static FindingDriverController? active;
 
@@ -38,7 +53,15 @@ class FindingDriverController {
   final RideRealtime _realtime;
   final RideSession? _ride;
   final ApiClient? _api;
+  final OnDemandArchiveWriter? _historyArchiveWriter;
   final Duration delayedAfter;
+
+  /// When the "raise your offer" card appears, if no driver has accepted.
+  final Duration priceBumpAfter;
+  final Duration searchTimeout;
+  final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
+  final MutationAttempt _priceMutation = MutationAttempt('ride-price');
+  final MutationAttempt _cancelMutation = MutationAttempt('ride-cancel');
   Timer? _tick;
   StreamSubscription<RideRealtimeEvent>? _sub;
   bool _assigned = false;
@@ -55,29 +78,40 @@ class FindingDriverController {
   int _pickupUpdateEpoch = 0;
   int _editEpoch = 0;
   RideSnapshot? _snapshot;
+  double? _catalogPrice;
   void Function()? _onMatched;
   void Function(RideStatus status)? _onTerminal;
   void Function(int elapsed)? _onTick;
   int timeoutLogs = 0;
   int elapsedSeconds = 0;
   String? offerConfirmation;
+  String? editFeedback;
   MatchedDriver? matchedDriver;
   List<NearbyVehicle> nearby = const [];
 
   RideSession get ride => _ride ?? AppScope.instance.ride;
   ApiClient get api => _api ?? AppScope.instance.api;
 
+  /// Stable identity captured when this Finding owner started. Unlike the
+  /// process-wide RideSession, this cannot be overwritten by a concurrent
+  /// booking response before ownership is reconciled.
+  String? get ownedRideId => _snapshot?.rideId?.trim();
+
+  RideSnapshot? get ownershipSnapshot => _snapshot;
+
   int get matchCount => _assigned ? 1 : 0;
+  bool get editInFlight => _editInFlight;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
   bool get showPriceBump =>
-      isDelayed &&
+      elapsedSeconds >= priceBumpAfter.inSeconds &&
       !_bumpDismissed &&
       !_assigned &&
       !_assignmentPending &&
-      !_editInFlight &&
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
+  double get maxOfferPrice =>
+      FareRules.maximum(_catalogPrice ?? currentPrice);
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
   double? get pickupLng => _snapshot?.pickupLng;
@@ -127,8 +161,13 @@ class FindingDriverController {
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
   }) {
+    if (_realtime is ApiRideRealtime &&
+        snapshot.rideId?.trim().isNotEmpty != true) {
+      throw StateError('Cannot search without a server rideId.');
+    }
     active = this;
     _snapshot = snapshot;
+    _catalogPrice = snapshot.price;
     _onMatched = onMatched;
     _onTerminal = onTerminal;
     _onTick = onTick;
@@ -151,9 +190,12 @@ class FindingDriverController {
     }
     timeoutLogs = 0;
     offerConfirmation = null;
+    editFeedback = null;
     matchedDriver = snapshot.driver;
     nearby = const [];
-    ride.restoreFromBackend(RideStatus.findingDriver);
+    if (ride.status != snapshot.status || ride.rideId != snapshot.rideId) {
+      ride.backendReconcile(snapshot.status, id: snapshot.rideId);
+    }
     _tick?.cancel();
     _sub?.cancel();
     _evaluatePhase();
@@ -164,6 +206,11 @@ class FindingDriverController {
         return;
       }
       elapsedSeconds += 1;
+      if (elapsedSeconds >= searchTimeout.inSeconds) {
+        timer.cancel();
+        unawaited(_finishSearchWithoutDriver());
+        return;
+      }
       _evaluatePhase();
       _onTick?.call(elapsedSeconds);
     });
@@ -174,6 +221,15 @@ class FindingDriverController {
       if (_assigned && event.status == RideStatus.driverAssigned) return;
       _lastSequence = event.sequence;
       if (event.driver != null) matchedDriver = event.driver;
+
+      final accepted = ride.backendReconcile(
+        event.status,
+        id: event.tripId,
+        version: event.version ?? event.sequence,
+        updatedAt: event.serverTime ?? event.occurredAt,
+      );
+      if (!accepted && event.status != ride.status) return;
+
       if (event.status.isTerminal) {
         unawaited(_completeTerminal(event.status));
         return;
@@ -200,6 +256,12 @@ class FindingDriverController {
   void debugAdvance(int seconds) {
     if (_disposed || _assigned || _cancelled || _terminated) return;
     elapsedSeconds += seconds;
+    if (elapsedSeconds >= searchTimeout.inSeconds) {
+      _tick?.cancel();
+      _tick = null;
+      unawaited(_finishSearchWithoutDriver());
+      return;
+    }
     _evaluatePhase();
     _onTick?.call(elapsedSeconds);
     _reportQa();
@@ -211,7 +273,9 @@ class FindingDriverController {
     if (!_delayedLogged) {
       _delayedLogged = true;
       timeoutLogs += 1;
-      ride.restoreFromBackend(RideStatus.searchDelayed);
+      if (ride.status == RideStatus.findingDriver) {
+        ride.localTransition(RideStatus.searchDelayed);
+      }
       final snapshot = _snapshot;
       if (snapshot != null) {
         _store.save(
@@ -295,6 +359,7 @@ class FindingDriverController {
     if (token == _editEpoch || _editInFlight) {
       _editInFlight = false;
     }
+    _onTick?.call(elapsedSeconds);
     if (_assignmentPending && !_cancelled && !_terminated && !_disposed) {
       _assignmentPending = false;
       _completeAssigned();
@@ -310,8 +375,22 @@ class FindingDriverController {
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
     final editToken = _beginEdit();
-    if (editToken == null) return false;
+    if (editToken == null) {
+      editFeedback = _assigned || _assignmentPending
+          ? 'Driver assigned before the pickup change could be applied.'
+          : 'Couldn’t update pickup. Try again.';
+      _onTick?.call(elapsedSeconds);
+      return false;
+    }
+    editFeedback = null;
+    _onTick?.call(elapsedSeconds);
     final updateEpoch = ++_pickupUpdateEpoch;
+    final intent = jsonEncode({
+      'rideId': id,
+      'pickupAddress': address,
+      'pickupLat': latitude,
+      'pickupLng': longitude,
+    });
     try {
       await api.patch(
         '/api/v1/rides/$id',
@@ -320,8 +399,9 @@ class FindingDriverController {
           'pickupLat': latitude,
           'pickupLng': longitude,
         },
-        idempotencyKey: newIdempotencyKey('ride-pickup'),
+        idempotencyKey: _pickupMutation.keyFor(intent),
       );
+      _pickupMutation.succeeded(intent);
       if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
         return false;
       }
@@ -343,10 +423,14 @@ class FindingDriverController {
       if (_editInvalid(editToken) || updateEpoch != _pickupUpdateEpoch) {
         return false;
       }
+      editFeedback = 'Pickup updated';
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
     } catch (_) {
+      editFeedback = 'Couldn’t update pickup. Try again.';
+      _onTick?.call(elapsedSeconds);
+      _reportQa();
       return false;
     } finally {
       _finishEdit(editToken);
@@ -358,35 +442,93 @@ class FindingDriverController {
     final snapshot = _snapshot;
     final id = snapshot?.rideId ?? ride.rideId;
     if (snapshot == null || id == null) return false;
-    final editToken = _beginEdit();
-    if (editToken == null) return false;
+    final catalog = _catalogPrice ?? snapshot.price;
     final next = snapshot.price + kr;
+    if (!FareRules.allowsTotal(total: next, catalog: catalog)) return false;
+    final editToken = _beginEdit();
+    if (editToken == null) {
+      editFeedback = _assigned || _assignmentPending
+          ? 'Driver assigned before the offer change could be applied.'
+          : 'Couldn’t update offer. Try again.';
+      _onTick?.call(elapsedSeconds);
+      return false;
+    }
+    editFeedback = null;
+    _onTick?.call(elapsedSeconds);
+    // D-012: send only the rider's intent — how much to raise the offer by.
+    // The client-computed total is a preview for the button label, never a
+    // value the server is asked to accept. The fare shown afterwards is the
+    // one the server's response actually carries.
+    final intent = jsonEncode({
+      'rideId': id,
+      'fromPrice': snapshot.price,
+      'offerIncreaseKr': kr,
+    });
     try {
-      await api.patch(
+      final response = await api.patch(
         '/api/v1/rides/$id',
-        body: {'price': next, 'offerIncreaseKr': kr},
-        idempotencyKey: newIdempotencyKey('ride-price'),
+        body: {'offerIncreaseKr': kr},
+        idempotencyKey: _priceMutation.keyFor(intent),
       );
+      _priceMutation.succeeded(intent);
       if (_editInvalid(editToken)) return false;
-      _priceUpdated = true;
       _bumpDismissed = true;
-      offerConfirmation = 'Updated offer: ${next.round()} kr';
+      final serverPrice = _serverPrice(response);
+      if (serverPrice == null) {
+        // Accepted, but the response did not say what the fare now is.
+        // Keep showing the last fare the server confirmed rather than
+        // assuming the preview total is what happened.
+        offerConfirmation = null;
+        editFeedback =
+            'Offer sent. Your fare will update once Movera confirms it.';
+        AppLog.warning(
+          'ride.offer.price_unconfirmed',
+          extra: {'rideId': id, 'increaseKr': kr},
+        );
+        _onTick?.call(elapsedSeconds);
+        _reportQa();
+        return true;
+      }
+      _priceUpdated = true;
+      offerConfirmation = 'Updated offer: ${serverPrice.round()} kr';
+      editFeedback = offerConfirmation;
       _snapshot = snapshot.copyWith(
         status: ride.status,
-        price: next,
+        price: serverPrice,
         savedAt: DateTime.now(),
       );
       await _store.save(_snapshot!);
       if (_editInvalid(editToken)) return false;
-      AppLog.info('ride.offer.updated', extra: {'rideId': id, 'increaseKr': kr});
+      AppLog.info(
+        'ride.offer.updated',
+        extra: {
+          'rideId': id,
+          'increaseKr': kr,
+          'serverPrice': serverPrice,
+          if (serverPrice != next) 'previewPrice': next,
+        },
+      );
       _onTick?.call(elapsedSeconds);
       _reportQa();
       return true;
     } catch (_) {
+      editFeedback = 'Couldn’t update offer. Try again.';
+      _onTick?.call(elapsedSeconds);
+      _reportQa();
       return false;
     } finally {
       _finishEdit(editToken);
     }
+  }
+
+  /// The fare the server says the ride now has, from a PATCH response's
+  /// `ride.price` (or a top-level `price`). Null when absent or unusable.
+  static double? _serverPrice(Map<String, dynamic> response) {
+    final ride = response['ride'];
+    final raw = ride is Map ? ride['price'] : response['price'];
+    if (raw is! num) return null;
+    final value = raw.toDouble();
+    return value.isFinite && value > 0 ? value : null;
   }
 
   void dismissPriceBump() {
@@ -409,10 +551,11 @@ class FindingDriverController {
     final snapshot = _snapshot;
     final matched = _onMatched;
     if (_cancelled || _terminated || _disposed) return;
-    ride.restoreFromBackend(RideStatus.driverAssigned);
     Analytics.driverFound(rideId: ride.rideId);
     if (_cancelled || _disposed) {
-      ride.restoreFromBackend(RideStatus.cancelledByRider);
+      if (!ride.status.isTerminal) {
+        ride.localTransition(RideStatus.cancelledByRider);
+      }
       unawaited(_store.clear());
       return;
     }
@@ -427,7 +570,9 @@ class FindingDriverController {
     if (snapshot != null) {
       await _store.save(
         snapshot.copyWith(
-          status: RideStatus.driverAssigned,
+          status: ride.status.isMatched
+              ? ride.status
+              : RideStatus.driverAssigned,
           savedAt: DateTime.now(),
           rideId: ride.rideId,
           driver: matchedDriver,
@@ -439,12 +584,25 @@ class FindingDriverController {
       return;
     }
     if (_cancelled || _disposed) {
-      ride.restoreFromBackend(RideStatus.cancelledByRider);
+      if (!ride.status.isTerminal) {
+        ride.localTransition(RideStatus.cancelledByRider);
+      }
       await _store.clear();
       return;
     }
     _reportQa();
     matched?.call();
+  }
+
+  Future<void> _finishSearchWithoutDriver() async {
+    if (_assigned || _cancelled || _terminated || _disposed) return;
+    final accepted = ride.backendReconcile(
+      RideStatus.noDriverFound,
+      id: _snapshot?.rideId ?? ride.rideId,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    if (!accepted && ride.status != RideStatus.noDriverFound) return;
+    await _completeTerminal(RideStatus.noDriverFound);
   }
 
   Future<void> _completeTerminal(RideStatus status) async {
@@ -459,18 +617,11 @@ class FindingDriverController {
     _tick = null;
     await _sub?.cancel();
     _sub = null;
-    ride.restoreFromBackend(status, id: _snapshot?.rideId ?? ride.rideId);
-
     final snapshot = _snapshot;
     if (snapshot != null &&
         (status == RideStatus.cancelledByDriver ||
             status == RideStatus.cancelledBySystem)) {
-      try {
-        await OnDemandRideHistoryStore.archive(
-          snapshot,
-          terminalStatus: status,
-        );
-      } catch (_) {}
+      await _archiveTerminalRide(snapshot, status);
     }
     await _store.clear();
     _reportQa();
@@ -480,6 +631,41 @@ class FindingDriverController {
       callback(status);
     } else {
       RideNavigator.home(null, status: status);
+    }
+  }
+
+  Future<void> _archiveTerminalRide(
+    RideSnapshot snapshot,
+    RideStatus status,
+  ) async {
+    final writer = _historyArchiveWriter ??
+        (
+          RideSnapshot candidate,
+          RideStatus terminalStatus,
+          String? cancellationReason,
+        ) =>
+            OnDemandRideHistoryStore.archive(
+              candidate,
+              terminalStatus: terminalStatus,
+              cancellationReason: cancellationReason,
+            );
+
+    for (var attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await writer(snapshot, status, null);
+        return;
+      } catch (error) {
+        AppLog.warning(
+          'ride.history.archive_failed',
+          extra: {
+            'rideId': snapshot.rideId,
+            'status': status.name,
+            'attempt': attempt,
+            'error': error.toString(),
+          },
+        );
+        if (attempt == 2) return;
+      }
     }
   }
 
@@ -502,7 +688,9 @@ class FindingDriverController {
         extra: {'reason': reasonId, 'rideId': ride.rideId},
       );
     }
-    ride.restoreFromBackend(RideStatus.cancelledByRider);
+    if (!ride.status.isTerminal) {
+      ride.localTransition(RideStatus.cancelledByRider);
+    }
     final id = _snapshot?.rideId ?? ride.rideId;
     await OnDemandRideHistoryStore.archiveCancelledThenClear(
       snapshot: _snapshot,
@@ -515,17 +703,124 @@ class FindingDriverController {
   }
 
   Future<void> _cancelViaAdapter(String id, String? reasonId) async {
-    try {
-      await api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {if (reasonId != null) 'reason': reasonId},
-        idempotencyKey: newIdempotencyKey('ride-cancel'),
-      );
-    } catch (error) {
-      AppLog.warning(
-        'ride.cancel.adapter_failed',
-        extra: {'rideId': id, 'error': error.toString()},
-      );
+    final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
+    final key = _cancelMutation.keyFor(intent);
+    for (var attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await api.post(
+          '/api/v1/rides/$id/cancel',
+          body: {if (reasonId != null) 'reason': reasonId},
+          idempotencyKey: key,
+        );
+        _cancelMutation.succeeded(intent);
+        await PendingCancelStore.remove(id);
+        return;
+      } catch (error) {
+        AppLog.warning(
+          'ride.cancel.adapter_failed',
+          extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
+        );
+        if (isPermanentCancelFailure(error)) {
+          // D-020: the server no longer has a cancellable ride (404/409).
+          // Retrying — now or on a later launch — can never succeed.
+          _cancelMutation.succeeded(intent);
+          await PendingCancelStore.remove(id);
+          return;
+        }
+        if (attempt == 2) {
+          // Both attempts in this session failed. Persist the request, with
+          // the idempotency key already used for it, so a later session (a
+          // reconnect, a relaunch) retries the same request instead of the
+          // rider's cancel silently never reaching the backend.
+          await PendingCancelStore.add(
+            PendingCancel(rideId: id, reasonId: reasonId, idempotencyKey: key),
+          );
+        }
+      }
+    }
+  }
+
+  static Future<void>? _flushInFlight;
+  static StreamSubscription<RealtimeState>? _reconnectFlush;
+
+  /// Retries any ride cancellations that were never acknowledged. Called at
+  /// app start, after [AppScope] is composed, and again whenever the shared
+  /// realtime connection comes back (D-020: previously cold start only).
+  ///
+  /// Each entry is retried with its own persisted idempotency key. Entries the
+  /// server permanently rejects (ride gone or already finished) are dropped
+  /// rather than retried forever.
+  static Future<void> flushPendingCancels({ApiClient? api}) {
+    if (api == null) {
+      watchReconnectForPendingCancels(AppScope.instance.realtime);
+    }
+    final inFlight = _flushInFlight;
+    if (inFlight != null) return inFlight;
+    final run = _flushPendingCancels(api ?? AppScope.instance.api);
+    _flushInFlight = run;
+    return run.whenComplete(() => _flushInFlight = null);
+  }
+
+  /// Flushes the outbox every time [connection] returns to connected after
+  /// having been down. Installing it again replaces the previous watcher.
+  static void watchReconnectForPendingCancels(
+    RealtimeConnection connection, {
+    ApiClient? api,
+  }) {
+    unawaited(_reconnectFlush?.cancel());
+    var wasDown = connection.state != RealtimeState.connected;
+    _reconnectFlush = connection.states.listen((state) {
+      if (state == RealtimeState.connected) {
+        if (wasDown) {
+          wasDown = false;
+          unawaited(flushPendingCancels(api: api ?? AppScope.instance.api));
+        }
+      } else if (state == RealtimeState.failed ||
+          state == RealtimeState.disconnected ||
+          state == RealtimeState.reconnecting) {
+        wasDown = true;
+      }
+    });
+  }
+
+  @visibleForTesting
+  static Future<void> debugStopReconnectFlush() async {
+    await _reconnectFlush?.cancel();
+    _reconnectFlush = null;
+  }
+
+  static Future<void> _flushPendingCancels(ApiClient client) async {
+    final pending = await PendingCancelStore.all();
+    if (pending.isEmpty) return;
+    for (var cancel in pending) {
+      var key = cancel.idempotencyKey;
+      if (key == null) {
+        // Entry from before D-020: mint its one key now and keep it.
+        key = newIdempotencyKey('ride-cancel');
+        cancel = cancel.withKey(key);
+        await PendingCancelStore.add(cancel);
+      }
+      try {
+        await client.post(
+          '/api/v1/rides/${cancel.rideId}/cancel',
+          body: {if (cancel.reasonId != null) 'reason': cancel.reasonId},
+          idempotencyKey: key,
+        );
+        await PendingCancelStore.remove(cancel.rideId);
+      } catch (error) {
+        if (isPermanentCancelFailure(error)) {
+          AppLog.warning(
+            'ride.cancel.flush_dropped_permanent',
+            extra: {'rideId': cancel.rideId, 'error': error.toString()},
+          );
+          await PendingCancelStore.remove(cancel.rideId);
+          continue;
+        }
+        AppLog.warning(
+          'ride.cancel.flush_failed',
+          extra: {'rideId': cancel.rideId, 'error': error.toString()},
+        );
+      }
     }
   }
 
@@ -546,6 +841,7 @@ class FindingDriverController {
     'assigned': _assigned,
     'assignmentPending': _assignmentPending,
     'editInFlight': _editInFlight,
+    'editFeedback': editFeedback,
     'terminated': _terminated,
     'status': ride.status.name,
     'offerConfirmation': offerConfirmation,

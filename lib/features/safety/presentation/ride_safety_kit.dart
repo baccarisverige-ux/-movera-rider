@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/domain/ride_check.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -107,22 +111,36 @@ Future<void> showRideSafetyKit(BuildContext context, {String? rideId}) {
 }
 
 class RideSafetyKitSheet extends StatefulWidget {
-  const RideSafetyKitSheet({super.key, this.rideId});
+  const RideSafetyKitSheet({super.key, this.rideId, this.controller});
   final String? rideId;
+  final SafetyController? controller;
 
   @override
   State<RideSafetyKitSheet> createState() => _RideSafetyKitSheetState();
 }
 
 class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
-  final SafetyController _ctl = SafetyController.shared;
+  late final SafetyController _ctl = widget.controller ?? SafetyController.shared;
   String? _audioNote;
+  bool _eventsAvailable = false;
 
   @override
   void initState() {
     super.initState();
     _ctl.addListener(_onChange);
-    _ctl.load();
+    _loadSafety();
+  }
+
+  Future<void> _loadSafety() async {
+    await _ctl.load();
+    final rideId = widget.rideId;
+    if (rideId == null || rideId.isEmpty) return;
+    try {
+      await _ctl.refreshRideCheckEvents(rideId);
+      if (mounted) setState(() => _eventsAvailable = true);
+    } catch (_) {
+      // The Safety Kit remains usable; do not show cached alerts as live.
+    }
   }
 
   @override
@@ -148,8 +166,34 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   }
 
   Future<void> _call112() async {
-    await _ctl.emergency.callEmergencyNumber();
-    _ctl.sos(rideId: widget.rideId);
+    try {
+      await _ctl.emergency.callEmergencyNumber();
+      try {
+        final registered = await _ctl.sos(rideId: widget.rideId);
+        if (!mounted) return;
+        MoveraToast.show(context, registered
+            ? 'Phone dialer opened. Movera registered your SOS.'
+            : 'Phone dialer opened. In-app SOS needs an active ride.');
+      } catch (_) {
+        if (!mounted) return;
+        MoveraToast.show(context,
+            'Phone dialer opened, but Movera could not register your SOS.');
+      }
+    } on EmergencyCallException catch (error) {
+      if (!mounted) return;
+      MoveraToast.show(context, error.message);
+    }
+  }
+
+  Future<void> _resolveRideCheck(RideCheckEvent event) async {
+    try {
+      await _ctl.resolveRideCheck(event);
+      if (!mounted) return;
+      MoveraToast.show(context, 'Your RideCheck response was sent.');
+    } catch (_) {
+      if (!mounted) return;
+      MoveraToast.show(context, 'Could not send your response. Please try again.');
+    }
   }
 
   Future<void> _toggleAudio() async {
@@ -159,49 +203,65 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording saved on this device. Upload is not live yet.',
+              'Recording saved on this device. Automatic upload is unavailable.',
         );
       } else {
         await _ctl.audio.start(rideId: widget.rideId ?? 'ride_local');
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording. Microphone audio stays on this device for now.',
+              'Recording. Tap Stop audio to save it on this device.',
         );
       }
-    } catch (err) {
+    } on SafetyAudioException catch (error) {
       if (!mounted) return;
-      setState(
-        () => _audioNote =
-            'Recording is prepared, but the microphone is not available yet.',
-      );
+      setState(() => _audioNote = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _audioNote =
+          'Recording could not be saved. Check microphone access and try again.');
     }
   }
 
   Future<void> _shareTrip() async {
-    if (!_ctl.preferences.tripShareEnabled) {
+    if (!_ctl.preferences.tripShareEnabled ||
+        !_ctl.contacts.any((contact) => contact.isEnabled &&
+            (_ctl.preferences.tripShareContactIds.contains(contact.id) ||
+                contact.shareTrips))) {
       final nav = Navigator.of(context);
-      nav.pop();
+      await popCurrentRouteAndWaitForExit(context);
+      if (!nav.mounted) return;
       await nav.push(RightToLeftTransition(TripSharePage(controller: _ctl)));
       return;
     }
-    _ctl.shareTrip(rideId: widget.rideId);
-    setState(() {
-      _audioNote =
-          'Trip sharing is ready. Live location is sent when the backend is connected.';
-    });
+    try {
+      final share = await _ctl.startShare(widget.rideId ?? '');
+      if (!mounted) return;
+      setState(() {
+        _audioNote = share.isActive && share.contactIds.isNotEmpty
+            ? 'Trip sharing started for ${share.contactIds.length} trusted contact${share.contactIds.length == 1 ? '' : 's'}.'
+            : 'Trip sharing could not be started.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _audioNote = 'Could not start trip sharing. Please try again.');
+    }
   }
 
-  void _openHub() {
+  Future<void> _openHub() async {
     final nav = Navigator.of(context);
-    nav.pop();
-    nav.push(RightToLeftTransition(SafetyHub(controller: _ctl)));
+    await popCurrentRouteAndWaitForExit(context);
+    if (!nav.mounted) return;
+    await nav.push(RightToLeftTransition(SafetyHub(controller: _ctl)));
   }
 
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
     final recording = _ctl.audio.isRecording;
+    final pendingAlerts = !_eventsAvailable || widget.rideId == null
+        ? <RideCheckEvent>[]
+        : _ctl.pendingRideCheckEvents(widget.rideId!);
     return PointerInterceptor(
       child: Padding(
         padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + inset),
@@ -229,6 +289,30 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
             const SizedBox(height: 4),
             Text('Safety tools', style: _text(22, weight: FontWeight.w700)),
             const SizedBox(height: 16),
+            if (pendingAlerts.isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8ED),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFECCB93)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('RideCheck alert', style: _text(14, weight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text('Are you okay? Movera noticed something unusual with this ride.',
+                        style: _text(12, color: _muted)),
+                    TextButton(
+                      onPressed: () => _resolveRideCheck(pendingAlerts.first),
+                      child: const Text("I'm okay"),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(

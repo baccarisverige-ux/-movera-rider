@@ -10,12 +10,16 @@ class PriceBumpCard extends StatefulWidget {
     super.key,
     required this.currentPrice,
     required this.steps,
+    required this.maxPrice,
+    this.busy = false,
     required this.onConfirm,
     required this.onKeepWaiting,
   });
 
   final double currentPrice;
   final List<int> steps;
+  final double maxPrice;
+  final bool busy;
   final ValueChanged<int> onConfirm;
   final VoidCallback onKeepWaiting;
 
@@ -40,7 +44,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
     final total = _typedTotal;
     if (total == null) return _selectedStep;
     final extra = total - _current;
-    if (extra <= 0) return null;
+    if (extra <= 0 || total > widget.maxPrice.round()) return null;
     return extra;
   }
 
@@ -92,7 +96,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             ),
             const Spacer(),
             IconButton(
-              onPressed: widget.onKeepWaiting,
+              onPressed: widget.busy ? null : widget.onKeepWaiting,
               tooltip: 'Keep waiting',
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
               icon: const Icon(
@@ -146,7 +150,9 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                   child: _Step(
                     label: '+${widget.steps[i]} kr',
                     selected: _selectedStep == widget.steps[i],
-                    onTap: () => _selectStep(widget.steps[i]),
+                    onTap: widget.busy
+                        ? null
+                        : () => _selectStep(widget.steps[i]),
                   ),
                 ),
               ],
@@ -164,6 +170,7 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
         ),
         const SizedBox(height: 8),
         TextField(
+          enabled: !widget.busy,
           controller: _price,
           focusNode: _focus,
           keyboardType: TextInputType.number,
@@ -212,7 +219,9 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
           width: double.infinity,
           height: 48,
           child: FilledButton(
-            onPressed: _canConfirm ? () => widget.onConfirm(_increase!) : null,
+            onPressed: !widget.busy && _canConfirm
+                ? () => widget.onConfirm(_increase!)
+                : null,
             style: FilledButton.styleFrom(
               backgroundColor: MoveraTokens.cta,
               disabledBackgroundColor: MoveraTokens.line,
@@ -220,20 +229,46 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: Text(
-              _canConfirm ? 'Confirm $next kr' : 'Set new price',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-                color: _canConfirm ? Colors.white : const Color(0xFF9AA3A9),
-              ),
-            ),
+            child: widget.busy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    _canConfirm ? 'Confirm $next kr' : 'Set new price',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: _canConfirm
+                          ? Colors.white
+                          : const Color(0xFF9AA3A9),
+                    ),
+                  ),
           ),
         ),
+        if (_canConfirm) ...[
+          const SizedBox(height: 6),
+          // D-012: the total above is a preview. Only the rider's increase is
+          // sent; the fare shown afterwards is the one the server returns.
+          Text(
+            'Movera confirms your final fare after you raise your offer.',
+            key: const ValueKey('price-bump-server-confirms'),
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              height: 1.3,
+              color: MoveraTokens.muted,
+            ),
+          ),
+        ],
         const SizedBox(height: 4),
         Center(
           child: TextButton(
-            onPressed: widget.onKeepWaiting,
+            onPressed: widget.busy ? null : widget.onKeepWaiting,
             child: Text(
               'Keep waiting',
               style: GoogleFonts.poppins(
@@ -257,7 +292,7 @@ class _Step extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

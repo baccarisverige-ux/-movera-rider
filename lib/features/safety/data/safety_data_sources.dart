@@ -21,7 +21,7 @@ class SafetyCache {
     List<RideCheckEvent>? events,
     List<AudioRecording>? recordings,
   })  : preferences = preferences ?? const SafetyPreferences(),
-        pin = pin ?? RidePin.generate(),
+        pin = pin ?? RidePin.unavailable,
         contacts = contacts ?? <EmergencyContact>[],
         shares = shares ?? <String, TripShare>{},
         rideCheck = rideCheck ?? const RideCheckPolicy(),
@@ -142,17 +142,20 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
       } else {
         cache = SafetyCache.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       }
-      // On iOS/Android, the PIN digits live in Keychain/Keystore, not in
-      // this plaintext prefs blob. Elsewhere (web, desktop, tests) nothing
-      // changes: the PIN stays embedded in `cache` exactly as before.
-      if (_pinStore.isNativeSecure) {
+      // On iOS/Android the PIN digits live in Keychain/Keystore and on web
+      // in memory only (P-06) — never in this plaintext prefs blob. A legacy
+      // blob that still carries real digits is adopted and then scrubbed by
+      // the _persist below. Desktop/tests keep the PIN embedded as before.
+      if (_pinStore.keepsPinOutOfPreferences) {
         final securePin = await _pinStore.read();
         if (securePin != null) {
           cache.pin = cache.pin.copyWith(pin: securePin);
-        } else if (cache.pin.pin != _pinPlaceholder) {
+        } else if (cache.pin.isAvailable && cache.pin.pin != _pinPlaceholder) {
           // First run on this store, or migrating an older plaintext cache
           // that still carries a real PIN: adopt it into secure storage.
           await _pinStore.write(cache.pin.pin);
+        } else {
+          cache.pin = cache.pin.copyWith(pin: '');
         }
       }
       _memory = cache;
@@ -171,8 +174,8 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
   Future<void> save(SafetyCache cache) async {
     _memory = _copy(cache);
     if (memoryOnly) return;
-    if (_pinStore.isNativeSecure) {
-      await _pinStore.write(cache.pin.pin);
+    if (_pinStore.keepsPinOutOfPreferences) {
+      if (cache.pin.isAvailable) await _pinStore.write(cache.pin.pin);
     }
     try {
       await _persist(cache);
@@ -185,7 +188,7 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
     String? raw,
   }) async {
     final store = prefs ?? await PreferencesStore.load();
-    if (_pinStore.isNativeSecure) {
+    if (_pinStore.keepsPinOutOfPreferences) {
       final scrubbed = _copy(cache)..pin = cache.pin.copyWith(pin: _pinPlaceholder);
       await store.setString(cacheKey, jsonEncode(scrubbed.toJson()));
     } else if (raw == null || raw.isEmpty) {

@@ -47,6 +47,7 @@ void main() {
     expect(receipt.total, '259 kr');
     expect(receipt.total, isNot(contains(r'$')));
     expect(receipt.method, 'Apple Pay');
+    expect(receipt.isFinal, isFalse);
   });
 
   test('driver profile comes from the completed ride', () {

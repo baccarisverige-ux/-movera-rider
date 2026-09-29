@@ -2,27 +2,76 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
+import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
+import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
+
+PushCoordinator? _pushCoordinator;
+
+Future<void> _registerExistingPushSession() async {
+  if (AppScope.instance.environment.allowsMockTransport) return;
+  final access = await AppScope.instance.tokens.readAccess();
+  final refresh = await AppScope.instance.tokens.readRefresh();
+  if (access?.isNotEmpty != true || refresh?.isNotEmpty != true) return;
+  try {
+    await AppScope.instance.push.register();
+  } catch (error) {
+    AppLog.warning(
+      'push.session_restore_deferred',
+      extra: {'error': error.toString()},
+    );
+  }
+}
+
+void _openNotificationsFromPush() {
+  final nav = moveraNavigatorKey.currentState;
+  if (nav == null) return;
+  unawaited(
+    nav.push<void>(
+      RightToLeftTransition(
+        const NotificationScreen(),
+        settings: const RouteSettings(name: AppRoutes.notifications),
+      ),
+    ),
+  );
+}
+
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // window.movera* hooks stay OFF on public web release unless debug / MOVERA_QA.
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  installWebRidePagehide(RideRestoreCoordinator.instance.onPageHide);
+  // Public web gets one navigation-only bridge for Safety. It exposes no
+  // ride seeding, matching controls, or Safety mutations.
+  installSafetyNavigationBridge(() {
+    final nav = moveraNavigatorKey.currentState;
+    if (nav == null) return false;
+    unawaited(nav.push<void>(RightToLeftTransition(const SafetyHub())));
+    return true;
+  });
+
+  // Debug / MOVERA_QA keeps the broader mutation-capable QA hooks gated off
+  // from public release builds.
   if (moveraQaHooksEnabled) {
     registerWebQaHooks();
-    installSafetyQaOpener(() {
-      final nav = moveraNavigatorKey.currentState;
-      if (nav == null) return;
-      nav.push(RightToLeftTransition(const SafetyHub()));
-    });
   }
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
 
@@ -49,14 +98,25 @@ Future<void> bootstrap() async {
   AppScope.instance.lifecycle.attach();
   await AppScope.instance.reservations.hydrate();
   await AppScope.instance.profile.hydrate();
+  await _registerExistingPushSession();
+  unawaited(FindingDriverController.flushPendingCancels());
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
 
   runZonedGuarded(
     () {
       runApp(const MoveraApp());
-      // The HTML boot screen covers the blank page while the bundle loads.
-      // Clear it once there is a real frame behind it, not before.
-      WidgetsBinding.instance.addPostFrameCallback((_) => dismissWebSplash());
+      _pushCoordinator ??= PushCoordinator(
+        push: AppScope.instance.push,
+        openRide: openRideFromNotification,
+        openNotifications: _openNotificationsFromPush,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // The HTML boot screen covers the blank page while the bundle loads.
+        // Clear it once there is a real frame behind it, and before anything
+        // slower runs, so the rider is not kept waiting on push registration.
+        dismissWebSplash();
+        unawaited(_pushCoordinator!.start());
+      });
     },
     (error, stack) {
       AppScope.instance.crashes.record(error, stack);

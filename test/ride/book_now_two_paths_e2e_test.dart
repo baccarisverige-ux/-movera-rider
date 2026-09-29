@@ -157,6 +157,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(spot, isNotNull);
       expect(spot!.position.latitude, isNonZero);
+      expect(spot!.address, 'Pickup location');
     },
   );
 

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:movera_rider/features/auth/presentation/create_acc.dart';
+import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
+import 'package:movera_rider/features/auth/presentation/add_phone.dart';
+import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
+import 'package:movera_rider/features/auth/presentation/rider_name.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
-import 'package:movera_rider/features/auth/presentation/sign_in_phone.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/features/messages/presentation/messages.dart';
 import 'package:movera_rider/features/safety/presentation/how_movera_protects_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_tips_page.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
@@ -21,9 +24,13 @@ void main() {
 
   final screens = <String, Widget Function()>{
     'Sign in': () => const SignIn(),
-    'Sign in with phone': () => const SignInPhone(),
-    'Create account': () => const CreateAccount(),
+    'Phone verification': () => const PhoneVerification(phoneNumber: '+46701234567'),
+    'Add phone number (Apple/Google)': () => const AddPhoneNumber(
+          link: ProviderLink(provider: 'apple', linkToken: 'link', name: 'Sara Lind'),
+        ),
+    'Rider name': () => const RiderNameScreen(initialName: 'Sara Lind'),
     'Add place': () => const AddPlace(),
+    'Messages inbox': () => const MessagesInbox(),
     'How Movera protects you': () => const HowMoveraProtectsPage(),
     'Safety tips': () => const SafetyTipsPage(),
     'Help articles': () => const HelpArticles(),

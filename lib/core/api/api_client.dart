@@ -10,14 +10,28 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 
 class ApiClient {
-  ApiClient({http.Client? client, AppEnv? env, TokenStore? tokens})
-      : _client = client ?? InProcessMockClient(),
-        _env = env ?? AppEnv.current,
-        _tokens = tokens;
+  ApiClient({
+    http.Client? client,
+    AppEnv? env,
+    TokenStore? tokens,
+    Future<void> Function()? onSessionExpired,
+  })
+      : _env = env ?? AppEnv.current,
+        _client = client ?? _defaultClient(env ?? AppEnv.current),
+        _tokens = tokens,
+        _onSessionExpired = onSessionExpired;
+
+  static http.Client _defaultClient(AppEnv env) {
+    return env.allowsMockTransport ? InProcessMockClient() : http.Client();
+  }
+
+  bool get usesMockTransport => _client is InProcessMockClient;
 
   final http.Client _client;
   final AppEnv _env;
   final TokenStore? _tokens;
+  final Future<void> Function()? _onSessionExpired;
+  Future<String?>? _refreshInFlight;
   static const _timeout = Duration(seconds: 15);
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
@@ -64,24 +78,20 @@ class ApiClient {
         if (access != null) 'Authorization': 'Bearer $access',
         if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
       };
-      late http.Response response;
-      if (method == 'GET') {
-        response = await _getWithRetry(uri, headers);
-      } else if (method == 'DELETE') {
-        response = await _client
-            .send(
-              http.Request('DELETE', uri)..headers.addAll(headers),
-            )
-            .then(http.Response.fromStream)
-            .timeout(_timeout);
-      } else {
-        final request = http.Request(method, uri)
-          ..headers.addAll(headers)
-          ..body = jsonEncode(body ?? {});
-        response = await _client
-            .send(request)
-            .then(http.Response.fromStream)
-            .timeout(_timeout);
+      var response = await _request(method, uri, headers, body);
+      if (response.statusCode == 401 && access?.isNotEmpty == true) {
+        // An OTP rejection is not an expired session. Only requests that
+        // carried an access token enter the refresh/retry path.
+        final replacement = await _refreshAccess(access!);
+        if (replacement != null) {
+          response = await _request(method, uri, {
+            ...headers,
+            'Authorization': 'Bearer $replacement',
+          }, body);
+        }
+        if (replacement == null || response.statusCode == 401) {
+          await _expireSession();
+        }
       }
       AppLog.info(
         'api.$method',
@@ -92,12 +102,7 @@ class ApiClient {
         },
       );
       if (response.statusCode >= 400) {
-        throw ApiError(
-          code: 'HTTP_${response.statusCode}',
-          message: 'Request failed',
-          requestId: requestId,
-          statusCode: response.statusCode,
-        );
+        throw _errorFromResponse(response, requestId);
       }
       if (response.body.isEmpty) return {'requestId': requestId};
       final decoded = jsonDecode(response.body);
@@ -111,6 +116,104 @@ class ApiClient {
         requestId: requestId,
       );
     }
+  }
+
+  Future<http.Response> _request(
+    String method,
+    Uri uri,
+    Map<String, String> headers,
+    Map<String, dynamic>? body,
+  ) async {
+      if (method == 'GET') {
+        return _getWithRetry(uri, headers);
+      } else if (method == 'DELETE') {
+        return _client
+            .send(
+              http.Request('DELETE', uri)..headers.addAll(headers),
+            )
+            .then(http.Response.fromStream)
+            .timeout(_timeout);
+      } else {
+        final request = http.Request(method, uri)
+          ..headers.addAll(headers)
+          ..body = jsonEncode(body ?? {});
+        return _client
+            .send(request)
+            .then(http.Response.fromStream)
+            .timeout(_timeout);
+      }
+  }
+
+  Future<String?> _refreshAccess(String failedAccess) async {
+    final active = _refreshInFlight;
+    if (active != null) return active;
+    final pending = _performRefresh(failedAccess);
+    _refreshInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      _refreshInFlight = null;
+    }
+  }
+
+  Future<String?> _performRefresh(String failedAccess) async {
+    final current = await _tokens?.readAccess();
+    if (current != null && current != failedAccess) return current;
+    final refresh = await _tokens?.readRefresh();
+    if (refresh == null || refresh.isEmpty) return null;
+    try {
+      final response = await _client.post(
+        Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
+        headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
+        body: jsonEncode({'refreshToken': refresh}),
+      ).timeout(_timeout);
+      if (response.statusCode != 200) return null;
+      final payload = jsonDecode(response.body);
+      if (payload is! Map<String, dynamic>) return null;
+      final access = payload['accessToken'];
+      final nextRefresh = payload['refreshToken'];
+      if (access is! String ||
+          access.isEmpty ||
+          nextRefresh is! String ||
+          nextRefresh.isEmpty) {
+        return null;
+      }
+      await _tokens?.save(access: access, refresh: nextRefresh);
+      return access;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _expireSession() async {
+    await _tokens?.clear();
+    await _onSessionExpired?.call();
+  }
+
+  ApiError _errorFromResponse(http.Response response, String requestId) {
+    String code = 'HTTP_${response.statusCode}';
+    String message = 'Request failed';
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final rawCode = decoded['code'] ?? decoded['error'];
+        final rawMessage = decoded['message'];
+        if (rawCode is String && rawCode.trim().isNotEmpty) code = rawCode.trim();
+        if (rawMessage is String && rawMessage.trim().isNotEmpty) {
+          message = rawMessage.trim();
+        }
+      }
+    } catch (_) {
+      // Non-JSON error bodies still retain the HTTP status and request id.
+    }
+    final retrySeconds = int.tryParse(response.headers['retry-after'] ?? '');
+    return ApiError(
+      code: code,
+      message: message,
+      requestId: requestId,
+      statusCode: response.statusCode,
+      retryAfter: retrySeconds == null ? null : Duration(seconds: retrySeconds),
+    );
   }
 
   Future<http.Response> _getWithRetry(

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
-import 'package:movera_rider/features/rating/application/rating_controller.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class RideCompletedGiveReview extends StatefulWidget {
-  const RideCompletedGiveReview({super.key});
+  const RideCompletedGiveReview({super.key, this.onRatingChanged});
+
+  final ValueChanged<double>? onRatingChanged;
 
   @override
   State<RideCompletedGiveReview> createState() =>
@@ -16,7 +17,6 @@ class RideCompletedGiveReview extends StatefulWidget {
 }
 
 class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
-  final RatingController _ratingCtl = RatingController();
   // Nothing is rated until the rider rates it; a pre-filled score is the
   // app putting words in their mouth.
   double _rating = 0;
@@ -58,7 +58,7 @@ class _RideCompletedGiveReviewState extends State<RideCompletedGiveReview> {
             itemBuilder: (context, _) =>
                 Icon(Icons.star_rounded, color: Color(0xffF99417)),
             onRatingUpdate: (rating) {
-              _ratingCtl.set(rating);
+              widget.onRatingChanged?.call(rating);
               setState(() {
                 _rating = rating;
               });

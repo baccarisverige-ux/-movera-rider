@@ -1,6 +1,6 @@
-import 'package:movera_rider/core/permissions/permission_service.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
+import 'safety_recorder.dart';
 
 class SafetyAudioException implements Exception {
   const SafetyAudioException(this.code, this.message);
@@ -12,13 +12,13 @@ class SafetyAudioException implements Exception {
 
 class SafetyAudioService {
   SafetyAudioService({
-    PermissionService? permissions,
+    SafetyRecorder? recorder,
     SafetyStore? store,
     this.supported = true,
-  })  : _permissions = permissions ?? PermissionService(),
+  })  : _recorder = recorder ?? createSafetyRecorder(),
         _store = store ?? SafetyStore.shared;
 
-  final PermissionService _permissions;
+  final SafetyRecorder _recorder;
   final SafetyStore _store;
   final bool supported;
   AudioRecording? _active;
@@ -28,25 +28,33 @@ class SafetyAudioService {
   bool get isRecording => _active?.isRecording == true;
 
   Future<AudioRecording> start({String rideId = 'ride_local'}) async {
-    if (!supported) {
+    if (!supported || !_recorder.supported) {
       throw const SafetyAudioException(
         'UNSUPPORTED',
-        'Audio recording is not available in this browser.',
-      );
-    }
-    if (_permissions.statusOf(AppPermission.microphone) !=
-        PermissionPhase.granted) {
-      throw const SafetyAudioException(
-        'MIC_DENIED',
-        'Microphone permission is required to record.',
+        'Audio recording is not available on this platform.',
       );
     }
     if (isRecording) {
       throw const SafetyAudioException('ALREADY_RECORDING', 'Already recording.');
     }
+    if (!await _recorder.requestPermission()) {
+      throw const SafetyAudioException(
+        'MIC_DENIED',
+        'Microphone permission is required to record.',
+      );
+    }
     final recording = await _store.initAudio(rideId);
+    try {
+      await _recorder.start(recording.id);
+    } catch (_) {
+      await _recorder.cancel();
+      await _store.deleteAudio(recording);
+      throw const SafetyAudioException(
+        'START_FAILED',
+        'Could not start microphone recording.',
+      );
+    }
     _active = recording.copyWith(
-      localPath: 'local://safety/${recording.id}.m4a',
       createdAt: DateTime.now().toUtc(),
     );
     return _active!;
@@ -60,10 +68,25 @@ class SafetyAudioService {
     final ended = DateTime.now().toUtc();
     final started = current.createdAt ?? ended;
     final duration = ended.difference(started).inMilliseconds;
-    final next = await _store.completeAudio(
-      current.copyWith(durationMs: duration, endedAt: ended),
-    );
+    final path = await _recorder.stop();
     _active = null;
+    if (path == null) {
+      throw const SafetyAudioException(
+        'NO_AUDIO',
+        'No audio file was captured.',
+      );
+    }
+    AudioRecording next;
+    try {
+      next = await _store.completeAudio(
+        current.copyWith(localPath: path, durationMs: duration, endedAt: ended),
+      );
+    } catch (_) {
+      throw const SafetyAudioException(
+        'SAVE_FAILED',
+        'Audio was captured on this device, but its record could not be saved.',
+      );
+    }
     if (autoUpload) {
       throw const SafetyAudioException(
         'UPLOAD_DISABLED',
@@ -74,15 +97,13 @@ class SafetyAudioService {
   }
 
   Future<void> delete(AudioRecording recording) async {
-    if (_active?.id == recording.id) _active = null;
+    if (_active?.id == recording.id) {
+      await _recorder.cancel();
+      _active = null;
+    }
     await _store.deleteAudio(recording);
-  }
-
-  void grantMicrophone() {
-    _permissions.set(AppPermission.microphone, PermissionPhase.granted);
-  }
-
-  void denyMicrophone() {
-    _permissions.set(AppPermission.microphone, PermissionPhase.denied);
+    if (recording.localPath != null) {
+      await _recorder.delete(recording.localPath!);
+    }
   }
 }

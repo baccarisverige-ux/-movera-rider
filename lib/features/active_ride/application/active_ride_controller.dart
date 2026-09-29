@@ -1,28 +1,164 @@
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/active_ride/data/active_ride_repository.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
+/// What the server said about a Waiting/in-trip cancel request (D-013).
+enum RideCancelOutcome {
+  /// The server acknowledged the cancel (or no longer has the ride at all),
+  /// and local state has now been committed to cancelled.
+  confirmed,
+
+  /// The server could not be reached. Nothing was committed locally — the
+  /// ride is still live — and the request sits in the pending-cancel outbox
+  /// so the next reconnect or launch retries it with the same key.
+  pendingRetry,
+
+  /// The server refused: the ride can no longer be cancelled (for example it
+  /// already finished). Nothing was committed locally.
+  rejected,
+}
+
 class ActiveRideController {
-  ActiveRideController({ActiveRideRepository? store})
-    : _store = store ?? ActiveRideRepository();
+  ActiveRideController({ActiveRideRepository? store, ApiClient? api})
+    : _store = store ?? ActiveRideRepository(),
+      _api = api;
   final ActiveRideRepository _store;
+  final ApiClient? _api;
+
+  ApiClient get api => _api ?? AppScope.instance.api;
 
   void markArriving() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.driverArriving);
+    AppScope.instance.ride.localTransition(RideStatus.driverArriving);
   }
 
-  Future<void> markCancelled({String? reasonId}) async {
+  /// Cancels a matched or in-trip ride, server first (D-013).
+  ///
+  /// This used to commit `cancelledByRider` locally, archive the ride, clear
+  /// the snapshot and stop realtime, and only then fire one unawaited POST.
+  /// If that call failed the rider was on Home while the server ride — and
+  /// the driver — kept going. Now the intent is written to the pending-cancel
+  /// outbox first, the server is asked (one in-session retry, same key), and
+  /// local state is committed only once the server has answered.
+  Future<RideCancelOutcome> markCancelled({String? reasonId}) async {
+    final ride = AppScope.instance.ride;
+    final id = ride.rideId?.trim();
+    if (id == null || id.isEmpty) {
+      // No server identity to cancel against. Be explicit that this is a
+      // local-only cancel rather than implying the server was told.
+      AppLog.warning(
+        'ride.cancel.local_only_no_ride_id',
+        extra: {'status': ride.status.name},
+      );
+      await _commitCancelled(null, reasonId: reasonId);
+      return RideCancelOutcome.confirmed;
+    }
+    final outcome = await _requestServerCancel(id, reasonId: reasonId);
+    if (outcome == RideCancelOutcome.confirmed) {
+      await _commitCancelled(id, reasonId: reasonId);
+    }
+    return outcome;
+  }
+
+  /// Commits a cancel the server has already applied — for example when a
+  /// queued outbox request lands and realtime then reports the ride as
+  /// `cancelledByRider` while Waiting is still showing it.
+  Future<void> completeServerConfirmedCancel() async {
+    await _commitCancelled(AppScope.instance.ride.rideId);
+  }
+
+  /// D-014: "Go home" from the screen shown when Waiting lost its rideId.
+  ///
+  /// That used to be a purely local `cancelledByRider` transition, which can
+  /// orphan a live server ride. Recover any ride id still on record (the
+  /// explicit one, the session, or the persisted snapshot) and ask the server
+  /// to cancel it before local state is wiped. A transient failure leaves the
+  /// request in the outbox. When no id is recoverable at all there is no way
+  /// to cancel server-side; say so in telemetry instead of pretending.
+  Future<RideCancelOutcome?> cancelUntrackedRide({String? rideId}) async {
+    String? recovered = _clean(rideId) ?? _clean(AppScope.instance.ride.rideId);
+    if (recovered == null) {
+      final snapshot = await _store.historyCandidate();
+      recovered = _clean(snapshot?.rideId);
+    }
+    if (recovered == null) {
+      AppLog.warning(
+        'ride.cancel.unrecoverable_ride_id',
+        extra: {
+          'status': AppScope.instance.ride.status.name,
+          'serverCancelled': false,
+        },
+      );
+      return null;
+    }
+    final outcome = await _requestServerCancel(recovered);
+    AppLog.info(
+      'ride.cancel.untracked_ride',
+      extra: {'rideId': recovered, 'outcome': outcome.name},
+    );
+    return outcome;
+  }
+
+  static String? _clean(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  Future<RideCancelOutcome> _requestServerCancel(
+    String id, {
+    String? reasonId,
+  }) async {
+    final entry = await PendingCancelStore.enqueue(
+      rideId: id,
+      reasonId: reasonId,
+    );
+    for (var attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await api.post(
+          '/api/v1/rides/$id/cancel',
+          body: {
+            if ((entry.reasonId ?? reasonId) != null)
+              'reason': entry.reasonId ?? reasonId,
+          },
+          idempotencyKey: entry.idempotencyKey,
+        );
+        await PendingCancelStore.remove(id);
+        return RideCancelOutcome.confirmed;
+      } catch (error) {
+        AppLog.warning(
+          'ride.cancel.adapter_failed',
+          extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
+        );
+        if (isPermanentCancelFailure(error)) {
+          await PendingCancelStore.remove(id);
+          // 404: the server has no such ride, so there is nothing left to
+          // cancel and nothing to orphan. 409/410/422: the server refuses —
+          // the ride already ended — so the local ride must not be marked
+          // cancelled; realtime reports the real outcome.
+          final status = (error as ApiError).statusCode;
+          return status == 404
+              ? RideCancelOutcome.confirmed
+              : RideCancelOutcome.rejected;
+        }
+      }
+    }
+    return RideCancelOutcome.pendingRetry;
+  }
+
+  Future<void> _commitCancelled(String? id, {String? reasonId}) async {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
-    final id = ride.rideId;
-    ride.restoreFromBackend(RideStatus.cancelledByRider);
+    if (ride.status != RideStatus.cancelledByRider && !ride.status.isTerminal) {
+      ride.localTransition(RideStatus.cancelledByRider);
+    }
     AppScope.instance.rideRealtime.cancelRide();
     await _archive(
       snapshot,
@@ -31,9 +167,25 @@ class ActiveRideController {
       cancellationReason: reasonId,
     );
     await _store.clear();
-    if (id != null) {
-      unawaited(_cancelViaAdapter(id, reasonId));
+  }
+
+  Future<void> resumeSearchingAfterDriverCancel({String? rideId}) async {
+    final id = rideId?.trim();
+    if (id == null || id.isEmpty) return;
+    final ride = AppScope.instance.ride;
+    if (ride.rideId?.trim() != id ||
+        ride.status != RideStatus.cancelledByDriver) {
+      return;
     }
+
+    // cancelledByDriver is a reversible dispatch outcome: the rider still owns
+    // the same ride, and the search restarts on its own. Reconcile shared
+    // application state synchronously before navigation can reveal the parked
+    // Finding route. Snapshot persistence is deliberately not on this critical
+    // path: DriverTracking never persisted the terminal driver-drop snapshot,
+    // so the existing active snapshot already remains the correct recovery
+    // record until realtime publishes the replacement search/assignment.
+    ride.backendReconcile(RideStatus.findingDriver, id: id);
   }
 
   Future<void> markExternalTerminal(RideStatus status) async {
@@ -50,27 +202,12 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
-    ride.restoreFromBackend(status, id: id);
+    ride.backendReconcile(status, id: id);
     if (status == RideStatus.cancelledByDriver ||
         status == RideStatus.cancelledBySystem) {
       await _archive(snapshot, status, expectedRideId: id);
     }
     await _store.clear();
-  }
-
-  Future<void> _cancelViaAdapter(String id, String? reasonId) async {
-    try {
-      await AppScope.instance.api.post(
-        '/api/v1/rides/$id/cancel',
-        body: {if (reasonId != null) 'reason': reasonId},
-        idempotencyKey: newIdempotencyKey('ride-cancel'),
-      );
-    } catch (error) {
-      AppLog.warning(
-        'ride.cancel.adapter_failed',
-        extra: {'rideId': id, 'error': error.toString()},
-      );
-    }
   }
 
   Future<void> markCompleted(RideStatus status) async {
@@ -79,12 +216,36 @@ class ActiveRideController {
     }
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
-    AppScope.instance.ride.restoreFromBackend(status);
-    // The completion screen describes this ride, and the snapshot is about to
-    // be cleared — keep it before that happens.
-    LastCompletedRide.remember(snapshot);
-    await _archive(snapshot, status, expectedRideId: id);
-    await _store.clear();
+    AppScope.instance.ride.backendReconcile(status, id: id);
+    if (snapshot == null) return;
+
+    // Keep a restorable completion snapshot until the rider explicitly leaves
+    // the completion surface. This protects payment/rating state across reload,
+    // crash, PWA eviction and app resume.
+    final completed = snapshot.copyWith(
+      status: status,
+      savedAt: DateTime.now(),
+    );
+    LastCompletedRide.remember(completed);
+    await _archive(completed, status, expectedRideId: id);
+    await _store.save(completed);
+  }
+
+  Future<void> persistCompletedStatus(
+    RideStatus status, {
+    required String rideId,
+  }) async {
+    if (!status.isCompletedSurface) {
+      throw ArgumentError.value(status, 'status', 'Expected a completed status.');
+    }
+    final snapshot = await _store.historyCandidate();
+    if (snapshot == null || snapshot.rideId?.trim() != rideId.trim()) return;
+    final updated = snapshot.copyWith(
+      status: status,
+      savedAt: DateTime.now(),
+    );
+    LastCompletedRide.remember(updated);
+    await _store.save(updated);
   }
 
   Future<void> _archive(
@@ -123,7 +284,23 @@ class ActiveRideController {
   }
 
   void markClosed() {
-    AppScope.instance.ride.restoreFromBackend(RideStatus.closed);
+    AppScope.instance.ride.localTransition(RideStatus.closed);
     unawaited(_store.clear());
+  }
+
+  /// Finish History archival before clearing the restorable completion record.
+  Future<void> closeCompletedRide(String rideId) async {
+    final snapshot = await _store.historyCandidate();
+    if (snapshot != null && snapshot.rideId?.trim() != rideId.trim()) {
+      throw StateError('A different ride is active.');
+    }
+    if (snapshot != null && snapshot.status.isCompletedSurface) {
+      await OnDemandRideHistoryStore.archive(
+        snapshot,
+        terminalStatus: snapshot.status,
+      );
+    }
+    AppScope.instance.ride.localTransition(RideStatus.closed);
+    await _store.clear();
   }
 }

@@ -1,24 +1,81 @@
+import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+
+final Expando<ApiClient> _routeApis = Expando<ApiClient>('movera-route-api');
+final Expando<Map<String, List<GeoPoint>>> _roadCaches =
+    Expando<Map<String, List<GeoPoint>>>('movera-road-cache');
 
 /// The one place a drawn route comes from. Screens must not invent routes.
 ///
-/// Today this returns the direct pickup→destination line, because no
-/// Directions provider is wired up: nothing in the project calls the
-/// Directions API. That is an honest stand-in, not a road route, and the rider
-/// sees a straight line on the map.
-///
-/// A Maps key does exist — `MAPS_WEB_API_KEY` is injected into index.html by
-/// publish-web-live.yml at deploy time, and the native builds read
-/// `MAPS_API_KEY` — so wiring a real provider is a question of enabling
-/// Directions on that key, not of obtaining one.
-///
-/// It stays a seam on purpose. When a real provider arrives, [line] is the
-/// only method that changes and every map in the app picks up road geometry at
-/// once — which is why [MapFacade.drawRoute] and the booking screens all go
-/// through here instead of building their own two-point polyline.
+/// [line] stays deliberately synchronous for first paint and for lightweight
+/// fakes used throughout the certified Rider test suite.
 class RoutingService {
+  RoutingService({ApiClient? api}) {
+    if (api != null) _routeApis[this] = api;
+  }
+
   List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
     from,
     to,
   ];
+}
+
+/// Road geometry is requested through Movera's authenticated API boundary.
+///
+/// Rider never sends pickup/dropoff coordinates directly to an uncontrolled
+/// public routing provider. The backend may choose and rotate its route
+/// provider without exposing provider credentials or Rider network metadata.
+extension RoadRoutingService on RoutingService {
+  Future<List<GeoPoint>> roadLine({
+    required GeoPoint from,
+    required GeoPoint to,
+  }) async {
+    final cache = _roadCaches[this] ??= <String, List<GeoPoint>>{};
+    final key = _roadCacheKey(from, to);
+    final cached = cache[key];
+    if (cached != null && cached.length >= 2) return cached;
+
+    final api = _routeApis[this];
+    if (api == null) return line(from: from, to: to);
+
+    try {
+      final json = await api.post(
+        '/api/v1/routes',
+        body: <String, dynamic>{
+          'mode': 'driving',
+          'from': <String, double>{
+            'lat': from.latitude,
+            'lng': from.longitude,
+          },
+          'to': <String, double>{
+            'lat': to.latitude,
+            'lng': to.longitude,
+          },
+        },
+      );
+      final raw = json['points'];
+      if (raw is! List) return line(from: from, to: to);
+
+      final points = <GeoPoint>[];
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final lat = item['lat'];
+        final lng = item['lng'];
+        if (lat is num && lng is num) {
+          points.add(GeoPoint(lat.toDouble(), lng.toDouble()));
+        }
+      }
+      if (points.length < 2) return line(from: from, to: to);
+      cache[key] = points;
+      return points;
+    } catch (_) {
+      return line(from: from, to: to);
+    }
+  }
+}
+
+String _roadCacheKey(GeoPoint from, GeoPoint to) {
+  String pointKey(GeoPoint point) =>
+      '${point.latitude.toStringAsFixed(5)},${point.longitude.toStringAsFixed(5)}';
+  return '${pointKey(from)}>${pointKey(to)}';
 }

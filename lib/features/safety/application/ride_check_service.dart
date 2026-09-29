@@ -11,6 +11,9 @@ class RideCheckService {
 
   List<RideCheckEvent> events() => _store.rideCheckEvents;
 
+  Future<List<RideCheckEvent>> refresh(String rideId) =>
+      _store.refreshEvents(rideId);
+
   Future<RideCheckPolicy> setEnabled(bool enabled) =>
       _store.patchRideCheck(enabled);
 
@@ -35,6 +38,21 @@ class RideCheckService {
 
   Future<RideCheckEvent> routeDeviation({String rideId = 'ride_qa'}) =>
       simulate(type: RideCheckEventType.routeDeviation, rideId: rideId);
+
+  Future<RideCheckEvent> sos({required String rideId}) {
+    return _store.postEvent(
+      RideCheckEvent(
+        eventId: 'ev_${newRequestId()}',
+        rideId: rideId,
+        type: RideCheckEventType.manualSafetyCheck,
+        at: DateTime.now().toUtc(),
+        payload: const {
+          'kind': 'sos',
+          'action': 'call_112',
+        },
+      ),
+    );
+  }
 
   Future<RideCheckEvent> resolve(RideCheckEvent event) {
     return _store.respondEvent(

@@ -29,6 +29,8 @@ FindingDriverController controllerOf(
   MockRideRealtime rt,
   RideSession ride, {
   Duration delayedAfter = SearchCopy.delayedAfter,
+  Duration? priceBumpAfter,
+  Duration searchTimeout = const Duration(minutes: 3),
   ApiClient? api,
 }) {
   return FindingDriverController(
@@ -36,6 +38,8 @@ FindingDriverController controllerOf(
     ride: ride,
     store: FindingDriverRepository(),
     delayedAfter: delayedAfter,
+    priceBumpAfter: priceBumpAfter,
+    searchTimeout: searchTimeout,
     api: api,
   );
 }
@@ -130,11 +134,42 @@ void main() {
     rt.dispose();
   });
 
+  test('search timeout produces noDriverFound and terminates once', () async {
+    final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
+    final ride = RideSession()..rideId = 'r1';
+    final terminal = <RideStatus>[];
+    final controller = controllerOf(
+      rt,
+      ride,
+      searchTimeout: const Duration(seconds: 2),
+    );
+    controller.start(
+      snapshot: snap(),
+      onTick: (_) {},
+      onMatched: () {},
+      onTerminal: terminal.add,
+    );
+    controller.debugAdvance(2);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(ride.status, RideStatus.noDriverFound);
+    expect(terminal, <RideStatus>[RideStatus.noDriverFound]);
+    controller.debugAdvance(10);
+    await Future<void>.delayed(Duration.zero);
+    expect(terminal, hasLength(1));
+    controller.dispose();
+    rt.dispose();
+  });
+
   test('delayed search does not assign a driver by itself', () async {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = controllerOf(rt, ride, delayedAfter: Duration.zero);
+    final controller = controllerOf(
+      rt,
+      ride,
+      delayedAfter: Duration.zero,
+      priceBumpAfter: Duration.zero,
+    );
     controller.start(
       snapshot: snap(),
       onTick: (_) {},
@@ -207,6 +242,7 @@ void main() {
       rt,
       ride,
       delayedAfter: Duration.zero,
+      priceBumpAfter: Duration.zero,
       api: api,
     );
     controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});

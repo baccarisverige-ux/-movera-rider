@@ -13,6 +13,7 @@ class RideDetailsSheet extends StatelessWidget {
     required this.notes,
     required this.canEditPickup,
     this.canEditDestination = false,
+    this.allowCancel = true,
     required this.onEditPickup,
     required this.onEditDestination,
     required this.onCancelTrip,
@@ -26,6 +27,7 @@ class RideDetailsSheet extends StatelessWidget {
   final RideNotes notes;
   final bool canEditPickup;
   final bool canEditDestination;
+  final bool allowCancel;
   final VoidCallback onEditPickup;
   final VoidCallback onEditDestination;
   final VoidCallback onCancelTrip;
@@ -112,28 +114,30 @@ class RideDetailsSheet extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: TextButton(
-                onPressed: onCancelTrip,
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFF4F5F6),
-                  foregroundColor: const Color(0xFFB42318),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+            if (allowCancel) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: TextButton(
+                  onPressed: onCancelTrip,
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFF4F5F6),
+                    foregroundColor: const Color(0xFFB42318),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                ),
-                child: Text(
-                  'Cancel trip',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
+                  child: Text(
+                    'Cancel trip',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
+            ],
             SizedBox(
               width: double.infinity,
               height: 54,

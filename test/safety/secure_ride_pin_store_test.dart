@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
 import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
+import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -19,6 +20,8 @@ void main() {
       final local = PreferencesSafetyLocalDataSource(pinStore: pinStore);
 
       final cache = await local.load();
+      expect(cache.pin.isAvailable, isFalse);
+      cache.pin = RidePin.fromJson({'pinId': 'issued', 'pin': '4242'});
       final realPin = cache.pin.pin;
       expect(RegExp(r'^\d{4}$').hasMatch(realPin), isTrue);
 
@@ -45,6 +48,7 @@ void main() {
       final pinStore = SecureRidePinStore.fake();
       final first = PreferencesSafetyLocalDataSource(pinStore: pinStore);
       final cache = await first.load();
+      cache.pin = RidePin.fromJson({'pinId': 'issued', 'pin': '4242'});
       await first.save(cache);
       final realPin = cache.pin.pin;
 

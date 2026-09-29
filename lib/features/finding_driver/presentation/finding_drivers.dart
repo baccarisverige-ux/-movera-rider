@@ -4,27 +4,37 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
+import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:smooth_sheets/smooth_sheets.dart';
 
 class FindingDrivers extends StatefulWidget {
   const FindingDrivers({
@@ -37,6 +47,7 @@ class FindingDrivers extends StatefulWidget {
     required this.price,
     required this.paymentMethod,
     this.notes = RideNotes.empty,
+    this.realtime,
   });
 
   final String pickupAddress;
@@ -47,22 +58,32 @@ class FindingDrivers extends StatefulWidget {
   final double price;
   final String paymentMethod;
   final RideNotes notes;
+  final RideRealtime? realtime;
 
   @override
   State<FindingDrivers> createState() => _FindingDriversState();
 }
 
-class _FindingDriversState extends State<FindingDrivers>
-    with SingleTickerProviderStateMixin {
+class _FindingDriversState extends State<FindingDrivers> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
-  final FindingDriverController _match = FindingDriverController();
+  late final FindingDriverController _match = FindingDriverController(
+    realtime: widget.realtime,
+  );
   bool _mapParked = false;
+  bool _mapReady = false;
   bool _leaving = false;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
+  bool _detailsSheetOpen = false;
+  bool _matchedPending = false;
+  RideStatus? _terminalPending;
   bool _overlayOn = false;
-  late final AnimationController _sheetSlide;
+  int _nearbyPaintKey = 0;
+  final SheetController _sheetController = SheetController();
+  BitmapDescriptor? _riderPuck;
+  BitmapDescriptor? _driverCar;
+  List<LatLng>? _roadRoutePoints;
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
@@ -72,14 +93,17 @@ class _FindingDriversState extends State<FindingDrivers>
     super.initState();
     _pickupAddress = widget.pickupAddress;
     _pickupPosition = widget.pickupPosition;
-    _sheetSlide = AnimationController(
-      vsync: this,
-      duration: MoveraDurations.sheetOpen,
-      value: 0,
-    );
-    _sheetSlide.addListener(_syncSheetOverlay);
-    _syncSheetOverlay();
+    _sheetController.addListener(_syncSheetOverlay);
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
+    setWebOverlayOpen(false);
     _loadMapBits();
+    unawaited(_prepareMapVisuals());
+    _startMatching(price: widget.price);
+  }
+
+  void _startMatching({double? price}) {
+    final effectivePrice =
+        price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
     _match.startFrom(
       pickupAddress: _pickupAddress,
       destinationAddress: widget.destinationAddress,
@@ -88,44 +112,106 @@ class _FindingDriversState extends State<FindingDrivers>
       destinationLat: widget.destinationPosition.latitude,
       destinationLng: widget.destinationPosition.longitude,
       rideType: widget.rideType,
-      price: widget.price,
+      price: effectivePrice,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
       onTick: (_) {
         if (!mounted) return;
-        setState(_loadMapBits);
+        final nearbyKey = Object.hashAll(
+          _match.nearby.map((vehicle) => '${vehicle.id}:${vehicle.latitude}'),
+        );
+        if (nearbyKey != _nearbyPaintKey) {
+          _nearbyPaintKey = nearbyKey;
+          _loadMapBits();
+        }
+        setState(() {});
         _syncSheetOverlay();
       },
       onMatched: () {
-        if (!mounted || _leaving || _cancelSheetOpen || _pickupEditOpen) return;
-        _openWaiting();
+        if (!mounted || _leaving) return;
+        _matchedPending = true;
+        _drainDeferredNavigation();
       },
       onTerminal: (status) {
         if (!mounted || _leaving) return;
-        _leaving = true;
-        setState(() {});
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            RideNavigator.home(context, status: status);
-          }
-        });
+        _terminalPending = status;
+        _drainDeferredNavigation();
       },
     );
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sheetSlide.duration = MoveraMotion.of(context, MoveraDurations.sheetOpen);
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    // NavigatorObserver notifications fire while Navigator is still locked.
+    // A deferred match/terminal may need to push a route, so drain it only
+    // after the current push/pop has fully committed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _drainDeferredNavigation();
+    });
+  }
+
+  void _drainDeferredNavigation() {
+    if (!mounted ||
+        _leaving ||
+        !_routeIsCurrent ||
+        _cancelSheetOpen ||
+        _pickupEditOpen ||
+        _detailsSheetOpen) {
+      return;
+    }
+
+    final terminal = _terminalPending;
+    if (terminal != null) {
+      _terminalPending = null;
+      _matchedPending = false;
+      unawaited(_handleTerminal(terminal));
+      return;
+    }
+
+    if (_matchedPending) {
+      _matchedPending = false;
+      unawaited(_openWaiting());
+    }
+  }
+
+  void _resumeFindingAfterDriverCancel() {
+    if (!mounted) return;
+    final effectivePrice =
+        _match.currentPrice > 0 ? _match.currentPrice : widget.price;
+    _leaving = false;
+    _cancelSheetOpen = false;
+    _pickupEditOpen = false;
+    _overlayOn = false;
+    _nearbyPaintKey = 0;
+    setWebOverlayOpen(false);
+    setState(() => _mapParked = false);
+    _startMatching(price: effectivePrice);
+    _loadMapBits();
+  }
+
+  Future<void> _handleTerminal(RideStatus status) async {
+    if (!mounted || _leaving) return;
+    _leaving = true;
+    setState(() {});
+    await showRideTerminalStateSheet(context, status: status);
+    if (!mounted) return;
+    RideNavigator.home(context, status: status);
   }
 
   void _loadMapBits() {
+    final routePoints = _roadRoutePoints;
     _markers = {
-      Marker(
-        markerId: const MarkerId('pickup'),
-        position: _pickupPosition,
-        infoWindow: InfoWindow(title: _pickupAddress),
-      ),
+      if (_riderPuck != null)
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: _pickupPosition,
+          infoWindow: InfoWindow(title: _pickupAddress),
+          icon: _riderPuck!,
+          anchor: const Offset(0.5, 0.72),
+        ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
@@ -137,27 +223,74 @@ class _FindingDriversState extends State<FindingDrivers>
           markerId: MarkerId('nearby-${vehicle.id}'),
           position: LatLng(vehicle.latitude, vehicle.longitude),
           rotation: vehicle.bearing,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
-          ),
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
+          icon:
+              _driverCar ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
         ),
     };
     _polylines = {
-      routePolyline(
-        id: 'route',
-        from: _pickupPosition,
-        to: widget.destinationPosition,
-        color: const Color(0xFF1D252C),
-      ),
+      if (routePoints != null && routePoints.length >= 2)
+        routePolyline(
+          id: 'route',
+          from: routePoints.first,
+          to: routePoints.last,
+          color: const Color(0xFF1D252C),
+          routing: _ResolvedRoute(routePoints),
+        )
+      else
+        routePolyline(
+          id: 'route',
+          from: _pickupPosition,
+          to: widget.destinationPosition,
+          color: const Color(0xFF1D252C),
+        ),
     };
   }
 
-  void _openWaiting() {
+  Future<void> _prepareMapVisuals() async {
+    final icons = await Future.wait<BitmapDescriptor>([
+      MoveraRiderPuckMarker.createIcon(),
+      MoveraVehicleMarker.createIcon(),
+    ]);
+    if (!mounted) return;
+    _riderPuck = icons[0];
+    _driverCar = icons[1];
+    _loadMapBits();
+    setState(() {});
+  }
+
+  Future<void> _refreshRoadRoute() async {
+    final route = await roadRoutePolyline(
+      id: 'route',
+      from: _pickupPosition,
+      to: widget.destinationPosition,
+      color: const Color(0xFF1D252C),
+    );
+    if (!mounted || route.points.length < 2) return;
+    _roadRoutePoints = route.points;
+    _loadMapBits();
+    setState(() {});
+  }
+
+  Future<void> _openWaiting() async {
     if (!mounted || _leaving) return;
     _leaving = true;
-    Navigator.pushReplacement(
+
+    // Freeze and detach this map before the next map-heavy ride stage. Keeping
+    // Finding alive but parked prevents SelectRide/Home from resuming their maps
+    // underneath the active ride.
+    _match.dispose();
+    setWebOverlayOpen(false);
+    AppScope.instance.maps.detach(owner: MapOwners.finding);
+    if (mounted) setState(() => _mapParked = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+
+    final researchDriver = await Navigator.push<bool>(
       context,
-      BottomToTopTransition(
+      RideStageTransition(
         WaitingForDriver(
           pickupAddress: _pickupAddress,
           destinationAddress: widget.destinationAddress,
@@ -168,9 +301,13 @@ class _FindingDriversState extends State<FindingDrivers>
           paymentMethod: widget.paymentMethod,
           notes: widget.notes,
           driver: _match.matchedDriver,
+          realtime: widget.realtime,
         ),
+        settings: const RouteSettings(name: AppRoutes.waitingForDriver),
       ),
     );
+    if (!mounted || researchDriver != true) return;
+    _resumeFindingAfterDriverCancel();
   }
 
   Future<void> _confirmCancel() async {
@@ -186,8 +323,12 @@ class _FindingDriversState extends State<FindingDrivers>
       return;
     }
     _cancelSheetOpen = false;
+    if (_terminalPending != null) {
+      _drainDeferredNavigation();
+      return;
+    }
     if (!outcome.cancelled) {
-      if (_match.matchCount == 1) _openWaiting();
+      _drainDeferredNavigation();
       return;
     }
     _leaving = true;
@@ -197,9 +338,28 @@ class _FindingDriversState extends State<FindingDrivers>
     RideNavigator.home(context);
   }
 
+  void _showEditFeedback({
+    required bool success,
+    required String fallback,
+  }) {
+    if (!mounted) return;
+    final message = _match.editFeedback ?? fallback;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
   Future<void> _openDetails() async {
-    await MoveraSheet.show<void>(
-      context: context,
+    if (_detailsSheetOpen || _leaving) return;
+    _detailsSheetOpen = true;
+    try {
+      await MoveraSheet.show<void>(
+        context: context,
       builder: (sheetContext) => RideDetailsSheet(
         pickupAddress: _pickupAddress,
         destinationAddress: widget.destinationAddress,
@@ -207,17 +367,18 @@ class _FindingDriversState extends State<FindingDrivers>
         price: _match.currentPrice,
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
-        canEditPickup: true,
+        canEditPickup: !_match.editInFlight && _match.matchCount == 0,
         canEditDestination: false,
         onEditPickup: () async {
-          Navigator.pop(sheetContext);
           AppScope.instance.maps.detach(owner: MapOwners.finding);
           if (!mounted) return;
           setState(() {
             _mapParked = true;
             _pickupEditOpen = true;
           });
-          await Future<void>.delayed(const Duration(milliseconds: 90));
+          await popCurrentRouteAndWaitForExit(sheetContext);
+          if (!mounted) return;
+          await WidgetsBinding.instance.endOfFrame;
           if (!mounted) return;
           final result = await Navigator.push(
             context,
@@ -246,30 +407,53 @@ class _FindingDriversState extends State<FindingDrivers>
             if (updated && result is ConfirmPickupResult) {
               _pickupAddress = result.address;
               _pickupPosition = result.position;
+              _roadRoutePoints = null;
               _loadMapBits();
             }
           });
-
-          if (_match.matchCount == 1 && !_leaving) {
-            _openWaiting();
+          if (updated && result is ConfirmPickupResult && _mapReady) {
+            unawaited(_refreshRoadRoute());
           }
+
+          if (result is ConfirmPickupResult) {
+            _showEditFeedback(
+              success: updated,
+              fallback: updated
+                  ? 'Pickup updated'
+                  : 'Couldn’t update pickup. Try again.',
+            );
+          }
+
+          if (_match.matchCount == 1) _matchedPending = true;
+          _drainDeferredNavigation();
         },
         onEditDestination: () => Navigator.pop(sheetContext),
-        onCancelTrip: () {
-          Navigator.pop(sheetContext);
-          _confirmCancel();
+        onCancelTrip: () async {
+          _cancelSheetOpen = true;
+          await popCurrentRouteAndWaitForExit(sheetContext);
+          if (!mounted) {
+            _cancelSheetOpen = false;
+            return;
+          }
+          await _confirmCancel();
         },
       ),
-    );
+      );
+    } finally {
+      _detailsSheetOpen = false;
+      if (mounted) _drainDeferredNavigation();
+    }
   }
 
   @override
   void dispose() {
-    _sheetSlide.removeListener(_syncSheetOverlay);
-    _sheetSlide.dispose();
-    if (!_leaving && _match.matchCount == 0) {
-      unawaited(_match.cancelSearch());
-    }
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
+    _sheetController.removeListener(_syncSheetOverlay);
+    _sheetController.dispose();
+    // Widget teardown is not a rider business action. Navigation, hot
+    // reload, restoration, or parent replacement may dispose this surface
+    // while the ride is still active; cancellation must happen only through
+    // the explicit cancel flow.
     _match.dispose();
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.finding);
@@ -277,23 +461,19 @@ class _FindingDriversState extends State<FindingDrivers>
   }
 
   void _syncSheetOverlay() {
-    final cover = _sheetSlide.value > 0.05 || _match.showPriceBump;
+    if (!_sheetController.hasClient) return;
+    final media = MediaQuery.maybeOf(context);
+    if (media == null) return;
+    final offset = _sheetController.metrics?.offset;
+    final cover =
+        (offset != null && offset > _minSheet(media) + 12) ||
+        _match.showPriceBump;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
   }
 
-  String _shortPlace(String value) {
-    final parts = value
-        .split(',')
-        .map((part) => part.trim())
-        .where((part) => part.isNotEmpty)
-        .where((part) => !RegExp(r'^\d{3,}$').hasMatch(part))
-        .toList();
-    if (parts.isEmpty) return value;
-    if (parts.length == 1) return parts.first;
-    return '${parts[0]}, ${parts[1]}';
-  }
+  String _shortPlace(String value) => shortenPlace(value);
 
   double _minSheet(MediaQueryData media) {
     final base = _match.showPriceBump ? 520.0 : 332.0;
@@ -304,29 +484,6 @@ class _FindingDriversState extends State<FindingDrivers>
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
     return maxH < minH + 48 ? minH + 48 : maxH;
-  }
-
-  void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
-    if (range <= 0) return;
-    _sheetSlide.value = (_sheetSlide.value - details.primaryDelta! / range)
-        .clamp(0.0, 1.0);
-  }
-
-  void _onSheetDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final target = velocity < -480
-        ? 1.0
-        : velocity > 480
-        ? 0.0
-        : _sheetSlide.value >= 0.42
-        ? 1.0
-        : 0.0;
-    _sheetSlide.animateTo(
-      target,
-      duration: MoveraMotion.of(context, MoveraDurations.large),
-      curve: MoveraCurves.snap,
-    );
   }
 
   @override
@@ -360,7 +517,7 @@ class _FindingDriversState extends State<FindingDrivers>
                         ),
                         markers: _markers,
                         polylines: _polylines,
-                        myLocationEnabled: true,
+                        myLocationEnabled: false,
                         myLocationButtonEnabled: false,
                         zoomControlsEnabled: false,
                         mapToolbarEnabled: false,
@@ -372,10 +529,12 @@ class _FindingDriversState extends State<FindingDrivers>
                         rotateGesturesEnabled: false,
                         mapType: MapType.normal,
                         onMapCreated: (controller) {
+                          _mapReady = true;
                           AppScope.instance.maps.attach(
                             controller,
                             owner: MapOwners.finding,
                           );
+                          unawaited(_refreshRoadRoute());
                         },
                       ),
               ),
@@ -390,8 +549,16 @@ class _FindingDriversState extends State<FindingDrivers>
                     MoveraIconButton.round(
                       icon: Icons.keyboard_arrow_down_rounded,
                       onPressed: () {
-                        if (_sheetSlide.value > 0.2) {
-                          _sheetSlide.animateTo(0);
+                        final minSheet = _minSheet(media);
+                        final offset = _sheetController.hasClient
+                            ? _sheetController.metrics?.offset
+                            : null;
+                        if (offset != null && offset > minSheet + 12) {
+                          _sheetController.animateTo(
+                            SheetOffset.absolute(minSheet),
+                            duration: MoveraDurations.large,
+                            curve: MoveraCurves.close,
+                          );
                         } else {
                           _confirmCancel();
                         }
@@ -401,6 +568,16 @@ class _FindingDriversState extends State<FindingDrivers>
                     const Spacer(),
                     SafetyKitMapButton(rideId: _match.ride.rideId),
                   ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: media.padding.top + 62,
+              left: 12,
+              right: 12,
+              child: PointerInterceptor(
+                child: RealtimeConnectionBanner(
+                  connection: AppScope.instance.realtime,
                 ),
               ),
             ),
@@ -422,19 +599,23 @@ class _FindingDriversState extends State<FindingDrivers>
                 ),
               ),
             ),
-            AnimatedBuilder(
-              animation: _sheetSlide,
-              builder: (context, _) {
-                final minSheet = _minSheet(media);
-                final maxSheet = _maxSheet(media);
-                final height =
-                    minSheet + (maxSheet - minSheet) * _sheetSlide.value;
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: height,
-                  child: PointerInterceptor(
+            SheetViewport(
+              child: Sheet(
+                controller: _sheetController,
+                initialOffset: SheetOffset.absolute(_minSheet(media)),
+                physics: MoveraSheetMotion.physics,
+                snapGrid: SheetSnapGrid(
+                  snaps: [
+                    SheetOffset.absolute(_minSheet(media)),
+                    SheetOffset.absolute(_maxSheet(media)),
+                  ],
+                  minFlingSpeed: 520,
+                ),
+                scrollConfiguration: SheetScrollConfiguration.disabled,
+                child: PointerInterceptor(
+                  child: SizedBox(
+                    height: _maxSheet(media),
+                    width: double.infinity,
                     child: Material(
                       color: Colors.white,
                       elevation: 18,
@@ -447,27 +628,35 @@ class _FindingDriversState extends State<FindingDrivers>
                       clipBehavior: Clip.antiAlias,
                       child: Column(
                         children: [
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onVerticalDragUpdate: (d) =>
-                                _onSheetDragUpdate(d, media),
-                            onVerticalDragEnd: _onSheetDragEnd,
-                            child: const SizedBox(
-                              width: double.infinity,
-                              height: 22,
-                              child: Center(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFE7EBEE),
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(99),
-                                    ),
+                          const SizedBox(
+                            width: double.infinity,
+                            height: 22,
+                            child: Center(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFE7EBEE),
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(99),
                                   ),
-                                  child: SizedBox(width: 36, height: 4),
                                 ),
+                                child: SizedBox(width: 36, height: 4),
                               ),
                             ),
                           ),
+                          if (!_match.showPriceBump)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                top: 2,
+                                bottom: 6,
+                              ),
+                              child: Image.asset(
+                                excludeFromSemantics: true,
+                                AppAssets.scheduleRideCar,
+                                height: 88,
+                                fit: BoxFit.contain,
+                                filterQuality: FilterQuality.high,
+                              ),
+                            ),
                           Expanded(
                             child: _panelBody(
                               progress,
@@ -479,8 +668,8 @@ class _FindingDriversState extends State<FindingDrivers>
                       ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ],
         ),
@@ -494,18 +683,6 @@ class _FindingDriversState extends State<FindingDrivers>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!_match.showPriceBump) ...[
-            Center(
-              child: Image.asset(
-                excludeFromSemantics: true,
-                AppAssets.scheduleRideCar,
-                height: 88,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
           Text(
             headline,
             style: GoogleFonts.poppins(
@@ -547,10 +724,19 @@ class _FindingDriversState extends State<FindingDrivers>
             const SizedBox(height: 16),
             PriceBumpCard(
               currentPrice: _match.currentPrice,
+              maxPrice: _match.maxOfferPrice,
+              busy: _match.editInFlight,
               steps: const [50, 100, 150, 200],
               onConfirm: (kr) async {
-                await _match.confirmPriceIncrease(kr);
-                if (mounted) setState(() {});
+                final updated = await _match.confirmPriceIncrease(kr);
+                if (!mounted) return;
+                setState(() {});
+                _showEditFeedback(
+                  success: updated,
+                  fallback: updated
+                      ? 'Offer updated'
+                      : 'Couldn’t update offer. Try again.',
+                );
               },
               onKeepWaiting: () {
                 _match.dismissPriceBump();
@@ -615,4 +801,16 @@ class _FindingDriversState extends State<FindingDrivers>
       ),
     );
   }
+}
+
+
+class _ResolvedRoute implements RoutingService {
+  const _ResolvedRoute(this.points);
+
+  final List<LatLng> points;
+
+  @override
+  List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
+    for (final point in points) GeoPoint(point.latitude, point.longitude),
+  ];
 }

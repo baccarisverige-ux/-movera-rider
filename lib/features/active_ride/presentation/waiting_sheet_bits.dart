@@ -6,6 +6,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/features/safety/presentation/trip_share_page.dart';
+import 'package:movera_rider/features/messages/application/messages_controller.dart';
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
@@ -56,7 +57,6 @@ class WaitingShareButton extends StatelessWidget {
   void _share(BuildContext context) {
     final safety = SafetyController.shared;
     if (safety.preferences.tripShareEnabled) {
-      safety.shareTrip(rideId: rideId);
       showRideSafetyKit(context, rideId: rideId);
       return;
     }
@@ -96,6 +96,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
     super.key,
     required this.rideType,
     required this.pickupAddress,
+    this.destinationAddress,
+    this.inTrip = false,
     required this.paymentMethod,
     required this.price,
     required this.onMore,
@@ -103,6 +105,8 @@ class WaitingRideDetailsCard extends StatelessWidget {
 
   final String rideType;
   final String pickupAddress;
+  final String? destinationAddress;
+  final bool inTrip;
   final String paymentMethod;
   final double price;
   final VoidCallback onMore;
@@ -131,7 +135,9 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Meet at ${shortPickupPlace(pickupAddress)}',
+                  inTrip && destinationAddress?.trim().isNotEmpty == true
+                      ? 'To ${shortPickupPlace(destinationAddress!)}'
+                      : 'Meet at ${shortPickupPlace(pickupAddress)}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: waitingText(
@@ -162,22 +168,49 @@ class WaitingRideDetailsCard extends StatelessWidget {
   }
 }
 
-class WaitingDriverCard extends StatelessWidget {
+class WaitingDriverCard extends StatefulWidget {
   const WaitingDriverCard({
     super.key,
     required this.driver,
+    this.rideId,
     required this.onOpenProfile,
     required this.onCall,
     required this.onMore,
   });
 
   final MatchedDriver? driver;
+  final String? rideId;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
   final VoidCallback onMore;
 
   @override
+  State<WaitingDriverCard> createState() => _WaitingDriverCardState();
+}
+
+class _WaitingDriverCardState extends State<WaitingDriverCard> {
+  bool _openingChat = false;
+
+  Future<void> _openChat(String? rideId, String driverName) async {
+    if (_openingChat) return;
+    _openingChat = true;
+    try {
+      await Navigator.push(
+        context,
+        BottomToTopTransition(Chat(driverName: driverName, rideId: rideId)),
+      );
+    } finally {
+      _openingChat = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final driver = widget.driver;
+    final rideId = widget.rideId;
+    final onOpenProfile = widget.onOpenProfile;
+    final onCall = widget.onCall;
+    final onMore = widget.onMore;
     if (driver == null) {
       return Container(
         width: double.infinity,
@@ -195,7 +228,8 @@ class WaitingDriverCard extends StatelessWidget {
         ),
       );
     }
-    final d = driver!;
+    final d = driver;
+    final unreadMessages = MessagesController.forRide(rideId).unreadCount;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
       decoration: BoxDecoration(
@@ -219,10 +253,19 @@ class WaitingDriverCard extends StatelessWidget {
                           : null,
                       backgroundColor: const Color(0xFFF3F6FB),
                       child: d.photoAsset == null
-                          ? Text(
-                              d.firstName[0],
-                              style: waitingText(18, weight: FontWeight.w700),
-                            )
+                          ? (d.initial.isEmpty
+                                ? const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 22,
+                                    color: Color(0xFF6E7881),
+                                  )
+                                : Text(
+                                    d.initial,
+                                    style: waitingText(
+                                      18,
+                                      weight: FontWeight.w700,
+                                    ),
+                                  ))
                           : null,
                     ),
                     if (d.ratingLabel != null)
@@ -258,7 +301,7 @@ class WaitingDriverCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        d.firstName,
+                        d.displayFirstName,
                         style: waitingText(18, weight: FontWeight.w700),
                       ),
                       if (d.tripsLabel != null)
@@ -329,10 +372,7 @@ class WaitingDriverCard extends StatelessWidget {
                   color: const Color(0xFFF6F8FA),
                   borderRadius: BorderRadius.circular(14),
                   child: InkWell(
-                    onTap: () => Navigator.push(
-                      context,
-                      BottomToTopTransition(Chat(driverName: d.firstName)),
-                    ),
+                    onTap: () => _openChat(rideId, d.displayFirstName),
                     borderRadius: BorderRadius.circular(14),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -349,6 +389,29 @@ class WaitingDriverCard extends StatelessWidget {
                             'Message',
                             style: waitingText(14, weight: FontWeight.w600),
                           ),
+                          if (unreadMessages > 0) ...[
+                            const SizedBox(width: 7),
+                            Container(
+                              constraints: const BoxConstraints(minWidth: 20),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MoveraTokens.accent,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                unreadMessages > 99 ? '99+' : '$unreadMessages',
+                                textAlign: TextAlign.center,
+                                style: waitingText(
+                                  10,
+                                  weight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -382,38 +445,66 @@ class WaitingNotesAndPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safety = SafetyController.shared;
+    // The notes chips depend only on `notes` (this widget's own field), not
+    // on SafetyController at all - building them once here, instead of
+    // inside ListenableBuilder's builder, avoids rebuilding them on every
+    // unrelated safety/PIN notification.
+    final notesContent = notes.isEmpty
+        ? const SizedBox.shrink()
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final label in notes.selected)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F6FB),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text(
+                        label,
+                        style: waitingText(
+                          12,
+                          weight: FontWeight.w600,
+                          color: MoveraTokens.accent,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
+    return ListenableBuilder(
+      listenable: safety,
+      child: notesContent,
+      builder: (context, child) => _buildContent(context, safety, child!),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    SafetyController safety,
+    Widget notesContent,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!notes.isEmpty) ...[
+        notesContent,
+        if (safety.loading || !safety.hasLoaded) ...[
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final label in notes.selected)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F6FB),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: Text(
-                    label,
-                    style: waitingText(
-                      12,
-                      weight: FontWeight.w600,
-                      color: MoveraTokens.accent,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-        if (SafetyController.shared.preferences.pinRequired) ...[
+          Text('Loading PIN…',
+              style: waitingText(12, color: const Color(0xFF5C656C))),
+        ] else if (safety.preferences.pinRequired) ...[
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
@@ -426,13 +517,14 @@ class WaitingNotesAndPin extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Show this PIN to your driver',
+                  safety.pin.isAvailable
+                      ? 'Show this PIN to your driver'
+                      : 'PIN unavailable — verify plate and driver name',
                   style: waitingText(12, color: const Color(0xFF5C656C)),
                 ),
-                Text(
-                  SafetyController.shared.pin.pin,
-                  style: waitingText(22, weight: FontWeight.w700),
-                ),
+                if (safety.pin.isAvailable)
+                  Text(safety.pin.pin,
+                      style: waitingText(22, weight: FontWeight.w700)),
               ],
             ),
           ),

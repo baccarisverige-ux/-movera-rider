@@ -1,4 +1,4 @@
-name: Publish Rider Web Live
+name: Publish Rider Web Demo
 
 on:
   push:
@@ -6,9 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: movera-rider-pages
@@ -16,6 +14,10 @@ concurrency:
 
 jobs:
   publish:
+    permissions:
+      contents: write # Only the generated web-live branch needs a repository write.
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.pages.outputs.page_url }}
@@ -31,8 +33,13 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Build Flutter web
-        run: flutter build web --release --pwa-strategy=none
+      - name: Build explicit demo Flutter web
+        run: |
+          flutter build web --release \
+            -t lib/main_demo.dart \
+            --dart-define=MOVERA_FLAVOR=demo \
+            --dart-define=MOVERA_API_BASE_URL=https://api.demo.movera.invalid
+          printf '%s\n' '{"flavor":"demo","production":false}' > build/web/movera-environment.json
 
       - name: Configure Google Maps for web
         env:
@@ -49,12 +56,12 @@ jobs:
           p = Path('build/web/index.html')
           s = p.read_text()
           bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
-          # async, and placed before the deferred bootstrap only for ordering.
-          # Without it this is a render-blocking script sitting ahead of the
-          # app: the parser stops for ~0.9s of Maps JS before Flutter even
-          # starts loading. Nothing reads google.maps until a map widget is
-          # built, long after boot, so it does not need to block.
-          maps = f'  <script async src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}"></script>'
+          # async matters: without it this is a render-blocking script sitting
+          # ahead of the app, and the parser stops for ~0.9s of Maps JS before
+          # Flutter even starts loading. Nothing reads google.maps until a map
+          # widget is built, long after boot, so it does not need to block —
+          # measured at 713ms, against a first frame at 2.3s.
+          maps = f'  <script src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}" async defer></script>'
           if bootstrap not in s:
               raise SystemExit('Flutter bootstrap tag not found')
           if 'maps.googleapis.com/maps/api/js' not in s:
@@ -135,11 +142,16 @@ jobs:
           cp -a build/web/. /tmp/movera-web/
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan web-live
+          # flutter build regenerates tracked files (plugin registrants, pubspec.lock)
+          # as a side effect; the built output is already copied to /tmp/movera-web
+          # above, so discard those before switching branches or checkout aborts.
+          git checkout -- .
+          git fetch origin web-live:web-live
+          git checkout web-live
           git rm -rf . || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a /tmp/movera-web/. .
           touch .nojekyll
           git add -A
           git commit -m "Publish Movera Rider web build"
-          git push --force origin web-live
+          git push origin HEAD:web-live

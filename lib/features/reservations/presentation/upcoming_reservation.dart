@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_edit_sheets.dart';
@@ -11,6 +15,7 @@ import 'package:movera_rider/features/reservations/presentation/reservation_widg
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_ride_terms.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class UpcomingReservationPage extends StatefulWidget {
@@ -31,17 +36,20 @@ class UpcomingReservationPage extends StatefulWidget {
 class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   late final ReservationController _reservations;
   bool _handedOff = false;
+  bool _actionBusy = false;
 
   @override
   void initState() {
     super.initState();
     _reservations = widget.controller ?? AppScope.instance.reservations;
     _reservations.addListener(_refresh);
+    moveraNavigationEpoch.addListener(_onNavigationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _handoffIfLive());
   }
 
   @override
   void dispose() {
+    moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _reservations.removeListener(_refresh);
     super.dispose();
   }
@@ -51,43 +59,110 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     _handoffIfLive();
   }
 
+  bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_routeIsCurrent) return;
+      _handoffIfLive();
+    });
+  }
+
   void _handoffIfLive() {
     final ride = _reservations.byId(widget.reservationId);
-    if (ride == null || !ride.revealsDriver || _handedOff || !mounted) return;
+    if (ride == null ||
+        !ride.revealsDriver ||
+        _handedOff ||
+        !mounted ||
+        !_routeIsCurrent) {
+      return;
+    }
     _handedOff = true;
-    ReservationLiveRide.open(context, ride, replace: true);
+    unawaited(_openLiveRide(ride));
+  }
+
+  Future<void> _openLiveRide(Reservation snapshot) async {
+    // Same safety net as the Home chrono: re-read, and never (re)open a ride
+    // that has completed, been cancelled or no longer reveals its driver.
+    final ride = _reservations.byId(snapshot.reservationId);
+    if (!mounted ||
+        !_routeIsCurrent ||
+        ride == null ||
+        !ride.status.isUpcoming ||
+        !ride.revealsDriver) {
+      _handedOff = false;
+      return;
+    }
+    await ReservationLiveRide.open(
+      context,
+      ride,
+      controller: _reservations,
+    );
+    if (!mounted) return;
+    _handedOff = false;
+    _handoffIfLive();
   }
 
   Future<void> _editReservation(Reservation ride) async {
-    if (!ride.status.canEdit) return;
-    await Navigator.push(
-      context,
-      BottomToTopTransition(ScheduleRide(editing: ride)),
-    );
+    if (!ride.status.canEdit || _actionBusy) return;
+    setState(() => _actionBusy = true);
+    try {
+      await Navigator.push(
+        context,
+        BottomToTopTransition(ScheduleRide(editing: ride)),
+      );
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
   }
 
   Future<void> _cancel(Reservation ride) async {
-    final outcome = await showCancelReservationFlow(context, ride);
-    if (!outcome.cancelled) return;
-    await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+    if (_actionBusy) return;
+    setState(() => _actionBusy = true);
+    try {
+      final outcome = await showCancelReservationFlow(context, ride);
+      if (!outcome.cancelled) return;
+      await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+    } catch (error, stack) {
+      AppScope.instance.crashes.record(
+        error,
+        stack,
+        operation: 'reservation.cancel',
+      );
+      if (mounted) {
+        MoveraToast.show(
+          context,
+          reservationErrorMessage(error, ReservationAction.cancel),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
   }
 
   Future<void> _planReturn(Reservation ride) async {
-    await Navigator.push(
-      context,
-      RightToLeftTransition(
-        PlanReturnRidePage(
-          origin: ride,
-          controller: _reservations,
-          onScheduled: (context, id) => RideScheduledPage.open(
-            context,
-            reservationId: id,
+    if (_actionBusy) return;
+    setState(() => _actionBusy = true);
+    try {
+      await Navigator.push(
+        context,
+        RightToLeftTransition(
+          PlanReturnRidePage(
+            origin: ride,
             controller: _reservations,
-            replace: true,
+            onScheduled: (context, id) => RideScheduledPage.open(
+              context,
+              reservationId: id,
+              controller: _reservations,
+              replace: true,
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
   }
 
   @override
@@ -196,7 +271,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ),
                 if (ride.revealsDriver && ride.driver != null) ...[
                   const SizedBox(height: 14),
-                  _DriverCard(driver: ride.driver!),
+                  ReservationDriverCard(driver: ride.driver!),
                 ] else if (ride.driverAssigned) ...[
                   const SizedBox(height: 14),
                   Text(
@@ -241,7 +316,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                 ],
                 if (ride.status.canEdit) ...[
                   const SizedBox(height: 22),
-                  ReservationEditButton(onTap: () => _editReservation(ride)),
+                  ReservationEditButton(
+                    onTap: _actionBusy ? null : () => _editReservation(ride),
+                  ),
                   const SizedBox(height: 22),
                   Text(
                     'Need another ride?',
@@ -252,7 +329,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     color: kReservationSoft,
                     borderRadius: BorderRadius.circular(18),
                     child: InkWell(
-                      onTap: () => _planReturn(ride),
+                      onTap: _actionBusy ? null : () => _planReturn(ride),
                       borderRadius: BorderRadius.circular(18),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
@@ -326,7 +403,7 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     width: double.infinity,
                     height: 54,
                     child: TextButton(
-                      onPressed: () => _cancel(ride),
+                      onPressed: _actionBusy ? null : () => _cancel(ride),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFFF4F5F6),
                         foregroundColor: const Color(0xFFB42318),
@@ -354,8 +431,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
   }
 }
 
-class _DriverCard extends StatelessWidget {
-  const _DriverCard({required this.driver});
+class ReservationDriverCard extends StatelessWidget {
+  const ReservationDriverCard({super.key, required this.driver});
 
   final ReservationDriver driver;
 
@@ -376,10 +453,19 @@ class _DriverCard extends StatelessWidget {
                 ? null
                 : AssetImage(driver.photoAsset!),
             child: driver.photoAsset == null
-                ? Text(
-                    driver.firstName.substring(0, 1).toUpperCase(),
-                    style: reservationText(18, weight: FontWeight.w700),
-                  )
+                ? (driver.initial.isEmpty
+                      ? const Icon(
+                          Icons.person_outline_rounded,
+                          size: 20,
+                          color: kReservationMuted,
+                        )
+                      : Text(
+                          driver.initial,
+                          style: reservationText(
+                            18,
+                            weight: FontWeight.w700,
+                          ),
+                        ))
                 : null,
           ),
           const SizedBox(width: 12),
@@ -388,7 +474,7 @@ class _DriverCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  driver.firstName,
+                  driver.displayFirstName,
                   style: reservationText(16, weight: FontWeight.w700),
                 ),
                 if (driver.vehicle != null)

@@ -55,8 +55,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(find.text('Done'), 180);
-    await tester.tap(find.text('Done'));
+    // The completion surface must not close the ride before the rider leaves it.
+    expect(AppScope.instance.ride.status, RideStatus.tripCompleted);
+
+    final done = find.byKey(
+      const ValueKey<String>('ride-completed-done'),
+    );
+    expect(done, findsOneWidget);
+    await tester.tap(done);
     await tester.pumpAndSettle();
 
     expect(find.text('home-root'), findsOneWidget);

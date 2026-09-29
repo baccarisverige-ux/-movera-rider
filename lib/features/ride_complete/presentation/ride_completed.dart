@@ -1,147 +1,663 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appcolors.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
-import 'package:movera_rider/shared/widgets/custom_btn.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 
 class RideCompleted extends StatefulWidget {
-  const RideCompleted({super.key});
+  const RideCompleted({
+    super.key,
+    this.status = RideStatus.tripCompleted,
+    this.rideId,
+    this.realtime,
+    this.persistOnDemandState = true,
+    this.feedbackAvailableOnCompletion = false,
+    this.showConnectionBanner = true,
+    this.onClose,
+    this.controller,
+  });
+
+  final RideStatus status;
+  final String? rideId;
+
+  /// Optional transport override keeps this surface testable while production
+  /// uses the same RideRealtime seam as the active-ride screen.
+  final RideRealtime? realtime;
+  final bool persistOnDemandState;
+
+  /// Scheduled rides do not currently expose payment lifecycle states, but
+  /// completion itself is authoritative. This flag lets that flow offer
+  /// optional rating/tip without fabricating paymentProcessing,
+  /// paymentFinalized, or ratingPending events.
+  final bool feedbackAvailableOnCompletion;
+
+  final bool showConnectionBanner;
+  final Future<void> Function(BuildContext context)? onClose;
+  final RideCompleteController? controller;
 
   @override
   State<RideCompleted> createState() => _RideCompletedState();
 }
 
+int _completionRank(RideStatus status) {
+  switch (status) {
+    case RideStatus.tripCompleted:
+      return 1;
+    case RideStatus.paymentProcessing:
+      return 2;
+    case RideStatus.paymentFinalized:
+      return 3;
+    case RideStatus.ratingPending:
+      return 4;
+    default:
+      return 0;
+  }
+}
+
 class _RideCompletedState extends State<RideCompleted> {
+  late final RideCompleteController _controller = widget.controller ?? AppScope.instance.rideComplete;
+  StreamSubscription<RideRealtimeEvent>? _completionSub;
+  late RideStatus _status;
+  bool _leaving = false;
+  double? _rating;
+  int? _tipMinor;
+  String? _submitError;
+  final MutationAttempt _feedbackMutation = MutationAttempt('ride-feedback');
+  String? _acceptedFeedbackIntent;
+  bool _walletChargeRequested = false;
+
   @override
   void initState() {
     super.initState();
-    RideCompleteController().close();
+    _status = widget.status;
+    final rideId = widget.rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+
+    // Waiting stays subscribed until the replacement route is actually
+    // disposed. If payment/rating advances during that handoff, RideSession
+    // already has the newer authoritative completion state before this screen
+    // gets its first frame. Start from that state instead of regressing to the
+    // status captured when navigation began.
+    if (widget.persistOnDemandState) {
+      final session = AppScope.instance.ride;
+      if (session.rideId?.trim() == rideId &&
+          session.status.isCompletedSurface &&
+          _completionRank(session.status) > _completionRank(_status)) {
+        _status = session.status;
+      }
+    }
+
+    final realtime = widget.realtime ?? AppScope.instance.rideRealtime;
+    _completionSub = realtime.subscribe(rideId).listen((event) {
+      final status = event.status;
+      if (!mounted ||
+          _leaving ||
+          !status.isCompletedSurface ||
+          _completionRank(status) <= _completionRank(_status)) {
+        return;
+      }
+      if (widget.persistOnDemandState) {
+        AppScope.instance.ride.backendReconcile(
+          status,
+          id: event.tripId,
+          version: event.version ?? event.sequence,
+          updatedAt: event.serverTime ?? event.occurredAt,
+        );
+        unawaited(
+          _controller.persistCompletedStatus(status, rideId: rideId),
+        );
+      }
+      setState(() => _status = status);
+      _maybeChargeWallet();
+    });
+    _maybeChargeWallet();
+  }
+
+  /// D-022: a wallet-paid on-demand ride is deducted from the local wallet
+  /// balance once it reaches a charged status. WalletController guards
+  /// against charging the same ride twice.
+  void _maybeChargeWallet() {
+    if (!widget.persistOnDemandState || _walletChargeRequested) return;
+    if (_completionRank(_status) <
+        _completionRank(RideStatus.paymentFinalized)) {
+      return;
+    }
+    final rideId = widget.rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    _walletChargeRequested = true;
+    unawaited(_chargeWallet(rideId));
+  }
+
+  Future<void> _chargeWallet(String rideId) async {
+    try {
+      await AppScope.instance.walletController.chargeCompletedRideById(rideId);
+    } catch (error) {
+      AppLog.warning(
+        'wallet.ride_charge_failed',
+        extra: {'rideId': rideId, 'error': error.toString()},
+      );
+    }
   }
 
   @override
+  void dispose() {
+    _completionSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _closeAndHome() => _leave(submitFeedback: true);
+
+  /// Back (top-left and system) must never submit money-affecting feedback
+  /// as a side effect of leaving. Only prompt when there is a selected
+  /// rating or tip that would otherwise be silently discarded; with nothing
+  /// selected there is nothing to lose, so leave immediately.
+  Future<void> _handleBack() async {
+    if (_leaving || !mounted) return;
+    if (_rating == null && _tipMinor == null) {
+      await _leave(submitFeedback: false);
+      return;
+    }
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Leave without sending?',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          'Your rating and tip have not been sent yet. Going back now will discard them.',
+          style: GoogleFonts.poppins(fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            key: const ValueKey('completion-leave-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (leave == true) {
+      await _leave(submitFeedback: false);
+    }
+  }
+
+  Future<void> _leave({required bool submitFeedback}) async {
+    if (_leaving || !mounted) return;
+    setState(() {
+      _leaving = true;
+      _submitError = null;
+    });
+    try {
+      if (submitFeedback && (_rating != null || _tipMinor != null)) {
+        final id = widget.rideId;
+        if (id == null || id.trim().isEmpty) {
+          throw StateError('Ride ID is missing.');
+        }
+        final feedbackIntent =
+            '$id|${_rating?.toStringAsFixed(1) ?? ''}|${_tipMinor ?? ''}';
+        if (_acceptedFeedbackIntent != feedbackIntent) {
+          await _controller.submitFeedback(
+            rideId: id,
+            rating: _rating,
+            tipMinor: _tipMinor,
+            idempotencyKey: _feedbackMutation.keyFor(feedbackIntent),
+          );
+          _acceptedFeedbackIntent = feedbackIntent;
+          _feedbackMutation.succeeded(feedbackIntent);
+        }
+      }
+      if (!mounted) return;
+      final customClose = widget.onClose;
+      if (customClose != null) {
+        await customClose(context);
+        return;
+      }
+      if (widget.persistOnDemandState && widget.rideId != null) {
+        await _controller.closeCompletedRide(widget.rideId!);
+      } else {
+        _controller.close();
+      }
+      if (!mounted) return;
+      RideNavigator.home(context, status: RideStatus.closed);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _leaving = false;
+        _submitError = 'Couldn’t save your trip feedback or History. Try again.';
+      });
+    }
+  }
+
+  _CompletionSpec get _spec => _CompletionSpec.fromStatus(_status);
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            50.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      RideNavigator.home(context, status: RideStatus.closed);
-                    },
-                    customBorder: const CircleBorder(),
-                    child: Semantics(
-                      button: true,
+    final spec = _spec;
+    final canRate =
+        _status == RideStatus.ratingPending ||
+        (widget.feedbackAvailableOnCompletion &&
+            _status == RideStatus.tripCompleted);
+    final showFeedbackSurface = widget.persistOnDemandState || canRate;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _handleBack();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F5F1),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                child: Row(
+                  children: [
+                    _CircleAction(
+                      icon: Icons.arrow_back_ios_rounded,
                       label: 'Back',
-                      child: Container(
-                        height: 48,
-                        width: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColor.border,
-                            width: 0.3,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              // ignore: deprecated_member_use
-                              color: Color(0xff999999).withValues(alpha: 0.1),
-                              blurRadius: 40,
-                              offset: const Offset(0, 4),
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.arrow_back_ios_rounded,
-                            color: AppColor.title,
-                            size: ResSize.h * 16,
-                          ),
+                      onTap: _handleBack,
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Ride summary',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: MoveraTokens.ink,
                         ),
                       ),
                     ),
-                  ),
-                  Flexible(
-                    child: TextWidget(
-                      text: "Trip complete",
-                      color: AppColor.black,
-                      fontSize: 16,
-                      fontWeight: fwSemiBold,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 48, width: 48),
-                ],
+                    const SizedBox(width: 48),
+                  ],
+                ),
               ),
-            ),
-            26.height,
-            Container(
-              color: AppColor.liteBlue,
-              width: double.infinity,
-              child: Padding(
-                padding: EdgeInsetsGeometry.symmetric(vertical: ResSize.h * 11),
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              if (widget.showConnectionBanner)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: RealtimeConnectionBanner(
+                    connection: AppScope.instance.realtime,
+                  ),
+                ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                  child: Column(
                     children: [
-                      Flexible(
-                        child: TextWidget(
-                          text: "Make sure your belongings are not left behind",
-                          color: AppColor.title,
-                          fontSize: 12,
-                          fontWeight: fwMedium,
+                      _CompletionHero(spec: spec),
+                      if (showFeedbackSurface) ...[
+                        const SizedBox(height: 14),
+                        IgnorePointer(
+                          key: const ValueKey('completion-feedback-lock'),
+                          ignoring: !canRate || _leaving,
+                          child: AnimatedOpacity(
+                            key: const ValueKey('completion-feedback'),
+                            duration: const Duration(milliseconds: 160),
+                            curve: Curves.easeOutCubic,
+                            opacity: canRate ? 1 : 0.52,
+                            child: Column(
+                              children: [
+                                _SurfaceCard(
+                                  child: RideCompletedGiveReview(
+                                    onRatingChanged: (rating) => _rating = rating,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                _SurfaceCard(
+                                  child: RideCompletedAddTip(
+                                    onTipChanged: (amount) => _tipMinor = amount,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          canRate
+                              ? 'Rating and tip are optional. Tap Done when you are finished.'
+                              : 'Rating and tip will be available after payment confirmation.',
+                          key: const ValueKey('completion-feedback-status'),
                           textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            color: MoveraTokens.muted,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      const _BelongingsReminder(),
+                      const SizedBox(height: 14),
+                      _SurfaceCard(
+                        child: const RideCompletedDriverInfo(),
+                      ),
+                      const SizedBox(height: 14),
+                      _SurfaceCard(
+                        child: RideCompletedTripDetail(
+                          controller: _controller,
+                          rideId: widget.rideId,
                         ),
                       ),
-                      7.width,
-                      Image.asset(
-                        excludeFromSemantics: true,
-                        AppAssets.eyeEmoji,
-                        height: ResSize.h * 20,
-                      ),
+                      const SizedBox(height: 18),
+                      if (_submitError != null)
+                        Text(
+                          _submitError!,
+                          key: const ValueKey('completion-submit-error'),
+                          style: const TextStyle(color: Colors.red),
+                        ),
                     ],
                   ),
                 ),
               ),
-            ),
-            24.height,
-            RideCompletedDriverInfo(),
-            24.height,
-            RideCompletedGiveReview(),
-            24.height,
-            RideCompletedAddTip(),
-            24.height,
-            RideCompletedTripDetail(),
-            24.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenHorizPadding),
-              child: CustomButton(
-                centerContent: "Done",
-                onPressed: () =>
-                    RideNavigator.home(context, status: RideStatus.closed),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: MoveraTokens.buttonHeight,
+                  child: FilledButton(
+                    key: const ValueKey<String>('ride-completed-done'),
+                    onPressed: _leaving ? null : _closeAndHome,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: MoveraTokens.cta,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: Text(
+                      'Done',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            24.height,
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+}
+
+class _CompletionHero extends StatelessWidget {
+  const _CompletionHero({required this.spec});
+
+  final _CompletionSpec spec;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: MoveraTokens.line),
+        boxShadow: [
+          BoxShadow(
+            color: MoveraTokens.ink.withValues(alpha: 0.05),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F7),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              spec.icon,
+              size: 29,
+              color: MoveraTokens.accent,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            spec.title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 23,
+              fontWeight: FontWeight.w700,
+              color: MoveraTokens.ink,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 76),
+            child: Center(
+              child: Text(
+                spec.message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: MoveraTokens.muted,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFB),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  spec.statusIcon,
+                  size: 18,
+                  color: MoveraTokens.accent,
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    spec.statusLabel,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: MoveraTokens.ink,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BelongingsReminder extends StatelessWidget {
+  const _BelongingsReminder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F7),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Make sure you have all your belongings.',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: MoveraTokens.ink,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Image.asset(
+            excludeFromSemantics: true,
+            AppAssets.eyeEmoji,
+            width: 20,
+            height: 20,
+            fit: BoxFit.contain,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurfaceCard extends StatelessWidget {
+  const _SurfaceCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: MoveraTokens.line),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CircleAction extends StatelessWidget {
+  const _CircleAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.white,
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: MoveraTokens.line),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 18,
+              color: MoveraTokens.ink,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompletionSpec {
+  const _CompletionSpec({
+    required this.title,
+    required this.message,
+    required this.statusLabel,
+    required this.icon,
+    required this.statusIcon,
+  });
+
+  final String title;
+  final String message;
+  final String statusLabel;
+  final IconData icon;
+  final IconData statusIcon;
+
+  factory _CompletionSpec.fromStatus(RideStatus status) {
+    switch (status) {
+      case RideStatus.paymentProcessing:
+        return const _CompletionSpec(
+          title: 'Trip complete',
+          message:
+              'Your ride has ended. Payment confirmation is still processing.',
+          statusLabel: 'Payment processing',
+          icon: Icons.route_rounded,
+          statusIcon: Icons.hourglass_top_rounded,
+        );
+      case RideStatus.paymentFinalized:
+        return const _CompletionSpec(
+          title: 'Trip complete',
+          message:
+              'Your ride has ended and the payment has been confirmed.',
+          statusLabel: 'Payment confirmed',
+          icon: Icons.check_rounded,
+          statusIcon: Icons.verified_rounded,
+        );
+      case RideStatus.ratingPending:
+        return const _CompletionSpec(
+          title: 'Trip complete',
+          message:
+              'Your ride and payment are complete. You can now rate your driver.',
+          statusLabel: 'Ready for feedback',
+          icon: Icons.star_outline_rounded,
+          statusIcon: Icons.rate_review_outlined,
+        );
+      case RideStatus.tripCompleted:
+      default:
+        return const _CompletionSpec(
+          title: 'Trip complete',
+          message:
+              'Your ride has ended. Payment status will update when it is confirmed.',
+          statusLabel: 'Trip completed',
+          icon: Icons.flag_rounded,
+          statusIcon: Icons.check_circle_outline_rounded,
+        );
+    }
   }
 }
