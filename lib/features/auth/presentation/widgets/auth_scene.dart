@@ -120,7 +120,8 @@ class _ScenePainter extends CustomPainter {
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    if (story == null) canvas.drawPath(
+    if (story == null) {
+      canvas.drawPath(
       Path()
         ..moveTo(250, 34)
         ..lineTo(255, 38)
@@ -130,6 +131,7 @@ class _ScenePainter extends CustomPainter {
         ..lineTo(276, 26),
       bird,
     );
+    }
   }
 
   void _paintCity(Canvas canvas) {
