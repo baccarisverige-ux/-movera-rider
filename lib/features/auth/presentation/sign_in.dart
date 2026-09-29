@@ -10,6 +10,7 @@ import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/bird_wordmark_intro.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// Step 1 for everyone: one phone field for new and returning riders, with
@@ -119,10 +120,9 @@ class _SignInState extends State<SignIn> {
     final idle = _busy == null;
     return AuthScaffold(
       step: 1,
-      headline: 'Moving to a\n',
-      headlineAccent: 'new era.',
-      headlineSize: 42,
-      lede: const Text('Fair prices. Trusted drivers.'),
+      headline: '',
+      headlineAccent: '',
+      hero: const BirdWordmarkIntro(),
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
