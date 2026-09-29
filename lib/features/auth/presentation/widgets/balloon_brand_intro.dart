@@ -46,13 +46,13 @@ class BalloonBrandIntro extends StatelessWidget {
                     final balloonY = 119 + (47 - 119) * rise;
                     final balloonOpacity = _phase(time, 0.51, 0.56);
                     final opening = Curves.easeOut.transform(
-                      _phase(time, 0.77, 0.12),
+                      _phase(time, 0.77, 0.89),
                     );
                     final letters = Curves.easeIn.transform(
-                      _phase(time, 0.79, 0.11),
+                      _phase(time, 0.79, 0.90),
                     );
                     final tagline = Curves.easeIn.transform(
-                      _phase(time, 0.88, 0.10),
+                      _phase(time, 0.88, 0.98),
                     );
                     return Stack(
                       clipBehavior: Clip.none,
