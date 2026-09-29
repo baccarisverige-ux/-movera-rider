@@ -5,8 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/movera_wordmark.dart';
 
-/// A one-time welcome on the first sign-in step. Five small birds bring the
-/// six letters of Movera together, then the brand lockup remains still.
+/// Five birds deliver the letters, then settle beside the finished wordmark
+/// with gentle, continuous motion.
 class BirdWordmarkIntro extends StatefulWidget {
   const BirdWordmarkIntro({super.key});
 
@@ -15,10 +15,14 @@ class BirdWordmarkIntro extends StatefulWidget {
 }
 
 class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
+    with TickerProviderStateMixin {
+  late final AnimationController _intro = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2800),
+    duration: const Duration(milliseconds: 3900),
+  );
+  late final AnimationController _hover = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1900),
   );
   bool _started = false;
 
@@ -27,13 +31,20 @@ class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
     super.didChangeDependencies();
     if (!_started) {
       _started = true;
-      if (!MediaQuery.of(context).disableAnimations) _controller.forward();
+      if (!MediaQuery.of(context).disableAnimations) {
+        _intro.forward().then((_) {
+          if (mounted && !MediaQuery.of(context).disableAnimations) {
+            _hover.repeat(reverse: true);
+          }
+        });
+      }
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _intro.dispose();
+    _hover.dispose();
     super.dispose();
   }
 
@@ -51,60 +62,64 @@ class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
       child: ExcludeSemantics(
         child: SizedBox(
           height: 142,
-          child: LayoutBuilder(
-            builder: (context, constraints) => AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                final time = reducedMotion ? 1.0 : _controller.value;
-                final lockup = Curves.easeIn.transform(
-                  _progress(time, 0.79, 0.12),
-                );
-                final tagline = Curves.easeIn.transform(
-                  _progress(time, 0.86, 0.12),
-                );
-                final flightOpacity = 1.0 - _progress(time, 0.77, 0.13);
-                final center = constraints.maxWidth / 2;
-                return Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    for (var i = 0; i < _letters.length; i++)
-                      _flyingLetter(
-                        i: i,
-                        time: time,
-                        center: center,
-                        opacity: flightOpacity,
-                        width: constraints.maxWidth,
-                      ),
-                    Positioned.fill(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Opacity(
-                            opacity: lockup,
-                            child: const MoveraWordmark(size: 37),
-                          ),
-                          const SizedBox(height: 8),
-                          Opacity(
-                            opacity: tagline,
-                            child: Text(
-                              'Moving to a new era.',
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 27,
-                                height: 1.15,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.8,
-                                color: AuthColors.deepGreen,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 350),
+              child: LayoutBuilder(
+                builder: (context, constraints) => AnimatedBuilder(
+                  animation: Listenable.merge([_intro, _hover]),
+                  builder: (context, _) {
+                    final time = reducedMotion ? 1.0 : _intro.value;
+                    final lockup = Curves.easeIn.transform(
+                      _progress(time, 0.72, 0.18),
+                    );
+                    final tagline = Curves.easeIn.transform(
+                      _progress(time, 0.83, 0.15),
+                    );
+                    final center = constraints.maxWidth / 2;
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Opacity(
+                                opacity: lockup,
+                                child: const MoveraWordmark(size: 37),
                               ),
-                            ),
+                              const SizedBox(height: 8),
+                              Opacity(
+                                opacity: tagline,
+                                child: Text(
+                                  'Moving to a new era.',
+                                  maxLines: 1,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    height: 1.15,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.8,
+                                    color: AuthColors.deepGreen,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+                        ),
+                        for (var i = 0; i < _letters.length; i++)
+                          ..._flyingPair(
+                            i: i,
+                            time: time,
+                            center: center,
+                            width: constraints.maxWidth,
+                            reducedMotion: reducedMotion,
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -112,40 +127,54 @@ class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
     );
   }
 
-  Widget _flyingLetter({
+  List<Widget> _flyingPair({
     required int i,
     required double time,
     required double center,
-    required double opacity,
     required double width,
+    required bool reducedMotion,
   }) {
-    final rightToLeft = i.isOdd;
-    final startX = rightToLeft ? width + 24 : -58.0;
-    final targetX = center + _destinations[i] - 12;
+    final fromRight = i.isOdd;
+    final startX = fromRight ? width + 24 : -58.0;
+    final landingX = center + _destinations[i] - 12;
+    final arrival = 0.55 + i * 0.05;
     final flight = Curves.easeInOutCubic.transform(
-      _progress(time, i * 0.065, 0.66),
+      _progress(time, i * 0.05, 0.55),
     );
-    final x = startX + (targetX - startX) * flight;
+    final approachX = startX + (landingX - startX) * flight;
     final arc = math.sin(flight * math.pi) * (i.isEven ? 19 : -16);
     final startY = 18.0 + (i % 3) * 13;
-    final y = startY + (38 - startY) * flight - arc;
-    return Positioned(
-      left: x,
-      top: y,
-      child: Opacity(
-        opacity: opacity,
-        child: Column(
-          children: [
-            Transform.flip(
-              flipX: rightToLeft,
-              child: CustomPaint(
-                size: const Size(27, 17),
-                painter: _BirdPainter(
-                  i.isOdd ? AuthColors.green : AuthColors.deepGreen,
-                ),
-              ),
-            ),
-            Text(
+    final approachY = startY + (38 - startY) * flight - arc;
+    final depart = Curves.easeInOut.transform(
+      _progress(time, arrival, 0.22),
+    );
+    // Stay close to the brand, including on narrow phone screens.
+    final perches = [
+      Offset(8, 55),
+      Offset(width - 34, 28),
+      const Offset(32, 8),
+      Offset(width - 60, 74),
+      Offset(width - 32, 8),
+    ];
+    final perch = perches[i];
+    final bob = reducedMotion
+        ? 0.0
+        : math.sin((_hover.value * 2 * math.pi) + i * 0.9) * 3.0;
+    final tilt = reducedMotion
+        ? 0.0
+        : math.sin((_hover.value * 2 * math.pi) + i * 0.9) * 0.09;
+    final birdX = approachX + (perch.dx - approachX) * depart;
+    final birdY = approachY + (perch.dy - approachY) * depart + bob * depart;
+    final letterOpacity = 1.0 - _progress(time, arrival, 0.18);
+
+    return [
+      if (letterOpacity > 0)
+        Positioned(
+          left: approachX,
+          top: approachY + 17,
+          child: Opacity(
+            opacity: letterOpacity,
+            child: Text(
               _letters[i],
               style: GoogleFonts.poppins(
                 fontSize: 21,
@@ -154,10 +183,25 @@ class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
                 color: i >= 3 ? AuthColors.green : AuthColors.ink,
               ),
             ),
-          ],
+          ),
+        ),
+      Positioned(
+        left: birdX,
+        top: birdY,
+        child: Transform.rotate(
+          angle: tilt * depart,
+          child: Transform.flip(
+            flipX: fromRight,
+            child: CustomPaint(
+              size: const Size(27, 17),
+              painter: _BirdPainter(
+                i.isOdd ? AuthColors.green : AuthColors.deepGreen,
+              ),
+            ),
+          ),
         ),
       ),
-    );
+    ];
   }
 }
 
