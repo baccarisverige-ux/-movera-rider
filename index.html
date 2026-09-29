@@ -48,9 +48,66 @@
     body.movera-overlay-open .gm-style {
       pointer-events: none !important;
     }
+
+    /* Boot screen. Plain HTML and CSS so it paints in milliseconds, while the
+       app bundle is still downloading and compiling. Without it the rider
+       stares at an empty page for several seconds and assumes the app is
+       broken rather than loading. Dart clears it on its first frame. */
+    #movera-boot {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      background: #eef1e8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      opacity: 1;
+      transition: opacity 240ms ease-out;
+    }
+    #movera-boot.movera-boot-done {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #movera-boot .movera-boot-mark {
+      font-size: 34px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: #1d252c;
+      text-transform: uppercase;
+    }
+    #movera-boot .movera-boot-track {
+      width: 132px;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(29, 37, 44, 0.12);
+      overflow: hidden;
+    }
+    #movera-boot .movera-boot-fill {
+      display: block;
+      width: 40%;
+      height: 100%;
+      border-radius: 999px;
+      background: #1d252c;
+      animation: movera-boot-slide 1150ms ease-in-out infinite;
+    }
+    @keyframes movera-boot-slide {
+      0%   { transform: translateX(-110%); }
+      100% { transform: translateX(360%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #movera-boot .movera-boot-fill { animation: none; width: 100%; }
+      #movera-boot { transition: none; }
+    }
   </style>
 </head>
 <body>
+  <div id="movera-boot" role="status" aria-live="polite" aria-label="Loading Movera">
+    <div class="movera-boot-mark">Movera</div>
+    <div class="movera-boot-track"><span class="movera-boot-fill"></span></div>
+  </div>
   <script>
     // iOS home-screen icons saved before the manifest change can reopen the
     // original URL without its query string. Set the demo preview flag before
@@ -64,6 +121,27 @@
       if (url.searchParams.has('auth_preview') || url.searchParams.has('qa_wait')) return;
       url.searchParams.set('auth_preview', '1');
       history.replaceState(history.state, '', url);
+    })();
+  </script>
+  <script>
+    // Dart calls this from its first post-frame callback. The timer is only a
+    // fallback: if the app fails to boot the rider should see whatever Flutter
+    // did render (or the empty page and its own reload button) rather than a
+    // loading screen that never ends.
+    (function() {
+      var cleared = false;
+      function clear() {
+        if (cleared) return;
+        cleared = true;
+        var boot = document.getElementById('movera-boot');
+        if (!boot) return;
+        boot.classList.add('movera-boot-done');
+        setTimeout(function() {
+          if (boot.parentNode) boot.parentNode.removeChild(boot);
+        }, 280);
+      }
+      window.moveraAppReady = clear;
+      setTimeout(clear, 20000);
     })();
   </script>
   <script src="movera_ride_snapshot_wipe.js"></script>
@@ -479,6 +557,6 @@
     // and for backgrounding, which previously killed listeners after grant.
   </script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBJ_3q856NuoUBtnddNnIUC_-zs6ZJDml8" async defer></script>
-  <script src="flutter_bootstrap.7e3bfea6.js" defer></script>
+  <script src="flutter_bootstrap.a7b193ca.js" defer></script>
 </body>
 </html>
