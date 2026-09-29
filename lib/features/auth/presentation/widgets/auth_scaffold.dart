@@ -22,6 +22,7 @@ class AuthScaffold extends StatelessWidget {
     this.headlineSize = 40,
     this.lede,
     this.hero,
+    this.sceneProgress,
     this.showCar = true,
     required this.card,
   });
@@ -38,6 +39,7 @@ class AuthScaffold extends StatelessWidget {
   final double headlineSize;
   final Widget? lede;
   final Widget? hero;
+  final Animation<double>? sceneProgress;
   final bool showCar;
   final Widget card;
 
@@ -109,7 +111,7 @@ class AuthScaffold extends StatelessWidget {
                   Expanded(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(minHeight: 96),
-                      child: AuthScene(showCar: showCar),
+                      child: AuthScene(showCar: showCar, storyProgress: sceneProgress),
                     ),
                   ),
                   Container(
