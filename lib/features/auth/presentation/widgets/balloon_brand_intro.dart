@@ -44,7 +44,7 @@ class BalloonBrandIntro extends StatelessWidget {
                     final targetX = center - 43;
                     final balloonX = originX + (targetX - originX) * rise;
                     final balloonY = 119 + (47 - 119) * rise;
-                    final balloonOpacity = _phase(time, 0.51, 0.05);
+                    final balloonOpacity = _phase(time, 0.51, 0.56);
                     final opening = Curves.easeOut.transform(
                       _phase(time, 0.77, 0.12),
                     );
