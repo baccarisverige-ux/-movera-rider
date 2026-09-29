@@ -6,6 +6,15 @@ class SearchCopy {
   final String subtitle;
 
   static const delayedAfter = Duration(seconds: 60);
+
+  /// When the "raise your offer" card appears on a real backend. It has its
+  /// own timer: the "taking longer than usual" copy still waits for
+  /// [delayedAfter].
+  static const priceBumpAfter = Duration(seconds: 45);
+
+  /// The same card in demo builds, early enough to be seen before the demo
+  /// driver is assigned.
+  static const demoPriceBumpAfter = Duration(seconds: 5);
   static const rotateEvery = Duration(seconds: 12);
 
   static const initial = [

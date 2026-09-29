@@ -34,8 +34,14 @@ class FindingDriverController {
     ApiClient? api,
     OnDemandArchiveWriter? historyArchiveWriter,
     this.delayedAfter = SearchCopy.delayedAfter,
+    Duration? priceBumpAfter,
     this.searchTimeout = const Duration(minutes: 3),
-  }) : _store = store ?? FindingDriverRepository(),
+  }) : priceBumpAfter =
+           priceBumpAfter ??
+           (AppScope.instance.environment.allowsMockTransport
+               ? SearchCopy.demoPriceBumpAfter
+               : SearchCopy.priceBumpAfter),
+       _store = store ?? FindingDriverRepository(),
        _realtime = realtime ?? AppScope.instance.rideRealtime,
        _ride = ride,
        _api = api,
@@ -49,6 +55,9 @@ class FindingDriverController {
   final ApiClient? _api;
   final OnDemandArchiveWriter? _historyArchiveWriter;
   final Duration delayedAfter;
+
+  /// When the "raise your offer" card appears, if no driver has accepted.
+  final Duration priceBumpAfter;
   final Duration searchTimeout;
   final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
   final MutationAttempt _priceMutation = MutationAttempt('ride-price');
@@ -94,7 +103,7 @@ class FindingDriverController {
   bool get editInFlight => _editInFlight;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
   bool get showPriceBump =>
-      isDelayed &&
+      elapsedSeconds >= priceBumpAfter.inSeconds &&
       !_bumpDismissed &&
       !_assigned &&
       !_assignmentPending &&

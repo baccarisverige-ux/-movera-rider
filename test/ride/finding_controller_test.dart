@@ -29,6 +29,7 @@ FindingDriverController controllerOf(
   MockRideRealtime rt,
   RideSession ride, {
   Duration delayedAfter = SearchCopy.delayedAfter,
+  Duration? priceBumpAfter,
   Duration searchTimeout = const Duration(minutes: 3),
   ApiClient? api,
 }) {
@@ -37,6 +38,7 @@ FindingDriverController controllerOf(
     ride: ride,
     store: FindingDriverRepository(),
     delayedAfter: delayedAfter,
+    priceBumpAfter: priceBumpAfter,
     searchTimeout: searchTimeout,
     api: api,
   );
@@ -162,7 +164,12 @@ void main() {
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     var matches = 0;
-    final controller = controllerOf(rt, ride, delayedAfter: Duration.zero);
+    final controller = controllerOf(
+      rt,
+      ride,
+      delayedAfter: Duration.zero,
+      priceBumpAfter: Duration.zero,
+    );
     controller.start(
       snapshot: snap(),
       onTick: (_) {},
@@ -235,6 +242,7 @@ void main() {
       rt,
       ride,
       delayedAfter: Duration.zero,
+      priceBumpAfter: Duration.zero,
       api: api,
     );
     controller.start(snapshot: snap(), onTick: (_) {}, onMatched: () {});
