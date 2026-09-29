@@ -53,7 +53,9 @@ class _AuthSceneState extends State<AuthScene>
     if (time < 0.43) {
       return 0.62 * Curves.easeInOutCubic.transform(phase(0.04, 0.43));
     }
-    if (time < 0.64) return 0.62; // Wait while the person boards.
+    if (time < 0.64) {
+      return 0.62; // Wait while the person boards.
+    }
     return 0.62 + 0.38 *
         Curves.easeInOutCubic.transform(phase(0.64, 0.98));
   }
@@ -333,7 +335,9 @@ class _ScenePainter extends CustomPainter {
     }
 
     final released = phase(0.44, 0.56);
-    if (time >= 0.58) return;
+    if (time >= 0.58) {
+      return;
+    }
     final balloon = Offset(304, 141 - released * 149);
     const colors = [
       Color(0xFF4285F4),
