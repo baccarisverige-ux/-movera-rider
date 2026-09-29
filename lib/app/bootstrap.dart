@@ -8,6 +8,7 @@ import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/web/web_splash.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -53,6 +54,9 @@ Future<void> bootstrap() async {
   runZonedGuarded(
     () {
       runApp(const MoveraApp());
+      // The HTML boot screen covers the blank page while the bundle loads.
+      // Clear it once there is a real frame behind it, not before.
+      WidgetsBinding.instance.addPostFrameCallback((_) => dismissWebSplash());
     },
     (error, stack) {
       AppScope.instance.crashes.record(error, stack);

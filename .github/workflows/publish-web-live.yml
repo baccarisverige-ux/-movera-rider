@@ -49,7 +49,12 @@ jobs:
           p = Path('build/web/index.html')
           s = p.read_text()
           bootstrap = '  <script src="flutter_bootstrap.js" defer></script>'
-          maps = f'  <script src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}"></script>'
+          # async, and placed before the deferred bootstrap only for ordering.
+          # Without it this is a render-blocking script sitting ahead of the
+          # app: the parser stops for ~0.9s of Maps JS before Flutter even
+          # starts loading. Nothing reads google.maps until a map widget is
+          # built, long after boot, so it does not need to block.
+          maps = f'  <script async src="https://maps.googleapis.com/maps/api/js?key={os.environ["MAPS_WEB_API_KEY"]}"></script>'
           if bootstrap not in s:
               raise SystemExit('Flutter bootstrap tag not found')
           if 'maps.googleapis.com/maps/api/js' not in s:
