@@ -21,6 +21,7 @@ class AuthScaffold extends StatelessWidget {
     required this.headlineAccent,
     this.headlineSize = 40,
     this.lede,
+    this.hero,
     this.showCar = true,
     required this.card,
   });
@@ -36,6 +37,7 @@ class AuthScaffold extends StatelessWidget {
   final String headlineAccent;
   final double headlineSize;
   final Widget? lede;
+  final Widget? hero;
   final bool showCar;
   final Widget card;
 
@@ -61,39 +63,46 @@ class AuthScaffold extends StatelessWidget {
                       onBack: onBack,
                     ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(24, 10, 24, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: MoveraWordmark(),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
-                    child: Semantics(
-                      header: true,
-                      child: Text.rich(
-                        TextSpan(
-                          text: headline,
-                          children: [
-                            TextSpan(
-                              text: headlineAccent,
-                              style: const TextStyle(color: AuthColors.green),
-                            ),
-                          ],
-                        ),
-                        style: AuthText.headline(headlineSize),
-                      ),
-                    ),
-                  ),
-                  if (lede != null)
+                  if (hero != null)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 40, 0),
-                      child: DefaultTextStyle(
-                        style: AuthText.lede(),
-                        child: lede!,
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                      child: hero!,
+                    )
+                  else ...[
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(24, 10, 24, 0),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: MoveraWordmark(),
                       ),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+                      child: Semantics(
+                        header: true,
+                        child: Text.rich(
+                          TextSpan(
+                            text: headline,
+                            children: [
+                              TextSpan(
+                                text: headlineAccent,
+                                style: const TextStyle(color: AuthColors.green),
+                              ),
+                            ],
+                          ),
+                          style: AuthText.headline(headlineSize),
+                        ),
+                      ),
+                    ),
+                    if (lede != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 40, 0),
+                        child: DefaultTextStyle(
+                          style: AuthText.lede(),
+                          child: lede!,
+                        ),
+                      ),
+                  ],
                   // Takes whatever height the card leaves, never less than
                   // 96: on short screens (landscape, keyboard up) the page
                   // scrolls instead of squeezing the form.
