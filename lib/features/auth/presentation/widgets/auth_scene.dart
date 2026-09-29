@@ -11,9 +11,10 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart'
 /// a car eases in along the road once (no endless animation, so tests can
 /// settle).
 class AuthScene extends StatefulWidget {
-  const AuthScene({super.key, this.showCar = true});
+  const AuthScene({super.key, this.showCar = true, this.storyProgress});
 
   final bool showCar;
+  final Animation<double>? storyProgress;
 
   static const designSize = Size(390, 230);
 
@@ -32,6 +33,7 @@ class _AuthSceneState extends State<AuthScene>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (widget.storyProgress != null) return;
     if (reduceMotion) {
       _drive.value = 1;
     } else if (_drive.status == AnimationStatus.dismissed) {
@@ -49,13 +51,19 @@ class _AuthSceneState extends State<AuthScene>
   Widget build(BuildContext context) {
     return ExcludeSemantics(
       child: AnimatedBuilder(
-        animation: _drive,
+        animation: widget.storyProgress ?? _drive,
         builder: (context, _) => CustomPaint(
           size: Size.infinite,
           painter: _ScenePainter(
             car: widget.showCar
-                ? Curves.easeOutCubic.transform(_drive.value)
+                ? widget.storyProgress == null
+                    ? Curves.easeOutCubic.transform(_drive.value)
+                    : Curves.easeInOutCubic.transform(
+                        ((widget.storyProgress!.value - 0.04) / 0.40)
+                            .clamp(0.0, 1.0).toDouble(),
+                      )
                 : null,
+            story: widget.storyProgress?.value,
           ),
         ),
       ),
@@ -64,10 +72,11 @@ class _AuthSceneState extends State<AuthScene>
 }
 
 class _ScenePainter extends CustomPainter {
-  const _ScenePainter({this.car});
+  const _ScenePainter({this.car, this.story});
 
   /// 0..1 progress of the car along the road, or null for no car.
   final double? car;
+  final double? story;
 
   static final _road = Path()
     ..moveTo(-10, 226)
@@ -87,6 +96,7 @@ class _ScenePainter extends CustomPainter {
     _paintWater(canvas);
     _paintRoad(canvas);
     _paintTrees(canvas);
+    if (story != null) _paintPerson(canvas, story!);
     final progress = car;
     if (progress != null) _paintCar(canvas, progress);
     canvas.restore();
@@ -110,7 +120,8 @@ class _ScenePainter extends CustomPainter {
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(
+    if (story == null) {
+      canvas.drawPath(
       Path()
         ..moveTo(250, 34)
         ..lineTo(255, 38)
@@ -120,6 +131,7 @@ class _ScenePainter extends CustomPainter {
         ..lineTo(276, 26),
       bird,
     );
+    }
   }
 
   void _paintCity(Canvas canvas) {
@@ -276,14 +288,73 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+  void _paintPerson(Canvas canvas, double time) {
+    final ink = Paint()
+      ..color = AuthColors.deepGreen
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    // A small person waiting beside the road, with one hand holding the string.
+    canvas.drawCircle(
+      const Offset(284, 157),
+      5,
+      Paint()..color = const Color(0xFFDBB994),
+    );
+    canvas.drawLine(const Offset(284, 163), const Offset(284, 181), ink);
+    canvas.drawLine(const Offset(284, 167), const Offset(297, 169), ink);
+    canvas.drawLine(const Offset(284, 169), const Offset(276, 177), ink);
+    canvas.drawLine(const Offset(284, 181), const Offset(277, 192), ink);
+    canvas.drawLine(const Offset(284, 181), const Offset(291, 191), ink);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(279, 164, 10, 16),
+        const Radius.circular(3),
+      ),
+      Paint()..color = const Color(0xFF6D9E7C),
+    );
+    final released = ((time - 0.44) / 0.12).clamp(0.0, 1.0).toDouble();
+    if (time >= 0.58) return;
+    final balloon = Offset(304, 141 - released * 149);
+    const colors = [
+      Color(0xFF4285F4),
+      Color(0xFFEA4335),
+      Color(0xFFFBBC05),
+      Color(0xFF34A853),
+    ];
+    final rect = Rect.fromCircle(center: balloon, radius: 11);
+    for (var i = 0; i < 4; i++) {
+      canvas.drawArc(
+        rect,
+        -1.57079632679 + i * 1.57079632679,
+        1.585,
+        true,
+        Paint()..color = colors[i],
+      );
+    }
+    if (released < 1) {
+      canvas.drawLine(
+        const Offset(297, 169),
+        balloon + const Offset(0, 11),
+        Paint()
+          ..color = AuthColors.muted.withValues(alpha: 1 - released)
+          ..strokeWidth = 1,
+      );
+    }
+  }
+
   void _paintCar(Canvas canvas, double progress) {
     // Ease in from off-screen left to a resting spot on the road.
     final metric = _road.computeMetrics().first;
-    final distance = metric.length * (0.08 + 0.30 * progress);
+    final distance = metric.length * (story == null
+        ? 0.08 + 0.30 * progress
+        : 0.04 + 0.54 * progress);
     final tangent = metric.getTangentForOffset(distance);
     if (tangent == null) return;
     canvas.save();
-    canvas.translate(tangent.position.dx, tangent.position.dy - 5);
+    canvas.translate(
+      tangent.position.dx - (story == null ? 0 : 50 * (1 - progress)),
+      tangent.position.dy - 5,
+    );
     canvas.rotate(-tangent.angle);
     canvas.translate(-31, -24);
     canvas.drawOval(
@@ -345,5 +416,5 @@ class _ScenePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ScenePainter oldDelegate) => oldDelegate.car != car;
+  bool shouldRepaint(_ScenePainter oldDelegate) => oldDelegate.car != car || oldDelegate.story != story;
 }
