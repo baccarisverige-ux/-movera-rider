@@ -47,6 +47,17 @@ class _AuthSceneState extends State<AuthScene>
     super.dispose();
   }
 
+  double _storyCarProgress(double time) {
+    double phase(double start, double end) =>
+        ((time - start) / (end - start)).clamp(0.0, 1.0).toDouble();
+    if (time < 0.43) {
+      return 0.62 * Curves.easeInOutCubic.transform(phase(0.04, 0.43));
+    }
+    if (time < 0.64) return 0.62; // Wait while the person boards.
+    return 0.62 + 0.38 *
+        Curves.easeInOutCubic.transform(phase(0.64, 0.98));
+  }
+
   @override
   Widget build(BuildContext context) {
     return ExcludeSemantics(
@@ -58,10 +69,7 @@ class _AuthSceneState extends State<AuthScene>
             car: widget.showCar
                 ? widget.storyProgress == null
                     ? Curves.easeOutCubic.transform(_drive.value)
-                    : Curves.easeInOutCubic.transform(
-                        ((widget.storyProgress!.value - 0.04) / 0.40)
-                            .clamp(0.0, 1.0).toDouble(),
-                      )
+                    : _storyCarProgress(widget.storyProgress!.value)
                 : null,
             story: widget.storyProgress?.value,
           ),
@@ -289,30 +297,42 @@ class _ScenePainter extends CustomPainter {
   }
 
   void _paintPerson(Canvas canvas, double time) {
-    final ink = Paint()
-      ..color = AuthColors.deepGreen
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    // A small person waiting beside the road, with one hand holding the string.
-    canvas.drawCircle(
-      const Offset(284, 157),
-      5,
-      Paint()..color = const Color(0xFFDBB994),
-    );
-    canvas.drawLine(const Offset(284, 163), const Offset(284, 181), ink);
-    canvas.drawLine(const Offset(284, 167), const Offset(297, 169), ink);
-    canvas.drawLine(const Offset(284, 169), const Offset(276, 177), ink);
-    canvas.drawLine(const Offset(284, 181), const Offset(277, 192), ink);
-    canvas.drawLine(const Offset(284, 181), const Offset(291, 191), ink);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(279, 164, 10, 16),
-        const Radius.circular(3),
-      ),
-      Paint()..color = const Color(0xFF6D9E7C),
-    );
-    final released = ((time - 0.44) / 0.12).clamp(0.0, 1.0).toDouble();
+    double phase(double start, double end) =>
+        ((time - start) / (end - start)).clamp(0.0, 1.0).toDouble();
+    final boarding = Curves.easeInOut.transform(phase(0.47, 0.64));
+    final personOpacity = 1 - phase(0.55, 0.64);
+    if (personOpacity > 0) {
+      canvas.save();
+      // Move from the waiting spot toward the car door, then get inside.
+      canvas.translate(-38 * boarding, 6 * boarding);
+      final ink = Paint()
+        ..color = AuthColors.deepGreen.withValues(alpha: personOpacity)
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawCircle(
+        const Offset(284, 157),
+        5,
+        Paint()..color = const Color(0xFFDBB994)
+            .withValues(alpha: personOpacity),
+      );
+      canvas.drawLine(const Offset(284, 163), const Offset(284, 181), ink);
+      canvas.drawLine(const Offset(284, 167), const Offset(297, 169), ink);
+      canvas.drawLine(const Offset(284, 169), const Offset(276, 177), ink);
+      canvas.drawLine(const Offset(284, 181), const Offset(277, 192), ink);
+      canvas.drawLine(const Offset(284, 181), const Offset(291, 191), ink);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(279, 164, 10, 16),
+          const Radius.circular(3),
+        ),
+        Paint()..color = const Color(0xFF6D9E7C)
+            .withValues(alpha: personOpacity),
+      );
+      canvas.restore();
+    }
+
+    final released = phase(0.44, 0.56);
     if (time >= 0.58) return;
     final balloon = Offset(304, 141 - released * 149);
     const colors = [
@@ -343,11 +363,11 @@ class _ScenePainter extends CustomPainter {
   }
 
   void _paintCar(Canvas canvas, double progress) {
-    // Ease in from off-screen left to a resting spot on the road.
+    // Arrive at the person, pause for boarding, then continue to the right.
     final metric = _road.computeMetrics().first;
     final distance = metric.length * (story == null
         ? 0.08 + 0.30 * progress
-        : 0.04 + 0.54 * progress);
+        : 0.02 + 0.96 * progress);
     final tangent = metric.getTangentForOffset(distance);
     if (tangent == null) return;
     canvas.save();
