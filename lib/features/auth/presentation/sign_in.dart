@@ -10,7 +10,7 @@ import 'package:movera_rider/features/auth/presentation/phone_verify.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
-import 'package:movera_rider/features/auth/presentation/widgets/bird_wordmark_intro.dart';
+import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// Step 1 for everyone: one phone field for new and returning riders, with
@@ -26,7 +26,27 @@ class SignIn extends StatefulWidget {
 
 enum _Busy { phone, apple, google }
 
-class _SignInState extends State<SignIn> {
+class _SignInState extends State<SignIn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _story = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 5200),
+  );
+  bool _storyStarted = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_storyStarted) {
+      _storyStarted = true;
+      if (MediaQuery.of(context).disableAnimations) {
+        _story.value = 1;
+      } else {
+        _story.forward();
+      }
+    }
+  }
+
   late final AuthController _auth;
   final _phone = TextEditingController();
   final _phoneFocus = FocusNode();
@@ -43,6 +63,7 @@ class _SignInState extends State<SignIn> {
 
   @override
   void dispose() {
+    _story.dispose();
     _phone.dispose();
     _phoneFocus.dispose();
     super.dispose();
@@ -122,7 +143,8 @@ class _SignInState extends State<SignIn> {
       step: 1,
       headline: '',
       headlineAccent: '',
-      hero: const BirdWordmarkIntro(),
+      hero: BalloonBrandIntro(progress: _story),
+      sceneProgress: _story,
       card: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
