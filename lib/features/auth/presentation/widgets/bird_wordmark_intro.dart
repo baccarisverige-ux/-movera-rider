@@ -41,7 +41,7 @@ class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
   static const _destinations = [-93.0, -54.0, -26.0, 7.0, 51.0];
 
   double _progress(double time, double start, double duration) =>
-      ((time - start) / duration).clamp(0.0, 1.0);
+      ((time - start) / duration).clamp(0.0, 1.0).toDouble();
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +81,7 @@ class _BirdWordmarkIntroState extends State<BirdWordmarkIntro>
                         children: [
                           Opacity(
                             opacity: lockup,
-                            child: const MoveraWordmark(size: 38),
+                            child: const MoveraWordmark(size: 37),
                           ),
                           const SizedBox(height: 8),
                           Opacity(
