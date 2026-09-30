@@ -4,11 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 
 void main() {
-  
-
-  
-
-  testWidgets('custom tip works alongside fixed tip suggestions', (tester) async {
+  testWidgets('tip stays limited to fixed propositions', (tester) async {
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
@@ -25,23 +21,21 @@ void main() {
     expect(find.text('10 kr'), findsOneWidget);
     expect(find.text('20 kr'), findsOneWidget);
     expect(find.text('30 kr'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('custom-tip-field')), findsOneWidget);
-
-    await tester.enterText(
+    expect(
       find.byKey(const ValueKey<String>('custom-tip-field')),
-      '45',
+      findsNothing,
     );
-    await tester.pump();
-
-    expect(find.text('Custom tip: 45 kr selected.'), findsOneWidget);
+    expect(find.text('Custom amount'), findsNothing);
+    expect(find.text('Enter amount'), findsNothing);
 
     await tester.tap(find.text('20 kr'));
     await tester.pump();
 
     expect(find.text('20 kr selected.'), findsOneWidget);
-    final field = tester.widget<TextField>(
-      find.byKey(const ValueKey<String>('custom-tip-field')),
-    );
-    expect(field.controller?.text, isEmpty);
+
+    await tester.tap(find.text('20 kr'));
+    await tester.pump();
+
+    expect(find.text('Tip is optional.'), findsOneWidget);
   });
 }
