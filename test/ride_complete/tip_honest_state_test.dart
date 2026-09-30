@@ -81,6 +81,9 @@ void main() {
     expect(find.text(r'$5'), findsNothing);
     expect(find.text(r'$3.50'), findsNothing);
     expect(find.text('Add another amount'), findsNothing);
+    expect(find.byKey(const ValueKey<String>('custom-tip-field')), findsNothing);
+    expect(find.text('Custom amount'), findsNothing);
+    expect(find.text('Enter amount'), findsNothing);
     expect(find.text('SET TIP'), findsNothing);
     expect(find.textContaining('Marle'), findsNothing);
   });
