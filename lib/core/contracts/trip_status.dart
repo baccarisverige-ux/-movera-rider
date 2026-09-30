@@ -79,7 +79,7 @@ extension RideStatusAsTripStatus on RideStatus {
         RideStatus.cancelledByDriver => TripStatus.cancelledByDriver,
         RideStatus.cancelledBySystem => TripStatus.cancelledByAdmin,
         RideStatus.noDriverFound => TripStatus.expired,
-        RideStatus.paymentFailed => TripStatus.failed,
+        RideStatus.paymentFailed => TripStatus.completed,
         RideStatus.bookingExpired => TripStatus.expired,
       };
 }
@@ -87,7 +87,7 @@ extension RideStatusAsTripStatus on RideStatus {
 /// R3: ReservationStatus.driverEnRoute is RideStatus.driverArriving.
 extension ReservationStatusAsTripStatus on ReservationStatus {
   TripStatus get tripStatus => switch (this) {
-        ReservationStatus.scheduled => TripStatus.accepted,
+        ReservationStatus.scheduled => TripStatus.requested,
         ReservationStatus.driverAssignmentPending => TripStatus.searching,
         ReservationStatus.driverAssigned => TripStatus.accepted,
         ReservationStatus.driverEnRoute => TripStatus.driverToPickup,
@@ -98,7 +98,7 @@ extension ReservationStatusAsTripStatus on ReservationStatus {
       };
 
   RideStatus get asRideStatus => switch (this) {
-        ReservationStatus.scheduled => RideStatus.rideSelected,
+        ReservationStatus.scheduled => RideStatus.bookingRequested,
         ReservationStatus.driverAssignmentPending => RideStatus.findingDriver,
         ReservationStatus.driverAssigned => RideStatus.driverAssigned,
         ReservationStatus.driverEnRoute => RideStatus.driverArriving,
