@@ -34,6 +34,13 @@ void main() {
   test('payment and rating stay off the trip machine', () {
     expect(RideStatus.paymentProcessing.tripStatus, TripStatus.completed);
     expect(RideStatus.ratingPending.tripStatus, TripStatus.completed);
-    expect(RideStatus.paymentFailed.tripStatus, TripStatus.failed);
+    expect(RideStatus.paymentFailed.tripStatus, TripStatus.completed);
+  });
+  test('scheduled ride is requested until a driver is actually assigned', () {
+    expect(ReservationStatus.scheduled.tripStatus, TripStatus.requested);
+    expect(
+      ReservationStatus.scheduled.asRideStatus,
+      RideStatus.bookingRequested,
+    );
   });
 }

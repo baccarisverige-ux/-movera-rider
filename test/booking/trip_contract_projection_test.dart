@@ -27,7 +27,7 @@ void main() {
     expect(session.paymentStatus, PaymentStatus.succeeded);
   });
 
-  test('terminal trip status is independent from payment failure', () {
+  test('completed trip status is independent from payment failure', () {
     expect(RideStatus.paymentFailed.tripStatus, TripStatus.completed);
     expect(RideStatus.paymentFailed.paymentStatus, PaymentStatus.failed);
   });
