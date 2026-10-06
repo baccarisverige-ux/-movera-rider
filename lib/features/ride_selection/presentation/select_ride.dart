@@ -1004,7 +1004,7 @@ class _SelectRideState extends State<SelectRide>
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
                       compassEnabled: false,
-                      trafficEnabled: false,
+                      trafficEnabled: true,
                       buildingsEnabled: false,
                       indoorViewEnabled: false,
                       tiltGesturesEnabled: false,

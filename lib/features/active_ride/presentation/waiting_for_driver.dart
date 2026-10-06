@@ -1471,7 +1471,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
       compassEnabled: false,
-      trafficEnabled: false,
+      trafficEnabled: true,
       buildingsEnabled: false,
       indoorViewEnabled: false,
       tiltGesturesEnabled: false,
