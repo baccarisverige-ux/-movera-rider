@@ -614,7 +614,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
             compassEnabled: false,
-            trafficEnabled: false,
+            trafficEnabled: true,
             buildingsEnabled: true,
             indoorViewEnabled: false,
             mapType: MapType.normal,

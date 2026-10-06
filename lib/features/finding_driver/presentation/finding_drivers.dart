@@ -522,7 +522,7 @@ class _FindingDriversState extends State<FindingDrivers> {
                         zoomControlsEnabled: false,
                         mapToolbarEnabled: false,
                         compassEnabled: false,
-                        trafficEnabled: false,
+                        trafficEnabled: true,
                         buildingsEnabled: false,
                         indoorViewEnabled: false,
                         tiltGesturesEnabled: false,

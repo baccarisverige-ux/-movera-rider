@@ -102,7 +102,7 @@ class _HomeMapLayerState extends State<HomeMapLayer> {
       zoomControlsEnabled: false,
       mapToolbarEnabled: false,
       compassEnabled: false,
-      trafficEnabled: false,
+      trafficEnabled: true,
       buildingsEnabled: true,
       indoorViewEnabled: false,
       mapType: MapType.normal,
