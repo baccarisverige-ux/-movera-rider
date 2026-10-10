@@ -45,6 +45,7 @@ import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
+import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
@@ -1443,7 +1444,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
       id: 'active-road-route',
       from: LatLng(endpoints.from.latitude, endpoints.from.longitude),
       to: LatLng(endpoints.to.latitude, endpoints.to.longitude),
-      color: const Color(0xFF1D252C),
+      color: RiderRouteStyle.color,
     );
     if (!mounted || _routeKey != requestKey || route.points.length < 2) return;
 
