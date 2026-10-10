@@ -1,14 +1,23 @@
-/// Movera cream/sage palette specified by the product owner on 2026-10-07.
-/// Shared verbatim by Driver and Rider. Route/traffic overlays are independent.
-/// Embedded Google Maps styling cannot add dashed arterial centerlines or
-/// configure water-label visibility by zoom; retain provider label density.
+/// Waze iPhone app day palette, sampled 2026-10-10 with Pillow from eight
+/// user-supplied Waze app screenshots (Södertälje, Tumba, Stockholm/Västberga;
+/// 1206x2622). Hex values are dominant pixels of clean map regions (UI,
+/// top fade and location circle excluded); feature-type assignment is
+/// inferred. Waze varies some colours by zoom (E4 is purple at city zoom,
+/// dark grey #8D9299 at street zoom); Google JSON styles are zoom-independent,
+/// so the city-zoom values are used. Route/traffic overlays are separate.
+/// Shared verbatim with Driver (Movera-drider- lib/styles/reference_map_style.dart).
+/// Maps JavaScript (web) serialises `styles` into one compact string and
+/// silently drops ALL styling when it exceeds 1000 characters (it only logs
+/// "Custom style string for ..."). Keep rules minimal: omit any rule that
+/// repeats its parent's value. test/maps/reference_map_style_test.dart
+/// guards the budget.
 const String moveraReferenceMapStyle = '''
 [
   {
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#FAF7EF"
+        "color": "#FAFCFA"
       }
     ]
   },
@@ -24,7 +33,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#4E5346"
+        "color": "#575C60"
       }
     ]
   },
@@ -32,13 +41,13 @@ const String moveraReferenceMapStyle = '''
     "elementType": "labels.text.stroke",
     "stylers": [
       {
-        "color": "#DAE2CE"
+        "color": "#FAFCFA"
       }
     ]
   },
   {
     "featureType": "administrative",
-    "elementType": "geometry.stroke",
+    "elementType": "geometry",
     "stylers": [
       {
         "visibility": "off"
@@ -50,25 +59,34 @@ const String moveraReferenceMapStyle = '''
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#5F5F5F"
+        "color": "#3F4A51"
       }
     ]
   },
   {
-    "featureType": "landscape",
-    "elementType": "geometry",
+    "featureType": "administrative.locality",
+    "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#FAF7EF"
+        "color": "#6F8B9D"
       }
     ]
   },
   {
-    "featureType": "landscape.natural",
+    "featureType": "administrative.neighborhood",
+    "elementType": "labels.text.fill",
+    "stylers": [
+      {
+        "color": "#6F8B9D"
+      }
+    ]
+  },
+  {
+    "featureType": "landscape.natural.landcover",
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#FAF7EF"
+        "color": "#C8F0CC"
       }
     ]
   },
@@ -77,16 +95,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#E7E7E7"
-      }
-    ]
-  },
-  {
-    "featureType": "landscape",
-    "elementType": "labels.text.fill",
-    "stylers": [
-      {
-        "color": "#5F5F5F"
+        "color": "#E1E4E5"
       }
     ]
   },
@@ -95,7 +104,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#E7E7E7"
+        "color": "#E1E4E5"
       }
     ]
   },
@@ -104,7 +113,52 @@ const String moveraReferenceMapStyle = '''
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#5F5F5F"
+        "color": "#8F9395"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.business",
+    "elementType": "all",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.attraction",
+    "elementType": "labels",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.place_of_worship",
+    "elementType": "labels",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.government",
+    "elementType": "labels",
+    "stylers": [
+      {
+        "visibility": "off"
+      }
+    ]
+  },
+  {
+    "featureType": "poi.sports_complex",
+    "elementType": "geometry",
+    "stylers": [
+      {
+        "color": "#ADD1BF"
       }
     ]
   },
@@ -113,64 +167,34 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#CCE5A6"
+        "color": "#C8F0CC"
       }
     ]
   },
   {
-    "featureType": "road",
-    "elementType": "geometry.fill",
-    "stylers": [
-      {
-        "color": "#C5CDC2"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [
-      {
-        "visibility": "off"
-      }
-    ]
-  },
-  {
-    "featureType": "road",
+    "featureType": "poi.park",
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#4E5346"
+        "color": "#3D8549"
       }
     ]
   },
   {
     "featureType": "road",
-    "elementType": "labels.text.stroke",
-    "stylers": [
-      {
-        "color": "#DAE2CE"
-      }
-    ]
-  },
-  {
-    "featureType": "road.local",
     "elementType": "geometry.fill",
     "stylers": [
       {
-        "color": "#C5CDC2"
-      },
-      {
-        "weight": 1
+        "color": "#D3D7DA"
       }
     ]
   },
   {
-    "featureType": "road.local",
+    "featureType": "road",
     "elementType": "geometry.stroke",
     "stylers": [
       {
-        "visibility": "off"
+        "color": "#CCD0D3"
       }
     ]
   },
@@ -179,7 +203,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry.fill",
     "stylers": [
       {
-        "color": "#99BD86"
+        "color": "#F8EB89"
       }
     ]
   },
@@ -188,10 +212,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry.stroke",
     "stylers": [
       {
-        "visibility": "on"
-      },
-      {
-        "color": "#7A976B"
+        "color": "#F0E385"
       }
     ]
   },
@@ -200,7 +221,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry.fill",
     "stylers": [
       {
-        "color": "#63A08A"
+        "color": "#A9AFB4"
       }
     ]
   },
@@ -209,10 +230,25 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry.stroke",
     "stylers": [
       {
-        "visibility": "on"
-      },
+        "color": "#A3A9AE"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway.controlled_access",
+    "elementType": "geometry.fill",
+    "stylers": [
       {
-        "color": "#3F6658"
+        "color": "#C09CF0"
+      }
+    ]
+  },
+  {
+    "featureType": "road.highway.controlled_access",
+    "elementType": "geometry.stroke",
+    "stylers": [
+      {
+        "color": "#BC98EB"
       }
     ]
   },
@@ -221,7 +257,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#FAF7EF"
+        "color": "#E1E4E5"
       }
     ]
   },
@@ -230,16 +266,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#5F5F5F"
-      }
-    ]
-  },
-  {
-    "featureType": "transit.station",
-    "elementType": "geometry",
-    "stylers": [
-      {
-        "color": "#FAF7EF"
+        "color": "#8F9395"
       }
     ]
   },
@@ -248,7 +275,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#777777"
+        "color": "#D1CECC"
       }
     ]
   },
@@ -257,7 +284,7 @@ const String moveraReferenceMapStyle = '''
     "elementType": "geometry",
     "stylers": [
       {
-        "color": "#9FD4DA"
+        "color": "#ADE2FC"
       }
     ]
   },
@@ -266,7 +293,16 @@ const String moveraReferenceMapStyle = '''
     "elementType": "labels.text.fill",
     "stylers": [
       {
-        "color": "#4E5346"
+        "color": "#2C5EA2"
+      }
+    ]
+  },
+  {
+    "featureType": "water",
+    "elementType": "labels.text.stroke",
+    "stylers": [
+      {
+        "color": "#FFFFFF"
       }
     ]
   }

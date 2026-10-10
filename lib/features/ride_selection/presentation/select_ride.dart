@@ -39,6 +39,7 @@ import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
@@ -996,7 +997,7 @@ class _SelectRideState extends State<SelectRide>
                           id: 'route',
                           from: _pickupPosition,
                           to: widget.destinationPosition,
-                          color: _accent,
+                          color: RiderRouteStyle.color,
                         ),
                       },
                       myLocationEnabled: false,
@@ -1004,7 +1005,9 @@ class _SelectRideState extends State<SelectRide>
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
                       compassEnabled: false,
-                      trafficEnabled: true,
+                      // Green free-flow traffic hides the Waze road palette;
+                      // traffic stays on the active-trip map only.
+                      trafficEnabled: false,
                       buildingsEnabled: false,
                       indoorViewEnabled: false,
                       tiltGesturesEnabled: false,

@@ -1,4 +1,14 @@
-# Reference map palette — October 6, 2026
+# Reference map palette
+
+**Current (2026-10-10): Waze iPhone day palette**, shared verbatim with Driver
+(`lib/shared/styles/reference_map_style.dart`, 33 rules). Route colour
+`#5235DF` (`RiderRouteStyle.color`). Google Maps JavaScript drops all styling
+when the serialised style string exceeds 1000 characters, so the style omits
+rules that repeat their parent's value; `test/maps/reference_map_style_test.dart`
+keeps it under 950. The table below documents the previous (2026-10-06)
+palette and is kept for history.
+
+## Previous palette — October 6, 2026
 
 The same JSON is used in Rider and Driver. Rider Home shares its fallback
 constant. These values come from original map references, not the Map Color Lab
@@ -33,8 +43,11 @@ editor screenshots (those display the previous palette and an edited background)
 
 Traffic red/orange, incident symbols, road-number shields, location markers,
 accuracy circles and navigation routes are not base-map geometry. They must not
-be painted onto every road to imitate a screenshot. Live operational maps now enable the provider traffic layer. Historical ride maps
-keep traffic disabled because present traffic does not describe a past ride. The green road shields also contain `#118742`; their appearance
+be painted onto every road to imitate a screenshot. Since the Waze palette
+(2026-10-10) only the active-trip map (waiting_for_driver.dart) enables the
+provider traffic layer: on overview maps (home, ride selection, finding a
+driver, scheduling) its green free-flow overlay hid the road colours. Historical
+ride maps keep traffic disabled because present traffic does not describe a past ride. The green road shields also contain `#118742`; their appearance
 is controlled by the provider, not the park-label rule.
 
 ## Limits of matching
