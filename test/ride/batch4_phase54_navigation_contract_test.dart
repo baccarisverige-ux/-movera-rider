@@ -67,6 +67,7 @@ class _NeverQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) {
     calls += 1;
     return Completer<RideQuote>().future;

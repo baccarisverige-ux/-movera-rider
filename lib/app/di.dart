@@ -57,6 +57,7 @@ import 'package:movera_rider/features/ride_selection/data/ride_selection_reposit
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
+import 'package:movera_rider/features/promotions/application/promotions_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
@@ -209,6 +210,7 @@ class AppScope {
   late final AuthController auth = AuthController();
   late final RideCompleteController rideComplete = RideCompleteController();
   late final WalletController walletController = WalletController();
+  late final PromotionsController promotions = PromotionsController();
   late final SavedPlacesController savedPlaces = SavedPlacesController();
   late final SupportController support = SupportController();
   late final OnboardingController onboarding = OnboardingController();

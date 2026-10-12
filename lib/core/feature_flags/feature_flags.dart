@@ -10,6 +10,8 @@ class FeatureFlags {
     this.enableRidePin = false,
     this.enableSafetyShareTrip = true,
     this.enableBookingLater = true,
+    this.enablePromotions = true,
+    this.enablePromoPopup = true,
   });
 
   final bool enableCash;
@@ -22,6 +24,10 @@ class FeatureFlags {
   final bool enableRidePin;
   final bool enableSafetyShareTrip;
   final bool enableBookingLater;
+  /// Offers, voucher codes and promotion discounts on quotes.
+  final bool enablePromotions;
+  /// The promotion popup when the app opens.
+  final bool enablePromoPopup;
 
   bool get wallet => enableWallet;
   bool get scheduledRides => enableScheduledRide;

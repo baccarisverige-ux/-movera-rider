@@ -201,6 +201,7 @@ class RideSelectionController {
           distanceMeters: distanceMeters,
           pickup: pickup,
           destination: destination,
+          promoCode: AppScope.instance.promotions.appliedCode,
         ),
         timeout,
       );

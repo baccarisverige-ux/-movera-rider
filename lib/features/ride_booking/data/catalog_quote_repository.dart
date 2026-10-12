@@ -20,6 +20,7 @@ class CatalogQuoteRepository implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) async {
     final kr = pricesKr[rideType] ?? 259;
     return RideQuote(

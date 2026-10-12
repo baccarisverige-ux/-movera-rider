@@ -21,6 +21,7 @@ class _SlowThenFast implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) async {
     final call = ++calls;
     final delay = call == 1 ? const Duration(milliseconds: 40) : Duration.zero;

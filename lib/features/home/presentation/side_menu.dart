@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/promotions/presentation/offers_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -194,6 +195,12 @@ class RiderSideMenu extends StatelessWidget {
             image: null,
             title: 'Wallet',
             onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
+          ),
+          (
+            icon: Icons.local_offer_outlined,
+            image: null,
+            title: 'Offers & vouchers',
+            onTap: () => _pushPage(context, const OffersScreen()),
           ),
           (
             icon: Icons.history_rounded,

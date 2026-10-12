@@ -27,6 +27,17 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, String> pendingLinks = {};
   final Map<String, Map<String, dynamic>> pushDevices = {};
   final Map<String, Map<String, dynamic>> paymentIntents = {};
+  /// Promotions the rider has, by id. Seeded like the admin panel's demo.
+  final Map<String, Map<String, dynamic>> promotions = {
+    'P-SEED-1': _promo('P-SEED-1', 'WELCOME30', 'Welcome to Movera', 'percent', 30, maxPerRideMinor: 5000, ridesLeft: 3, popup: true, message: '30% off your first 3 rides, up to kr 50 each. Welcome aboard!'),
+  };
+  /// Codes anyone can type in the app, with what they unlock.
+  static final Map<String, Map<String, dynamic>> promoCodes = {
+    'AUTUMN15': _promo('P-AUTUMN15', 'AUTUMN15', 'Autumn rides', 'percent', 15, maxPerRideMinor: 4000, ridesLeft: 2),
+    'THANKYOU20': _promo('P-THANKYOU20', 'THANKYOU20', 'Thank you for riding', 'percent', 20, maxPerRideMinor: 4000, ridesLeft: 10, minFareMinor: 8000, categories: ['movera', 'comfort']),
+    'FLAT40': _promo('P-FLAT40', 'FLAT40', 'kr 40 off', 'fixed', 4000, ridesLeft: 1),
+    'OLDCODE': _promo('P-OLD', 'OLDCODE', 'Summer rides', 'percent', 10, ridesLeft: 5, endsAgo: const Duration(days: 30)),
+  };
   final Map<String, dynamic> accountSecurity = {
     'phone': '',
     'email': '',
@@ -65,6 +76,43 @@ class InProcessMockClient extends http.BaseClient {
   Duration? timeoutNext;
 
   static const currency = 'SEK';
+
+  static Map<String, dynamic> _promo(String id, String code, String title, String kind, int value,
+      {int maxPerRideMinor = 0, int minFareMinor = 0, int ridesLeft = 1, bool popup = false, String? message, List<String> categories = const [], Duration? endsAgo}) {
+    final now = DateTime.now().toUtc();
+    final to = endsAgo == null ? now.add(const Duration(days: 60)) : now.subtract(endsAgo);
+    return {
+      'id': id,
+      'code': code,
+      'title': title,
+      'kind': kind,
+      'value': value,
+      'maxPerRideMinor': maxPerRideMinor,
+      'minFareMinor': minFareMinor,
+      'ridesLeft': ridesLeft,
+      'validFrom': now.subtract(const Duration(days: 90)).toIso8601String(),
+      'validTo': to.toIso8601String(),
+      'categories': categories,
+      'popup': popup,
+      if (message != null) 'message': message,
+    };
+  }
+
+  /// What a live promotion takes off a fare, the same rule as the admin panel.
+  static int promoDiscount(Map<String, dynamic> promo, String rideType, int fareMinor) {
+    final to = DateTime.tryParse('${promo['validTo']}');
+    final left = (promo['ridesLeft'] as num?)?.round() ?? 0;
+    if (to == null || !to.isAfter(DateTime.now().toUtc()) || left <= 0) return 0;
+    final categories = (promo['categories'] as List?) ?? const [];
+    if (categories.isNotEmpty && !categories.contains(rideType)) return 0;
+    final minFare = (promo['minFareMinor'] as num?)?.round() ?? 0;
+    if (fareMinor < minFare) return 0;
+    final value = (promo['value'] as num?)?.round() ?? 0;
+    final raw = promo['kind'] == 'fixed' ? value : (fareMinor * value / 100).round();
+    final cap = (promo['maxPerRideMinor'] as num?)?.round() ?? 0;
+    final capped = cap > 0 && raw > cap ? cap : raw;
+    return capped > fareMinor ? fareMinor : capped;
+  }
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
@@ -592,6 +640,24 @@ class InProcessMockClient extends http.BaseClient {
         'amountMinor': body['amountMinor'] ?? 0,
         'requestId': requestId,
       };
+    } else if (path == '/api/v1/promotions' && method == 'GET') {
+      payload = {'code': 'OK', 'promotions': promotions.values.toList(), 'requestId': requestId};
+    } else if (path == '/api/v1/promotions/redeem' && method == 'POST') {
+      final code = (body['code'] as String? ?? '').trim().toUpperCase();
+      final found = promoCodes[code];
+      if (found == null) {
+        status = 404;
+        payload = {'code': 'PROMO_NOT_FOUND', 'requestId': requestId};
+      } else if (!DateTime.parse('${found['validTo']}').isAfter(DateTime.now().toUtc())) {
+        status = 410;
+        payload = {'code': 'PROMO_EXPIRED', 'requestId': requestId};
+      } else if (promotions.containsKey(found['id'])) {
+        status = 409;
+        payload = {'code': 'PROMO_ALREADY_USED', 'requestId': requestId};
+      } else {
+        promotions[found['id'] as String] = Map<String, dynamic>.from(found);
+        payload = {'code': 'OK', 'promotion': found, 'requestId': requestId};
+      }
     } else if (path == '/health' && method == 'GET') {
       payload = {'ok': true, 'requestId': requestId};
     } else {
@@ -621,12 +687,20 @@ class InProcessMockClient extends http.BaseClient {
     final kr = CatalogQuoteRepository.pricesKr[rideType] ?? 259;
     final minor = kr * 100;
     final id = 'q_${rideType}_${newRequestId()}';
+    // A promotion the rider has takes its discount off the quote, like the backend will.
+    final code = (body['promoCode'] as String?)?.trim().toUpperCase();
+    final promo = code == null || code.isEmpty
+        ? null
+        : promotions.values.where((item) => item['code'] == code).firstOrNull;
+    final discount = promo == null ? 0 : promoDiscount(promo, rideType, minor);
     return {
       'id': id,
       'quoteId': id,
       'rideType': rideType,
-      'totalMinor': minor,
-      'amountMinor': minor,
+      'totalMinor': minor - discount,
+      'amountMinor': minor - discount,
+      'discountMinor': discount,
+      if (promo != null && discount > 0) 'promotion': {'id': promo['id'], 'code': promo['code'], 'title': promo['title']},
       'currency': currency,
       'expiresAt': DateTime.now().add(const Duration(minutes: 2)).toIso8601String(),
       'expiresInSec': 120,

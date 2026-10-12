@@ -18,6 +18,7 @@ class AlwaysFailQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) {
     return Future<RideQuote>.error(StateError('quote unavailable'));
   }

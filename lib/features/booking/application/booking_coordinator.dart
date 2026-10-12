@@ -347,6 +347,7 @@ class BookingCoordinator {
       ),
       pickup: pickupAddress,
       destination: destinationAddress,
+      promoCode: AppScope.instance.promotions.appliedCode,
     );
     final binding = _BookingQuoteBinding(
       id: quote.id,

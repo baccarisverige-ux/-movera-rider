@@ -48,6 +48,9 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_route_lo
 import 'package:movera_rider/features/home/presentation/widgets/plan_ride_address_box.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
+import 'package:movera_rider/features/promotions/domain/promotion.dart';
+import 'package:movera_rider/features/promotions/presentation/promo_popup.dart';
+import 'package:movera_rider/features/promotions/presentation/voucher_code_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -151,6 +154,40 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _restoreAddressData();
     _startHeadingTracking();
     _announceInterruptedSearch();
+    _showPromotionsOnOpen();
+  }
+
+  /// A `movera://promo/CODE` link (a flyer's QR, a shared link) opens the
+  /// voucher sheet with the code filled in. A promotion Movera marked as a
+  /// popup shows once, after the first frame, until the rider closes it.
+  void _showPromotionsOnOpen() {
+    final promotions = AppScope.instance.promotions;
+    if (!promotions.enabled) return;
+    final linkCode = promoCodeFromLink(
+      WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (linkCode != null) {
+        await showVoucherCodeSheet(context, initialCode: linkCode);
+        return;
+      }
+      await promotions.load();
+      if (!mounted) return;
+      final popup = promotions.popupToShow();
+      if (popup == null) return;
+      await promotions.markPopupSeen(popup);
+      if (!mounted) return;
+      await showPromoPopup(context, popup);
+    });
+  }
+
+  @override
+  Future<bool> didPushRouteInformation(RouteInformation routeInformation) async {
+    final code = promoCodeFromLink(routeInformation.uri.toString());
+    if (code == null) return super.didPushRouteInformation(routeInformation);
+    if (mounted) await showVoucherCodeSheet(context, initialCode: code);
+    return true;
   }
 
   /// A reload during Finding Driver drops the search. Landing on an empty Home

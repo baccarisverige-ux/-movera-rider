@@ -7,5 +7,7 @@ abstract class QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    /// A voucher code the rider has; Movera takes its discount off the quote.
+    String? promoCode,
   });
 }

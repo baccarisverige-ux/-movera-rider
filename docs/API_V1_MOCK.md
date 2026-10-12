@@ -74,6 +74,22 @@ Mock payment intent `{ id, status: "succeeded", amountMinor }`.
 
 Mock top-up `{ status: "succeeded", amountMinor }`.
 
+### `GET /api/v1/promotions`
+
+Promotions this rider can use. Each: `id`, `code`, `title`, `kind` (`percent` | `fixed`),
+`value`, `maxPerRideMinor`, `minFareMinor`, `ridesLeft`, `validFrom`, `validTo`,
+`categories` (empty = all), `popup`, optional `message`. The mock seeds `WELCOME30`
+as a popup. Response: `{ "code": "OK", "promotions": [...], "requestId" }`
+
+### `POST /api/v1/promotions/redeem`
+
+Body: `{ code }`. Known mock codes: `AUTUMN15`, `THANKYOU20`, `FLAT40`; `OLDCODE` has ended.
+Errors: `404 PROMO_NOT_FOUND`, `410 PROMO_EXPIRED`, `409 PROMO_ALREADY_USED`,
+`403 PROMO_NOT_FOR_RIDER` (backend only). Response: `{ "code": "OK", "promotion": {...}, "requestId" }`
+
+`POST /api/v1/quotes` also takes `promoCode`; when the rider has that promotion the
+quote's `totalMinor` is lowered and `discountMinor` and `promotion` are set.
+
 ### Safety
 
 Unhandled `/api/v1/...` paths may be handled by `SafetyMockApi` /

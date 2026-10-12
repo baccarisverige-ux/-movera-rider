@@ -18,6 +18,7 @@ class _TrackingQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) async {
     active += 1;
     if (active > maxActive) maxActive = active;

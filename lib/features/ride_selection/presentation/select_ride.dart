@@ -390,6 +390,14 @@ class _SelectRideState extends State<SelectRide>
 
   String _kr(double value) => formatKr(value);
 
+  /// "Voucher WELCOME30 · −kr 50" when the selected ride's quote has a discount.
+  String? _voucherLine() {
+    final quote = _selection.authoritativeQuotes[_selection.selectedRideId];
+    if (quote == null || quote.discountMinor <= 0) return null;
+    final code = AppScope.instance.promotions.appliedCode;
+    return 'Voucher${code == null ? '' : ' $code'} · −${formatSek(quote.discountMinor)}';
+  }
+
   double _minSheet(MediaQueryData media) =>
       (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
 
@@ -618,6 +626,23 @@ class _SelectRideState extends State<SelectRide>
                 ),
                 const SizedBox(height: 16),
                 Text('Payment', style: _text(22, weight: FontWeight.w700)),
+                if (_voucherLine() != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.local_offer_outlined, size: 14, color: _muted),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _voucherLine()!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _text(12, color: _muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   'PAYMENT METHODS',

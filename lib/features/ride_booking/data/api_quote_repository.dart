@@ -16,6 +16,7 @@ class ApiQuoteRepository implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) async {
     lastUsedFallback = false;
     try {
@@ -27,6 +28,7 @@ class ApiQuoteRepository implements QuoteRepository {
           'durationSeconds': durationSeconds,
           'pickup': pickup,
           'destination': destination,
+          if (promoCode != null && promoCode.isNotEmpty) 'promoCode': promoCode,
           'apiVersion': 'v1',
         },
       );
@@ -77,6 +79,7 @@ class ApiQuoteRepository implements QuoteRepository {
                     : null)
                 ?.round() ??
             0,
+        discountMinor: (map['discountMinor'] as num?)?.round() ?? 0,
         signedPayload: signedPayload.trim(),
       );
       if (quote.expired) throw StateError('expired quote');

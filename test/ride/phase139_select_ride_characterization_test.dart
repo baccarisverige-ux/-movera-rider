@@ -19,6 +19,7 @@ class _ImmediateQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    String? promoCode,
   }) => Future<RideQuote>.value(
     RideQuote(
       id: 'q-$rideType',

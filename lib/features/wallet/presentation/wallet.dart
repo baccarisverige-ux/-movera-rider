@@ -7,6 +7,8 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
+import 'package:movera_rider/features/promotions/presentation/offers_screen.dart';
+import 'package:movera_rider/features/promotions/presentation/voucher_code_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -511,15 +513,19 @@ class _WalletHomeState extends State<WalletHome> {
                   ),
                 ),
               const SizedBox(height: 14),
-              Semantics(
-                enabled: false,
+              InkWell(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const OffersScreen()),
+                ),
+                borderRadius: BorderRadius.circular(12),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
-                      const Icon(Icons.confirmation_number_outlined, color: _muted),
+                      const Icon(Icons.confirmation_number_outlined, color: _ink),
                       const SizedBox(width: 12),
-                      Expanded(child: Text('Vouchers unavailable', style: _style(14, color: _muted))),
+                      Expanded(child: Text('Offers & vouchers', style: _style(14))),
+                      const Icon(Icons.chevron_right_rounded, color: _muted),
                     ],
                   ),
                 ),
@@ -842,15 +848,17 @@ class _WalletScreenState extends State<WalletScreen> {
                         color: _surface,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: Semantics(
-                        enabled: false,
+                      child: InkWell(
+                        onTap: () => showVoucherCodeSheet(context),
+                        borderRadius: BorderRadius.circular(18),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
                           child: Row(
                             children: [
-                              const Icon(Icons.confirmation_number_outlined, color: _muted, size: 21),
+                              const Icon(Icons.confirmation_number_outlined, color: _ink, size: 21),
                               const SizedBox(width: 17),
-                              Expanded(child: Text('Vouchers unavailable', style: _style(12, color: _muted))),
+                              Expanded(child: Text('Add a voucher code', style: _style(12))),
+                              const Icon(Icons.chevron_right_rounded, color: _muted, size: 20),
                             ],
                           ),
                         ),
