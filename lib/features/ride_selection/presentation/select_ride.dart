@@ -500,6 +500,34 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  /// The fixed header is outside the list, so its drags move the sheet by
+  /// hand and settle on the nearest stop (a fling moves one stop).
+  void _onHeaderDragUpdate(DragUpdateDetails details, MediaQueryData media) {
+    if (!_sheetController.isAttached) return;
+    final pixels = (_sheetController.pixels - details.primaryDelta!).clamp(
+      _minSheet(media),
+      _maxSheet(media),
+    );
+    _sheetController.jumpTo(_fractionOf(pixels, media));
+  }
+
+  void _onHeaderDragEnd(DragEndDetails details, MediaQueryData media) {
+    final velocity = details.primaryVelocity ?? 0;
+    final current = _sheetSlide.value;
+    final stops = <double>[0, _midValue(media), 1];
+    double target;
+    if (velocity < -480) {
+      target = stops.firstWhere((s) => s > current + 0.01, orElse: () => 1);
+    } else if (velocity > 480) {
+      target = stops.lastWhere((s) => s < current - 0.01, orElse: () => 0);
+    } else {
+      target = stops.reduce(
+        (a, b) => (a - current).abs() <= (b - current).abs() ? a : b,
+      );
+    }
+    _snapSheetTo(target);
+  }
+
   void _toggleSheet(MediaQueryData media) {
     _snapSheetTo(_sheetSlide.value > 0.98 ? _midValue(media) : 1);
   }
@@ -1279,102 +1307,125 @@ class _SelectRideState extends State<SelectRide>
                         final listReveal = mid <= 0
                             ? 1.0
                             : (v / mid).clamp(0.0, 1.0);
-                        // 0 at the middle → 1 at full: descriptions, badges,
-                        // filters.
+                        // 0 at the middle → 1 at full: descriptions and
+                        // badges.
                         final detail = mid >= 1
                             ? 0.0
                             : Curves.easeOutCubic.transform(
                                 ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
                               );
+                        final showFilters = v > 0.92;
                         final selectedRide = _selectedRideOrNull;
                         final promotion = _promotion;
-                        return Stack(
+                        return Column(
                           children: [
-                            CustomScrollView(
-                              key: const ValueKey('select-ride-list'),
-                              controller: scroll,
-                              slivers: [
-                                SliverToBoxAdapter(
-                                  child: Column(
-                                    children: [
-                                      Semantics(
-                                        button: true,
-                                        label: v > 0.98
-                                            ? 'Show fewer rides'
-                                            : 'Show all rides',
-                                        child: GestureDetector(
-                                          key: const ValueKey(
-                                            'select-ride-sheet-handle',
-                                          ),
-                                          behavior: HitTestBehavior.opaque,
-                                          onTap: () => _toggleSheet(media),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            height: 22,
-                                            child: Center(
-                                              child: Container(
-                                                width: 38,
-                                                height: 4,
-                                                decoration: BoxDecoration(
-                                                  color: _line,
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                              ),
+                            // Title, promotion and filters stay put while
+                            // the rides scroll under them; dragging here
+                            // still moves the sheet.
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onVerticalDragUpdate: (details) =>
+                                  _onHeaderDragUpdate(details, media),
+                              onVerticalDragEnd: (details) =>
+                                  _onHeaderDragEnd(details, media),
+                              child: Column(
+                                children: [
+                                  Semantics(
+                                    button: true,
+                                    label: v > 0.98
+                                        ? 'Show fewer rides'
+                                        : 'Show all rides',
+                                    child: GestureDetector(
+                                      key: const ValueKey(
+                                        'select-ride-sheet-handle',
+                                      ),
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _toggleSheet(media),
+                                      child: SizedBox(
+                                        width: double.infinity,
+                                        height: 22,
+                                        child: Center(
+                                          child: Container(
+                                            width: 38,
+                                            height: 4,
+                                            decoration: BoxDecoration(
+                                              color: _line,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                           ),
                                         ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          20,
-                                          4,
-                                          16,
-                                          8,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                'Choose your ride',
-                                                style: _text(
-                                                  22,
-                                                  weight: FontWeight.w700,
-                                                  letterSpacing: -0.4,
-                                                ),
-                                              ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      4,
+                                      16,
+                                      8,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Choose your ride',
+                                            style: _text(
+                                              22,
+                                              weight: FontWeight.w700,
+                                              letterSpacing: -0.4,
                                             ),
-                                          ],
+                                          ),
                                         ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (promotion != null)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        10,
                                       ),
-                                      if (promotion != null)
-                                        Padding(
-                                          padding: const EdgeInsets.fromLTRB(
-                                            16,
-                                            0,
-                                            16,
-                                            10,
+                                      child: PromotionTicket(
+                                        promotion: promotion,
+                                      ),
+                                    ),
+                                  // Filters fade and slide in once the sheet
+                                  // is fully up, and away again as it leaves.
+                                  ClipRect(
+                                    child: AnimatedSize(
+                                      duration: const Duration(
+                                        milliseconds: 240,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      alignment: Alignment.topCenter,
+                                      child: Align(
+                                        alignment: Alignment.topCenter,
+                                        heightFactor: showFilters ? 1 : 0,
+                                        child: AnimatedOpacity(
+                                          opacity: showFilters ? 1 : 0,
+                                          duration: const Duration(
+                                            milliseconds: 220,
                                           ),
-                                          child: PromotionTicket(
-                                            promotion: promotion,
-                                          ),
-                                        ),
-                                      // Filters only when the sheet is fully up.
-                                      ClipRect(
-                                        child: Align(
-                                          alignment: Alignment.topCenter,
-                                          heightFactor: detail,
-                                          child: Opacity(
-                                            opacity: detail,
+                                          child: AnimatedSlide(
+                                            offset: showFilters
+                                                ? Offset.zero
+                                                : const Offset(0, -0.35),
+                                            duration: const Duration(
+                                              milliseconds: 240,
+                                            ),
+                                            curve: Curves.easeOutCubic,
                                             child: IgnorePointer(
-                                              ignoring: detail < 0.9,
+                                              ignoring: !showFilters,
                                               child: Padding(
                                                 padding:
                                                     const EdgeInsets.fromLTRB(
                                                       20,
                                                       2,
                                                       20,
-                                                      6,
+                                                      8,
                                                     ),
                                                 child: _filterRow(),
                                               ),
@@ -1382,19 +1433,25 @@ class _SelectRideState extends State<SelectRide>
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                SliverOpacity(
-                                  opacity: listReveal,
-                                  sliver: SliverPadding(
-                                    padding: EdgeInsets.fromLTRB(
-                                      14,
-                                      2,
-                                      14,
-                                      _footerHeight(media) + 8,
                                     ),
-                                    sliver: SliverList.builder(
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Stack(
+                                children: [
+                                  Opacity(
+                                    opacity: listReveal,
+                                    child: ListView.builder(
+                                      key: const ValueKey('select-ride-list'),
+                                      controller: scroll,
+                                      padding: EdgeInsets.fromLTRB(
+                                        14,
+                                        2,
+                                        14,
+                                        _footerHeight(media) + 8,
+                                      ),
                                       itemCount: _visibleRides.length,
                                       itemBuilder: (context, index) =>
                                           _rideTile(
@@ -1403,29 +1460,30 @@ class _SelectRideState extends State<SelectRide>
                                           ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            // At the low stop only the chosen ride shows.
-                            if (listReveal < 1 && selectedRide != null)
-                              Positioned(
-                                left: 14,
-                                right: 14,
-                                top: _headerHeight() + 2,
-                                child: IgnorePointer(
-                                  ignoring: listReveal > 0.5,
-                                  child: Opacity(
-                                    opacity: 1 - listReveal,
-                                    child: ColoredBox(
-                                      color: Colors.white,
-                                      child: _rideTile(
-                                        selectedRide,
-                                        detail: 0,
+                                  // At the low stop only the chosen ride
+                                  // shows.
+                                  if (listReveal < 1 && selectedRide != null)
+                                    Positioned(
+                                      left: 14,
+                                      right: 14,
+                                      top: 2,
+                                      child: IgnorePointer(
+                                        ignoring: listReveal > 0.5,
+                                        child: Opacity(
+                                          opacity: 1 - listReveal,
+                                          child: ColoredBox(
+                                            color: Colors.white,
+                                            child: _rideTile(
+                                              selectedRide,
+                                              detail: 0,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
+                                ],
                               ),
+                            ),
                           ],
                         );
                       },
