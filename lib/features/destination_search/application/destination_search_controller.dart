@@ -1,10 +1,20 @@
+import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/location/place_search.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/data/destination_search_repository.dart';
+import 'package:movera_rider/features/destination_search/data/place_suggestion_repository.dart';
+import 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
+
+export 'package:movera_rider/features/destination_search/domain/place_suggestion.dart';
 
 class DestinationSearchController {
-  DestinationSearchController(this._search);
+  DestinationSearchController(this._search, {ApiClient? api})
+    : _suggestions = PlaceSuggestionRepository(api);
+
   final PlaceSearchService _search;
+  final PlaceSuggestionRepository _suggestions;
   final _store = DestinationSearchRepository();
+  int _suggestGeneration = 0;
 
   void type(String value, void Function(String text) onReady) {
     _search.query(value, (text, generation) {
@@ -12,5 +22,20 @@ class DestinationSearchController {
       _store.remember(text);
       onReady(text);
     });
+  }
+
+  /// Suggestions for [query]; [onReady] only fires for the latest query, so
+  /// a slow answer for "Kl" never replaces the one for "Klo".
+  Future<void> suggest(
+    String query, {
+    GeoPoint? near,
+    required void Function(String query, List<PlaceSuggestion> results)
+    onReady,
+  }) async {
+    final generation = ++_suggestGeneration;
+    final results = await _suggestions.suggest(query, near: near);
+    if (generation != _suggestGeneration) return;
+    _store.remember(query);
+    onReady(query, results);
   }
 }

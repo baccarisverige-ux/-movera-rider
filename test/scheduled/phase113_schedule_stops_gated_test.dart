@@ -37,7 +37,7 @@ void main() {
   }
 
   for (final size in const [Size(390, 844), Size(320, 568)]) {
-    testWidgets('U5 (scheduled): no "Add a stop" control and no stop fields '
+    testWidgets('scheduled: "Add a stop" is shown (owner request) '
         'at ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
       await pumpSchedule(tester, size);
 
@@ -46,15 +46,11 @@ void main() {
       expect(find.text('Pickup'), findsOneWidget);
       expect(find.text('Drop-off'), findsOneWidget);
       expect(find.text('Next'), findsOneWidget);
-
-      // Only pickup + drop-off fields exist.
       expect(find.byType(TextField), findsNWidgets(2));
 
-      // No way to add a stop.
-      expect(find.text('Add a stop'), findsNothing);
-      expect(find.byIcon(Icons.add_rounded), findsNothing);
-      expect(find.textContaining('Stop 1'), findsNothing);
-      expect(find.text('Remove stop'), findsNothing);
+      // Stops can be added while the app is being built (not yet sent to
+      // the quote or booking — LATER_JOB.md B1).
+      expect(find.text('Add a stop'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

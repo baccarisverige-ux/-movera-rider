@@ -164,6 +164,13 @@ class InProcessMockClient extends http.BaseClient {
           'requestId': requestId,
         };
       }
+    } else if (path == '/api/v1/locations/autocomplete' && method == 'POST') {
+      final query = body['query'];
+      payload = {
+        'code': 'OK',
+        'suggestions': query is String ? _demoSuggestions(query) : const [],
+        'requestId': requestId,
+      };
     } else if (path == '/api/v1/auth/otp/request' && method == 'POST') {
       final phone = body['phone'];
       final linkToken = body['linkToken'];
@@ -637,6 +644,73 @@ class InProcessMockClient extends http.BaseClient {
       idempotency[key] = payload;
     }
     return _json(status, payload, requestId);
+  }
+
+  /// Demo-only places around Södertälje and Stockholm, so address search can
+  /// be tried on GitHub Pages. The live API searches real addresses.
+  static const List<(String, String, double, double)> _demoPlaces = [
+    ('Klockarvägen 37', '151 59 Södertälje', 59.1955, 17.6253),
+    ('Klockarvägen 98', 'Södertälje', 59.1949, 17.6301),
+    ('Klockarvägen 104', 'Södertälje', 59.1946, 17.6318),
+    ('Klockarvägen 110', 'Södertälje', 59.1941, 17.6336),
+    ('Klostergatan 3', 'Södertälje', 59.1991, 17.6262),
+    ('Albyvägen 5', '145 59 Norsborg', 59.2448, 17.8562),
+    ('Alby Centrum', 'Albyvägen 6, Norsborg', 59.2393, 17.8457),
+    ('Drottninggatan 5', '111 51 Stockholm', 59.3326, 18.0649),
+    ('Drottninggatan 5', '753 10 Uppsala', 59.8586, 17.6389),
+    ('Stockholm Central', 'Centralplan 15, Stockholm', 59.3303, 18.0590),
+    ('Stockholm Arlanda Airport', 'Arlanda', 59.6498, 17.9238),
+    ('Arlanda Airport Terminal 5', 'Arlanda', 59.6519, 17.9297),
+    ('Södertälje Centrum', 'Storgatan, Södertälje', 59.1960, 17.6260),
+    ('Svarvarvägen 5', '142 50 Stockholm', 59.2089, 17.9466),
+    ('Mall of Scandinavia', 'Stjärntorget 2, Solna', 59.3700, 18.0050),
+  ];
+
+  static String _fold(String value) {
+    const from = 'åäöéèêëàâüïîôç';
+    const to = 'aaoeeeeaauiioc';
+    final out = StringBuffer();
+    for (final char in value.toLowerCase().split('')) {
+      final i = from.indexOf(char);
+      out.write(i < 0 ? char : to[i]);
+    }
+    return out.toString();
+  }
+
+  List<Map<String, dynamic>> _demoSuggestions(String query) {
+    final words = _fold(query.trim()).split(RegExp(r'[\s,]+'))
+      ..removeWhere((w) => w.isEmpty);
+    if (words.isEmpty) return const [];
+    final found = <Map<String, dynamic>>[];
+    for (final (title, subtitle, lat, lng) in _demoPlaces) {
+      final hay = _fold('$title $subtitle');
+      final tokens = hay.split(RegExp(r'[\s,]+'));
+      final all = words.every(
+        (w) => tokens.any((t) => t.startsWith(w)) || hay.contains(w),
+      );
+      if (!all) continue;
+      found.add({
+        'title': title,
+        'subtitle': subtitle,
+        'latitude': lat,
+        'longitude': lng,
+      });
+    }
+    // Anything else typed is still offered, so demo bookings always work.
+    final typed = query.trim();
+    if (typed.length >= 3 && found.isEmpty) {
+      final hash = _fold(typed).codeUnits.fold<int>(
+        0,
+        (value, unit) => ((value * 31) + unit) & 0x7fffffff,
+      );
+      found.add({
+        'title': typed,
+        'subtitle': 'Sweden',
+        'latitude': 59.3293 + (((hash % 1201) - 600) / 100000.0),
+        'longitude': 18.0686 + ((((hash ~/ 1201) % 1601) - 800) / 100000.0),
+      });
+    }
+    return found.take(8).toList();
   }
 
   Map<String, dynamic> _quote(Map<String, dynamic> body) {

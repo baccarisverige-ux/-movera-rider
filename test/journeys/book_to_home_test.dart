@@ -111,16 +111,22 @@ void main() {
       await tester.pump(const Duration(milliseconds: 450));
 
       await tester.enterText(routeFields.at(0), 'Stockholm Central');
+      await tester.pump();
       await tester.enterText(routeFields.at(1), 'Arlanda Airport');
       await tester.pump();
 
-      final next = find.text('Next');
-      expect(next, findsOneWidget);
-      await tester.ensureVisible(next);
-      await tester.pump(const Duration(milliseconds: 80));
-      final nextCenter = tester.getCenter(next);
-      expect(nextCenter.dy, lessThan(tester.view.physicalSize.height));
-      await tester.tap(next);
+      // No Next button: tapping a real suggested address moves on.
+      final suggestion = find.text('Airport Terminal 5', findRichText: true);
+      var arlanda = find.textContaining('Arlanda Airport', findRichText: true);
+      for (var i = 0; i < 30 && arlanda.evaluate().length < 2; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+        arlanda = find.textContaining('Arlanda Airport', findRichText: true);
+      }
+      expect(find.text('Next'), findsNothing);
+      expect(suggestion, findsNothing);
+      final pick = find.textContaining('Stockholm Arlanda Airport', findRichText: true);
+      expect(pick, findsWidgets);
+      await tester.tap(pick.first);
       // Next awaits a real (mocked) geocode round trip and the Home map
       // parking sequence before ConfirmPickupSpot is pushed. Poll instead of
       // a fixed pump, matching the wait pattern already used for SelectRide

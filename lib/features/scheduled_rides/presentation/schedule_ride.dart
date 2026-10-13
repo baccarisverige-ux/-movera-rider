@@ -40,7 +40,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
   /// then silently dropped — `ReservationDraft` has no stops, and there is no
   /// multi-stop fare or routing. Hidden until multi-stop quoting, routing and
   /// booking exist end to end (blocked on backend).
-  static const bool _stopsSupported = false;
+  static const bool _stopsSupported = true;
 
   final TextEditingController _pickupController = TextEditingController(
     text: 'Current location',
