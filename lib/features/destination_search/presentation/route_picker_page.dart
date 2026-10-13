@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/home/application/home_places_controller.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -641,13 +640,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       final set = value != null && value.trim().isNotEmpty;
       rows.add(
         _row(
-          // The same pictures as the Home page's quick places.
-          leading: Image.asset(
-            target == 'home' ? AppAssets.quickHome : AppAssets.quickWork,
-            width: 20,
-            height: 20,
-            excludeFromSemantics: true,
-          ),
+          // Solid icons, in the same family as the custom places below.
+          icon: target == 'home' ? Icons.home_rounded : Icons.work_rounded,
+          iconColor: _ink,
           title: Text(
             set ? label : 'Set $label',
             style: _t(
