@@ -1,4 +1,7 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:movera_rider/shared/styles/route_style.dart';
 
 /// Painted stand-in for the Select Ride map while the live map is not
 /// mounted yet or is parked behind a picker.
@@ -54,18 +57,23 @@ class _RoutePainter extends CustomPainter {
         size.width * 0.84,
         size.height * 0.46,
       );
+    final start = Offset(size.width * 0.16, size.height * 0.72);
+    final end = Offset(size.width * 0.84, size.height * 0.46);
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF2D5878).withValues(alpha: 0.18)
+        ..color = RiderRouteStyle.casing
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 10
+        ..strokeWidth = 7.5
         ..strokeCap = StrokeCap.round,
     );
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF2D5878)
+        ..shader = ui.Gradient.linear(start, end, const [
+          RiderRouteStyle.pickup,
+          RiderRouteStyle.destination,
+        ])
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.5
         ..strokeCap = StrokeCap.round,
@@ -76,8 +84,8 @@ class _RoutePainter extends CustomPainter {
       canvas.drawCircle(c, 4.2, Paint()..color = Colors.white);
     }
 
-    pin(Offset(size.width * 0.16, size.height * 0.72), const Color(0xFF1D252C));
-    pin(Offset(size.width * 0.84, size.height * 0.46), const Color(0xFF2D5878));
+    pin(start, RiderRouteStyle.pickup);
+    pin(end, RiderRouteStyle.destination);
   }
 
   @override

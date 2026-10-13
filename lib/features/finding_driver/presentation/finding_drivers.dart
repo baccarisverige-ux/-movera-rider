@@ -82,7 +82,9 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _overlayOn = false;
   int _nearbyPaintKey = 0;
   final SheetController _sheetController = SheetController();
+  /// Green pickup pin (the rider waits there).
   BitmapDescriptor? _riderPuck;
+  BitmapDescriptor? _destinationPin;
   BitmapDescriptor? _driverCar;
   List<LatLng>? _roadRoutePoints;
 
@@ -211,13 +213,16 @@ class _FindingDriversState extends State<FindingDrivers> {
           position: _pickupPosition,
           infoWindow: InfoWindow(title: _pickupAddress),
           icon: _riderPuck!,
-          anchor: const Offset(0.5, 0.72),
+          anchor: const Offset(0.5, 0.5),
         ),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
         infoWindow: InfoWindow(title: widget.destinationAddress),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon:
+            _destinationPin ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        anchor: const Offset(0.5, 0.5),
       ),
       for (final vehicle in _match.nearby)
         Marker(
@@ -231,32 +236,33 @@ class _FindingDriversState extends State<FindingDrivers> {
               BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet),
         ),
     };
-    _polylines = {
-      if (routePoints != null && routePoints.length >= 2)
-        routePolyline(
-          id: 'route',
-          from: routePoints.first,
-          to: routePoints.last,
-          color: RiderRouteStyle.color,
-          routing: _ResolvedRoute(routePoints),
-        )
-      else
-        routePolyline(
-          id: 'route',
-          from: _pickupPosition,
-          to: widget.destinationPosition,
-          color: RiderRouteStyle.color,
-        ),
-    };
+    _polylines = styledRoute(
+      routePoints != null && routePoints.length >= 2
+          ? routePolyline(
+              id: 'route',
+              from: routePoints.first,
+              to: routePoints.last,
+              color: RiderRouteStyle.color,
+              routing: _ResolvedRoute(routePoints),
+            )
+          : routePolyline(
+              id: 'route',
+              from: _pickupPosition,
+              to: widget.destinationPosition,
+              color: RiderRouteStyle.color,
+            ),
+    );
   }
 
   Future<void> _prepareMapVisuals() async {
     final icons = await Future.wait<BitmapDescriptor>([
-      MoveraRiderPuckMarker.createIcon(),
+      RouteEndpointMarker.createIcon(pickup: true),
       MoveraVehicleMarker.createIcon(),
+      RouteEndpointMarker.createIcon(pickup: false),
     ]);
     if (!mounted) return;
     _riderPuck = icons[0];
+    _destinationPin = icons[2];
     _driverCar = icons[1];
     _loadMapBits();
     setState(() {});

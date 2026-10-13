@@ -1123,7 +1123,9 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   Set<Marker> get _markers => _markerSet.value;
   set _markers(Set<Marker> next) => _markerSet.value = next;
   Set<Polyline> _polylines = const <Polyline>{};
+  /// Green pickup pin (the rider waits there).
   BitmapDescriptor? _riderPuck;
+  BitmapDescriptor? _destinationPin;
   BitmapDescriptor? _driverCar;
   DateTime? _lastPaint;
   Timer? _pendingRepaint;
@@ -1358,7 +1360,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
           position: widget.pickupPosition,
           infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
           icon: _riderPuck!,
-          anchor: const Offset(0.5, 0.72),
+          anchor: const Offset(0.5, 0.5),
         ),
       Marker(
         markerId: const MarkerId('destination'),
@@ -1366,7 +1368,10 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         infoWindow: InfoWindow(
           title: shortPickupPlace(widget.destinationAddress),
         ),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        icon:
+            _destinationPin ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        anchor: const Offset(0.5, 0.5),
       ),
       if (driverPosition != null)
         Marker(
@@ -1384,12 +1389,14 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
 
   Future<void> _prepareMapVisuals() async {
     final icons = await Future.wait<BitmapDescriptor>([
-      MoveraRiderPuckMarker.createIcon(),
+      RouteEndpointMarker.createIcon(pickup: true),
       MoveraVehicleMarker.createIcon(),
+      RouteEndpointMarker.createIcon(pickup: false),
     ]);
     if (!mounted) return;
     setState(() {
       _riderPuck = icons[0];
+      _destinationPin = icons[2];
       _driverCar = icons[1];
       _markers = _buildMarkers();
       _leaf = null;
@@ -1455,7 +1462,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     // than implying turn-by-turn accuracy that isn't there.
     final approximate = route.points.length <= 2;
     setState(() {
-      _polylines = {route};
+      _polylines = styledRoute(route);
       _approximateRoute = approximate;
       _leaf = null;
     });
