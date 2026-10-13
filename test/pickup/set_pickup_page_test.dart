@@ -202,6 +202,28 @@ void main() {
     expect(find.text('Bags?').hitTestable(), findsOneWidget);
   });
 
+  testWidgets('the short sheet has a bags chip that cycles the level', (
+    tester,
+  ) async {
+    await openPage(tester)();
+    final chip = find.byKey(const ValueKey('set-pickup-bags-chip'));
+    expect(chip.hitTestable(), findsOneWidget);
+    expect(find.text('Bags'), findsOneWidget);
+    await tester.tap(chip);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('1–2 bags'), findsOneWidget);
+    await tester.tap(chip);
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('3+ bags'), findsOneWidget);
+    // Opening the sheet hides the chip; the full Bags row takes over.
+    await tester.tap(find.byKey(const ValueKey('set-pickup-handle')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(chip.hitTestable(), findsNothing);
+    expect(find.text('Bags?').hitTestable(), findsOneWidget);
+  });
+
   test('bags are kept on the ride notes', () {
     final notes = RideNotes.empty.withBagLevel(2);
     expect(notes.bagLevel, 2);
