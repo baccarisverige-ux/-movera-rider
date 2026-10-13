@@ -24,7 +24,6 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
-import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
@@ -663,44 +662,13 @@ class _SelectRideState extends State<SelectRide>
       final when = await ScheduleDateTimeSelector.choose(
         context,
         initial: initial,
+        tripMinutes: _tripMinutes(),
       );
       if (when == null || !mounted) return;
-      if (!_pickupConfirmed) {
-        final spot = await ConfirmPickupSpot.open(
-          context,
-          initialPosition: _pickupPosition,
-          initialAddress: _pickupAddress,
-          scheduledSummary:
-              '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
-          confirmLabel: 'Confirm pickup spot',
-        );
-        if (spot == null || !mounted) return;
-        _pickupAddress = spot.address;
-        _pickupPosition = spot.position;
-        _pickupConfirmed = true;
-        // D-007: the map follows the re-confirmed pickup.
-        unawaited(_fitRoute());
-      }
+      // Only the time here; the pickup is set once, on Set pickup after
+      // Schedule.
       setState(() => _selection.scheduleFor(when));
     });
-  }
-
-  String _month(DateTime when) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months[when.month - 1];
   }
 
   Future<void> _showBookingPicker() async {
@@ -834,20 +802,20 @@ class _SelectRideState extends State<SelectRide>
       await _withParkedMap(() async {
         if (!mounted) return;
         if (!_pickupConfirmed) {
-          final when = _selection.scheduledFor;
-          final spot = await ConfirmPickupSpot.open(
-            context,
-            initialPosition: _pickupPosition,
-            initialAddress: _pickupAddress,
-            scheduledSummary: when == null
-                ? null
-                : '${when.day} ${_month(when)} · ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
-            confirmLabel: 'Confirm pickup spot',
+          // Same Set pickup sheet as Book now, ending in "Confirm and
+          // schedule" instead of a search.
+          final ride = _selectedRideOrNull;
+          if (ride == null) return;
+          final spot = await _openSetPickup(
+            ride,
+            confirmLabel: 'Confirm and schedule',
+            scheduledPickup: _selection.scheduledFor,
           );
           if (spot == null || !mounted) return;
           _pickupAddress = spot.address;
           _pickupPosition = spot.position;
           _pickupConfirmed = true;
+          _notes = _notes.withBagLevel(spot.bagLevel);
         }
         if (_returnTimeNeedsPicker) {
           // The prefill went stale while the rider confirmed the pickup spot.
@@ -975,7 +943,11 @@ class _SelectRideState extends State<SelectRide>
     }
   }
 
-  Future<SetPickupResult?> _openSetPickup(_RideOption ride) async {
+  Future<SetPickupResult?> _openSetPickup(
+    _RideOption ride, {
+    String confirmLabel = 'Confirm and search',
+    DateTime? scheduledPickup,
+  }) async {
     final spots = await _pickupSpots();
     if (!mounted) return null;
     final quote = _selection.authoritativeQuotes[ride.id];
@@ -1018,6 +990,8 @@ class _SelectRideState extends State<SelectRide>
       initialBagLevel: _notes.bagLevel,
       spots: spots,
       initialIsCurrentLocation: !_pickupConfirmed,
+      confirmLabel: confirmLabel,
+      scheduledPickup: scheduledPickup,
     );
   }
 

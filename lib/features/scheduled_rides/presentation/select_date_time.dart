@@ -38,6 +38,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     BuildContext context, {
     DateTime? initial,
     DateTime Function()? now,
+    int? tripMinutes,
   }) {
     final session = ScheduledRideSession();
     if (initial != null) session.captureSchedule(initial);
@@ -48,6 +49,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
           session: session,
           popOnConfirm: true,
           now: now,
+          tripMinutes: tripMinutes,
           onConfirm: () {},
         ),
       ),

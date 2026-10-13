@@ -466,7 +466,7 @@ void main() {
     expect(selectRide.contains('bookingMode: BookingMode.scheduled'), isTrue);
   });
 
-  test('history Schedule a ride still opens Plan your ride', () {
+  test('history Schedule a ride still opens Plan your ride; Home Later uses Where to', () {
     final history = File(
       'lib/features/history/presentation/ride_history.dart',
     ).readAsStringSync();
@@ -474,7 +474,13 @@ void main() {
     expect(history.contains('SelectRide('), isFalse);
     final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
     expect(home.contains('bookingMode: BookingMode.now'), isTrue);
-    expect(home.contains('const ScheduleRide()'), isTrue);
+    // Book for later follows the Book now screens: Where to → date & time →
+    // scheduled categories → Set pickup. The old Plan your ride screen is
+    // only for editing a reservation and the history entry.
+    expect(home.contains('const ScheduleRide()'), isFalse);
+    expect(home.contains("_showRouteAddressPicker(initialField: 'destination', scheduled: true)"), isTrue);
+    expect(home.contains('ScheduleDateTimeSelector.choose('), isTrue);
+    expect(home.contains('BookingMode.scheduled'), isTrue);
     expect(home.contains('_handleDestinationTap'), isTrue);
     expect(home.contains('HomeReservationChrono'), isTrue);
     expect(home.contains('_PickupMapPickerPage'), isFalse);
