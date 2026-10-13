@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
@@ -179,6 +180,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _cancelling = false;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
+
+  /// Natural height of the sheet's content; the full stop ends there.
+  double? _contentHeight;
+  final GlobalKey _headerKey = GlobalKey(debugLabel: 'waiting-header');
+  final GlobalKey _panelKey = GlobalKey(debugLabel: 'waiting-panel-body');
+
+  /// The stop the sheet last came to rest at (for haptics and the camera).
+  double? _settledSheet;
+  Timer? _settleTimer;
 
   RideRealtime get _realtime =>
       widget.realtime ?? AppScope.instance.rideRealtime;
@@ -742,6 +752,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   void dispose() {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
+    _settleTimer?.cancel();
     _sheetController.dispose();
     _tracking.dispose();
     setWebOverlayOpen(false);
@@ -754,20 +765,100 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     final media = MediaQuery.maybeOf(context);
     if (media == null) return;
     final offset = _sheetController.metrics?.offset;
+    _settleTimer?.cancel();
+    _settleTimer = Timer(const Duration(milliseconds: 140), _onSheetSettled);
     final cover = offset != null && offset > _minSheet(media) + 12;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
   }
 
-  double _collapsedSheet(MediaQueryData media) => 190 + media.padding.bottom;
+  /// A light haptic when the sheet lands on a stop; the map then reframes
+  /// gently so the driver and the pickup stay above the sheet.
+  void _onSheetSettled() {
+    if (!mounted || !_sheetController.hasClient) return;
+    final media = MediaQuery.maybeOf(context);
+    final offset = _sheetController.metrics?.offset;
+    if (media == null || offset == null) return;
+    for (final snap in _snaps(media)) {
+      if ((offset - snap).abs() > 1.5) continue;
+      final last = _settledSheet;
+      if (last != null && (last - snap).abs() < 1.5) return;
+      if (last != null) HapticFeedback.selectionClick();
+      setState(() => _settledSheet = snap);
+      return;
+    }
+  }
+
+  List<double> _snaps(MediaQueryData media) {
+    final low = _collapsedSheet(media);
+    final mid = _minSheet(media);
+    final full = _maxSheet(media);
+    return [low, mid, if (full > mid + 24) full];
+  }
+
+  /// Room the map keeps clear at the bottom: the resting sheet, but never so
+  /// much that the route shrinks to a sliver when the sheet is fully up.
+  double _cameraClearance(MediaQueryData media) {
+    final resting = _settledSheet ?? _minSheet(media);
+    return math.min(resting, media.size.height * 0.6);
+  }
+
+  /// Reads the natural content height after layout (header + scroll
+  /// content), so the full stop ends where the content does.
+  void _measureContent() {
+    if (!mounted) return;
+    final media = MediaQuery.maybeOf(context);
+    final body = _panelKey.currentContext;
+    if (media == null || body == null) return;
+    // The panel is a SingleChildScrollView; its child's own size is the
+    // natural content height, whatever room the sheet gives it right now.
+    SingleChildScrollView? scrollView;
+    Element? content;
+    void find(Element element) {
+      if (content != null) return;
+      final widget = element.widget;
+      if (scrollView == null && widget is SingleChildScrollView) {
+        scrollView = widget;
+      } else if (scrollView != null && identical(widget, scrollView!.child)) {
+        content = element;
+        return;
+      }
+      element.visitChildElements(find);
+    }
+
+    body.visitChildElements(find);
+    final box = content?.renderObject;
+    if (box is! RenderBox || !box.hasSize) return;
+    final padding =
+        scrollView!.padding?.resolve(Directionality.of(context)).vertical ?? 0;
+    final header = _headerKey.currentContext?.size?.height ?? 0;
+    final needed =
+        _handleHeight +
+        header +
+        box.size.height +
+        padding +
+        media.padding.bottom;
+    final current = _contentHeight;
+    if (current != null && (current - needed).abs() < 2) return;
+    setState(() => _contentHeight = needed);
+  }
+
+  static const double _handleHeight = 22;
+
+  /// Low stop: the handle and one compact row (ETA, driver, plate).
+  double _collapsedSheet(MediaQueryData media) => 118 + media.padding.bottom;
 
   double _minSheet(MediaQueryData media) => 390 + media.padding.bottom;
 
   double _maxSheet(MediaQueryData media) {
     final minH = _minSheet(media);
     final maxH = media.size.height - media.padding.top - 72;
-    return maxH < minH + 48 ? minH + 48 : maxH;
+    final screenMax = maxH < minH + 48 ? minH + 48 : maxH;
+    // The full stop ends where the content does: no empty white space.
+    final content = _contentHeight;
+    if (content == null) return screenMax;
+    return content.clamp(minH, screenMax);
   }
 
   Future<void> _parkMapForStageChange() async {
@@ -837,6 +928,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             ? 'Driver details will appear when matching confirms them.'
             : 'Leave now to meet ${driver.displayFirstName}');
     final media = MediaQuery.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureContent());
     return PopScope(
       canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) async {
@@ -866,7 +958,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       pickupAddress: widget.pickupAddress,
                       destinationAddress: widget.destinationAddress,
                       tracking: _tracking,
-                      cameraBottomPadding: _collapsedSheet(media),
+                      cameraBottomPadding: _cameraClearance(media),
                     ),
             ),
             Positioned(
@@ -915,9 +1007,23 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   ),
                 ),
               ),
-            Positioned(
-              right: 12,
-              bottom: _minSheet(media) + 16,
+            // The recenter button rides on top of the sheet, and fades away
+            // as the sheet rises over the map.
+            AnimatedBuilder(
+              animation: _sheetController,
+              builder: (context, child) {
+                final offset = _sheetOffset(media);
+                final mid = _minSheet(media);
+                final fade = (1 - (offset - mid) / 32).clamp(0.0, 1.0);
+                return Positioned(
+                  right: 12,
+                  bottom: offset + 16,
+                  child: IgnorePointer(
+                    ignoring: fade < 0.5,
+                    child: Opacity(opacity: fade, child: child),
+                  ),
+                );
+              },
               child: PointerInterceptor(
                 child: MoveraIconButton.round(
                   icon: Icons.my_location_rounded,
@@ -933,9 +1039,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 physics: MoveraSheetMotion.physics,
                 snapGrid: SheetSnapGrid(
                   snaps: [
-                    SheetOffset.absolute(_collapsedSheet(media)),
-                    SheetOffset.absolute(_minSheet(media)),
-                    SheetOffset.absolute(_maxSheet(media)),
+                    for (final snap in _snaps(media))
+                      SheetOffset.absolute(snap),
                   ],
                   minFlingSpeed: 520,
                 ),
@@ -955,11 +1060,13 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                         top: Radius.circular(28),
                       ),
                       clipBehavior: Clip.antiAlias,
-                      child: Column(
+                      child: Stack(
+                        children: [
+                          Column(
                         children: [
                           const SizedBox(
                             width: double.infinity,
-                            height: 22,
+                            height: _handleHeight,
                             child: Center(
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
@@ -979,8 +1086,31 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                             child: const SizedBox.shrink(),
                           ),
                           if (!_isInTrip)
-                            _fixedPickupHeader(driver, headline, subtitle),
-                          Expanded(child: _panel(driver)),
+                            _reveal(
+                              media,
+                              start: 0.15,
+                              child: KeyedSubtree(
+                                key: _headerKey,
+                                child: _fixedPickupHeader(
+                                  driver,
+                                  headline,
+                                  subtitle,
+                                ),
+                              ),
+                            ),
+                          Expanded(
+                            child: KeyedSubtree(
+                              key: _panelKey,
+                              child: _reveal(
+                                media,
+                                start: 0.3,
+                                child: _panel(driver),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                          _compactRow(media, driver, headline),
                         ],
                       ),
                     ),
@@ -1002,6 +1132,163 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  double _sheetOffset(MediaQueryData media) {
+    if (!_sheetController.hasClient) return _minSheet(media);
+    return _sheetController.metrics?.offset ?? _minSheet(media);
+  }
+
+  /// 0 at the low stop, 1 from the middle stop up.
+  double _openness(MediaQueryData media) {
+    final low = _collapsedSheet(media);
+    final mid = _minSheet(media);
+    return ((_sheetOffset(media) - low) / (mid - low)).clamp(0.0, 1.0);
+  }
+
+  /// Full content fades and slides in as the sheet rises from the low stop,
+  /// staggered by [start] so it settles in layers.
+  Widget _reveal(
+    MediaQueryData media, {
+    required double start,
+    required Widget child,
+  }) {
+    return AnimatedBuilder(
+      animation: _sheetController,
+      builder: (context, child) {
+        final open = _openness(media);
+        final t = Curves.easeOutCubic.transform(
+          ((open - start) / (1 - start)).clamp(0.0, 1.0),
+        );
+        return IgnorePointer(
+          ignoring: open < 0.5,
+          child: ExcludeSemantics(
+            excluding: open < 0.5,
+            child: Opacity(
+            opacity: t,
+            child: Transform.translate(
+              offset: Offset(0, 14 * (1 - t)),
+              child: child,
+            ),
+          ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  /// The low stop: one clean row with the ETA, the driver and the plate.
+  /// Tapping it brings the sheet back to the middle.
+  Widget _compactRow(
+    MediaQueryData media,
+    MatchedDriver? driver,
+    String headline,
+  ) {
+    final plate = driver?.plate?.trim() ?? '';
+    final photo = driver?.photoAsset;
+    return Positioned(
+      top: _handleHeight,
+      left: 0,
+      right: 0,
+      child: AnimatedBuilder(
+        animation: _sheetController,
+        builder: (context, child) {
+          final open = _openness(media);
+          final t = Curves.easeOutCubic.transform(
+            (1 - open / 0.6).clamp(0.0, 1.0),
+          );
+          // Out of the tree while hidden, so it never doubles the header.
+          if (t <= 0.01) return const SizedBox.shrink();
+          return IgnorePointer(
+            ignoring: t < 0.5,
+            child: Opacity(
+              opacity: t,
+              child: Transform.translate(
+                offset: Offset(0, -8 * (1 - t)),
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: InkWell(
+          key: const ValueKey<String>('waiting-compact-row'),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            _sheetController.animateTo(
+              SheetOffset.absolute(_minSheet(media)),
+              duration: MoveraDurations.normal,
+              curve: Curves.easeOutCubic,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: const Color(0xFFF3F6FB),
+                  backgroundImage: photo != null ? AssetImage(photo) : null,
+                  child: photo == null
+                      ? Text(
+                          driver?.initial ?? '',
+                          style: waitingText(15, weight: FontWeight.w700),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        headline,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: waitingText(17, weight: FontWeight.w700),
+                      ),
+                      if (driver != null)
+                        Text(
+                          [
+                            driver.displayFirstName,
+                            if (driver.vehicleLabel.isNotEmpty)
+                              driver.vehicleLabel,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: waitingText(
+                            13,
+                            color: const Color(0xFF5C656C),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                if (plate.isNotEmpty) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F7),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E7EB)),
+                    ),
+                    child: Text(
+                      plate,
+                      style: waitingText(14, weight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1183,6 +1470,13 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   @override
   void didUpdateWidget(covariant _WaitingRideMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if ((oldWidget.cameraBottomPadding - widget.cameraBottomPadding).abs() >
+        1) {
+      // The sheet came to rest at another stop: reframe gently so the
+      // driver and the pickup stay above it.
+      _lastFitDriverPoint = null;
+      if (_mapReady) _maybeFitCamera();
+    }
     if (oldWidget.pickupPosition == widget.pickupPosition &&
         oldWidget.destinationPosition == widget.destinationPosition &&
         oldWidget.pickupAddress == widget.pickupAddress &&
