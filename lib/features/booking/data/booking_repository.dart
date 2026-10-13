@@ -1,6 +1,7 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class BookingRepository {
   BookingRepository({BookingCoordinator? coordinator})
@@ -25,6 +26,7 @@ class BookingRepository {
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     return _coordinator.submitFinding(
       pickupAddress: pickupAddress,
@@ -43,6 +45,7 @@ class BookingRepository {
       rideTypeLabel: rideTypeLabel,
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
+      stops: stops,
     );
   }
   Future<String> reconcileCreatedFinding(String createdRideId) {

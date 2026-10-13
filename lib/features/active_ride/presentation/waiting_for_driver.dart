@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
+import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
+    show RideSnapshot, RouteChangeController;
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
@@ -22,7 +26,6 @@ import 'package:movera_rider/features/driver_arriving/presentation/driver_profil
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
-import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_call_unavailable_dialog.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
@@ -42,7 +45,6 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
-import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -120,6 +122,7 @@ class WaitingForDriver extends StatefulWidget {
     required this.price,
     required this.paymentMethod,
     this.notes = RideNotes.empty,
+    this.stops = const <RouteStop>[],
     this.driver,
     this.realtime,
     this.rideId,
@@ -138,6 +141,9 @@ class WaitingForDriver extends StatefulWidget {
   final double price;
   final String paymentMethod;
   final RideNotes notes;
+
+  /// Stops between the pickup and the destination, in order.
+  final List<RouteStop> stops;
   final MatchedDriver? driver;
 
   /// Optional transport and lifecycle overrides let Scheduled Ride reuse this
@@ -182,6 +188,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
 
+  // The live route: starts from the widget, changes when the rider edits it.
+  late String _pickupAddress = widget.pickupAddress;
+  late LatLng _pickupPosition = widget.pickupPosition;
+  late String _destinationAddress = widget.destinationAddress;
+  late LatLng _destinationPosition = widget.destinationPosition;
+  late List<RouteStop> _stops = List<RouteStop>.from(widget.stops);
+  bool _routeEditOpen = false;
+
   /// Natural height of the sheet's content; the full stop ends there.
   double? _contentHeight;
   final GlobalKey _headerKey = GlobalKey(debugLabel: 'waiting-header');
@@ -206,8 +220,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     SafetyController.shared.load();
     final realtime = _realtime;
     if (realtime is MockRideRealtime) {
-      realtime.destinationLat = widget.destinationPosition.latitude;
-      realtime.destinationLng = widget.destinationPosition.longitude;
+      realtime.destinationLat = _destinationPosition.latitude;
+      realtime.destinationLng = _destinationPosition.longitude;
     }
     final rideId = _rideId;
     if (rideId != null && rideId.trim().isNotEmpty) {
@@ -516,14 +530,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // pushed Finding route underneath. Replace only the gate child so the app
     // root/navigator stays intact.
     final finding = FindingDrivers(
-      pickupAddress: widget.pickupAddress,
-      destinationAddress: widget.destinationAddress,
-      pickupPosition: widget.pickupPosition,
-      destinationPosition: widget.destinationPosition,
+      pickupAddress: _pickupAddress,
+      destinationAddress: _destinationAddress,
+      pickupPosition: _pickupPosition,
+      destinationPosition: _destinationPosition,
       rideType: widget.rideType,
-      price: widget.price,
+      price: _price,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
+      stops: _stops,
     );
     final coordinator = RideRestoreCoordinator.instance;
     if (coordinator.replaceRootSurface(finding, RestoredSurface.finding)) {
@@ -724,29 +739,122 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
 
   bool get _isInTrip => DriverEta.isInTrip(_tracking.status);
 
-  Future<void> _openDetails() async {
-    await MoveraSheet.show<void>(
-      context: context,
-      builder: (sheetContext) => RideDetailsSheet(
-        pickupAddress: widget.pickupAddress,
-        destinationAddress: widget.destinationAddress,
-        rideType: widget.rideType,
-        price: widget.price,
-        paymentMethod: widget.paymentMethod,
-        notes: widget.notes,
-        canEditPickup: false,
-        allowCancel: true,
-        onEditPickup: () {},
-        onEditDestination: () {},
-        onCancelTrip: () async {
-          _modalHandoffInProgress = true;
-          await popCurrentRouteAndWaitForExit(sheetContext);
-          if (!mounted) return;
-          _modalHandoffInProgress = false;
-          await _confirmCancel();
-        },
-      ),
+  /// The pickup can move until the driver is there; the destination and the
+  /// stops can change until the trip ends.
+  bool get _pickupEditable =>
+      !_isInTrip &&
+      _tracking.status != RideStatus.driverWaiting &&
+      !_tracking.status.isTerminal;
+  bool get _routeEditable => !_tracking.status.isTerminal && !_completedOpened;
+
+  /// The three dots on the ride card: the route screen with the current
+  /// addresses. The pickup can move until the driver is there; the
+  /// destination and the stops can change until the trip ends.
+  Future<void> _openDetails() => _changeRoute(null, RouteChangeEntry.destination);
+
+  double? _changedPrice;
+  double get _price => _changedPrice ?? widget.price;
+
+  /// The ride as the server knows it, for pricing a route change.
+  Future<RideSnapshot?> _currentRide() async {
+    final stored = await RouteChangeController.storedRide();
+    final rideId = _rideId;
+    if (stored != null && (rideId == null || stored.rideId == rideId)) {
+      return stored.copyWith(
+        status: _tracking.status,
+        pickupAddress: _pickupAddress,
+        pickupLat: _pickupPosition.latitude,
+        pickupLng: _pickupPosition.longitude,
+        destinationAddress: _destinationAddress,
+        destinationLat: _destinationPosition.latitude,
+        destinationLng: _destinationPosition.longitude,
+        stops: _stops,
+        price: _price,
+      );
+    }
+    if (rideId == null || rideId.trim().isEmpty) return null;
+    return RideSnapshot(
+      status: _tracking.status,
+      savedAt: DateTime.now(),
+      pickupAddress: _pickupAddress,
+      destinationAddress: _destinationAddress,
+      pickupLat: _pickupPosition.latitude,
+      pickupLng: _pickupPosition.longitude,
+      destinationLat: _destinationPosition.latitude,
+      destinationLng: _destinationPosition.longitude,
+      rideType: widget.rideType,
+      price: _price,
+      paymentMethod: widget.paymentMethod,
+      rideId: rideId,
+      notes: widget.notes,
+      stops: _stops,
+      driver: _tracking.driver ?? widget.driver,
     );
+  }
+
+  /// Change the pickup (until the driver is there), the destination or the
+  /// stops: the new price is confirmed first, then the driver is told.
+  Future<void> _changeRoute(
+    BuildContext? sheetContext,
+    RouteChangeEntry entry, {
+    int? removeStop,
+  }) async {
+    if (_routeEditOpen || _leaving || !_routeEditable) return;
+    _routeEditOpen = true;
+    _modalHandoffInProgress = true;
+    try {
+      if (sheetContext != null) {
+        await popCurrentRouteAndWaitForExit(sheetContext);
+        if (!mounted) return;
+      }
+      final ride = await _currentRide();
+      if (ride == null || !mounted) return;
+      await _parkMapForStageChange();
+      if (!mounted) return;
+      final updated = removeStop != null
+          ? await removeRouteStop(context, ride: ride, index: removeStop)
+          : await openRouteChange(
+              context,
+              ride: ride,
+              entry: entry,
+              pickupLocked: !_pickupEditable,
+            );
+      if (!mounted) return;
+      if (updated != null) _applyRouteChange(updated);
+      _mapParked = false;
+      setState(() {});
+      if (updated != null) {
+        showRouteUpdated(
+          context,
+          driverAssigned: true,
+          paymentMethod: widget.paymentMethod,
+          differenceKr: updated.price - ride.price,
+        );
+      }
+    } finally {
+      _routeEditOpen = false;
+      _modalHandoffInProgress = false;
+    }
+  }
+
+  void _applyRouteChange(RideSnapshot updated) {
+    _pickupAddress = updated.pickupAddress;
+    _pickupPosition = LatLng(updated.pickupLat, updated.pickupLng);
+    _destinationAddress = updated.destinationAddress;
+    _destinationPosition = LatLng(updated.destinationLat, updated.destinationLng);
+    _stops = List<RouteStop>.from(updated.stops);
+    _changedPrice = updated.price;
+    _tracking
+      ..pickupLat = _pickupPosition.latitude
+      ..pickupLng = _pickupPosition.longitude
+      ..destinationLat = _destinationPosition.latitude
+      ..destinationLng = _destinationPosition.longitude;
+    final realtime = _realtime;
+    if (realtime is MockRideRealtime) {
+      realtime.destinationLat = _destinationPosition.latitude;
+      realtime.destinationLng = _destinationPosition.longitude;
+    }
+    _sheetSignature = '';
   }
 
   @override
@@ -877,13 +985,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         ? (eta?.latitude != null && eta?.longitude != null
               ? GeoPoint(eta!.latitude!, eta.longitude!)
               : GeoPoint(
-                  widget.destinationPosition.latitude,
-                  widget.destinationPosition.longitude,
+                  _destinationPosition.latitude,
+                  _destinationPosition.longitude,
                 ))
-        : GeoPoint(
-            widget.pickupPosition.latitude,
-            widget.pickupPosition.longitude,
-          );
+        : GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude);
     AppScope.instance.camera.focusOnPickup(target);
   }
 
@@ -954,10 +1059,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   : _WaitingRideMap(
                       key: _mapKey,
                       initialPosition: _initialPosition,
-                      pickupPosition: widget.pickupPosition,
-                      destinationPosition: widget.destinationPosition,
-                      pickupAddress: widget.pickupAddress,
-                      destinationAddress: widget.destinationAddress,
+                      pickupPosition: _pickupPosition,
+                      destinationPosition: _destinationPosition,
+                      pickupAddress: _pickupAddress,
+                      destinationAddress: _destinationAddress,
+                      stops: _stops,
                       tracking: _tracking,
                       cameraBottomPadding: _cameraClearance(media),
                     ),
@@ -1354,10 +1460,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     if (_isInTrip) {
       return RiderInTripPanel(
         headline: _tripHeadline(_tracking.eta, _tracking.status),
-        destinationAddress: widget.destinationAddress,
+        destinationAddress: _destinationAddress,
         rideType: widget.rideType,
         paymentMethod: widget.paymentMethod,
-        price: widget.price,
+        price: _price,
         driver: driver,
         rideId: _rideId,
         status: _tracking.status,
@@ -1383,11 +1489,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
           const SizedBox(height: 12),
           WaitingRideDetailsCard(
             rideType: widget.rideType,
-            pickupAddress: widget.pickupAddress,
-            destinationAddress: widget.destinationAddress,
+            pickupAddress: _pickupAddress,
+            destinationAddress: _destinationAddress,
             inTrip: _isInTrip,
             paymentMethod: widget.paymentMethod,
-            price: widget.price,
+            price: _price,
             onMore: _openDetails,
           ),
           WaitingNotesAndPin(notes: widget.notes),
@@ -1405,6 +1511,7 @@ class _WaitingRideMap extends StatefulWidget {
     required this.destinationPosition,
     required this.pickupAddress,
     required this.destinationAddress,
+    this.stops = const <RouteStop>[],
     required this.tracking,
     this.cameraBottomPadding = 140,
   });
@@ -1414,6 +1521,7 @@ class _WaitingRideMap extends StatefulWidget {
   final LatLng destinationPosition;
   final String pickupAddress;
   final String destinationAddress;
+  final List<RouteStop> stops;
   final DriverTrackingController tracking;
 
   /// Approximates the sheet's on-screen clearance so [fitBounds] doesn't
@@ -1510,6 +1618,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
         oldWidget.destinationPosition == widget.destinationPosition &&
         oldWidget.pickupAddress == widget.pickupAddress &&
         oldWidget.destinationAddress == widget.destinationAddress &&
+        _sameStops(oldWidget.stops, widget.stops) &&
         identical(oldWidget.tracking, widget.tracking)) {
       return;
     }
@@ -1718,6 +1827,14 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     }());
   }
 
+  static bool _sameStops(List<RouteStop> a, List<RouteStop> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   Set<Marker> _buildMarkers() {
     final driverPosition = _currentDriverPosition();
     final pickupIcon = _pickupTimePin ?? _riderPuck;
@@ -1733,6 +1850,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
               ? RouteTimeMarker.anchor
               : const Offset(0.5, 0.5),
         ),
+      ...routeStopMarkers(widget.stops),
       Marker(
         markerId: const MarkerId('destination'),
         position: widget.destinationPosition,
