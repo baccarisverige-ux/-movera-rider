@@ -6,7 +6,7 @@ class LocalPaymentRepository implements PaymentRepository {
       : _store = store ?? const PrefsDefaultPaymentStore();
 
   final DefaultPaymentStore _store;
-  String _defaultId = 'apple';
+  String _defaultId = 'cash';
   bool _hydrated = false;
 
   @override
@@ -17,10 +17,7 @@ class LocalPaymentRepository implements PaymentRepository {
       PaymentMethod(id: 'apple', kind: PaymentMethodKind.applePay, label: 'Apple Pay'),
       PaymentMethod(id: 'google', kind: PaymentMethodKind.googlePay, label: 'Google Pay'),
       PaymentMethod(id: 'card', kind: PaymentMethodKind.card, label: 'Card'),
-      PaymentMethod(id: 'swish', kind: PaymentMethodKind.swish, label: 'Swish'),
-      PaymentMethod(id: 'paypal', kind: PaymentMethodKind.paypal, label: 'PayPal'),
-      PaymentMethod(id: 'klarna', kind: PaymentMethodKind.klarna, label: 'Klarna'),
-      PaymentMethod(id: 'cash', kind: PaymentMethodKind.cash, label: 'Cash'),
+      PaymentMethod(id: 'cash', kind: PaymentMethodKind.cash, label: 'Pay in car'),
     ];
   }
 

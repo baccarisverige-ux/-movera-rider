@@ -3,9 +3,6 @@ enum PaymentMethodKind {
   applePay,
   googlePay,
   card,
-  swish,
-  paypal,
-  klarna,
   cash,
 }
 

@@ -48,17 +48,17 @@ void main() {
     final store = WalletStore();
     final settings = await store.loadPayments();
     expect(settings.extraMethods, isEmpty);
-    expect(settings.defaultMethod, 'apple');
+    expect(settings.defaultMethod, 'cash');
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.containsKey('movera_payment_methods'), isFalse);
-    expect(prefs.getString('movera_default_payment'), 'apple');
+    expect(prefs.getString('movera_default_payment'), 'cash');
 
     await store.savePayments(WalletPaymentSettings(
       defaultMethod: 'paypal',
       business: false,
       extraMethods: [{'id': 'paypal', 'detail': 'Connected'}],
     ));
-    expect((await store.loadPayments()).defaultMethod, 'apple');
+    expect((await store.loadPayments()).defaultMethod, 'cash');
     expect(prefs.containsKey('movera_payment_methods'), isFalse);
   });
 

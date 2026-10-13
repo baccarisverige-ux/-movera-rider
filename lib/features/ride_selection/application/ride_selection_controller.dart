@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
@@ -24,7 +25,9 @@ class RideSelectionController {
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
        _flags = flags ?? AppScope.instance.flags,
-       _paymentStore = paymentStore;
+       _paymentStore = paymentStore {
+    _selectDefaultPayment();
+  }
 
   final RideSelectionRepository _store;
   final QuoteRepository _quotes;
@@ -85,15 +88,37 @@ class RideSelectionController {
     return fallback;
   }
 
+  /// Movera Wallet balance in kr, once known. The wallet is only offered
+  /// when there is money in it.
+  double walletBalance = 0;
+
   List<RidePaymentItem> payments() {
+    final platform = defaultTargetPlatform;
+    final mobile =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.android;
     return _store.payments().where((item) {
       if (item.brand == 'cash') return _flags.enableCash;
-      if (item.brand == 'apple') return _flags.enableApplePay;
-      if (item.brand == 'wallet') return _flags.enableWallet;
-      if (item.brand == 'google') return _flags.enableGooglePay;
-      if (item.brand == 'swish') return _flags.enableSwish;
+      // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
+      if (item.brand == 'apple') {
+        return _flags.enableApplePay &&
+            (!mobile || platform == TargetPlatform.iOS);
+      }
+      if (item.brand == 'google') {
+        return _flags.enableGooglePay &&
+            (!mobile || platform == TargetPlatform.android);
+      }
+      if (item.brand == 'wallet') {
+        return _flags.enableWallet && walletBalance > 0;
+      }
       return true;
     }).toList();
+  }
+
+  /// Pay in car is the default until the rider picks something else.
+  void _selectDefaultPayment() {
+    final list = payments();
+    final i = list.indexWhere((item) => item.brand == 'cash');
+    selectedPayment = i >= 0 ? i : 0;
   }
 
   int beginQuotes() => ++_quoteGeneration;
@@ -291,6 +316,12 @@ class RideSelectionController {
   void selectPaymentNamed(String? name) {
     final needle = name?.trim();
     if (needle == null || needle.isEmpty) return;
+    // Bookings saved before the change said "Cash" or "Swish".
+    final legacy = needle.toLowerCase();
+    if (legacy == 'cash' || legacy == 'swish') {
+      selectPaymentByBrand('cash');
+      return;
+    }
     final list = payments();
     final i = list.indexWhere(
       (item) => item.name.toLowerCase() == needle.toLowerCase(),
@@ -308,12 +339,21 @@ class RideSelectionController {
 
   Future<void> restoreDefaultPayment() async {
     final store = _paymentStore;
-    if (store == null) {
-      selectedPaymentItem();
-      return;
+    final saved = store == null ? null : await store.read();
+    final list = payments();
+    if (saved == null || !list.any((item) => item.brand == saved)) {
+      _selectDefaultPayment();
+    } else {
+      selectPaymentByBrand(saved);
     }
-    selectPaymentByBrand(await store.read());
     selectedPaymentItem();
+  }
+
+  /// Keeps the chosen method when the list changes (e.g. the wallet appears).
+  void setWalletBalance(double balance) {
+    final current = selectedPaymentItem()?.brand;
+    walletBalance = balance;
+    if (current != null) selectPaymentByBrand(current);
   }
 
   void _persistSelectedBrand() {

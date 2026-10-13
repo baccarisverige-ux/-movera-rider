@@ -15,16 +15,17 @@ void main() {
   });
 
   test('ride selection restores the saved payment brand', () async {
-    final memory = MemoryDefaultPaymentStore('cash');
+    final memory = MemoryDefaultPaymentStore('cards');
     final selection = RideSelectionController(paymentStore: memory);
-    expect(selection.payments()[selection.selectedPayment].brand, isNot('cash'));
-
-    await selection.restoreDefaultPayment();
+    // Pay in car is the default until the saved choice is restored.
     expect(selection.payments()[selection.selectedPayment].brand, 'cash');
 
+    await selection.restoreDefaultPayment();
+    expect(selection.payments()[selection.selectedPayment].brand, 'cards');
+
     selection.selectPayment(
-      selection.payments().indexWhere((item) => item.brand == 'swish'),
+      selection.payments().indexWhere((item) => item.brand == 'cash'),
     );
-    expect(memory.value, 'swish');
+    expect(memory.value, 'cash');
   });
 }

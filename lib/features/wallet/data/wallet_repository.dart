@@ -47,6 +47,8 @@ class WalletStore implements WalletBalanceSource {
     await prefs.setDouble(balanceKey, value);
   }
 
+  static const _removedMethods = {'paypal', 'klarna', 'swish'};
+
   Future<WalletPaymentSettings> loadPayments() async {
     final prefs = await PreferencesStore.load();
     await _removeLegacyVoucherState(prefs);
@@ -56,12 +58,14 @@ class WalletStore implements WalletBalanceSource {
       await prefs.remove('movera_payment_methods');
     }
     final savedDefault = prefs.getString('movera_default_payment');
-    final defaultMethod = savedDefault == 'paypal' ||
-            savedDefault == 'klarna' ||
+    // Pay in car is the default; removed methods (PayPal, Klarna, Swish)
+    // and unverified local cards fall back to it.
+    final defaultMethod = savedDefault == null ||
+            _removedMethods.contains(savedDefault) ||
             savedDefault == 'card' ||
-            (savedDefault?.startsWith('card_') ?? false)
-        ? 'apple'
-        : savedDefault ?? 'apple';
+            savedDefault.startsWith('card_')
+        ? 'cash'
+        : savedDefault;
     if (savedDefault != defaultMethod) {
       await prefs.setString('movera_default_payment', defaultMethod);
     }
@@ -77,9 +81,9 @@ class WalletStore implements WalletBalanceSource {
     final method = settings.defaultMethod;
     await prefs.setString(
       'movera_default_payment',
-      method == 'paypal' || method == 'klarna' || method == 'card' ||
+      _removedMethods.contains(method) || method == 'card' ||
               method.startsWith('card_')
-          ? 'apple'
+          ? 'cash'
           : method,
     );
     await prefs.setBool('movera_payment_business', settings.business);
