@@ -188,6 +188,7 @@ Future<RideSnapshot?> removeRouteStop(
     for (var i = 0; i < ride.stops.length; i++)
       if (i != index) ride.stops[i],
   ];
+  final messenger = ScaffoldMessenger.maybeOf(context);
   try {
     final quote = await changes.preview(
       ride: ride,
@@ -211,7 +212,7 @@ Future<RideSnapshot?> removeRouteStop(
     lastRefundDestination = decision.refundTo;
     return updated;
   } on RouteChangeException catch (error) {
-    ScaffoldMessenger.maybeOf(context)
+    messenger
       ?..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(error.message)));
     return null;
