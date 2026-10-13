@@ -739,7 +739,17 @@ class _SetPickupPageState extends State<SetPickupPage>
                     ),
                     _reveal(0.0, 0.55, _rideHeader()),
                     const SizedBox(height: 8),
-                    Text('Pickup spot', style: _text(13.5, weight: FontWeight.w600, color: _muted)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Pickup spot',
+                            style: _text(13.5, weight: FontWeight.w600, color: _muted),
+                          ),
+                        ),
+                        _shortBagsChip(),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     _pickupCard(),
                     _reveal(0.15, 0.75, _spotChips()),
@@ -924,8 +934,64 @@ class _SetPickupPageState extends State<SetPickupPage>
     );
   }
 
+  static const _bagLabels = ['No', '1–2', '3+'];
+
+  /// On the short sheet the bags sit at the top right; a tap cycles
+  /// No → 1–2 → 3+. The chip fades away as the sheet opens, where the full
+  /// Bags row takes over.
+  Widget _shortBagsChip() {
+    return AnimatedBuilder(
+      animation: _sheet,
+      builder: (context, child) {
+        final visible = (1 - _sheet.value * 2).clamp(0.0, 1.0);
+        return IgnorePointer(
+          ignoring: visible < 0.5,
+          child: Opacity(opacity: visible, child: child),
+        );
+      },
+      child: Semantics(
+        button: true,
+        label: 'Bags: ${_bagLabels[_bags]}',
+        child: GestureDetector(
+          key: const ValueKey('set-pickup-bags-chip'),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() => _bags = (_bags + 1) % _bagLabels.length);
+          },
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+            decoration: BoxDecoration(
+              color: _bags == 0 ? const Color(0xFFF3F5F6) : _accent,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _bags == 0 ? _line : _accent),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.luggage_rounded,
+                  size: 16,
+                  color: _bags == 0 ? _accent : Colors.white,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _bags == 0 ? 'Bags' : '${_bagLabels[_bags]} bags',
+                  style: _text(
+                    12.5,
+                    weight: FontWeight.w600,
+                    color: _bags == 0 ? _ink : Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _bagsRow() {
-    const labels = ['No', '1–2', '3+'];
+    const labels = _bagLabels;
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: Row(
