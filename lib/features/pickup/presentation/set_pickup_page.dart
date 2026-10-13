@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
@@ -255,6 +256,8 @@ class _SetPickupPageState extends State<SetPickupPage>
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
+  bool _fingerDown = false;
+  MapTouchSubscription? _mapTouch;
   // Screen geometry of the pin: how far above the map centre it sits, and
   // the current zoom, so camera positions convert to the pickup point.
   double _pinAboveCentrePx = 0;
@@ -267,6 +270,7 @@ class _SetPickupPageState extends State<SetPickupPage>
   void initState() {
     super.initState();
     setWebOverlayOpen(false);
+    _mapTouch = watchMapTouch(onDown: _onMapFingerDown, onUp: _onMapFingerUp);
     unawaited(_loadDestinationPin());
     if (_isPlaceholder(_address) || isUnusablePickupLabel(_address)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _resolveAddress());
@@ -291,6 +295,7 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   @override
   void dispose() {
+    _mapTouch?.cancel();
     _sheet.dispose();
     _lift.dispose();
     _pickup.dispose();
@@ -336,21 +341,33 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   // ---- Pin: lifts while the map moves, drops with a small bounce. ----
 
-  // On the web the pin stays still while the map moves: the map is a browser
-  // element, and animating Flutter content on top of it during a drag means
-  // every frame re-renders the canvases above and below it. On an iPhone
-  // Safari ran out of graphics memory doing that and reloaded the page.
-  bool get _animatesPin => !kIsWeb;
-
+  // The pin lifts while a finger holds the map and drops when it lets go.
+  // On phones the map reports the drag itself. On the web the map is a
+  // browser element, so the finger is watched on the page instead
+  // (_mapTouch) and the lift never runs while the map itself is sliding:
+  // animating over a moving map re-renders every canvas on each frame, and
+  // iPhone Safari ran out of graphics memory doing that and reloaded.
   void _onMoveStarted() {
     _moving = true;
-    if (_animatesPin) _lift.forward();
+    if (!kIsWeb) _lift.forward();
+  }
+
+  void _onMapFingerDown() {
+    _fingerDown = true;
+    _lift.forward();
+  }
+
+  void _onMapFingerUp() {
+    if (!_fingerDown) return;
+    _fingerDown = false;
+    // Still gliding: drop once the map settles.
+    if (!_moving) _lift.reverse();
   }
 
   void _onCameraIdle() {
     if (!_moving) return;
     _moving = false;
-    if (_animatesPin) _lift.reverse();
+    if (!_fingerDown) _lift.reverse();
     if (_isAwayFrom(_center, _routeStart)) {
       HapticFeedback.lightImpact();
       setState(() {
@@ -394,7 +411,7 @@ class _SetPickupPageState extends State<SetPickupPage>
         _address = address.trim();
       }
     });
-    if (_animatesPin) {
+    if (!kIsWeb) {
       _lift.forward().then((_) {
         if (mounted) _lift.reverse();
       });
@@ -581,7 +598,7 @@ class _SetPickupPageState extends State<SetPickupPage>
               child: Center(
                 child: _PickupPin(
                   key: const ValueKey('set-pickup-pin'),
-                  lift: _animatesPin ? _lift : kAlwaysDismissedAnimation,
+                  lift: _lift,
                   minutes: widget.ride.etaMin,
                   timeLabel: widget.scheduledPickup == null
                       ? null
