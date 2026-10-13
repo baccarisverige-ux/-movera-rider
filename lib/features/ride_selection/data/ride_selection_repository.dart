@@ -1,7 +1,12 @@
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 
 class RideSelectionRepository {
-  List<RideCatalogItem> rides() => const [
+  /// The built-in catalog: what the app ships with. Live categories come
+  /// from the server through `RideCatalogController`; this list is the last
+  /// fallback when neither the server nor the cache can answer.
+  List<RideCatalogItem> rides() => builtInRides;
+
+  static const List<RideCatalogItem> builtInRides = [
     RideCatalogItem(
       id: 'movera',
       image: 'assets/images/rides/movera.webp',

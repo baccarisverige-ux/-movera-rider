@@ -83,6 +83,70 @@ class InProcessMockClient extends http.BaseClient {
 
   static const currency = 'SEK';
 
+  /// Ride categories as the admin panel publishes them (`GET /ride-types`).
+  /// `van` is not in the app's built-in list: it proves the catalog really
+  /// comes from here. Tests may edit this list.
+  final List<Map<String, dynamic>> rideTypes = [
+    _rideType('movera', 'Movera', 4, 8, 259, 'Affordable and convenient rides',
+        order: 1, badge: 'RECOMMENDED'),
+    _rideType('comfort', 'Comfort', 4, 11, 339, 'Newer cars with extra legroom',
+        order: 2),
+    _rideType('premium', 'Premium', 4, 11, 369,
+        'Premium cars with top-rated drivers',
+        order: 3),
+    _rideType('priority', 'Priority', 4, 6, 289, 'More options, less waiting',
+        order: 4, badge: 'FASTER'),
+    _rideType('xl', 'Movera XL', 6, 12, 399, 'Cars for larger groups (6 people)',
+        order: 5),
+    _rideType('electric', 'Electric', 4, 9, 259, 'Quiet and fossil-free cars',
+        order: 6, glyph: 'bolt'),
+    _rideType('pet', 'Movera Pet', 4, 10, 279, 'Pet-friendly rides',
+        order: 7, glyph: 'pets'),
+    _rideType('van', 'Van', 8, 14, 449, 'Groups and luggage',
+        order: 8, imageKey: 'xl'),
+  ];
+
+  static Map<String, dynamic> _rideType(
+    String id,
+    String name,
+    int seats,
+    int etaMin,
+    int price,
+    String description, {
+    required int order,
+    String? badge,
+    String? glyph,
+    String? imageKey,
+    bool enabled = true,
+  }) {
+    return {
+      'id': id,
+      'name': name,
+      'seats': seats,
+      'etaMin': etaMin,
+      'price': price,
+      'currency': currency,
+      'description': description,
+      'badge': badge,
+      'glyph': glyph,
+      'imageKey': imageKey ?? id,
+      'order': order,
+      'enabled': enabled,
+    };
+  }
+
+  /// Catalog price in kr for [rideType]: the ride-types table first, then
+  /// the dev fallback table.
+  int _catalogPriceKr(String rideType) {
+    for (final type in rideTypes) {
+      if (type['id'] == rideType) {
+        final price = type['price'];
+        if (price is num) return price.round();
+      }
+    }
+    return CatalogQuoteRepository.pricesKr[rideType] ?? 259;
+  }
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (timeoutNext != null) {
@@ -714,6 +778,14 @@ class InProcessMockClient extends http.BaseClient {
         'amountMinor': body['amountMinor'] ?? 0,
         'requestId': requestId,
       };
+    } else if (path == '/api/v1/ride-types' && method == 'GET') {
+      payload = {
+        'code': 'OK',
+        'rideTypes': rideTypes
+            .map((type) => Map<String, dynamic>.from(type))
+            .toList(),
+        'requestId': requestId,
+      };
     } else if (path == '/api/v1/rider/promotions/active' && method == 'GET') {
       // Demo transport only: a sample admin promotion so the ticket can be
       // seen on GitHub Pages. The live API returns the rider's real one.
@@ -919,7 +991,7 @@ class InProcessMockClient extends http.BaseClient {
 
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
     final rideType = body['rideType'] as String? ?? 'movera';
-    final kr = CatalogQuoteRepository.pricesKr[rideType] ?? 259;
+    final kr = _catalogPriceKr(rideType);
     final fullMinor = kr * 100;
     // Demo promotion: discounts the ride types it names, capped per ride.
     final promo = activePromotion;

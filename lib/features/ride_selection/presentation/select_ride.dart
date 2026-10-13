@@ -210,6 +210,8 @@ class _SelectRideState extends State<SelectRide>
             ? Icons.bolt_rounded
             : ride.glyph == 'pets'
             ? Icons.pets_rounded
+            : ride.glyph == 'car'
+            ? Icons.directions_car_rounded
             : null,
       );
     }).toList();
@@ -291,6 +293,11 @@ class _SelectRideState extends State<SelectRide>
       }
     }
     _selection.ensureCatalogSelection();
+    _catalogIds = _selection.rides().map((ride) => ride.id).toList();
+    // Fresh categories from the server, without blocking: the known list
+    // shows at once and the sheet rebuilds when the answer lands.
+    _selection.catalogChanges?.addListener(_onCatalogChanged);
+    unawaited(_selection.refreshCatalog());
     final paymentName =
         widget.initialPaymentMethod ??
         (widget.editingReservationId == null
@@ -325,6 +332,25 @@ class _SelectRideState extends State<SelectRide>
   Future<void> _restoreSavedPayment() async {
     await _selection.restoreDefaultPayment();
     if (mounted) setState(() {});
+  }
+
+  /// Ids of the catalog the sheet currently shows; a server answer with a
+  /// different set (a category added in the admin panel) needs quotes for
+  /// the new ids too.
+  List<String> _catalogIds = const [];
+
+  void _onCatalogChanged() {
+    if (!mounted) return;
+    final ids = _selection.rides().map((ride) => ride.id).toList();
+    final sameIds =
+        ids.length == _catalogIds.length &&
+        List.generate(ids.length, (i) => ids[i] == _catalogIds[i])
+            .every((same) => same);
+    setState(() {
+      _catalogIds = ids;
+      _selection.ensureCatalogSelection();
+    });
+    if (!sameIds) unawaited(_loadQuotes());
   }
 
   @override
@@ -365,6 +391,7 @@ class _SelectRideState extends State<SelectRide>
 
   @override
   void dispose() {
+    _selection.catalogChanges?.removeListener(_onCatalogChanged);
     if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
     _sheetController.removeListener(_syncSheetSlide);

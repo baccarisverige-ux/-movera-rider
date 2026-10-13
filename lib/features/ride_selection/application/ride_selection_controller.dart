@@ -8,13 +8,18 @@ import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 
 class RideSelectionController {
+  /// Categories come from [catalog] (the server's list, see
+  /// [RideCatalogController]). A test that passes its own [store] gets a
+  /// fixed catalog instead; the default is the app's shared controller.
   RideSelectionController({
     RideSelectionRepository? store,
+    RideCatalogController? catalog,
     QuoteRepository? quotes,
     FareController? fare,
     FeatureFlags? flags,
@@ -22,6 +27,7 @@ class RideSelectionController {
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
   }) : _store = store ?? RideSelectionRepository(),
+       _catalog = catalog ?? (store == null ? AppScope.instance.catalog : null),
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
        _flags = flags ?? AppScope.instance.flags,
@@ -30,6 +36,7 @@ class RideSelectionController {
   }
 
   final RideSelectionRepository _store;
+  final RideCatalogController? _catalog;
   final QuoteRepository _quotes;
   final FareController _fare;
   final FeatureFlags _flags;
@@ -57,7 +64,19 @@ class RideSelectionController {
 
   bool get createsReservation => bookingMode.createsReservation;
 
-  List<RideCatalogItem> rides() => _store.rides();
+  List<RideCatalogItem> rides() => _catalog?.current ?? _store.rides();
+
+  /// Fires when the catalog changes (a server answer arrived). Null when
+  /// the catalog is a fixed store.
+  Listenable? get catalogChanges => _catalog;
+
+  /// Re-asks the server for the categories; [rides] updates in place and
+  /// [catalogChanges] fires. A fixed store has nothing to refresh.
+  Future<void> refreshCatalog() async {
+    final catalog = _catalog;
+    if (catalog == null) return;
+    await catalog.load();
+  }
 
   RideCatalogItem rideById(String id) {
     final catalog = rides();
