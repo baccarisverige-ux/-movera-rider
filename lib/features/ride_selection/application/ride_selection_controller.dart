@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
+import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -19,13 +20,15 @@ class RideSelectionController {
     FareController? fare,
     FeatureFlags? flags,
     DefaultPaymentStore? paymentStore,
+    SavedCardsController? savedCards,
     this.bookingMode = BookingMode.now,
     this.lockBookingMode = false,
   }) : _store = store ?? RideSelectionRepository(),
        _quotes = quotes ?? AppScope.instance.quotes,
        _fare = fare ?? FareController(),
        _flags = flags ?? AppScope.instance.flags,
-       _paymentStore = paymentStore {
+       _paymentStore = paymentStore,
+       _savedCards = savedCards ?? AppScope.instance.savedCards {
     _selectDefaultPayment();
   }
 
@@ -34,6 +37,7 @@ class RideSelectionController {
   final FareController _fare;
   final FeatureFlags _flags;
   final DefaultPaymentStore? _paymentStore;
+  final SavedCardsController _savedCards;
 
   final Map<String, double> offeredPrices = {};
   final Map<String, String> quoteIds = {};
@@ -109,15 +113,41 @@ class RideSelectionController {
   /// What the chosen method is charged after the wallet part.
   double remainderKr(double priceKr) => priceKr - walletAppliedKr(priceKr);
 
-  /// Whether the rider has a saved card. Cards can only be saved once a
-  /// payment provider is connected, so until then Card opens Add card.
-  bool hasSavedCard = false;
+  /// Whether the rider has a saved card. Without one, the generic "Card"
+  /// method opens Add card first.
+  bool get hasSavedCard => _savedCards.hasCards;
+
+  /// The saved cards as payment items (`card:<id>`, "Visa •••• 4242",
+  /// "Expires 08/28").
+  List<RidePaymentItem> savedCardItems() => [
+    for (final card in _savedCards.list())
+      RidePaymentItem(
+        brand: card.methodBrand,
+        name: card.displayName,
+        detail: 'Expires ${card.expiryLabel}',
+      ),
+  ];
+
+  /// The saved card behind a `card:<id>` brand, or null.
+  SavedCard? savedCardFor(String brand) => _savedCards.byMethodBrand(brand);
+
+  /// Loads the saved cards once and keeps the chosen method afterwards.
+  Future<void> loadSavedCards() async {
+    final current = selectedPaymentItem()?.brand;
+    await _savedCards.load();
+    if (current != null) selectPaymentByBrand(current);
+  }
 
   List<RidePaymentItem> payments() {
     final platform = defaultTargetPlatform;
     final mobile =
         platform == TargetPlatform.iOS || platform == TargetPlatform.android;
-    return _store.payments().where((item) {
+    final cards = savedCardItems();
+    return _store.payments().expand<RidePaymentItem>((item) {
+      // The generic "Card" row becomes the saved cards once there are any.
+      if (item.brand == 'cards') return cards.isEmpty ? [item] : cards;
+      return [item];
+    }).where((item) {
       if (item.brand == 'cash') return _flags.enableCash;
       // Apple Pay on iPhone, Google Pay on Android (both elsewhere).
       if (item.brand == 'apple') {
