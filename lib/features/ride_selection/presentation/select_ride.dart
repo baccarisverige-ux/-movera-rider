@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
@@ -238,6 +239,8 @@ class _SelectRideState extends State<SelectRide>
   // ignore: unused_field
   GoogleMapController? _mapController;
   late final AnimationController _sheetSlide;
+  BitmapDescriptor? _pickupPin;
+  BitmapDescriptor? _destinationPin;
 
   ReservationController get _reservations =>
       widget.reservations ?? AppScope.instance.reservations;
@@ -278,6 +281,19 @@ class _SelectRideState extends State<SelectRide>
       _selection.setBookingMode(BookingMode.scheduled);
     }
     _loadQuotes();
+    unawaited(_loadRoutePins());
+  }
+
+  Future<void> _loadRoutePins() async {
+    final pins = await Future.wait([
+      RouteEndpointMarker.createIcon(pickup: true),
+      RouteEndpointMarker.createIcon(pickup: false),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _pickupPin = pins[0];
+      _destinationPin = pins[1];
+    });
   }
 
   Future<void> _restoreSavedPayment() async {
@@ -983,23 +999,29 @@ class _SelectRideState extends State<SelectRide>
                         zoom: 13.2,
                       ),
                       markers: {
-                        Marker(
-                          markerId: const MarkerId('pickup'),
-                          position: _pickupPosition,
-                        ),
-                        Marker(
-                          markerId: const MarkerId('destination'),
-                          position: widget.destinationPosition,
-                        ),
+                        if (_pickupPin != null)
+                          Marker(
+                            markerId: const MarkerId('pickup'),
+                            position: _pickupPosition,
+                            icon: _pickupPin!,
+                            anchor: const Offset(0.5, 0.5),
+                          ),
+                        if (_destinationPin != null)
+                          Marker(
+                            markerId: const MarkerId('destination'),
+                            position: widget.destinationPosition,
+                            icon: _destinationPin!,
+                            anchor: const Offset(0.5, 0.5),
+                          ),
                       },
-                      polylines: {
+                      polylines: styledRoute(
                         routePolyline(
                           id: 'route',
                           from: _pickupPosition,
                           to: widget.destinationPosition,
                           color: RiderRouteStyle.color,
                         ),
-                      },
+                      ),
                       myLocationEnabled: false,
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/shared/styles/route_style.dart';
 
 /// Compact Rider location puck matching the Home map visual language.
 class MoveraRiderPuckMarker {
@@ -170,5 +171,58 @@ class MoveraVehicleMarker {
       return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
     }
     return BitmapDescriptor.bytes(data.buffer.asUint8List());
+  }
+}
+
+/// The green pickup and blue destination pins at the two ends of a route.
+class RouteEndpointMarker {
+  const RouteEndpointMarker._();
+
+  static final Map<bool, Future<BitmapDescriptor>> _cache =
+      <bool, Future<BitmapDescriptor>>{};
+
+  /// A round pin for the pickup, a square-dot pin for the destination.
+  static Future<BitmapDescriptor> createIcon({required bool pickup}) {
+    return _cache.putIfAbsent(pickup, () async {
+      const size = 30.0;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final color = pickup ? RiderRouteStyle.pickup : RiderRouteStyle.destination;
+      const center = Offset(size / 2, size / 2);
+      canvas.drawCircle(
+        center,
+        size / 2,
+        Paint()..color = color.withValues(alpha: 0.18),
+      );
+      canvas.drawCircle(center, 10, Paint()..color = Colors.white);
+      if (pickup) {
+        canvas.drawCircle(center, 7, Paint()..color = color);
+        canvas.drawCircle(center, 2.6, Paint()..color = Colors.white);
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: center, width: 13, height: 13),
+            const Radius.circular(3),
+          ),
+          Paint()..color = color,
+        );
+        canvas.drawRect(
+          Rect.fromCenter(center: center, width: 4.4, height: 4.4),
+          Paint()..color = Colors.white,
+        );
+      }
+      final image = await recorder.endRecording().toImage(
+        size.toInt(),
+        size.toInt(),
+      );
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (data == null) {
+        return BitmapDescriptor.defaultMarkerWithHue(
+          pickup ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure,
+        );
+      }
+      return BitmapDescriptor.bytes(data.buffer.asUint8List());
+    });
   }
 }
