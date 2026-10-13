@@ -395,7 +395,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Ride in progress'), findsOneWidget);
+      expect(find.textContaining('Arrive by '), findsOneWidget);
       expect(find.byType(WaitingForDriver), findsOneWidget);
       expect(
         identical(rideState, tester.state(find.byType(WaitingForDriver))),

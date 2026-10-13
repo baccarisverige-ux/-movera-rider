@@ -31,6 +31,7 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
@@ -49,7 +50,12 @@ class FindingDrivers extends StatefulWidget {
     required this.paymentMethod,
     this.notes = RideNotes.empty,
     this.realtime,
+    this.etaMinutes,
   });
+
+  /// The chosen ride's estimated minutes to the pickup, for the time pins
+  /// while searching. Null (for example after a restore) shows plain pins.
+  final int? etaMinutes;
 
   final String pickupAddress;
   final String destinationAddress;
@@ -85,6 +91,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// Green pickup pin (the rider waits there).
   BitmapDescriptor? _riderPuck;
   BitmapDescriptor? _destinationPin;
+  Offset _pinAnchor = const Offset(0.5, 0.5);
   BitmapDescriptor? _driverCar;
   List<LatLng>? _roadRoutePoints;
 
@@ -213,7 +220,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           position: _pickupPosition,
           infoWindow: InfoWindow(title: _pickupAddress),
           icon: _riderPuck!,
-          anchor: const Offset(0.5, 0.5),
+          anchor: _pinAnchor,
         ),
       Marker(
         markerId: const MarkerId('destination'),
@@ -222,7 +229,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         icon:
             _destinationPin ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        anchor: const Offset(0.5, 0.5),
+        anchor: _pinAnchor,
       ),
       for (final vehicle in _match.nearby)
         Marker(
@@ -255,15 +262,34 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _prepareMapVisuals() async {
+    final eta = widget.etaMinutes;
+    final tripMinutes = estimatedTripMinutes(
+      GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+      GeoPoint(
+        widget.destinationPosition.latitude,
+        widget.destinationPosition.longitude,
+      ),
+    );
     final icons = await Future.wait<BitmapDescriptor>([
-      RouteEndpointMarker.createIcon(pickup: true),
+      // While searching the pins carry the estimate; the live driver ETA
+      // takes over once a driver is found.
+      eta == null
+          ? RouteEndpointMarker.createIcon(pickup: true)
+          : RouteTimeMarker.createIcon(pickup: true, label: '$eta\nmin'),
       MoveraVehicleMarker.createIcon(),
-      RouteEndpointMarker.createIcon(pickup: false),
+      eta == null
+          ? RouteEndpointMarker.createIcon(pickup: false)
+          : RouteTimeMarker.createIcon(
+              pickup: false,
+              label:
+                  'Arrive by ${clockTime(DateTime.now().add(Duration(minutes: eta + tripMinutes)))}',
+            ),
     ]);
     if (!mounted) return;
     _riderPuck = icons[0];
     _destinationPin = icons[2];
     _driverCar = icons[1];
+    _pinAnchor = eta == null ? const Offset(0.5, 0.5) : RouteTimeMarker.anchor;
     _loadMapBits();
     setState(() {});
   }
