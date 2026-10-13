@@ -18,7 +18,7 @@ void main() {
   });
 
   testWidgets(
-    'Add payment method opens Add card, which never collects card details',
+    'Add card opens the demo card form and saves nothing when closed',
     (tester) async {
       tester.view.physicalSize = const Size(390, 1400);
       tester.view.devicePixelRatio = 1;
@@ -33,16 +33,18 @@ void main() {
       expect(find.text('Swish'), findsNothing);
       expect(find.text('Pay in car'), findsOneWidget);
 
-      final addPayment = find.text('Add payment method');
+      final addPayment = find.text('Add card');
       await tester.ensureVisible(addPayment);
       await tester.tap(addPayment);
       await tester.pumpAndSettle();
 
       expect(find.byType(AddCardPage), findsOneWidget);
-      expect(find.text(AddCardPage.unavailableNote), findsOneWidget);
-      // No card number field until the secure payment partner is connected.
-      expect(find.byType(TextField), findsNothing);
-      final save = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(find.text(AddCardPage.demoNote), findsOneWidget);
+      // Demo form: number, expiry, CVC and name; Save is off until valid.
+      expect(find.byType(TextField), findsNWidgets(4));
+      final save = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('add-card-save')),
+      );
       expect(save.onPressed, isNull);
 
       await tester.pageBack();
