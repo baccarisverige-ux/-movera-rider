@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,6 +72,22 @@ void main() {
       ..authoritativeUpdatedAt = null;
   });
 
+  /// Book now opens Set pickup first; confirm it to start the request.
+  Future<void> confirmSetPickup(WidgetTester tester) async {
+    for (var i = 0;
+        i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
+        i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(SetPickupPage), findsOneWidget);
+    await tester.tap(find.text('Confirm and search'));
+    for (var i = 0;
+        i < 10 && find.byType(SetPickupPage).evaluate().isNotEmpty;
+        i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
   testWidgets(
     'created ride is surfaced when Select Ride disappears during submitFinding',
     (tester) async {
@@ -128,6 +145,7 @@ void main() {
 
       await tester.tap(find.text('Select Movera'));
       await tester.pump();
+      await confirmSetPickup(tester);
       await transport.rideCreateStarted.future;
 
       final selectRoute = observer.pushed.lastWhere(
@@ -298,6 +316,7 @@ void main() {
 
       await tester.tap(book);
       await tester.pump();
+      await confirmSetPickup(tester);
       await transport.rideCreateStarted.future;
 
       // A second physical tap while the first mutation is pending must not

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -388,6 +389,16 @@ void main() {
       // Allow the authoritative quote batch to settle before booking.
       await tester.pump(const Duration(seconds: 1));
       await tester.tap(find.text('Select Movera'));
+      await tester.pump();
+      // Book now opens Set pickup; confirming it starts the search.
+      for (var i = 0;
+          i < 30 && find.byType(SetPickupPage).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SetPickupPage), findsOneWidget);
+      expect(observer.pushed.last.settings.name, AppRoutes.confirmPickup);
+      await tester.tap(find.text('Confirm and search'));
       await tester.pump();
       for (
         var i = 0;

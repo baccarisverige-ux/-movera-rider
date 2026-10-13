@@ -188,6 +188,16 @@ void main() {
     expect(find.text('Bags?').hitTestable(), findsOneWidget);
   });
 
+  testWidgets('dragging the sheet down folds the details away', (tester) async {
+    await openPage(tester)();
+    await tester.drag(find.text('Pickup spot'), const Offset(0, 320));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Bags?').hitTestable(), findsNothing);
+    expect(find.text('Confirm and search').hitTestable(), findsOneWidget);
+  });
+
   test('bags are kept on the ride notes', () {
     final notes = RideNotes.empty.withBagLevel(2);
     expect(notes.bagLevel, 2);
