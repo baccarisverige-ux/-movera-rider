@@ -251,11 +251,7 @@ class RideSelectionController {
         timeout,
       );
       if (generation != _quoteGeneration) return;
-      offeredPrices[rideId] = quote.totalMinor / 100;
-      quoteIds[rideId] = quote.id;
-      quoteExpiresAt[rideId] = quote.expiresAt;
-      authoritativeQuotes[rideId] = quote;
-      unavailableQuoteIds.remove(rideId);
+      adoptQuote(rideId, quote);
     } catch (_) {
       if (generation != _quoteGeneration) return;
       offeredPrices.remove(rideId);
@@ -264,6 +260,18 @@ class RideSelectionController {
       authoritativeQuotes.remove(rideId);
       unavailableQuoteIds.add(rideId);
     }
+  }
+
+  /// Takes [quote] as the authoritative price for [rideId], exactly as a
+  /// loaded quote is. Set location calls this after pricing the ride from
+  /// the exact pin, so booking sends that quote.
+  void adoptQuote(String rideId, RideQuote quote) {
+    if (_disposed) return;
+    offeredPrices[rideId] = quote.totalMinor / 100;
+    quoteIds[rideId] = quote.id;
+    quoteExpiresAt[rideId] = quote.expiresAt;
+    authoritativeQuotes[rideId] = quote;
+    unavailableQuoteIds.remove(rideId);
   }
 
   bool quoteIsFresh(String id, {DateTime? now}) {
