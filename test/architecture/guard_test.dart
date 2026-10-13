@@ -265,18 +265,30 @@ void main() {
     expect(html.contains('moveraGeoCache'), isFalse);
   });
 
-  test('the promotions feature is gone, not merely hidden', () {
-    expect(Directory('lib/features/promotions').existsSync(), isFalse);
-    expect(
-      File(
-        'lib/features/home/presentation/widgets/ride_promotion_ticket.dart',
-      ).existsSync(),
-      isFalse,
-    );
-    final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
-    expect(home.contains('PromotionsController'), isFalse);
-    expect(home.contains('RidePromotionTicket'), isFalse);
-    expect(home.contains('_promotionVisible'), isFalse);
+  test('promotions come only from the server and never invent content', () {
+    // The owner brought the promotion ticket back (Home + ride list). It must
+    // show only what the admin panel created for this rider.
+    final libFiles = Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        .where((f) => !f.path.endsWith('in_process_mock_client.dart'));
+    for (final file in libFiles) {
+      expect(
+        RegExp(r"'\d+% off your next").hasMatch(file.readAsStringSync()),
+        isFalse,
+        reason: '${file.path} hardcodes a promotion title',
+      );
+    }
+    final ticket = File(
+      'lib/features/promotions/presentation/promotion_ticket.dart',
+    ).readAsStringSync();
+    expect(ticket.contains('RiderPromotion promotion'), isTrue);
+    expect(ticket.contains('Icons.close'), isFalse, reason: 'no close button');
+    final home = homeScreenFiles
+        .map((p) => File(p).readAsStringSync())
+        .join('\n');
+    expect(home.contains('AppScope.instance.promotion.active'), isTrue);
     expect(
       File('lib/core/feature_flags/feature_flags.dart').readAsStringSync(),
       isNot(contains('enablePromotions')),

@@ -86,7 +86,11 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 800));
+      // Real frames, so Home can settle (the promotion ticket may seat the
+      // sheet a few frames after launch).
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       expect(find.byType(Home), findsOneWidget);
       expect(find.text('Where to?'), findsOneWidget);

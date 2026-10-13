@@ -1,3 +1,4 @@
+import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/app/navigator_key.dart';
@@ -214,6 +215,9 @@ class AppScope {
   late final OnboardingController onboarding = OnboardingController();
   late final DestinationController destinationMemory = DestinationController();
   late final RideSelectionRepository rideCatalog = RideSelectionRepository();
+  late final RiderPromotionController promotion = RiderPromotionController(
+    api,
+  );
   HttpObservabilitySink? observabilitySink;
   FeatureFlags flags = FeatureFlags.current;
 

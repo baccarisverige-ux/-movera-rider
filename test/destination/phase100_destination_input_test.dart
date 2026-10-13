@@ -134,7 +134,11 @@ void main() {
             MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 800));
+    // Real frames, so Home can settle (the promotion ticket may seat the
+    // sheet a few frames after launch).
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     await tester.tap(find.text('Where to?'));
     for (
       var i = 0;

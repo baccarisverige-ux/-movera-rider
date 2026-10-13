@@ -38,6 +38,7 @@ class AppAssets {
   static const String sucess = 'assets/images/sucess.png';
   static const String pinVerification = 'assets/images/pin_verification.webp';
   static const String noteBags = 'assets/images/notes/bags.webp';
+  static const String promoCard = 'assets/images/promo_card_img.png';
   static const String notePet = 'assets/images/notes/pet.webp';
   static const String noteBaby = 'assets/images/notes/baby.webp';
   static const String noteChild = 'assets/images/notes/child.webp';

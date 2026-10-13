@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
@@ -44,6 +45,8 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_n
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
+import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
+import 'package:movera_rider/features/promotions/presentation/promotion_ticket.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
 import 'package:movera_rider/features/home/presentation/widgets/plan_ride_address_box.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
@@ -143,6 +146,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     reportHomeBuilt();
     _homeSheetController.addListener(_syncHomeSheetState);
+    AppScope.instance.promotion.addListener(_onPromotionChanged);
+    unawaited(AppScope.instance.promotion.refresh());
     _loadMarkers();
     _savedPlacesSubscription = _places.changes.listen((_) async {
       await _places.load();
@@ -203,6 +208,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AppScope.instance.promotion.removeListener(_onPromotionChanged);
+    _settleTimer?.cancel();
     _savedPlacesSubscription?.cancel();
     _sheetCtl.dispose();
     _locationCtl.dispose();
@@ -402,12 +409,23 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
+  /// A saved place that only says "Current location" was never really set.
+  String? _placeOrNull(String? address) {
+    final value = address?.trim() ?? '';
+    if (value.isEmpty || value == 'Current location') return null;
+    return value;
+  }
+
+  /// Long-press on Home / Work / a custom place: change its address.
+  Future<void> _editSavedPlace(String target, {String? customType}) =>
+      _showAddressPicker(target: target, customType: customType);
+
   Future<void> _useSavedPlaceAsDestination(
     String? savedAddress, {
     required String target,
     String? customType,
   }) async {
-    final address = savedAddress?.trim() ?? '';
+    final address = _placeOrNull(savedAddress) ?? '';
     if (address.isEmpty) {
       await _showAddressPicker(target: target, customType: customType);
       return;
@@ -1512,12 +1530,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () {
-                              Navigator.pop(
-                                sheetContext,
-                                _pickupAddress ?? 'Current location',
-                              );
-                            },
+                            // Save the real street address, never the
+                            // words "Current location".
+                            onTap: _placeOrNull(_pickupAddress) == null
+                                ? null
+                                : () => Navigator.pop(
+                                    sheetContext,
+                                    _placeOrNull(_pickupAddress),
+                                  ),
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
                               padding: EdgeInsets.symmetric(
@@ -1551,10 +1571,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                         ),
                                         2.height,
                                         TextWidget(
-                                          text: _shortAddress(
-                                            _pickupAddress,
-                                            maxLength: 38,
-                                          ),
+                                          text:
+                                              _placeOrNull(_pickupAddress) ==
+                                                  null
+                                              ? 'Finding your address…'
+                                              : _shortAddress(
+                                                  _pickupAddress,
+                                                  maxLength: 38,
+                                                ),
                                           color: _premiumMuted,
                                           fontSize: 9,
                                           fontWeight: fwNormal,
@@ -1952,10 +1976,82 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _locationCtl.clearOverlays();
   }
 
-  double get _sheetMinPixels =>
-      ResSize.h * _sheetMinHeight;
+  /// The rider's active promotion, shown as a ticket on top of the sheet.
+  /// It is applied only while the sheet rests low, so a promotion arriving
+  /// mid-gesture never changes the snaps under the rider's finger.
+  RiderPromotion? _promotion;
+  Timer? _settleTimer;
 
-  double get _sheetMidPixels => ResSize.h * _sheetMaxHeight;
+  /// Room the promotion ticket takes at the low and middle snaps.
+  double get _promotionExtra =>
+      _promotion == null ? 0 : PromotionTicket.height + ResSize.h * 10;
+
+  double get _sheetMinPixels => ResSize.h * _sheetMinHeight + _promotionExtra;
+
+  double get _sheetMidPixels => ResSize.h * _sheetMaxHeight + _promotionExtra;
+
+  /// Set once the sheet settles fully open; a swipe down from there goes all
+  /// the way to the low snap instead of stopping at the middle.
+  bool _skipMiddleSnap = false;
+  double? _lastSettledSnap;
+
+  void _onPromotionChanged() {
+    if (!mounted) return;
+    // Only re-seat a sheet resting at its low stop; never pull back a sheet
+    // the rider (or "Where to?") is opening.
+    final previousLow = _lastSettledSnap;
+    final offset = _homeSheetController.hasClient
+        ? _homeSheetController.metrics?.offset
+        : null;
+    final wasLow =
+        !_destinationSheetOpen &&
+        offset != null &&
+        offset <= (previousLow ?? offset) + 1.5 &&
+        offset < _sheetMidPixels - ResSize.h * 20;
+    if (!wasLow && _homeSheetController.hasClient) return;
+    final firstSeat = _lastSettledSnap == null;
+    setState(() => _promotion = AppScope.instance.promotion.active);
+    if (!wasLow) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_homeSheetController.hasClient) return;
+      if (_destinationSheetOpen) return;
+      unawaited(
+        _animateHomeSheetTo(
+          SheetOffset.absolute(_sheetMinPixels),
+          // Right after launch the sheet simply opens at the right height.
+          duration: firstSeat
+              ? const Duration(milliseconds: 1)
+              : MoveraDurations.normal,
+        ),
+      );
+    });
+  }
+
+  /// Light haptic at each stop, and remember whether the sheet came down from
+  /// the top (then the middle stop is skipped).
+  void _trackSettledSnap(double offset) {
+    final metrics = _homeSheetController.metrics;
+    if (metrics == null) return;
+    final full = metrics.maxOffset;
+    for (final snap in <double>[_sheetMinPixels, _sheetMidPixels, full]) {
+      if ((offset - snap).abs() > 1.5) continue;
+      final last = _lastSettledSnap;
+      if (last != null && (last - snap).abs() < 1.5) return;
+      _lastSettledSnap = snap;
+      HapticFeedback.selectionClick();
+      if (snap == _sheetMinPixels &&
+          _promotion != AppScope.instance.promotion.active) {
+        _onPromotionChanged();
+      }
+      final skip = snap == full;
+      if (skip != _skipMiddleSnap && (skip || snap == _sheetMinPixels)) {
+        setState(() => _skipMiddleSnap = skip);
+      }
+      return;
+    }
+    final last = _lastSettledSnap;
+    if (last != null && (offset - last).abs() > 6) _lastSettledSnap = null;
+  }
 
   bool get _isSheetAtMiddle => _sheetCtl.isAtMiddle;
 
@@ -1979,6 +2075,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } else {
       _cancelSheetIdleTimer();
     }
+
+    _settleTimer?.cancel();
+    _settleTimer = Timer(const Duration(milliseconds: 140), () {
+      if (!mounted || !_homeSheetController.hasClient) return;
+      final settled = _homeSheetController.metrics?.offset;
+      if (settled != null) _trackSettledSnap(settled);
+    });
 
     final expanded = offset > _sheetMidPixels + ResSize.h * 8;
     if (expanded != _destinationSheetOpen) {
@@ -2221,14 +2324,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                     onDestinationTap: _handleDestinationTap,
                     onOpenSchedule: _openSchedule,
                   );
-                  final premiumSavedPlacesContent = Column(
+                  Widget premiumSavedPlacesContent(double reveal) => Column(
                     children: [
                       15.height,
                       SavedPlacesRow(
-                        homeAddress: _homeAddress,
-                        workAddress: _workAddress,
+                        homeAddress: _placeOrNull(_homeAddress),
+                        workAddress: _placeOrNull(_workAddress),
                         savedPlaces: _savedPlaces,
+                        reveal: reveal,
                         onUseSavedPlace: _useSavedPlaceAsDestination,
+                        onEditSavedPlace: _editSavedPlace,
                         onAddPlace: _openAddPlacePicker,
                       ),
                     ],
@@ -2250,7 +2355,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                     snapGrid: SheetSnapGrid(
                       snaps: [
                         SheetOffset.absolute(_sheetMinPixels),
-                        SheetOffset.absolute(_sheetMidPixels),
+                        if (!_skipMiddleSnap)
+                          SheetOffset.absolute(_sheetMidPixels),
                         const SheetOffset(1),
                       ],
                       minFlingSpeed: 520,
@@ -2308,16 +2414,21 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     double sheetHeight, {
     required Widget toggleHandle,
     required Widget whereToCard,
-    required Widget savedPlacesContent,
+    required Widget Function(double reveal) savedPlacesContent,
     required Widget detailContent,
   }) {
+    final promotion = _promotion;
+    // Content keeps its full size and slides/fades in instead of being cut.
+    final placesReveal = Curves.easeOutCubic.transform(
+      ((sheetProgress - 0.25) / 0.75).clamp(0.0, 1.0),
+    );
+    final detailReveal = Curves.easeOutCubic.transform(
+      ((detailProgress - 0.15) / 0.85).clamp(0.0, 1.0),
+    );
+    final ticketVisible = 1 - Curves.easeOutCubic.transform(detailProgress);
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFFCFDFD)],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(34),
           topRight: Radius.circular(34),
@@ -2339,28 +2450,42 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 children: [
                   toggleHandle,
                   12.height,
+                  if (promotion != null)
+                    IgnorePointer(
+                      ignoring: ticketVisible < 0.6,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        heightFactor: ticketVisible,
+                        child: Opacity(
+                          opacity: ticketVisible,
+                          child: Transform.translate(
+                            offset: Offset(0, -10 * (1 - ticketVisible)),
+                            child: Padding(
+                              padding: EdgeInsets.only(bottom: ResSize.h * 10),
+                              child: PromotionTicket(promotion: promotion),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   whereToCard,
                   IgnorePointer(
                     ignoring: sheetProgress < 0.92,
-                    child: ClipRect(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        heightFactor: sheetProgress,
-                        child: Opacity(
-                          opacity: sheetProgress,
-                          child: savedPlacesContent,
-                        ),
-                      ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: sheetProgress,
+                      child: savedPlacesContent(placesReveal),
                     ),
                   ),
                   IgnorePointer(
                     ignoring: detailProgress < 0.92,
-                    child: ClipRect(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        heightFactor: detailProgress,
-                        child: Opacity(
-                          opacity: detailProgress,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: detailProgress,
+                      child: Opacity(
+                        opacity: detailReveal,
+                        child: Transform.translate(
+                          offset: Offset(0, 12 * (1 - detailReveal)),
                           child: Padding(
                             padding: EdgeInsets.only(top: ResSize.h * 24),
                             child: detailContent,
