@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -557,6 +558,7 @@ class _WalletScreenState extends State<WalletScreen> {
   static const Color _line = Color(0xFFE6E8E7);
   static const Color _accent = Color(0xFF356879);
   final _wallet = AppScope.instance.walletController;
+  final SavedCardsController _cards = AppScope.instance.savedCards;
 
   bool _businessProfile = false;
   String _selectedMethod = 'cash';
@@ -569,7 +571,25 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void initState() {
     super.initState();
+    _cards.addListener(_cardsChanged);
     _restorePaymentSettings();
+    _loadCards();
+  }
+
+  @override
+  void dispose() {
+    _cards.removeListener(_cardsChanged);
+    super.dispose();
+  }
+
+  void _cardsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadCards() async {
+    try {
+      await _cards.load();
+    } catch (_) {}
   }
 
   TextStyle _style(
@@ -619,7 +639,85 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _openAddPaymentMethod() async {
-    await AddCardPage.open(context);
+    final card = await AddCardPage.open(context, cards: _cards);
+    if (card == null || !mounted) return;
+    _selectMethod(card.methodBrand);
+  }
+
+  /// "Remove this card?" then removes it; the default falls back to Pay in
+  /// car when the removed card was the default.
+  Future<void> _confirmRemoveCard(SavedCard card) async {
+    final confirmed = await MoveraSheet.show<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(child: _brandMark(card.methodBrand)),
+                const SizedBox(height: 14),
+                Text(
+                  'Remove ${card.displayName}?',
+                  textAlign: TextAlign.center,
+                  style: _style(18, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You can add it again any time.',
+                  textAlign: TextAlign.center,
+                  style: _style(13, weight: FontWeight.w400, color: _muted),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    key: const ValueKey('wallet-remove-card-confirm'),
+                    onPressed: () => Navigator.of(sheetContext).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF11181D),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Remove card',
+                      style: _style(
+                        15,
+                        weight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(false),
+                  child: Text(
+                    'Keep card',
+                    style: _style(15, weight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    await _cards.remove(card.id);
+    if (!mounted) return;
+    if (_selectedMethod == card.methodBrand) _selectMethod('cash');
   }
 
   @override
@@ -729,6 +827,21 @@ class _WalletScreenState extends State<WalletScreen> {
                               brand: method['id']!,
                             ),
                           ],
+                          for (final card in _cards.list()) ...[
+                            const Divider(
+                              height: 1,
+                              indent: 62,
+                              endIndent: 16,
+                              color: _line,
+                            ),
+                            _paymentTile(
+                              id: card.methodBrand,
+                              title: card.displayName,
+                              detail: 'Expires ${card.expiryLabel}',
+                              brand: card.methodBrand,
+                              onRemove: () => _confirmRemoveCard(card),
+                            ),
+                          ],
                           const Divider(
                             height: 1,
                             indent: 62,
@@ -737,7 +850,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           ),
                           _actionTile(
                             icon: Icons.add_rounded,
-                            title: 'Add payment method',
+                            title: 'Add card',
                             onTap: _openAddPaymentMethod,
                           ),
                         ],
@@ -929,15 +1042,17 @@ class _WalletScreenState extends State<WalletScreen> {
     required String title,
     required String detail,
     required String brand,
+    VoidCallback? onRemove,
   }) {
     final selected = _selectedMethod == id;
     return Material(
+      key: ValueKey('wallet-method-$id'),
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _selectMethod(id),
         borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          padding: EdgeInsets.fromLTRB(14, 12, onRemove == null ? 14 : 6, 12),
           child: Row(
             children: [
               _brandMark(brand),
@@ -981,6 +1096,18 @@ class _WalletScreenState extends State<WalletScreen> {
                       )
                     : null,
               ),
+              if (onRemove != null)
+                IconButton(
+                  key: ValueKey('wallet-remove-$id'),
+                  tooltip: 'Remove card',
+                  onPressed: onRemove,
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: _muted,
+                    size: 20,
+                  ),
+                ),
             ],
           ),
         ),
@@ -992,7 +1119,14 @@ class _WalletScreenState extends State<WalletScreen> {
     Widget logo;
     Color background = Colors.white;
 
-    if (brand == 'apple') {
+    final savedCard = _cards.byMethodBrand(brand);
+    if (savedCard != null) {
+      logo = Image.asset(
+        excludeFromSemantics: true,
+        savedCard.brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'apple') {
       logo = SvgPicture.asset(
         'assets/images/apple_pay_brand.svg',
         fit: BoxFit.contain,

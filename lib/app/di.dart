@@ -41,6 +41,7 @@ import 'package:movera_rider/features/destination/application/destination_contro
 import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/onboarding/application/onboarding_controller.dart';
+import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
@@ -215,6 +216,9 @@ class AppScope {
   late final OnboardingController onboarding = OnboardingController();
   late final DestinationController destinationMemory = DestinationController();
   late final RideSelectionRepository rideCatalog = RideSelectionRepository();
+  /// Demo saved cards (stored on this device until the payment partner's
+  /// vault takes over).
+  late final SavedCardsController savedCards = SavedCardsController();
   late final RiderPromotionController promotion = RiderPromotionController(
     api,
   );
