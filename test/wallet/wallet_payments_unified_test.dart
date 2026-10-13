@@ -41,7 +41,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    final addMethod = find.text('Add payment method');
+    final addMethod = find.text('Add card');
     await tester.ensureVisible(addMethod);
     await tester.tap(addMethod);
     await tester.pumpAndSettle();
