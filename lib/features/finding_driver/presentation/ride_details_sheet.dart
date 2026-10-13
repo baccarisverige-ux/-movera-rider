@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
-/// The route and the money of the current ride, with a Change link on
-/// every part the rider may still change at this stage.
+/// The route and the money of the current ride, read-only. Changing the
+/// route happens on the route screen (the three dots on the ride card).
 class RideDetailsSheet extends StatelessWidget {
   const RideDetailsSheet({
     super.key,
@@ -15,15 +15,7 @@ class RideDetailsSheet extends StatelessWidget {
     required this.price,
     required this.paymentMethod,
     required this.notes,
-    required this.canEditPickup,
-    this.canEditDestination = false,
-    this.canAddStop = false,
-    this.maxStops = 3,
     this.allowCancel = true,
-    required this.onEditPickup,
-    required this.onEditDestination,
-    this.onAddStop,
-    this.onRemoveStop,
     required this.onCancelTrip,
   });
 
@@ -34,15 +26,7 @@ class RideDetailsSheet extends StatelessWidget {
   final double price;
   final String paymentMethod;
   final RideNotes notes;
-  final bool canEditPickup;
-  final bool canEditDestination;
-  final bool canAddStop;
-  final int maxStops;
   final bool allowCancel;
-  final VoidCallback onEditPickup;
-  final VoidCallback onEditDestination;
-  final VoidCallback? onAddStop;
-  final void Function(int index)? onRemoveStop;
   final VoidCallback onCancelTrip;
 
   static const Color _ink = Color(0xFF1D252C);
@@ -53,7 +37,6 @@ class RideDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inset = MediaQuery.paddingOf(context).bottom;
-    final stopsLeft = canAddStop && stops.length < maxStops;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + inset),
       child: SingleChildScrollView(
@@ -86,8 +69,6 @@ class RideDetailsSheet extends StatelessWidget {
               key: const ValueKey('ride-details-pickup'),
               kind: _RowKind.pickup,
               address: pickupAddress,
-              action: canEditPickup ? 'Change' : null,
-              onAction: onEditPickup,
             ),
             for (var i = 0; i < stops.length; i++) ...[
               _connector(),
@@ -96,8 +77,6 @@ class RideDetailsSheet extends StatelessWidget {
                 kind: _RowKind.stop,
                 label: 'Stop ${i + 1}',
                 address: stops[i].address,
-                action: canEditDestination ? 'Remove' : null,
-                onAction: () => onRemoveStop?.call(i),
               ),
             ],
             _connector(),
@@ -105,36 +84,7 @@ class RideDetailsSheet extends StatelessWidget {
               key: const ValueKey('ride-details-destination'),
               kind: _RowKind.destination,
               address: destinationAddress,
-              action: canEditDestination ? 'Change' : null,
-              onAction: onEditDestination,
             ),
-            if (stopsLeft) ...[
-              const SizedBox(height: 10),
-              TextButton.icon(
-                key: const ValueKey('ride-details-add-stop'),
-                onPressed: onAddStop,
-                style: TextButton.styleFrom(
-                  foregroundColor: _accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                icon: const Icon(Icons.add_rounded, size: 20),
-                label: Text(
-                  'Add stop',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-            if (!canEditPickup && canEditDestination) ...[
-              const SizedBox(height: 6),
-              Text(
-                'Your driver is told about every change.',
-                style: GoogleFonts.poppins(fontSize: 12.5, color: _muted),
-              ),
-            ],
             const SizedBox(height: 16),
             _kv(rideType, '${price.toStringAsFixed(0)} kr'),
             const SizedBox(height: 8),
@@ -260,15 +210,11 @@ class _RouteRow extends StatelessWidget {
     required this.kind,
     required this.address,
     this.label,
-    this.action,
-    required this.onAction,
   });
 
   final _RowKind kind;
   final String address;
   final String? label;
-  final String? action;
-  final VoidCallback onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -325,23 +271,6 @@ class _RouteRow extends StatelessWidget {
               ],
             ),
           ),
-          if (action != null)
-            TextButton(
-              onPressed: onAction,
-              style: TextButton.styleFrom(
-                foregroundColor: RideDetailsSheet._accent,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                action!,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
         ],
       ),
     );

@@ -20,9 +20,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
-import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
-import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
     show RideSnapshot;
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
@@ -31,7 +29,6 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
-import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
@@ -90,7 +87,7 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _leaving = false;
   bool _cancelSheetOpen = false;
   bool _pickupEditOpen = false;
-  bool _detailsSheetOpen = false;
+  final bool _detailsSheetOpen = false;
   bool _matchedPending = false;
   RideStatus? _terminalPending;
   bool _overlayOn = false;
@@ -407,10 +404,11 @@ class _FindingDriversState extends State<FindingDrivers> {
   /// Change the destination or the stops while searching: the new price is
   /// confirmed first, then the matching continues with the new route.
   Future<void> _changeRoute(
-    BuildContext sheetContext,
+    BuildContext? sheetContext,
     RouteChangeEntry entry, {
     int? removeStop,
   }) async {
+    if (_pickupEditOpen || _leaving) return;
     final ride = _match.ownershipSnapshot;
     if (ride == null) return;
     AppScope.instance.maps.detach(owner: MapOwners.finding);
@@ -419,8 +417,10 @@ class _FindingDriversState extends State<FindingDrivers> {
       _mapParked = true;
       _pickupEditOpen = true;
     });
-    await popCurrentRouteAndWaitForExit(sheetContext);
-    if (!mounted) return;
+    if (sheetContext != null) {
+      await popCurrentRouteAndWaitForExit(sheetContext);
+      if (!mounted) return;
+    }
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     final updated = removeStop != null
@@ -438,7 +438,12 @@ class _FindingDriversState extends State<FindingDrivers> {
       _pickupEditOpen = false;
     });
     if (updated != null) {
-      showRouteUpdated(context, driverAssigned: _match.matchCount > 0);
+      showRouteUpdated(
+        context,
+        driverAssigned: _match.matchCount > 0,
+        paymentMethod: widget.paymentMethod,
+        differenceKr: updated.price - ride.price,
+      );
     }
     if (_match.matchCount == 1) _matchedPending = true;
     _drainDeferredNavigation();
@@ -473,106 +478,11 @@ class _FindingDriversState extends State<FindingDrivers> {
       );
   }
 
-  Future<void> _openDetails() async {
-    if (_detailsSheetOpen || _leaving) return;
-    _detailsSheetOpen = true;
-    try {
-      await MoveraSheet.show<void>(
-        context: context,
-      builder: (sheetContext) => RideDetailsSheet(
-        pickupAddress: _pickupAddress,
-        destinationAddress: _destinationAddress,
-        stops: _stops,
-        rideType: widget.rideType,
-        price: _match.currentPrice,
-        paymentMethod: widget.paymentMethod,
-        notes: widget.notes,
-        canEditPickup: !_match.editInFlight && _match.matchCount == 0,
-        canEditDestination: !_match.editInFlight,
-        canAddStop: !_match.editInFlight,
-        onAddStop: () =>
-            _changeRoute(sheetContext, RouteChangeEntry.newStop),
-        onRemoveStop: (index) => _changeRoute(
-          sheetContext,
-          RouteChangeEntry.stop,
-          removeStop: index,
-        ),
-        onEditPickup: () async {
-          AppScope.instance.maps.detach(owner: MapOwners.finding);
-          if (!mounted) return;
-          setState(() {
-            _mapParked = true;
-            _pickupEditOpen = true;
-          });
-          await popCurrentRouteAndWaitForExit(sheetContext);
-          if (!mounted) return;
-          await WidgetsBinding.instance.endOfFrame;
-          if (!mounted) return;
-          final result = await Navigator.push(
-            context,
-            RightToLeftTransition(
-              ConfirmPickupSpot(
-                initialPosition: _pickupPosition,
-                initialAddress: _pickupAddress,
-              ),
-            ),
-          );
-          if (!mounted) return;
+  /// The three dots on the ride card: the route screen with the current
+  /// addresses, where the rider adjusts the pickup, the destination or
+  /// the stops.
+  Future<void> _openDetails() => _changeRoute(null, RouteChangeEntry.destination);
 
-          var updated = false;
-          if (result is ConfirmPickupResult && _match.matchCount == 0) {
-            updated = await _match.updatePickup(
-              address: result.address,
-              latitude: result.position.latitude,
-              longitude: result.position.longitude,
-            );
-          }
-          if (!mounted) return;
-
-          setState(() {
-            _mapParked = false;
-            _pickupEditOpen = false;
-            if (updated && result is ConfirmPickupResult) {
-              _pickupAddress = result.address;
-              _pickupPosition = result.position;
-              _roadRoutePoints = null;
-              _loadMapBits();
-            }
-          });
-          if (updated && result is ConfirmPickupResult && _mapReady) {
-            unawaited(_refreshRoadRoute());
-          }
-
-          if (result is ConfirmPickupResult) {
-            _showEditFeedback(
-              success: updated,
-              fallback: updated
-                  ? 'Pickup updated'
-                  : 'Couldn’t update pickup. Try again.',
-            );
-          }
-
-          if (_match.matchCount == 1) _matchedPending = true;
-          _drainDeferredNavigation();
-        },
-        onEditDestination: () =>
-            _changeRoute(sheetContext, RouteChangeEntry.destination),
-        onCancelTrip: () async {
-          _cancelSheetOpen = true;
-          await popCurrentRouteAndWaitForExit(sheetContext);
-          if (!mounted) {
-            _cancelSheetOpen = false;
-            return;
-          }
-          await _confirmCancel();
-        },
-      ),
-      );
-    } finally {
-      _detailsSheetOpen = false;
-      if (mounted) _drainDeferredNavigation();
-    }
-  }
 
   @override
   void dispose() {

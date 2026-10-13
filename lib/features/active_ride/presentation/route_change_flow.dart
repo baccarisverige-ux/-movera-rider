@@ -116,18 +116,30 @@ Future<RideSnapshot?> openRouteChange(
 }
 
 /// The short confirmation shown after a route change went through.
-void showRouteUpdated(BuildContext context, {required bool driverAssigned}) {
+void showRouteUpdated(
+  BuildContext context, {
+  required bool driverAssigned,
+  String paymentMethod = '',
+  double differenceKr = 0,
+}) {
+  final parts = <String>[
+    driverAssigned ? 'Route updated · your driver has been told' : 'Route updated',
+  ];
+  if (!isCashPayment(paymentMethod) && differenceKr.abs() >= 0.5) {
+    final kr = '${differenceKr.abs().round()} kr';
+    parts.add(
+      differenceKr > 0
+          ? '+$kr charged to $paymentMethod'
+          : '$kr back to $paymentMethod',
+    );
+  }
   ScaffoldMessenger.maybeOf(context)
     ?..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
         key: const ValueKey('route-updated-snack'),
-        content: Text(
-          driverAssigned
-              ? 'Route updated · your driver has been told'
-              : 'Route updated',
-        ),
-        duration: const Duration(seconds: 3),
+        content: Text(parts.join(' · ')),
+        duration: const Duration(seconds: 4),
       ),
     );
 }

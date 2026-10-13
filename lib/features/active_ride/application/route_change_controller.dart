@@ -141,7 +141,11 @@ class RouteChangeController {
     final response = await _send(
       () => _api.patch(
         '/api/v1/rides/$id',
-        body: {...quote.toRequest(), 'routeChange': true},
+        body: {
+          ...quote.toRequest(),
+          'routeChange': true,
+          'paymentMethod': ride.paymentMethod,
+        },
         idempotencyKey: 'route:$id:${quote.toRequest().hashCode}',
       ),
     );

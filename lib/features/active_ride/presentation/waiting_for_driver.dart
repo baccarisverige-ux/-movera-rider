@@ -26,7 +26,6 @@ import 'package:movera_rider/features/driver_arriving/presentation/driver_profil
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
-import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_arrived_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_call_unavailable_dialog.dart';
 import 'package:movera_rider/features/active_ride/presentation/driver_cancelled_notice.dart';
@@ -46,7 +45,6 @@ import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
-import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -749,37 +747,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       !_tracking.status.isTerminal;
   bool get _routeEditable => !_tracking.status.isTerminal && !_completedOpened;
 
-  Future<void> _openDetails() async {
-    await MoveraSheet.show<void>(
-      context: context,
-      builder: (sheetContext) => RideDetailsSheet(
-        pickupAddress: _pickupAddress,
-        destinationAddress: _destinationAddress,
-        stops: _stops,
-        rideType: widget.rideType,
-        price: _price,
-        paymentMethod: widget.paymentMethod,
-        notes: widget.notes,
-        canEditPickup: _pickupEditable && !_routeEditOpen,
-        canEditDestination: _routeEditable && !_routeEditOpen,
-        canAddStop: _routeEditable && !_routeEditOpen,
-        allowCancel: true,
-        onEditPickup: () => _changeRoute(sheetContext, RouteChangeEntry.pickup),
-        onEditDestination: () =>
-            _changeRoute(sheetContext, RouteChangeEntry.destination),
-        onAddStop: () => _changeRoute(sheetContext, RouteChangeEntry.newStop),
-        onRemoveStop: (index) =>
-            _changeRoute(sheetContext, RouteChangeEntry.stop, removeStop: index),
-        onCancelTrip: () async {
-          _modalHandoffInProgress = true;
-          await popCurrentRouteAndWaitForExit(sheetContext);
-          if (!mounted) return;
-          _modalHandoffInProgress = false;
-          await _confirmCancel();
-        },
-      ),
-    );
-  }
+  /// The three dots on the ride card: the route screen with the current
+  /// addresses. The pickup can move until the driver is there; the
+  /// destination and the stops can change until the trip ends.
+  Future<void> _openDetails() => _changeRoute(null, RouteChangeEntry.destination);
 
   double? _changedPrice;
   double get _price => _changedPrice ?? widget.price;
@@ -824,16 +795,18 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   /// Change the pickup (until the driver is there), the destination or the
   /// stops: the new price is confirmed first, then the driver is told.
   Future<void> _changeRoute(
-    BuildContext sheetContext,
+    BuildContext? sheetContext,
     RouteChangeEntry entry, {
     int? removeStop,
   }) async {
-    if (_routeEditOpen || _leaving) return;
+    if (_routeEditOpen || _leaving || !_routeEditable) return;
     _routeEditOpen = true;
     _modalHandoffInProgress = true;
     try {
-      await popCurrentRouteAndWaitForExit(sheetContext);
-      if (!mounted) return;
+      if (sheetContext != null) {
+        await popCurrentRouteAndWaitForExit(sheetContext);
+        if (!mounted) return;
+      }
       final ride = await _currentRide();
       if (ride == null || !mounted) return;
       await _parkMapForStageChange();
@@ -850,7 +823,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       if (updated != null) _applyRouteChange(updated);
       _mapParked = false;
       setState(() {});
-      if (updated != null) showRouteUpdated(context, driverAssigned: true);
+      if (updated != null) {
+        showRouteUpdated(
+          context,
+          driverAssigned: true,
+          paymentMethod: widget.paymentMethod,
+          differenceKr: updated.price - ride.price,
+        );
+      }
     } finally {
       _routeEditOpen = false;
       _modalHandoffInProgress = false;

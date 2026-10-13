@@ -557,6 +557,21 @@ class InProcessMockClient extends http.BaseClient {
           // The driver app is told on its next poll; the log is what admin
           // reads later.
           ride['driverNotifiedAt'] = ride['updatedAt'];
+          // Pay in car only shows the new price; any other method is
+          // charged or refunded the difference right away.
+          final method = (body['paymentMethod'] ?? '').toString();
+          final cash =
+              method.toLowerCase() == 'cash' ||
+              method.toLowerCase().contains('pay in car');
+          final difference = pricing['differenceKr'] as double;
+          if (!cash && difference.abs() >= 0.5) {
+            (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
+              'at': ride['updatedAt'],
+              'method': method,
+              'amountKr': difference,
+              'status': difference > 0 ? 'captured' : 'refunded',
+            });
+          }
           (ride['routeChanges'] ??= <Map<String, dynamic>>[]).add({
             'at': ride['updatedAt'],
             'destinationAddress': body['destinationAddress'],
