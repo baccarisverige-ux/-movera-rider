@@ -78,6 +78,8 @@ class RideSelectionRepository {
     ),
   ];
 
+  /// Ride payment methods. PayPal, Klarna and Swish as its own method were
+  /// removed (owner request); Swish is paid to the driver under Pay in car.
   List<RidePaymentItem> payments() => const [
     RidePaymentItem(
       brand: 'wallet',
@@ -87,28 +89,18 @@ class RideSelectionRepository {
     RidePaymentItem(
       brand: 'apple',
       name: 'Apple Pay',
-      detail: 'Available by default',
+      detail: 'Pays when the search starts',
     ),
     RidePaymentItem(
       brand: 'google',
       name: 'Google Pay',
-      detail: 'Available by default',
-    ),
-    RidePaymentItem(
-      brand: 'paypal',
-      name: 'PayPal',
-      detail: 'Pay for this ride',
+      detail: 'Pays when the search starts',
     ),
     RidePaymentItem(brand: 'cards', name: 'Card', detail: 'Visa, Mastercard'),
     RidePaymentItem(
-      brand: 'swish',
-      name: 'Swish',
-      detail: 'Instant mobile payment',
-    ),
-    RidePaymentItem(
       brand: 'cash',
-      name: 'Cash',
-      detail: 'Pay the driver in cash',
+      name: 'Pay in car',
+      detail: 'Cash, card or Swish to the driver',
     ),
   ];
 }

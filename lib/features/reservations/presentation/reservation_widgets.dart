@@ -648,13 +648,11 @@ class ReservationPaymentMark extends StatelessWidget {
         'assets/images/swish_brand.svg',
         fit: BoxFit.cover,
       );
-    } else if (lower.contains('paypal')) {
-      logo = Image.asset(AppAssets.paypal, fit: BoxFit.contain);
     } else if (lower.contains('visa')) {
       logo = Image.asset(AppAssets.visa, fit: BoxFit.contain);
     } else if (lower.contains('master') || lower.contains('card')) {
       logo = Image.asset(AppAssets.mastercard, fit: BoxFit.contain);
-    } else if (lower.contains('cash')) {
+    } else if (lower.contains('cash') || lower.contains('pay in car')) {
       background = const Color(0xFFEEF6F0);
       logo = const Icon(
         Icons.payments_outlined,

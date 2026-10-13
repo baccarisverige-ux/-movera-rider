@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_ticket.dart';
 import 'package:flutter/material.dart';
@@ -297,6 +298,7 @@ class _SelectRideState extends State<SelectRide>
     }
     _loadQuotes();
     unawaited(_loadRoutePins());
+    unawaited(_loadWalletBalance());
   }
 
   Future<void> _loadRoutePins() async {
@@ -742,72 +744,30 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Future<void> _showPaymentPicker() async {
-    await MoveraSheet.show<void>(
-      context: context,
-      backgroundColor: const Color(0xFFF6F5F1),
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF6F5F1),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 38,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _line,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('Payment', style: _text(22, weight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(
-                  'PAYMENT METHODS',
-                  style: _text(
-                    10,
-                    weight: FontWeight.w600,
-                    color: _muted,
-                    letterSpacing: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: _line),
-                  ),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < _payments.length; i++) ...[
-                        if (i > 0)
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                        _walletPaymentTile(i, sheetContext),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final current = _selection.selectedPaymentItem();
+    final brand = await PayWithPage.open(
+      context,
+      methods: [
+        for (final item in _selection.payments())
+          PayWithMethod(brand: item.brand, name: item.name, detail: item.detail),
+      ],
+      selectedBrand: current?.brand,
+      walletBalance: _selection.walletBalance,
+      promotion: _promotion,
+      brandMark: _brandMark,
     );
+    if (brand == null || !mounted) return;
+    final index = _selection.payments().indexWhere((p) => p.brand == brand);
+    if (index < 0) return;
+    setState(() => _selection.selectPayment(index));
+  }
+
+  Future<void> _loadWalletBalance() async {
+    try {
+      final balance = await AppScope.instance.walletController.loadBalance();
+      if (!mounted) return;
+      setState(() => _selection.setWalletBalance(balance));
+    } catch (_) {}
   }
 
   /// Phase 114/136: a return ride arrives with a prefilled pickup
@@ -1857,67 +1817,6 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
-  Widget _walletPaymentTile(int index, BuildContext sheetContext) {
-    final method = _payments[index];
-    final selected = _selection.selectedPayment == index;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          setState(() => _selection.selectPayment(index));
-          Navigator.pop(sheetContext);
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Row(
-            children: [
-              _brandMark(method.brand),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      method.name,
-                      style: _text(14.5, weight: FontWeight.w600),
-                    ),
-                    Text(
-                      selected ? 'Default for rides' : method.detail,
-                      style: _text(
-                        11.5,
-                        color: selected ? _accent : _muted,
-                        weight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: selected ? _ink : Colors.transparent,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? _ink : _line,
-                    width: 1.4,
-                  ),
-                ),
-                child: selected
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: Colors.white,
-                        size: 15,
-                      )
-                    : null,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _sheetChoice({
     required IconData icon,
     required String title,
@@ -1956,19 +1855,6 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _brandMark(String brand) {
-    if (brand == 'swish') {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(11),
-        child: SizedBox(
-          width: 42,
-          height: 38,
-          child: SvgPicture.asset(
-            'assets/images/swish_brand.svg',
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
-    }
     Widget logo;
     Color background = Colors.white;
     if (brand == 'apple') {
@@ -1984,12 +1870,6 @@ class _SelectRideState extends State<SelectRide>
           'assets/images/google_pay_brand.png',
           fit: BoxFit.contain,
         ),
-      );
-    } else if (brand == 'paypal') {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        AppAssets.paypal,
-        fit: BoxFit.contain,
       );
     } else if (brand == 'cards') {
       logo = Row(
@@ -2014,7 +1894,7 @@ class _SelectRideState extends State<SelectRide>
     } else if (brand == 'cash') {
       background = const Color(0xFFEEF6F0);
       logo = const Icon(
-        Icons.payments_outlined,
+        Icons.directions_car_filled_outlined,
         color: Color(0xFF1F7A4D),
         size: 20,
       );

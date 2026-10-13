@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
@@ -557,7 +559,11 @@ class _WalletScreenState extends State<WalletScreen> {
   final _wallet = AppScope.instance.walletController;
 
   bool _businessProfile = false;
-  String _selectedMethod = 'apple';
+  String _selectedMethod = 'cash';
+  double _balance = 0;
+
+  bool get _isIos => defaultTargetPlatform == TargetPlatform.iOS;
+  bool get _isAndroid => defaultTargetPlatform == TargetPlatform.android;
   List<Map<String, String>> _extraMethods = [];
 
   @override
@@ -582,8 +588,10 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Future<void> _restorePaymentSettings() async {
     final saved = await _wallet.loadPayments();
+    final balance = await _wallet.loadBalance();
     if (!mounted) return;
     setState(() {
+      _balance = balance;
       _selectedMethod = saved.defaultMethod;
       _businessProfile = saved.business;
       _extraMethods = saved.extraMethods;
@@ -611,97 +619,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _openAddPaymentMethod() async {
-    await MoveraSheet.show<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.28),
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _line,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Add payment method',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _style(17, weight: FontWeight.w600),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(sheetContext),
-                    icon: const Icon(Icons.close_rounded),
-                    color: _muted,
-                    tooltip: 'Close',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 5),
-              _unavailableMethodChoice(
-                brand: 'cards',
-                title: 'Debit or credit card',
-                subtitle: 'Unavailable until secure card setup is connected',
-              ),
-              _unavailableMethodChoice(
-                brand: 'paypal',
-                title: 'PayPal',
-                subtitle: 'Unavailable until PayPal authorization is connected',
-              ),
-              _unavailableMethodChoice(
-                brand: 'klarna',
-                title: 'Klarna',
-                subtitle: 'Unavailable until Klarna authorization is connected',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _unavailableMethodChoice({
-    required String brand,
-    required String title,
-    required String subtitle,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      child: Row(
-        children: [
-          _brandMark(brand),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _style(12.5, weight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: _style(9.5, weight: FontWeight.w400, color: _muted)),
-              ],
-            ),
-          ),
-          const Icon(Icons.lock_outline_rounded, color: _muted, size: 19),
-        ],
-      ),
-    );
+    await AddCardPage.open(context);
   }
 
   @override
@@ -752,22 +670,25 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       child: Column(
                         children: [
-                          _paymentTile(
-                            id: 'wallet',
-                            title: 'Movera Wallet',
-                            detail: 'Pay from your balance',
-                            brand: 'wallet',
-                          ),
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          _paymentTile(
+                          // Offered only when there is money in the wallet.
+                          if (_balance > 0) ...[
+                            _paymentTile(
+                              id: 'wallet',
+                              title: 'Movera Wallet',
+                              detail: 'Pay from your balance',
+                              brand: 'wallet',
+                            ),
+                            const Divider(
+                              height: 1,
+                              indent: 62,
+                              endIndent: 16,
+                              color: _line,
+                            ),
+                          ],
+                          if (!_isAndroid) _paymentTile(
                             id: 'apple',
                             title: 'Apple Pay',
-                            detail: 'Available by default',
+                            detail: 'Pays when the search starts',
                             brand: 'apple',
                           ),
                           const Divider(
@@ -776,10 +697,10 @@ class _WalletScreenState extends State<WalletScreen> {
                             endIndent: 16,
                             color: _line,
                           ),
-                          _paymentTile(
+                          if (!_isIos) _paymentTile(
                             id: 'google',
                             title: 'Google Pay',
-                            detail: 'Available by default',
+                            detail: 'Pays when the search starts',
                             brand: 'google',
                           ),
                           const Divider(
@@ -789,21 +710,9 @@ class _WalletScreenState extends State<WalletScreen> {
                             color: _line,
                           ),
                           _paymentTile(
-                            id: 'swish',
-                            title: 'Swish',
-                            detail: 'Instant mobile payment',
-                            brand: 'swish',
-                          ),
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          _paymentTile(
                             id: 'cash',
-                            title: 'Cash',
-                            detail: 'Pay the driver in cash',
+                            title: 'Pay in car',
+                            detail: 'Cash, card or Swish to the driver',
                             brand: 'cash',
                           ),
                           for (final method in _extraMethods) ...[
@@ -1092,18 +1001,6 @@ class _WalletScreenState extends State<WalletScreen> {
       logo = Image.asset(
         excludeFromSemantics: true,
         'assets/images/google_pay_brand.png',
-        fit: BoxFit.contain,
-      );
-    } else if (brand == 'paypal') {
-      logo = Image.asset(
-        excludeFromSemantics: true,
-        AppAssets.paypal,
-        fit: BoxFit.contain,
-      );
-    } else if (brand == 'klarna') {
-      background = const Color(0xFFFFB3C7);
-      logo = SvgPicture.asset(
-        'assets/images/klarna_brand.svg',
         fit: BoxFit.contain,
       );
     } else if (brand == 'cards') {

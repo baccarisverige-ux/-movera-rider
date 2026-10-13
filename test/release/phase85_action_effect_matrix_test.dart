@@ -107,8 +107,6 @@ const actions = <CertifiedAction>[
   CertifiedAction(surface: 'wallet', control: 'apple_pay_default', effects: {ActionEffect.durableLocalPersistence}, evidence: 'test/wallet/default_payment_persist_test.dart'),
   CertifiedAction(surface: 'wallet', control: 'google_pay_default', effects: {ActionEffect.durableLocalPersistence}, evidence: 'test/wallet/default_payment_persist_test.dart'),
   CertifiedAction(surface: 'wallet', control: 'card_unavailable', effects: {ActionEffect.localUiOnly}, evidence: 'test/wallet/payment_method_cancel_test.dart', presentationOnly: true, honestUnavailable: true),
-  CertifiedAction(surface: 'wallet', control: 'paypal_unavailable', effects: {ActionEffect.localUiOnly}, evidence: 'test/wallet/payment_method_cancel_test.dart', presentationOnly: true, honestUnavailable: true),
-  CertifiedAction(surface: 'wallet', control: 'klarna_unavailable', effects: {ActionEffect.localUiOnly}, evidence: 'test/wallet/payment_method_cancel_test.dart', presentationOnly: true, honestUnavailable: true),
   CertifiedAction(surface: 'wallet', control: 'history_row', effects: {ActionEffect.navigationOnly}, evidence: 'test/history/ride_history_real_data_test.dart'),
 
   // Safety.

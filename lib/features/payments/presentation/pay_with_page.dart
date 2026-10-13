@@ -1,0 +1,203 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
+import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
+import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+
+/// One payment method shown on [PayWithPage].
+class PayWithMethod {
+  const PayWithMethod({
+    required this.brand,
+    required this.name,
+    required this.detail,
+  });
+
+  final String brand;
+  final String name;
+  final String detail;
+}
+
+/// "Pay with": opens only when the rider taps the payment line. Returns the
+/// chosen method's brand, or null when closed without a change.
+class PayWithPage extends StatelessWidget {
+  const PayWithPage({
+    super.key,
+    required this.methods,
+    required this.selectedBrand,
+    required this.walletBalance,
+    required this.promotion,
+    required this.brandMark,
+  });
+
+  final List<PayWithMethod> methods;
+  final String? selectedBrand;
+
+  /// Shown only when the wallet has money in it.
+  final double walletBalance;
+  final RiderPromotion? promotion;
+  final Widget Function(String brand) brandMark;
+
+  static Future<String?> open(
+    BuildContext context, {
+    required List<PayWithMethod> methods,
+    required String? selectedBrand,
+    required double walletBalance,
+    required RiderPromotion? promotion,
+    required Widget Function(String brand) brandMark,
+  }) {
+    return Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => PayWithPage(
+          methods: methods,
+          selectedBrand: selectedBrand,
+          walletBalance: walletBalance,
+          promotion: promotion,
+          brandMark: brandMark,
+        ),
+      ),
+    );
+  }
+
+  static const Color _ink = Color(0xFF1D252C);
+  static const Color _muted = Color(0xFF5C656C);
+  static const Color _line = Color(0xFFEEF1F2);
+  static const Color _accent = Color(0xFF2D5878);
+
+  TextStyle _t(double size, {FontWeight w = FontWeight.w500, Color c = _ink}) =>
+      GoogleFonts.poppins(fontSize: size, fontWeight: w, color: c);
+
+  Widget _section(String title, {Widget? trailing}) => Padding(
+    padding: const EdgeInsets.only(top: 22, bottom: 4),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: _t(19, w: FontWeight.w700).copyWith(letterSpacing: -0.3),
+          ),
+        ),
+        ?trailing,
+      ],
+    ),
+  );
+
+  Widget _row({
+    required Widget leading,
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 64),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: _line)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(width: 46, child: Center(child: leading)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(title, style: _t(15.5)),
+                  if (subtitle != null)
+                    Text(subtitle, style: _t(12.5, w: FontWeight.w400, c: _muted)),
+                ],
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _radio(bool on) => on
+      ? const Icon(Icons.check_circle_rounded, color: _accent, size: 26)
+      : Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFD2D6D8), width: 2),
+          ),
+        );
+
+  @override
+  Widget build(BuildContext context) {
+    final rideMethods = methods.where((m) => m.brand != 'wallet').toList();
+    final hasWallet =
+        walletBalance > 0 && methods.any((m) => m.brand == 'wallet');
+    final promo = promotion;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                tooltip: 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, size: 26),
+                color: _ink,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+            Text(
+              'Pay with',
+              style: _t(30, w: FontWeight.w700).copyWith(letterSpacing: -0.6),
+            ),
+            if (hasWallet) ...[
+              _section('Movera Wallet'),
+              _row(
+                leading: brandMark('wallet'),
+                title: 'Balance: ${formatKr(walletBalance)}',
+                subtitle: 'Tap to pay this ride from your balance',
+                trailing: _radio(selectedBrand == 'wallet'),
+                onTap: () => Navigator.of(context).pop('wallet'),
+              ),
+            ],
+            _section('Payment methods'),
+            for (final method in rideMethods)
+              _row(
+                leading: brandMark(method.brand),
+                title: method.name,
+                subtitle: method.detail,
+                trailing: _radio(selectedBrand == method.brand),
+                onTap: () => Navigator.of(context).pop(method.brand),
+              ),
+            _row(
+              leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
+              title: 'Add payment method',
+              onTap: () => AddCardPage.open(context),
+            ),
+            _section('Vouchers'),
+            if (promo != null)
+              _row(
+                leading: Image.asset(AppAssets.promoCard, width: 40, height: 28),
+                title: promo.title,
+                subtitle:
+                    '${promo.ridesLeft} ${promo.ridesLeft == 1 ? 'ride' : 'rides'} left',
+                trailing: const Icon(Icons.chevron_right_rounded, color: _muted),
+                onTap: () => PromotionDetailsSheet.open(context, promo),
+              ),
+            _row(
+              leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
+              title: 'Add voucher code',
+              subtitle: 'Voucher codes open soon',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

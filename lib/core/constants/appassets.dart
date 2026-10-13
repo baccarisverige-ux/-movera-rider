@@ -33,7 +33,6 @@ class AppAssets {
   static const String driverImg = 'assets/images/driver_img.webp';
   static const String calender = 'assets/images/calender.png';
   static const String mastercard = 'assets/images/mastercard.png';
-  static const String paypal = 'assets/images/paypal.png';
   static const String scheduleRideCar = 'assets/images/schedule_ride_car.webp';
   static const String sucess = 'assets/images/sucess.png';
   static const String pinVerification = 'assets/images/pin_verification.webp';

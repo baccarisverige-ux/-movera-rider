@@ -27,7 +27,7 @@ void main() {
     final selection = RideSelectionController(flags: const FeatureFlags());
     final xl = selection.rideById('xl');
     selection.selectRide(xl.id, xl.price);
-    selection.selectPaymentNamed('Swish');
+    selection.selectPaymentNamed('Card');
     final selectedPayment = selection.payments()[selection.selectedPayment].name;
 
     // Simulate entering/leaving the booking-time sub-flow without rebuilding
@@ -37,7 +37,7 @@ void main() {
     selection.setBookingMode(BookingMode.now);
 
     expect(selection.selectedRideId, 'xl');
-    expect(selectedPayment, 'Swish');
+    expect(selectedPayment, 'Card');
 
     final booking = BookingCoordinator(
       api: ApiClient(client: InProcessMockClient()),
@@ -58,6 +58,6 @@ void main() {
     expect(snapshot, isNotNull);
     expect(snapshot!.rideId, rideId);
     expect(snapshot.rideType, 'xl');
-    expect(snapshot.paymentMethod, 'Swish');
+    expect(snapshot.paymentMethod, 'Card');
   });
 }
