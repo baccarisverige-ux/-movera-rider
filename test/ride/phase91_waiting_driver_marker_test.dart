@@ -119,11 +119,11 @@ void main() {
       }
       await tester.pump(const Duration(milliseconds: 400));
 
-      // approachingDropoff swaps in the in-trip panel, which deliberately
-      // says "Approaching destination" rather than the generic "Ride in
-      // progress" headline once the drop-off is near.
+      // approachingDropoff swaps in the in-trip panel: the chip says the
+      // drop-off is near and the headline is the live arrival time.
       expect(find.byType(RiderInTripPanel), findsOneWidget);
-      expect(find.text('Approaching destination'), findsOneWidget);
+      expect(find.text('NEAR DESTINATION'), findsOneWidget);
+      expect(find.textContaining('Arrive by '), findsOneWidget);
       expect(find.textContaining('Stockholm destination'), findsWidgets);
       expect(find.textContaining('Meet at'), findsNothing);
     },
@@ -250,6 +250,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.byType(DriverArrivedSheet), findsNothing);
+      // No driver fix has arrived in this test, so the stage name shows
+      // until the live "Arrive by" time is known.
       expect(find.text('Ride in progress'), findsOneWidget);
     },
   );

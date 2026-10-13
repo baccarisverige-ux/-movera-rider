@@ -38,7 +38,10 @@ void main() {
     expect(find.text('ON TRIP'), findsOneWidget);
     expect(find.text('Ride in progress'), findsOneWidget);
     expect(find.text('Hornsgatan 2, Stockholm'), findsWidgets);
-    expect(find.text('Destination'), findsOneWidget);
+    // One slim summary line instead of a destination card (the destination
+    // is already the subtitle above it).
+    expect(find.byKey(const ValueKey<String>('trip-summary-line')), findsOneWidget);
+    expect(find.text('Destination'), findsNothing);
     expect(find.text('Safety Kit'), findsOneWidget);
     expect(find.text('Show this PIN to your driver'), findsNothing);
     expect(find.text('Cancel ride'), findsOneWidget);

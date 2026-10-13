@@ -1132,6 +1132,7 @@ class _SelectRideState extends State<SelectRide>
                 paymentMethod: payment.name,
                 notes: _notes,
                 realtime: widget.realtime,
+                etaMinutes: selected.etaMin,
               ),
               settings: const RouteSettings(name: AppRoutes.findingDriver),
             ),
