@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
+import 'package:movera_rider/core/location/web_reverse_geocode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 
 class AppGeocoding implements GeocodingRepository {
@@ -94,8 +96,20 @@ class AppGeocoding implements GeocodingRepository {
     ).timeout(requestTimeout);
     final data = _payload(response);
     final address = data['address'];
-    return address is String && address.trim().isNotEmpty ? address.trim() : null;
+    final named = address is String && address.trim().isNotEmpty
+        ? address.trim()
+        : null;
+    // The web demo's in-process transport knows no street names and answers
+    // with a neutral label; the rider still wants to read where they are.
+    if (kIsWeb && (named == null || named == placeholderReverseLabel)) {
+      final street = await openStreetMapReverse(point, timeout: requestTimeout);
+      if (street != null) return street;
+    }
+    return named;
   }
+
+  /// What a transport without a geocoder answers instead of an address.
+  static const String placeholderReverseLabel = 'Current location';
 
   ApiClient _requireApi() {
     final api = _api;

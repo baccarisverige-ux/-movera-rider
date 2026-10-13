@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/home/application/home_places_controller.dart';
+import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
@@ -47,6 +50,7 @@ class RoutePickerPage extends StatefulWidget {
     required this.here,
     required this.homeAddress,
     required this.workAddress,
+    this.savedPlaces = const [],
     required this.recent,
     required this.onSetFavourite,
     required this.onPickOnMap,
@@ -63,6 +67,10 @@ class RoutePickerPage extends StatefulWidget {
   final GeoPoint? here;
   final String? homeAddress;
   final String? workAddress;
+
+  /// The rider's custom places (gym, school…), listed after Home and Work
+  /// with the same icons as the Home page.
+  final List<SavedPlaceData> savedPlaces;
   final List<String> recent;
 
   /// Opens the "Set your address" popup; returns the saved address.
@@ -552,7 +560,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   }
 
   Widget _row({
-    required IconData icon,
+    IconData? icon,
+    Widget? leading,
     required Widget title,
     String subtitle = '',
     String? trailing,
@@ -570,7 +579,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         ),
         child: Row(
           children: [
-            SizedBox(width: 30, child: Icon(icon, color: iconColor, size: 24)),
+            SizedBox(
+              width: 30,
+              child: leading ?? Icon(icon, color: iconColor, size: 24),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -629,8 +641,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       final set = value != null && value.trim().isNotEmpty;
       rows.add(
         _row(
-          icon: target == 'home' ? Icons.home_outlined : Icons.work_outline_rounded,
-          iconColor: set ? _ink : _accent,
+          // The same pictures as the Home page's quick places.
+          leading: Image.asset(
+            target == 'home' ? AppAssets.quickHome : AppAssets.quickWork,
+            width: 28,
+            height: 28,
+            excludeFromSemantics: true,
+          ),
           title: Text(
             set ? label : 'Set $label',
             style: _t(
@@ -641,6 +658,19 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           ),
           subtitle: set ? value : 'Add your ${label.toLowerCase()} address',
           onTap: set ? () => _choose(value) : () => _setFavourite(target),
+        ),
+      );
+    }
+    for (final place in widget.savedPlaces) {
+      final address = place.address.trim();
+      if (address.isEmpty) continue;
+      rows.add(
+        _row(
+          icon: placeIconFor(place.type),
+          iconColor: _ink,
+          title: Text(placeLabelFor(place.type), style: _t(16)),
+          subtitle: address,
+          onTap: () => _choose(address),
         ),
       );
     }
