@@ -11,7 +11,6 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
-import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
@@ -21,7 +20,6 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
-import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -230,10 +228,11 @@ class _SetPickupPageState extends State<SetPickupPage>
   /// How far a drag must travel to move the sheet from open to short.
   static const _dragRange = 340.0;
 
+  // Opens short (pickup + Confirm); the handle or a drag up shows the rest.
   late final AnimationController _sheet = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 420),
-    value: 1,
+    value: 0,
   );
   late final AnimationController _lift = AnimationController(
     vsync: this,
@@ -264,14 +263,12 @@ class _SetPickupPageState extends State<SetPickupPage>
   double _zoom = 16.2;
   bool _resolving = false;
   bool _confirming = false;
-  BitmapDescriptor? _destinationPin;
 
   @override
   void initState() {
     super.initState();
     setWebOverlayOpen(false);
     _mapTouch = watchMapTouch(onDown: _onMapFingerDown, onUp: _onMapFingerUp);
-    unawaited(_loadDestinationPin());
     if (_isPlaceholder(_address) || isUnusablePickupLabel(_address)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _resolveAddress());
     }
@@ -325,14 +322,6 @@ class _SetPickupPageState extends State<SetPickupPage>
       return 'Pickup ${_clock(scheduled)} · Arrive $_arriveClock';
     }
     return 'Driver arrives in ${widget.ride.etaMin} min · Arrive $_arriveClock';
-  }
-
-  Future<void> _loadDestinationPin() async {
-    final pin = await RouteTimeMarker.createIcon(
-      pickup: false,
-      label: 'Arrive by $_arriveClock',
-    );
-    if (mounted) setState(() => _destinationPin = pin);
   }
 
   bool _isAwayFrom(LatLng a, LatLng b) =>
@@ -599,10 +588,6 @@ class _SetPickupPageState extends State<SetPickupPage>
                 child: _PickupPin(
                   key: const ValueKey('set-pickup-pin'),
                   lift: _lift,
-                  minutes: widget.ride.etaMin,
-                  timeLabel: widget.scheduledPickup == null
-                      ? null
-                      : _clock(widget.scheduledPickup!),
                 ),
               ),
             ),
@@ -623,24 +608,8 @@ class _SetPickupPageState extends State<SetPickupPage>
     return CustomGoogleMap(
       key: const ValueKey('set-pickup-map'),
       initialPosition: CameraPosition(target: _cameraFor(_center), zoom: _zoom),
+      // Only the map and the pin: the route and the times live in the sheet.
       myLocationEnabled: true,
-      markers: {
-        if (_destinationPin != null)
-          Marker(
-            markerId: const MarkerId('destination'),
-            position: widget.destinationPosition,
-            icon: _destinationPin!,
-            anchor: RouteTimeMarker.anchor,
-          ),
-      },
-      polylines: styledRoute(
-        routePolyline(
-          id: 'set-pickup-route',
-          from: _routeStart,
-          to: widget.destinationPosition,
-          color: RiderRouteStyle.color,
-        ),
-      ),
       onMapCreated: (controller) {
         _map = controller;
         AppScope.instance.maps.attach(controller, owner: MapOwners.pickup);
@@ -1098,20 +1067,11 @@ class _SetPickupPageState extends State<SetPickupPage>
 /// The fixed centre pin: a green "N min" bubble on a stem. It lifts while the
 /// map moves (its shadow spreads) and drops back with a small bounce.
 class _PickupPin extends StatelessWidget {
-  const _PickupPin({
-    super.key,
-    required this.lift,
-    required this.minutes,
-    this.timeLabel,
-  });
+  const _PickupPin({super.key, required this.lift});
 
   final Animation<double> lift;
-  final int minutes;
 
-  /// A clock time ("07:05") for a scheduled pickup instead of "N min".
-  final String? timeLabel;
-
-  static const _bubble = 52.0;
+  static const _bubble = 34.0;
   static const _stem = 14.0;
 
   /// From the top of the widget to the pin's tip.
@@ -1166,40 +1126,15 @@ class _PickupPin extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: timeLabel != null
-                          ? Center(
-                              child: Text(
-                                timeLabel!,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  height: 1.0,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            )
-                          : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '$minutes',
-                            style: GoogleFonts.poppins(
-                              fontSize: 17,
-                              height: 1.0,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                      child: Center(
+                        child: Container(
+                          width: 11,
+                          height: 11,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
                           ),
-                          Text(
-                            'min',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              height: 1.1,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                     Container(width: 3, height: _stem, color: RiderRouteStyle.pickup),

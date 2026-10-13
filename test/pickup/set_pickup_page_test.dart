@@ -148,6 +148,11 @@ void main() {
     for (var i = 0; i < 8; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+    // Opens short: the bags sit in the details, one tap on the handle away.
+    await tester.tap(find.byKey(const ValueKey('set-pickup-handle')));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     await tester.tap(find.text('3+'));
     await tester.pump(const Duration(milliseconds: 250));
     await tester.tap(find.text('Confirm and search'));
@@ -169,15 +174,10 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
-  testWidgets('the sheet slides down to pickup + Confirm and back', (
+  testWidgets('opens short; the handle shows the details and hides them', (
     tester,
   ) async {
     await openPage(tester)();
-    expect(find.text('Bags?').hitTestable(), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('set-pickup-handle')));
-    for (var i = 0; i < 6; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
     expect(find.text('Bags?').hitTestable(), findsNothing);
     expect(find.text('Confirm and search').hitTestable(), findsOneWidget);
     expect(find.text('Klockarvägen 37').hitTestable(), findsOneWidget);
@@ -186,16 +186,20 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('Bags?').hitTestable(), findsOneWidget);
-  });
-
-  testWidgets('dragging the sheet down folds the details away', (tester) async {
-    await openPage(tester)();
-    await tester.drag(find.text('Pickup spot'), const Offset(0, 320));
+    await tester.tap(find.byKey(const ValueKey('set-pickup-handle')));
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('Bags?').hitTestable(), findsNothing);
-    expect(find.text('Confirm and search').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('dragging the sheet up brings the details in', (tester) async {
+    await openPage(tester)();
+    await tester.drag(find.text('Pickup spot'), const Offset(0, -320));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Bags?').hitTestable(), findsOneWidget);
   });
 
   test('bags are kept on the ride notes', () {
