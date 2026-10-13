@@ -7,6 +7,7 @@ import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class RideSnapshot {
   static const currentSchemaVersion = 2;
@@ -26,6 +27,7 @@ class RideSnapshot {
     required this.paymentMethod,
     this.rideId,
     this.notes = RideNotes.empty,
+    this.stops = const <RouteStop>[],
     this.driver,
     this.cancellationReason,
     this.version,
@@ -45,6 +47,9 @@ class RideSnapshot {
   final String paymentMethod;
   final String? rideId;
   final RideNotes notes;
+
+  /// Stops between pickup and destination, in order.
+  final List<RouteStop> stops;
   final MatchedDriver? driver;
   final String? cancellationReason;
 
@@ -87,6 +92,7 @@ class RideSnapshot {
     String? paymentMethod,
     String? rideId,
     RideNotes? notes,
+    List<RouteStop>? stops,
     MatchedDriver? driver,
     String? cancellationReason,
     int? version,
@@ -106,6 +112,7 @@ class RideSnapshot {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       rideId: rideId ?? this.rideId,
       notes: notes ?? this.notes,
+      stops: stops ?? this.stops,
       driver: driver ?? this.driver,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       version: version ?? this.version,
@@ -128,6 +135,7 @@ class RideSnapshot {
     'paymentMethod': paymentMethod,
     'rideId': rideId,
     'notes': notes.toJson(),
+    if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
     if (driver != null) 'driver': driver!.toJson(),
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
     if (version != null) 'version': version,
@@ -199,6 +207,7 @@ class RideSnapshot {
       price: price.toDouble(),
       paymentMethod: paymentMethod,
       rideId: rideId,
+      stops: RouteStop.listFromJson(json['stops']),
       notes: RideNotes.fromJson(
         json['notes'] is Map
             ? Map<String, dynamic>.from(json['notes'] as Map)

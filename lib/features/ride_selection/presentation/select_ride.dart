@@ -15,6 +15,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
@@ -758,6 +759,12 @@ class _SelectRideState extends State<SelectRide>
       walletBalance: _selection.walletBalance,
       promotion: _promotion,
       brandMark: _brandMark,
+      useWalletFirst: _selection.useWalletFirst,
+      onWalletFirstChanged: (value) {
+        if (!mounted) return;
+        setState(() => _selection.useWalletFirst = value);
+        unawaited(_saveWalletFirst(value));
+      },
     );
     if (brand == null || !mounted) return;
     final index = _selection.payments().indexWhere((p) => p.brand == brand);
@@ -767,9 +774,20 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadWalletBalance() async {
     try {
-      final balance = await AppScope.instance.walletController.loadBalance();
+      final wallet = AppScope.instance.walletController;
+      final balance = await wallet.loadBalance();
+      final walletFirst = await wallet.loadUseWalletFirst();
       if (!mounted) return;
-      setState(() => _selection.setWalletBalance(balance));
+      setState(() {
+        _selection.useWalletFirst = walletFirst;
+        _selection.setWalletBalance(balance);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveWalletFirst(bool value) async {
+    try {
+      await AppScope.instance.walletController.saveUseWalletFirst(value);
     } catch (_) {}
   }
 
@@ -983,6 +1001,7 @@ class _SelectRideState extends State<SelectRide>
       ),
       fare: SetPickupFare(
         totalKr: _priceFor(ride),
+        walletKr: _selection.walletAppliedKr(_priceFor(ride)),
         discountKr: _discountFor(ride),
         promotionPercent: quote != null && quote.discountMinor > 0
             ? promotion?.percentOff
@@ -1000,6 +1019,31 @@ class _SelectRideState extends State<SelectRide>
       confirmLabel: confirmLabel,
       scheduledPickup: scheduledPickup,
     );
+  }
+
+  /// The stops the rider typed on Plan your ride, with their map points;
+  /// an address that cannot be found is left out rather than blocking the
+  /// booking.
+  Future<List<RouteStop>> _locateStops() async {
+    final located = <RouteStop>[];
+    for (final address in widget.stops) {
+      final clean = address.trim();
+      if (clean.isEmpty) continue;
+      try {
+        final found = await AppScope.instance.geocoding.forward(clean);
+        if (found == null) continue;
+        located.add(
+          RouteStop(
+            address: clean,
+            latitude: found.point.latitude,
+            longitude: found.point.longitude,
+          ),
+        );
+      } catch (_) {
+        // Skip the stop; the driver still gets the pickup and destination.
+      }
+    }
+    return located;
   }
 
   void _bookNow() {
@@ -1059,9 +1103,13 @@ class _SelectRideState extends State<SelectRide>
           );
         }
 
+        final stops = await _locateStops();
+        if (!mounted) return;
+
         String rideId;
         try {
           rideId = await (widget.booking ?? BookingController()).submitFinding(
+            stops: stops,
             pickupAddress: _pickupAddress,
             destinationAddress: widget.destinationAddress,
             pickupLat: _pickupPosition.latitude,
@@ -1138,6 +1186,7 @@ class _SelectRideState extends State<SelectRide>
                 price: authoritativePrice,
                 paymentMethod: payment.name,
                 notes: _notes,
+                stops: stops,
                 realtime: widget.realtime,
                 etaMinutes: selected.etaMin,
               ),
@@ -1766,6 +1815,8 @@ class _SelectRideState extends State<SelectRide>
                             ),
                         ],
                       ),
+                      if (selected && _selection.walletAppliedKr(price) > 0)
+                        _walletLine(price),
                       // Description and badge come in as the sheet opens fully.
                       ClipRect(
                         child: Align(
@@ -1821,6 +1872,37 @@ class _SelectRideState extends State<SelectRide>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Under the selected ride: what the wallet covers and what is left to
+  /// pay. The list price itself stays the real fare.
+  Widget _walletLine(double price) {
+    final wallet = _selection.walletAppliedKr(price);
+    final rest = _selection.remainderKr(price);
+    const green = Color(0xFF079A60);
+    return Padding(
+      key: const ValueKey('select-ride-wallet-line'),
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance_wallet_outlined, size: 13, color: green),
+          const SizedBox(width: 4),
+          Expanded(
+            child: rest <= 0
+                ? Text(
+                    'Paid by wallet',
+                    style: _text(12, weight: FontWeight.w600, color: green),
+                  )
+                : Text(
+                    'Wallet −${_kr(wallet)} · you pay ${_kr(rest)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(12, weight: FontWeight.w500, color: green),
+                  ),
+          ),
+        ],
       ),
     );
   }

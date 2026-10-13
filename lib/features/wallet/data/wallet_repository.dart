@@ -19,11 +19,16 @@ class WalletPaymentSettings {
     required this.defaultMethod,
     required this.business,
     this.extraMethods = const [],
+    this.useWalletFirst = true,
   });
 
   final String defaultMethod;
   final bool business;
   final List<Map<String, String>> extraMethods;
+
+  /// The wallet balance is taken off every fare first; the rest goes to
+  /// the chosen method. On by default.
+  final bool useWalletFirst;
 }
 
 class WalletStore implements WalletBalanceSource {
@@ -72,6 +77,7 @@ class WalletStore implements WalletBalanceSource {
     return WalletPaymentSettings(
       defaultMethod: defaultMethod,
       business: prefs.getBool('movera_payment_business') ?? false,
+      useWalletFirst: prefs.getBool(walletFirstKey) ?? true,
     );
   }
 
@@ -87,7 +93,18 @@ class WalletStore implements WalletBalanceSource {
           : method,
     );
     await prefs.setBool('movera_payment_business', settings.business);
+    await prefs.setBool(walletFirstKey, settings.useWalletFirst);
     await prefs.remove('movera_payment_methods');
+  }
+
+  static const walletFirstKey = 'movera_wallet_first';
+
+  /// Demo flavour only: a rider with 50 kr in the wallet, so the split
+  /// payment can be seen on GitHub Pages. A stored balance is never touched.
+  static Future<void> seedDemoBalance({double kr = 50}) async {
+    final prefs = await PreferencesStore.load();
+    if (prefs.getDouble(balanceKey) != null) return;
+    await prefs.setDouble(balanceKey, kr);
   }
 
   Future<void> _removeLegacyVoucherState(dynamic prefs) async {

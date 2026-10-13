@@ -1,5 +1,6 @@
 import 'package:movera_rider/features/booking/data/booking_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class BookingController {
   BookingController({BookingRepository? store})
@@ -23,6 +24,7 @@ class BookingController {
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     return _store.submitFinding(
       pickupAddress: pickupAddress,
@@ -41,6 +43,7 @@ class BookingController {
       rideTypeLabel: rideTypeLabel,
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
+      stops: stops,
     );
   }
   Future<String> reconcileCreatedFinding(String createdRideId) {

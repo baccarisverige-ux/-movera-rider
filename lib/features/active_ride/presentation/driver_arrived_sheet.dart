@@ -131,7 +131,7 @@ class DriverArrivedSheet extends StatelessWidget {
                   if (context.mounted) Navigator.of(context).pop();
                 },
                 style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
+                  backgroundColor: const Color(0xFF11181D),
                   minimumSize: const Size.fromHeight(52),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),

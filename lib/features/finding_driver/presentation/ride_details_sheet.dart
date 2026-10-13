@@ -1,36 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
+/// The route and the money of the current ride, read-only. Changing the
+/// route happens on the route screen (the three dots on the ride card).
 class RideDetailsSheet extends StatelessWidget {
   const RideDetailsSheet({
     super.key,
     required this.pickupAddress,
     required this.destinationAddress,
+    this.stops = const <RouteStop>[],
     required this.rideType,
     required this.price,
     required this.paymentMethod,
     required this.notes,
-    required this.canEditPickup,
-    this.canEditDestination = false,
     this.allowCancel = true,
-    required this.onEditPickup,
-    required this.onEditDestination,
     required this.onCancelTrip,
   });
 
   final String pickupAddress;
   final String destinationAddress;
+  final List<RouteStop> stops;
   final String rideType;
   final double price;
   final String paymentMethod;
   final RideNotes notes;
-  final bool canEditPickup;
-  final bool canEditDestination;
   final bool allowCancel;
-  final VoidCallback onEditPickup;
-  final VoidCallback onEditDestination;
   final VoidCallback onCancelTrip;
+
+  static const Color _ink = Color(0xFF1D252C);
+  static const Color _muted = Color(0xFF5C656C);
+  static const Color _accent = Color(0xFF2D5878);
+  static const Color _line = Color(0xFFE7EBEE);
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +54,7 @@ class RideDetailsSheet extends StatelessWidget {
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1D252C),
+                      color: _ink,
                     ),
                   ),
                 ),
@@ -63,23 +65,25 @@ class RideDetailsSheet extends StatelessWidget {
                 ),
               ],
             ),
-            _Stop(
-              pickup: true,
+            _RouteRow(
+              key: const ValueKey('ride-details-pickup'),
+              kind: _RowKind.pickup,
               address: pickupAddress,
-              canEdit: canEditPickup,
-              onEdit: onEditPickup,
             ),
-            Container(
-              width: 2,
-              height: 18,
-              margin: const EdgeInsets.only(left: 10),
-              color: const Color(0xFFE7EBEE),
-            ),
-            _Stop(
-              pickup: false,
+            for (var i = 0; i < stops.length; i++) ...[
+              _connector(),
+              _RouteRow(
+                key: ValueKey('ride-details-stop-$i'),
+                kind: _RowKind.stop,
+                label: 'Stop ${i + 1}',
+                address: stops[i].address,
+              ),
+            ],
+            _connector(),
+            _RouteRow(
+              key: const ValueKey('ride-details-destination'),
+              kind: _RowKind.destination,
               address: destinationAddress,
-              canEdit: canEditDestination,
-              onEdit: onEditDestination,
             ),
             const SizedBox(height: 16),
             _kv(rideType, '${price.toStringAsFixed(0)} kr'),
@@ -106,7 +110,7 @@ class RideDetailsSheet extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2D5878),
+                          color: _accent,
                         ),
                       ),
                     ),
@@ -165,6 +169,13 @@ class RideDetailsSheet extends StatelessWidget {
     );
   }
 
+  Widget _connector() => Container(
+    width: 2,
+    height: 16,
+    margin: const EdgeInsets.only(left: 10),
+    color: _line,
+  );
+
   Widget _kv(String left, String right, {bool muted = false}) {
     return Row(
       children: [
@@ -174,7 +185,7 @@ class RideDetailsSheet extends StatelessWidget {
             style: GoogleFonts.poppins(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF1D252C),
+              color: _ink,
             ),
           ),
         ),
@@ -183,7 +194,7 @@ class RideDetailsSheet extends StatelessWidget {
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: muted ? const Color(0xFF5C656C) : const Color(0xFF1D252C),
+            color: muted ? _muted : _ink,
           ),
         ),
       ],
@@ -191,50 +202,77 @@ class RideDetailsSheet extends StatelessWidget {
   }
 }
 
-class _Stop extends StatelessWidget {
-  const _Stop({
-    required this.pickup,
+enum _RowKind { pickup, stop, destination }
+
+class _RouteRow extends StatelessWidget {
+  const _RouteRow({
+    super.key,
+    required this.kind,
     required this.address,
-    required this.canEdit,
-    required this.onEdit,
+    this.label,
   });
 
-  final bool pickup;
+  final _RowKind kind;
   final String address;
-  final bool canEdit;
-  final VoidCallback onEdit;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          pickup ? Icons.radio_button_checked : Icons.square,
-          size: pickup ? 18 : 14,
-          color: const Color(0xFF1D252C),
+    final icon = switch (kind) {
+      _RowKind.pickup => const Icon(
+        Icons.radio_button_checked,
+        size: 18,
+        color: Color(0xFF079A60),
+      ),
+      _RowKind.stop => Container(
+        width: 14,
+        height: 14,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: RideDetailsSheet._ink, width: 2),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            address,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF1D252C),
+      ),
+      _RowKind.destination => const Icon(
+        Icons.square,
+        size: 14,
+        color: Color(0xFF1769E8),
+      ),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 22, child: Center(child: icon)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (label != null)
+                  Text(
+                    label!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: RideDetailsSheet._muted,
+                    ),
+                  ),
+                Text(
+                  address,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: RideDetailsSheet._ink,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        if (canEdit)
-          IconButton(
-            onPressed: onEdit,
-            tooltip: pickup ? 'Edit pickup' : 'Add stop',
-            icon: Icon(
-              pickup ? Icons.edit_outlined : Icons.add,
-              size: 18,
-              color: const Color(0xFF1D252C),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
