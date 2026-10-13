@@ -145,8 +145,25 @@ class RideCatalogJson {
     'xl',
     'electric',
     'pet',
+    'van',
+    'wheelchair',
+    'business',
+    'airport',
+    'kids',
+    'women',
+    'delivery',
   };
-  static const knownGlyphs = <String>{'bolt', 'pets'};
+  static const knownGlyphs = <String>{
+    'bolt',
+    'pets',
+    'van',
+    'wheelchair',
+    'briefcase',
+    'plane',
+    'child',
+    'person',
+    'parcel',
+  };
 
   /// The glyph key a screen draws as a generic car.
   static const fallbackGlyph = 'car';

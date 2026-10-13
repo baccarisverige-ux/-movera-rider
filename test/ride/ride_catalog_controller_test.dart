@@ -234,17 +234,29 @@ void main() {
         'electric',
         'pet',
         'van',
+        'wheelchair',
+        'business',
+        'airport',
+        'kids',
+        'women',
+        'delivery',
       ]);
-      final van = loaded.last;
+      final van = loaded.firstWhere((item) => item.id == 'van');
       expect(van.name, 'Van');
       expect(van.seats, 8);
       expect(van.price, 449);
       expect(van.note, 'Groups and luggage');
-      expect(van.image, 'assets/images/rides/xl.webp');
+      expect(van.image, 'assets/images/rides/van.webp');
+      expect(van.glyph, 'van');
+      // Every server category ships with its own picture in the app, so the
+      // admin can switch any of them on without an app release.
+      for (final item in loaded) {
+        expect(item.image, 'assets/images/rides/${item.id}.webp');
+      }
       expect(
-        RideSelectionRepository.builtInRides.any((item) => item.id == 'van'),
-        isFalse,
-        reason: 'Van exists only on the server, proving the list is remote',
+        RideSelectionRepository.builtInRides.map((item) => item.id),
+        loaded.map((item) => item.id),
+        reason: 'the built-in fallback mirrors the admin list',
       );
 
       final api = ApiClient(client: InProcessMockClient());

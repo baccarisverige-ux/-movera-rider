@@ -31,7 +31,7 @@ class _ImmediateQuoteRepository implements QuoteRepository {
       RideQuote(
         id: 'remote-quote-$rideType',
         rideType: rideType,
-        totalMinor: rideType == 'van' ? 44900 : 25900,
+        totalMinor: rideType == 'shuttle' ? 44900 : 25900,
         currency: 'SEK',
         expiresAt: DateTime.now().add(const Duration(minutes: 5)),
         signedPayload: 'remote-signature',
@@ -55,12 +55,12 @@ const _serverRows = [
     'enabled': true,
   },
   {
-    'id': 'van',
-    'name': 'Van',
+    'id': 'shuttle',
+    'name': 'Shuttle',
     'seats': 8,
     'etaMin': 14,
     'price': 449,
-    'description': 'Groups and luggage',
+    'description': 'Shared shuttle rides',
     'imageKey': 'xl',
     'order': 2,
     'enabled': true,
@@ -78,7 +78,7 @@ void main() {
     tester,
   ) async {
     expect(
-      RideSelectionRepository.builtInRides.any((ride) => ride.id == 'van'),
+      RideSelectionRepository.builtInRides.any((ride) => ride.id == 'shuttle'),
       isFalse,
     );
 
@@ -115,23 +115,23 @@ void main() {
       ),
     );
     // The built-in list shows at once; the server answer rebuilds the sheet.
-    expect(find.text('Van'), findsNothing);
+    expect(find.text('Shuttle'), findsNothing);
     for (var i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
     expect(catalog.source, RideCatalogSource.server);
-    expect(selection.rides().map((ride) => ride.id), ['movera', 'van']);
-    expect(find.text('Van'), findsWidgets);
-    expect(find.text('Groups and luggage'), findsWidgets);
+    expect(selection.rides().map((ride) => ride.id), ['movera', 'shuttle']);
+    expect(find.text('Shuttle'), findsWidgets);
+    expect(find.text('Shared shuttle rides'), findsWidgets);
     expect(find.text('Comfort'), findsNothing);
     // The new category was quoted too, so it can be booked.
-    expect(quotes.requested, contains('van'));
-    expect(selection.quoteIsAvailable('van'), isTrue);
+    expect(quotes.requested, contains('shuttle'));
+    expect(selection.quoteIsAvailable('shuttle'), isTrue);
 
-    await tester.tap(find.text('Van').first);
+    await tester.tap(find.text('Shuttle').first);
     await tester.pump(const Duration(milliseconds: 300));
-    expect(selection.selectedRideId, 'van');
-    expect(selection.authoritativePriceFor('van'), 449);
+    expect(selection.selectedRideId, 'shuttle');
+    expect(selection.authoritativePriceFor('shuttle'), 449);
   });
 }

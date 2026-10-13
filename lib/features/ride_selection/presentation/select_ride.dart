@@ -206,16 +206,26 @@ class _SelectRideState extends State<SelectRide>
         price: ride.price,
         seats: ride.seats,
         badge: ride.badge,
-        glyph: ride.glyph == 'bolt'
-            ? Icons.bolt_rounded
-            : ride.glyph == 'pets'
-            ? Icons.pets_rounded
-            : ride.glyph == 'car'
-            ? Icons.directions_car_rounded
-            : null,
+        glyph: _glyphIcon(ride.glyph),
       );
     }).toList();
   }
+
+  /// The small badge drawn over the category picture, by the catalog's
+  /// glyph key. Unknown keys draw nothing.
+  static IconData? _glyphIcon(String? key) => switch (key) {
+    'bolt' => Icons.bolt_rounded,
+    'pets' => Icons.pets_rounded,
+    'car' => Icons.directions_car_rounded,
+    'van' => Icons.airport_shuttle_rounded,
+    'wheelchair' => Icons.accessible_rounded,
+    'briefcase' => Icons.work_rounded,
+    'plane' => Icons.flight_takeoff_rounded,
+    'child' => Icons.child_care_rounded,
+    'person' => Icons.person_rounded,
+    'parcel' => Icons.inventory_2_rounded,
+    _ => null,
+  };
 
   List<_PaymentOption> get _payments {
     return _selection.payments().map((item) {
