@@ -45,6 +45,7 @@ import 'package:movera_rider/features/payments/application/saved_cards_controlle
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
+import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
@@ -212,6 +213,7 @@ class AppScope {
   late final RideCompleteController rideComplete = RideCompleteController();
   late final WalletController walletController = WalletController();
   late final SavedPlacesController savedPlaces = SavedPlacesController();
+  late final PickupSpotsController pickupSpots = PickupSpotsController();
   late final SupportController support = SupportController();
   late final OnboardingController onboarding = OnboardingController();
   late final DestinationController destinationMemory = DestinationController();

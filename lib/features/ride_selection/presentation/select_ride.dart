@@ -28,7 +28,6 @@ import 'package:movera_rider/features/booking/application/booking_controller.dar
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
-import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -982,14 +981,21 @@ class _SelectRideState extends State<SelectRide>
     _bookNow();
   }
 
-  /// Saved places offered as quick pickup spots on Set pickup.
-  Future<List<PlaceShortcut>> _pickupSpots() async {
+  /// Where the rider's Home is, so Set pickup can offer a "Near Home" spot.
+  /// Best effort: no Home, or a slow lookup, simply means no such spot.
+  Future<LatLng?> _homePosition() async {
     try {
       final places = AppScope.instance.savedPlaces;
       await places.hydrate().timeout(const Duration(milliseconds: 600));
-      return places.shortcuts();
+      final home = places.shortcuts().where((p) => p.kind == 'home');
+      if (home.isEmpty) return null;
+      final found = await AppScope.instance.geocoding
+          .geocodeAddress(home.first.subtitle)
+          .timeout(const Duration(milliseconds: 900));
+      if (found == null) return null;
+      return LatLng(found.point.latitude, found.point.longitude);
     } catch (_) {
-      return const <PlaceShortcut>[];
+      return null;
     }
   }
 
@@ -998,7 +1004,7 @@ class _SelectRideState extends State<SelectRide>
     String confirmLabel = 'Confirm and search',
     DateTime? scheduledPickup,
   }) async {
-    final spots = await _pickupSpots();
+    final home = await _homePosition();
     if (!mounted) return null;
     final quote = _selection.authoritativeQuotes[ride.id];
     final promotion = _promotion;
@@ -1040,7 +1046,7 @@ class _SelectRideState extends State<SelectRide>
       },
       onRequote: (pin) => _requoteFromPin(ride, pin),
       initialBagLevel: _notes.bagLevel,
-      spots: spots,
+      home: home,
       initialIsCurrentLocation: !_pickupConfirmed,
       confirmLabel: confirmLabel,
       scheduledPickup: scheduledPickup,
