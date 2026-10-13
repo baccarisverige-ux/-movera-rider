@@ -226,3 +226,98 @@ class RouteEndpointMarker {
     });
   }
 }
+
+/// Route pins that carry a time: a green "6 min" bubble over the pickup and
+/// a blue "Arrive by 23:48" pill over the destination.
+class RouteTimeMarker {
+  const RouteTimeMarker._();
+
+  static final Map<String, Future<BitmapDescriptor>> _cache =
+      <String, Future<BitmapDescriptor>>{};
+
+  /// Where the pin's point sits in the image (bottom centre), for `anchor`.
+  static const Offset anchor = Offset(0.5, 0.94);
+
+  static Future<BitmapDescriptor> createIcon({
+    required bool pickup,
+    required String label,
+  }) {
+    return _cache.putIfAbsent('$pickup|$label', () async {
+      const scale = 3.0;
+      final color = pickup ? RiderRouteStyle.pickup : RiderRouteStyle.destination;
+      final lines = label.split('\n');
+      final painters = [
+        for (var i = 0; i < lines.length; i++)
+          TextPainter(
+            text: TextSpan(
+              text: lines[i],
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: (pickup && i == 0 ? 17 : 12.5) * scale,
+                fontWeight: pickup && i > 0 ? FontWeight.w500 : FontWeight.w700,
+                height: 1.05,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+          )..layout(),
+      ];
+      final textW = painters.fold<double>(0, (w, p) => w > p.width ? w : p.width);
+      final textH = painters.fold<double>(0, (h, p) => h + p.height);
+      final bubbleW = pickup
+          ? (textH + 18 * scale).clamp(textW + 14 * scale, double.infinity)
+          : textW + 26 * scale;
+      final bubbleH = pickup ? bubbleW : textH + 16 * scale;
+      const stem = 12.0 * scale;
+      const dot = 7.0 * scale;
+      final width = bubbleW + 8 * scale;
+      final height = bubbleH + stem + dot * 2 + 4 * scale;
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final cx = width / 2;
+      final shadow = Paint()
+        ..color = color.withValues(alpha: 0.30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+      final bubble = RRect.fromRectAndRadius(
+        Rect.fromLTWH(cx - bubbleW / 2, 2 * scale, bubbleW, bubbleH),
+        Radius.circular(bubbleH / 2),
+      );
+      canvas.drawRRect(bubble.shift(const Offset(0, 3 * scale)), shadow);
+      canvas.drawRRect(bubble, Paint()..color = color);
+      var y = 2 * scale + (bubbleH - textH) / 2;
+      for (final p in painters) {
+        p.paint(canvas, Offset(cx - p.width / 2, y));
+        y += p.height;
+      }
+      final stemTop = 2 * scale + bubbleH;
+      canvas.drawRect(
+        Rect.fromLTWH(cx - 1.5 * scale, stemTop, 3 * scale, stem),
+        Paint()..color = color,
+      );
+      final dotCenter = Offset(cx, stemTop + stem + dot);
+      if (pickup) {
+        canvas.drawCircle(dotCenter, dot, Paint()..color = color);
+        canvas.drawCircle(dotCenter, dot * 0.5, Paint()..color = Colors.white);
+      } else {
+        canvas.drawRect(
+          Rect.fromCenter(center: dotCenter, width: dot * 1.8, height: dot * 1.8),
+          Paint()..color = color,
+        );
+        canvas.drawRect(
+          Rect.fromCenter(center: dotCenter, width: dot * 0.8, height: dot * 0.8),
+          Paint()..color = Colors.white,
+        );
+      }
+      final image = await recorder.endRecording().toImage(
+        width.ceil(),
+        height.ceil(),
+      );
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (data == null) return RouteEndpointMarker.createIcon(pickup: pickup);
+      return BitmapDescriptor.bytes(
+        data.buffer.asUint8List(),
+        imagePixelRatio: scale,
+      );
+    });
+  }
+}

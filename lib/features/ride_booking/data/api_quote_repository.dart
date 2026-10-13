@@ -77,6 +77,12 @@ class ApiQuoteRepository implements QuoteRepository {
                     : null)
                 ?.round() ??
             0,
+        discountMinor:
+            (map['breakdown'] is Map
+                    ? (map['breakdown']['discountMinor'] as num?)
+                    : null)
+                ?.round() ??
+            0,
         signedPayload: signedPayload.trim(),
       );
       if (quote.expired) throw StateError('expired quote');

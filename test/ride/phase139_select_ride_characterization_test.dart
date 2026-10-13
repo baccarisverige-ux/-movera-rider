@@ -113,6 +113,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pump(const Duration(seconds: 1));
+      // Opens at the middle stop; the filters show once the sheet is fully up.
+      await tester.tap(find.byKey(const ValueKey('select-ride-sheet-handle')));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       final catalog = selection.rides().toList();
       final names = catalog.map((r) => r.name).toList();
