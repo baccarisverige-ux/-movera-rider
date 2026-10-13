@@ -111,6 +111,8 @@ class SetPickupPage extends StatefulWidget {
     this.spots = const <PlaceShortcut>[],
     this.initialIsCurrentLocation = true,
     this.positionIsFallback = false,
+    this.confirmLabel = 'Confirm and search',
+    this.scheduledPickup,
   });
 
   static Future<SetPickupResult?> open(
@@ -128,6 +130,8 @@ class SetPickupPage extends StatefulWidget {
     List<PlaceShortcut> spots = const <PlaceShortcut>[],
     bool initialIsCurrentLocation = true,
     bool positionIsFallback = false,
+    String confirmLabel = 'Confirm and search',
+    DateTime? scheduledPickup,
   }) async {
     final route = RightToLeftTransition<SetPickupResult>(
       SetPickupPage(
@@ -144,6 +148,8 @@ class SetPickupPage extends StatefulWidget {
         spots: spots,
         initialIsCurrentLocation: initialIsCurrentLocation,
         positionIsFallback: positionIsFallback,
+        confirmLabel: confirmLabel,
+        scheduledPickup: scheduledPickup,
       ),
       settings: const RouteSettings(name: AppRoutes.confirmPickup),
     );
@@ -164,6 +170,13 @@ class SetPickupPage extends StatefulWidget {
   final int initialBagLevel;
   final List<PlaceShortcut> spots;
   final bool initialIsCurrentLocation;
+
+  /// Button text: "Confirm and search" now, "Confirm and schedule" later.
+  final String confirmLabel;
+
+  /// For a ride booked for later: the chosen pickup time. The pin and the
+  /// header then show that time instead of the driver's minutes.
+  final DateTime? scheduledPickup;
 
   /// The start point is a default map point, not the rider: Confirm waits
   /// until the pin is moved or a real location arrives.
@@ -253,12 +266,28 @@ class _SetPickupPageState extends State<SetPickupPage>
     super.dispose();
   }
 
+  static String _clock(DateTime at) =>
+      '${at.hour.toString().padLeft(2, '0')}:'
+      '${at.minute.toString().padLeft(2, '0')}';
+
   String get _arriveClock {
-    final at = DateTime.now().add(
-      Duration(minutes: widget.ride.etaMin + widget.ride.tripMinutes),
-    );
-    return '${at.hour.toString().padLeft(2, '0')}:'
-        '${at.minute.toString().padLeft(2, '0')}';
+    final scheduled = widget.scheduledPickup;
+    final at = scheduled != null
+        ? scheduled.add(Duration(minutes: widget.ride.tripMinutes))
+        : DateTime.now().add(
+            Duration(minutes: widget.ride.etaMin + widget.ride.tripMinutes),
+          );
+    return _clock(at);
+  }
+
+  /// "Driver arrives in 8 min · Arrive 08:19", or for a scheduled ride
+  /// "Pickup 07:05 · Arrive 08:19".
+  String get _timesLine {
+    final scheduled = widget.scheduledPickup;
+    if (scheduled != null) {
+      return 'Pickup ${_clock(scheduled)} · Arrive $_arriveClock';
+    }
+    return 'Driver arrives in ${widget.ride.etaMin} min · Arrive $_arriveClock';
   }
 
   Future<void> _loadDestinationPin() async {
@@ -519,6 +548,9 @@ class _SetPickupPageState extends State<SetPickupPage>
                   key: const ValueKey('set-pickup-pin'),
                   lift: _lift,
                   minutes: widget.ride.etaMin,
+                  timeLabel: widget.scheduledPickup == null
+                      ? null
+                      : _clock(widget.scheduledPickup!),
                 ),
               ),
             ),
@@ -759,10 +791,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'Driver arrives in ${ride.etaMin} min · Arrive $_arriveClock',
-                  style: _text(13, color: _muted),
-                ),
+                Text(_timesLine, style: _text(13, color: _muted)),
               ],
             ),
           ),
@@ -1002,7 +1031,7 @@ class _SetPickupPageState extends State<SetPickupPage>
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
         child: Text(
-          'Confirm and search',
+          widget.confirmLabel,
           style: _text(16, weight: FontWeight.w600, color: Colors.white),
         ),
       ),
@@ -1013,10 +1042,18 @@ class _SetPickupPageState extends State<SetPickupPage>
 /// The fixed centre pin: a green "N min" bubble on a stem. It lifts while the
 /// map moves (its shadow spreads) and drops back with a small bounce.
 class _PickupPin extends StatelessWidget {
-  const _PickupPin({super.key, required this.lift, required this.minutes});
+  const _PickupPin({
+    super.key,
+    required this.lift,
+    required this.minutes,
+    this.timeLabel,
+  });
 
   final Animation<double> lift;
   final int minutes;
+
+  /// A clock time ("07:05") for a scheduled pickup instead of "N min".
+  final String? timeLabel;
 
   static const _bubble = 52.0;
   static const _stem = 14.0;
@@ -1073,7 +1110,19 @@ class _PickupPin extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Column(
+                      child: timeLabel != null
+                          ? Center(
+                              child: Text(
+                                timeLabel!,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 13,
+                                  height: 1.0,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(

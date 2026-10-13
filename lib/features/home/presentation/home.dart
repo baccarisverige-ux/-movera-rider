@@ -11,6 +11,8 @@ import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
+import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
@@ -38,7 +40,6 @@ import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
-import 'package:movera_rider/features/scheduled_rides/presentation/schedule_ride.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/comfort_ride_carousel.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
@@ -625,8 +626,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   /// The step after the rider taps a real destination.
   Future<Map<String, dynamic>?> _confirmRouteSelection(
-    RoutePickerSelection selection,
-  ) async {
+    RoutePickerSelection selection, {
+    bool scheduled = false,
+  }) async {
     // Book now always confirms pickup; GPS only prefills. The confirm step
     // is Set pickup, opened after Book on the categories screen.
     final pickup = await _prefillPickup(selection.pickup, selection.pickupPoint);
@@ -647,6 +649,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         geocoded.point.longitude,
       );
     }
+    DateTime? scheduledAt;
+    if (scheduled) {
+      if (!mounted) return null;
+      scheduledAt = await ScheduleDateTimeSelector.choose(
+        context,
+        tripMinutes: estimatedTripMinutes(
+          GeoPoint(pickup.position.latitude, pickup.position.longitude),
+          destinationPoint,
+        ),
+      );
+      // Backing out of the time picker returns to Where to.
+      if (scheduledAt == null || !mounted) return null;
+    }
     return {
       'pickup': pickup.address,
       'pickupLat': pickup.position.latitude,
@@ -655,12 +670,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       'destinationLat': destinationPoint.latitude,
       'destinationLng': destinationPoint.longitude,
       'stops': selection.stops,
+      if (scheduledAt != null) 'scheduledAt': scheduledAt.toIso8601String(),
     };
   }
 
   Future<void> _showRouteAddressPicker({
     required String initialField,
     EarlyInputCapture? capture,
+    bool scheduled = false,
   }) async {
     // Either the capture the caller started at tap time, or a fresh one for
     // entry points that open the picker directly.
@@ -703,7 +720,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 ),
               );
             },
-            onFinish: _confirmRouteSelection,
+            onFinish: (selection) =>
+                _confirmRouteSelection(selection, scheduled: scheduled),
           ),
         ),
       );
@@ -784,6 +802,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         }
         return;
       }
+      final scheduledAt = DateTime.tryParse(
+        draft['scheduledAt'] as String? ?? '',
+      );
       // Park the Home map before opening categories. Two Google Maps at once
       // crashes the browser tab on Flutter web.
       await _withParkedHomeMap(() {
@@ -797,11 +818,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               pickupPosition: pickupPosition,
               destinationPosition: destinationPosition,
               stops: List<String>.from(stops),
-              bookingMode: BookingMode.now,
+              bookingMode: scheduledAt == null
+                  ? BookingMode.now
+                  : BookingMode.scheduled,
+              lockBookingMode: scheduledAt != null,
+              initialScheduledFor: scheduledAt,
               onScheduled: (context, id) => RideScheduledPage.open(
                 context,
                 reservationId: id,
-                replace: true,
+                replace: scheduledAt == null,
+                untilHome: scheduledAt != null,
               ),
             ),
             settings: const RouteSettings(name: AppRoutes.selectRide),
@@ -1547,16 +1573,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     expandedThreshold: ResSize.h * 8,
   );
 
+  /// Book for later: the same Where to as Book now, then the date and time,
+  /// then the categories in scheduled mode (Set pickup comes after Schedule).
   Future<void> _openSchedule() async {
-    await _withParkedHomeMap(() {
-      return Navigator.push(
-        context,
-        BottomToTopTransition(
-          const ScheduleRide(),
-          settings: const RouteSettings(name: AppRoutes.schedule),
-        ),
-      );
-    });
+    await _showRouteAddressPicker(initialField: 'destination', scheduled: true);
   }
 
   void _openPayment() {

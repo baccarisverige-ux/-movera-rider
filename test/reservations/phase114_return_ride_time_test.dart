@@ -7,7 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
-import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -145,17 +145,17 @@ void main() {
       var i = 0;
       i < 60 &&
           find.byType(ScheduleDateTimeSelector).evaluate().isEmpty &&
-          find.byType(ConfirmPickupSpot).evaluate().isEmpty;
+          find.byType(SetPickupPage).evaluate().isEmpty;
       i++
     ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
 
-  Future<void> confirmPickupSpot(WidgetTester tester) async {
-    await waitFor(tester, find.byType(ConfirmPickupSpot));
-    expect(find.byType(ConfirmPickupSpot), findsOneWidget);
-    final button = find.widgetWithText(FilledButton, 'Confirm pickup spot');
+  Future<void> confirmSetPickup(WidgetTester tester) async {
+    await waitFor(tester, find.byType(SetPickupPage));
+    expect(find.byType(SetPickupPage), findsOneWidget);
+    final button = find.widgetWithText(FilledButton, 'Confirm and schedule');
     await tester.ensureVisible(button);
     await tester.tap(button);
     await tester.pump();
@@ -200,7 +200,7 @@ void main() {
     await waitForNextStep(tester);
 
     expect(
-      find.byType(ConfirmPickupSpot),
+      find.byType(SetPickupPage),
       findsNothing,
       reason: 'an illegal prefill must not skip straight to pickup confirm',
     );
@@ -222,8 +222,8 @@ void main() {
     final continueButton = find.widgetWithText(ElevatedButton, 'Continue');
     var pickerContinues = 0;
     for (var step = 0; step < 8 && opened.isEmpty; step++) {
-      if (onTop(ConfirmPickupSpot).evaluate().isNotEmpty) {
-        await confirmPickupSpot(tester);
+      if (onTop(SetPickupPage).evaluate().isNotEmpty) {
+        await confirmSetPickup(tester);
       } else if (onTop(ScheduleDateTimeSelector).evaluate().isNotEmpty) {
         pickerContinues++;
         await tester.ensureVisible(continueButton);
@@ -328,9 +328,9 @@ void main() {
       await tester.ensureVisible(continueButton);
       await tester.tap(continueButton);
       await tester.pump();
-      await waitFor(tester, onTop(ConfirmPickupSpot));
+      await waitFor(tester, onTop(SetPickupPage));
       expect(
-        onTop(ConfirmPickupSpot),
+        onTop(SetPickupPage),
         findsNothing,
         reason: 'a now-too-early slot must not be accepted',
       );
@@ -338,7 +338,7 @@ void main() {
 
       await tester.tap(continueButton);
       await tester.pump();
-      await confirmPickupSpot(tester);
+      await confirmSetPickup(tester);
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
@@ -373,13 +373,13 @@ void main() {
       await tester.ensureVisible(continueButton);
       await tester.tap(continueButton);
       await tester.pump();
-      await waitFor(tester, onTop(ConfirmPickupSpot));
-      expect(onTop(ConfirmPickupSpot), findsOneWidget);
+      await waitFor(tester, onTop(SetPickupPage));
+      expect(onTop(SetPickupPage), findsOneWidget);
 
       // The earliest legal slot moves past the chosen time while the rider
       // is on the pickup-spot screen.
       setSkew(const Duration(minutes: StockholmSchedule.slotMinutes));
-      await confirmPickupSpot(tester);
+      await confirmSetPickup(tester);
       await waitFor(tester, onTop(ScheduleDateTimeSelector));
       expect(
         onTop(ScheduleDateTimeSelector),
@@ -399,7 +399,7 @@ void main() {
       expect(StockholmSchedule.isOnGrid(booked), isTrue);
       expect(opened, [c.all.single.reservationId]);
       expect(
-        onTop(ConfirmPickupSpot),
+        onTop(SetPickupPage),
         findsNothing,
         reason: 'the pickup spot was already confirmed; it is not asked twice',
       );
@@ -429,9 +429,9 @@ void main() {
       await tester.ensureVisible(continueButton);
       await tester.tap(continueButton);
       await tester.pump();
-      await waitFor(tester, onTop(ConfirmPickupSpot));
+      await waitFor(tester, onTop(SetPickupPage));
       setSkew(const Duration(minutes: StockholmSchedule.slotMinutes));
-      await confirmPickupSpot(tester);
+      await confirmSetPickup(tester);
       await waitFor(tester, onTop(ScheduleDateTimeSelector));
       expect(onTop(ScheduleDateTimeSelector), findsOneWidget);
 
@@ -441,7 +441,7 @@ void main() {
       }
 
       expect(find.byType(ScheduleDateTimeSelector), findsNothing);
-      expect(find.byType(ConfirmPickupSpot), findsNothing);
+      expect(find.byType(SetPickupPage), findsNothing);
       expect(onTop(SelectRide), findsOneWidget);
       expect(c.all, isEmpty);
       expect(opened, isEmpty);
@@ -467,7 +467,7 @@ void main() {
 
       await tapSchedule(tester);
       await waitForNextStep(tester);
-      expect(find.byType(ConfirmPickupSpot), findsNothing);
+      expect(find.byType(SetPickupPage), findsNothing);
       expect(find.byType(ScheduleDateTimeSelector), findsOneWidget);
 
       moveraNavigatorKey.currentState!.pop();
@@ -476,7 +476,7 @@ void main() {
       }
 
       expect(find.byType(ScheduleDateTimeSelector), findsNothing);
-      expect(find.byType(ConfirmPickupSpot), findsNothing);
+      expect(find.byType(SetPickupPage), findsNothing);
       expect(find.byType(SelectRide), findsOneWidget);
       expect(c.all, isEmpty);
       expect(opened, isEmpty);
@@ -506,7 +506,7 @@ void main() {
       await tapSchedule(tester);
       await waitForNextStep(tester);
       expect(find.byType(ScheduleDateTimeSelector), findsNothing);
-      await confirmPickupSpot(tester);
+      await confirmSetPickup(tester);
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
@@ -560,7 +560,7 @@ void main() {
       await waitForNextStep(tester);
 
       expect(
-        find.byType(ConfirmPickupSpot),
+        find.byType(SetPickupPage),
         findsNothing,
         reason: 'an off-grid prefill must not skip straight to pickup confirm',
       );
@@ -576,7 +576,7 @@ void main() {
       await tester.ensureVisible(continueButton);
       await tester.tap(continueButton);
       await tester.pump();
-      await confirmPickupSpot(tester);
+      await confirmSetPickup(tester);
       await settleBooking(tester, opened);
 
       expect(c.all, hasLength(1));
