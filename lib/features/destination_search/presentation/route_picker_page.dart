@@ -644,8 +644,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
           // The same pictures as the Home page's quick places.
           leading: Image.asset(
             target == 'home' ? AppAssets.quickHome : AppAssets.quickWork,
-            width: 28,
-            height: 28,
+            width: 20,
+            height: 20,
             excludeFromSemantics: true,
           ),
           title: Text(
