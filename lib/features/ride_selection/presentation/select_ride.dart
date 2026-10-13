@@ -759,6 +759,12 @@ class _SelectRideState extends State<SelectRide>
       walletBalance: _selection.walletBalance,
       promotion: _promotion,
       brandMark: _brandMark,
+      useWalletFirst: _selection.useWalletFirst,
+      onWalletFirstChanged: (value) {
+        if (!mounted) return;
+        setState(() => _selection.useWalletFirst = value);
+        unawaited(_saveWalletFirst(value));
+      },
     );
     if (brand == null || !mounted) return;
     final index = _selection.payments().indexWhere((p) => p.brand == brand);
@@ -768,9 +774,20 @@ class _SelectRideState extends State<SelectRide>
 
   Future<void> _loadWalletBalance() async {
     try {
-      final balance = await AppScope.instance.walletController.loadBalance();
+      final wallet = AppScope.instance.walletController;
+      final balance = await wallet.loadBalance();
+      final walletFirst = await wallet.loadUseWalletFirst();
       if (!mounted) return;
-      setState(() => _selection.setWalletBalance(balance));
+      setState(() {
+        _selection.useWalletFirst = walletFirst;
+        _selection.setWalletBalance(balance);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveWalletFirst(bool value) async {
+    try {
+      await AppScope.instance.walletController.saveUseWalletFirst(value);
     } catch (_) {}
   }
 
@@ -984,6 +1001,7 @@ class _SelectRideState extends State<SelectRide>
       ),
       fare: SetPickupFare(
         totalKr: _priceFor(ride),
+        walletKr: _selection.walletAppliedKr(_priceFor(ride)),
         discountKr: _discountFor(ride),
         promotionPercent: quote != null && quote.discountMinor > 0
             ? promotion?.percentOff
@@ -1797,6 +1815,8 @@ class _SelectRideState extends State<SelectRide>
                             ),
                         ],
                       ),
+                      if (selected && _selection.walletAppliedKr(price) > 0)
+                        _walletLine(price),
                       // Description and badge come in as the sheet opens fully.
                       ClipRect(
                         child: Align(
@@ -1852,6 +1872,37 @@ class _SelectRideState extends State<SelectRide>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Under the selected ride: what the wallet covers and what is left to
+  /// pay. The list price itself stays the real fare.
+  Widget _walletLine(double price) {
+    final wallet = _selection.walletAppliedKr(price);
+    final rest = _selection.remainderKr(price);
+    const green = Color(0xFF079A60);
+    return Padding(
+      key: const ValueKey('select-ride-wallet-line'),
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance_wallet_outlined, size: 13, color: green),
+          const SizedBox(width: 4),
+          Expanded(
+            child: rest <= 0
+                ? Text(
+                    'Paid by wallet',
+                    style: _text(12, weight: FontWeight.w600, color: green),
+                  )
+                : Text(
+                    'Wallet −${_kr(wallet)} · you pay ${_kr(rest)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(12, weight: FontWeight.w500, color: green),
+                  ),
+          ),
+        ],
       ),
     );
   }

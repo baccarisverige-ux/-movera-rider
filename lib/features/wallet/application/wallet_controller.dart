@@ -51,6 +51,23 @@ class WalletController {
 
   Future<WalletPaymentSettings> loadPayments() => _store.loadPayments();
 
+  /// "Use wallet balance first" is a payment setting; these keep the rest
+  /// of the settings as they are.
+  Future<bool> loadUseWalletFirst() async =>
+      (await _store.loadPayments()).useWalletFirst;
+
+  Future<void> saveUseWalletFirst(bool value) async {
+    final current = await _store.loadPayments();
+    await _store.savePayments(
+      WalletPaymentSettings(
+        defaultMethod: current.defaultMethod,
+        business: current.business,
+        extraMethods: current.extraMethods,
+        useWalletFirst: value,
+      ),
+    );
+  }
+
   Future<void> savePayments(WalletPaymentSettings settings) =>
       _store.savePayments(settings);
 

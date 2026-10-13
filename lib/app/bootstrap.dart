@@ -17,6 +17,8 @@ import 'package:movera_rider/features/notifications/application/notification_nav
 import 'package:movera_rider/features/notifications/application/push_coordinator.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
@@ -96,6 +98,9 @@ Future<void> bootstrap() async {
   };
 
   AppScope.instance.lifecycle.attach();
+  if (AppEnv.current.flavor == AppFlavor.demo) {
+    await WalletStore.seedDemoBalance();
+  }
   await AppScope.instance.reservations.hydrate();
   await AppScope.instance.profile.hydrate();
   await _registerExistingPushSession();

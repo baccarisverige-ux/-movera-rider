@@ -84,11 +84,17 @@ class SetPickupFare {
     required this.totalKr,
     this.discountKr = 0,
     this.promotionPercent,
+    this.walletKr = 0,
   });
 
   final double totalKr;
   final double discountKr;
   final int? promotionPercent;
+
+  /// The part of the total taken from the Movera Wallet first.
+  final double walletKr;
+
+  double get remainderKr => totalKr - walletKr;
 }
 
 /// The payment line at the bottom of the sheet.
@@ -964,8 +970,15 @@ class _SetPickupPageState extends State<SetPickupPage>
     );
   }
 
-  Widget _priceRow(String label, String value, {bool bold = false, Color color = _ink}) {
+  Widget _priceRow(
+    String label,
+    String value, {
+    bool bold = false,
+    Color color = _ink,
+    Key? key,
+  }) {
     return Padding(
+      key: key,
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
@@ -1008,10 +1021,26 @@ class _SetPickupPageState extends State<SetPickupPage>
             const Divider(height: 12, color: _line),
           ],
           _priceRow('Total', formatKr(fare.totalKr), bold: true),
+          if (fare.walletKr > 0) ...[
+            const Divider(height: 12, color: _line),
+            _priceRow(
+              'Movera Wallet',
+              '-${formatKr(fare.walletKr)}',
+              color: _walletGreen,
+              key: const ValueKey('set-pickup-wallet-part'),
+            ),
+            _priceRow(
+              fare.remainderKr > 0 ? _payment.name : 'Nothing more to pay',
+              formatKr(fare.remainderKr),
+              key: const ValueKey('set-pickup-remainder'),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  static const Color _walletGreen = Color(0xFF079A60);
 
   Widget _paymentLine() {
     return Padding(

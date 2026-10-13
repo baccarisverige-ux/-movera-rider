@@ -92,6 +92,23 @@ class RideSelectionController {
   /// when there is money in it.
   double walletBalance = 0;
 
+  /// "Use wallet balance first": the balance is taken off the fare before
+  /// the chosen method pays the rest. On by default.
+  bool useWalletFirst = true;
+
+  /// The part of [priceKr] the wallet covers for the current payment
+  /// choice, or 0. Paying the whole ride from the wallet is its own method
+  /// and is not a split.
+  double walletAppliedKr(double priceKr) {
+    if (!useWalletFirst || !_flags.enableWallet) return 0;
+    if (walletBalance <= 0 || priceKr <= 0) return 0;
+    if (selectedPaymentItem()?.brand == 'wallet') return 0;
+    return walletBalance >= priceKr ? priceKr : walletBalance;
+  }
+
+  /// What the chosen method is charged after the wallet part.
+  double remainderKr(double priceKr) => priceKr - walletAppliedKr(priceKr);
+
   /// Whether the rider has a saved card. Cards can only be saved once a
   /// payment provider is connected, so until then Card opens Add card.
   bool hasSavedCard = false;

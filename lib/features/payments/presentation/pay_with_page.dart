@@ -21,7 +21,7 @@ class PayWithMethod {
 
 /// "Pay with": opens only when the rider taps the payment line. Returns the
 /// chosen method's brand, or null when closed without a change.
-class PayWithPage extends StatelessWidget {
+class PayWithPage extends StatefulWidget {
   const PayWithPage({
     super.key,
     required this.methods,
@@ -29,9 +29,15 @@ class PayWithPage extends StatelessWidget {
     required this.walletBalance,
     required this.promotion,
     required this.brandMark,
+    this.useWalletFirst = true,
+    this.onWalletFirstChanged,
   });
 
   final List<PayWithMethod> methods;
+
+  /// "Use wallet balance first" and what to do when the rider flips it.
+  final bool useWalletFirst;
+  final ValueChanged<bool>? onWalletFirstChanged;
   final String? selectedBrand;
 
   /// Shown only when the wallet has money in it.
@@ -46,6 +52,8 @@ class PayWithPage extends StatelessWidget {
     required double walletBalance,
     required RiderPromotion? promotion,
     required Widget Function(String brand) brandMark,
+    bool useWalletFirst = true,
+    ValueChanged<bool>? onWalletFirstChanged,
   }) {
     return Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
@@ -55,6 +63,8 @@ class PayWithPage extends StatelessWidget {
           walletBalance: walletBalance,
           promotion: promotion,
           brandMark: brandMark,
+          useWalletFirst: useWalletFirst,
+          onWalletFirstChanged: onWalletFirstChanged,
         ),
       ),
     );
@@ -64,6 +74,24 @@ class PayWithPage extends StatelessWidget {
   static const Color _muted = Color(0xFF5C656C);
   static const Color _line = Color(0xFFEEF1F2);
   static const Color _accent = Color(0xFF2D5878);
+
+  @override
+  State<PayWithPage> createState() => _PayWithPageState();
+}
+
+class _PayWithPageState extends State<PayWithPage> {
+  late bool _walletFirst = widget.useWalletFirst;
+
+  List<PayWithMethod> get methods => widget.methods;
+  String? get selectedBrand => widget.selectedBrand;
+  double get walletBalance => widget.walletBalance;
+  RiderPromotion? get promotion => widget.promotion;
+  Widget Function(String brand) get brandMark => widget.brandMark;
+
+  static const Color _ink = PayWithPage._ink;
+  static const Color _muted = PayWithPage._muted;
+  static const Color _line = PayWithPage._line;
+  static const Color _accent = PayWithPage._accent;
 
   TextStyle _t(double size, {FontWeight w = FontWeight.w500, Color c = _ink}) =>
       GoogleFonts.poppins(fontSize: size, fontWeight: w, color: c);
@@ -130,6 +158,11 @@ class PayWithPage extends StatelessWidget {
           ),
         );
 
+  void _toggleWalletFirst(bool value) {
+    setState(() => _walletFirst = value);
+    widget.onWalletFirstChanged?.call(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final rideMethods = methods.where((m) => m.brand != 'wallet').toList();
@@ -164,6 +197,18 @@ class PayWithPage extends StatelessWidget {
                 subtitle: 'Tap to pay this ride from your balance',
                 trailing: _radio(selectedBrand == 'wallet'),
                 onTap: () => Navigator.of(context).pop('wallet'),
+              ),
+              SwitchListTile.adaptive(
+                key: const ValueKey('pay-with-wallet-first'),
+                contentPadding: EdgeInsets.zero,
+                value: _walletFirst,
+                onChanged: _toggleWalletFirst,
+                activeTrackColor: const Color(0xFF11181D),
+                title: Text('Use wallet balance first', style: _t(15, w: FontWeight.w600)),
+                subtitle: Text(
+                  'Your balance is taken off every fare; the rest goes to the method you choose.',
+                  style: _t(12.5, c: _muted),
+                ),
               ),
             ],
             _section('Payment methods'),
