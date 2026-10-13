@@ -911,7 +911,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                     key: const ValueKey('route-picker-done'),
                     onPressed: _finishing ? null : _finish,
                     style: FilledButton.styleFrom(
-                      backgroundColor: _accent,
+                      backgroundColor: const Color(0xFF11181D),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),

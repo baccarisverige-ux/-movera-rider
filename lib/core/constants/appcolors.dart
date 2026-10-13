@@ -2,7 +2,7 @@ import 'package:flutter/rendering.dart';
 
 class AppColor {
   static const Color primary = Color(0xFF215277);
-  static const Color btn = Color(0xFF215277);
+  static const Color btn = Color(0xFF11181D);
   static const Color secondary = Color(0xFFF6F8FA);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);

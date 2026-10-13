@@ -90,14 +90,19 @@ Future<RideSnapshot?> openRouteChange(
                 stops: selection.stops,
               );
               if (!context.mounted) return null;
-              final confirmed = await RouteChangeSheet.confirm(
+              final decision = await RouteChangeSheet.confirm(
                 context,
                 quote: quote,
                 paymentMethod: ride.paymentMethod,
               );
-              if (!confirmed || !context.mounted) return null;
-              final updated = await changes.apply(ride: ride, quote: quote);
-              return {'ride': updated};
+              if (!decision.confirmed || !context.mounted) return null;
+              final updated = await changes.apply(
+                ride: ride,
+                quote: quote,
+                refundTo: decision.refundTo,
+              );
+              await _creditWallet(decision.refundTo, quote);
+              return {'ride': updated, 'refundTo': decision.refundTo};
             } on RouteChangeException catch (error) {
               messenger
                 ?..hideCurrentSnackBar()
@@ -109,9 +114,27 @@ Future<RideSnapshot?> openRouteChange(
       ),
     );
     final updated = draft?['ride'];
+    final refundTo = draft?['refundTo'];
+    lastRefundDestination = refundTo is RefundDestination ? refundTo : null;
     return updated is RideSnapshot ? updated : null;
   } finally {
     capture.stop();
+  }
+}
+
+/// Where the last confirmed refund went, for the confirmation banner.
+RefundDestination? lastRefundDestination;
+
+/// A refund the rider sent to the Movera Wallet is credited right away.
+Future<void> _creditWallet(RefundDestination? refundTo, RouteChangeQuote quote) async {
+  if (refundTo != RefundDestination.wallet || quote.differenceKr >= 0) return;
+  try {
+    final wallet = AppScope.instance.walletController;
+    final previous = await wallet.loadBalance();
+    await wallet.refund(previous: previous, amount: -quote.differenceKr);
+  } catch (_) {
+    // The mock backend already holds the refund; the local ledger is a
+    // convenience and must not block the route change.
   }
 }
 
@@ -121,17 +144,20 @@ void showRouteUpdated(
   required bool driverAssigned,
   String paymentMethod = '',
   double differenceKr = 0,
+  RefundDestination? refundTo,
 }) {
   final parts = <String>[
     driverAssigned ? 'Route updated · your driver has been told' : 'Route updated',
   ];
   if (!isCashPayment(paymentMethod) && differenceKr.abs() >= 0.5) {
     final kr = '${differenceKr.abs().round()} kr';
-    parts.add(
-      differenceKr > 0
-          ? '+$kr charged to $paymentMethod'
-          : '$kr back to $paymentMethod',
-    );
+    if (differenceKr > 0) {
+      parts.add('$kr charged to $paymentMethod');
+    } else if ((refundTo ?? lastRefundDestination) == RefundDestination.wallet) {
+      parts.add('$kr credited to your Movera Wallet');
+    } else {
+      parts.add('$kr refunded to $paymentMethod within 2 to 3 business days');
+    }
   }
   ScaffoldMessenger.maybeOf(context)
     ?..hideCurrentSnackBar()
@@ -170,13 +196,20 @@ Future<RideSnapshot?> removeRouteStop(
       stopPoints: [for (final stop in kept) GeoPoint(stop.latitude, stop.longitude)],
     );
     if (!context.mounted) return null;
-    final confirmed = await RouteChangeSheet.confirm(
+    final decision = await RouteChangeSheet.confirm(
       context,
       quote: quote,
       paymentMethod: ride.paymentMethod,
     );
-    if (!confirmed || !context.mounted) return null;
-    return await changes.apply(ride: ride, quote: quote);
+    if (!decision.confirmed || !context.mounted) return null;
+    final updated = await changes.apply(
+      ride: ride,
+      quote: quote,
+      refundTo: decision.refundTo,
+    );
+    await _creditWallet(decision.refundTo, quote);
+    lastRefundDestination = decision.refundTo;
+    return updated;
   } on RouteChangeException catch (error) {
     ScaffoldMessenger.maybeOf(context)
       ?..hideCurrentSnackBar()

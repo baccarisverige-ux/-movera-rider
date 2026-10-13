@@ -570,6 +570,9 @@ class InProcessMockClient extends http.BaseClient {
               'method': method,
               'amountKr': difference,
               'status': difference > 0 ? 'captured' : 'refunded',
+              if (difference < 0)
+                // wallet: credited at once; originalMethod: 2–3 business days.
+                'refundTo': body['refundTo']?.toString() ?? 'originalMethod',
             });
           }
           (ride['routeChanges'] ??= <Map<String, dynamic>>[]).add({

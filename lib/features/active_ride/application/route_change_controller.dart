@@ -135,6 +135,7 @@ class RouteChangeController {
   Future<RideSnapshot> apply({
     required RideSnapshot ride,
     required RouteChangeQuote quote,
+    Object? refundTo,
   }) async {
     final id = ride.rideId;
     if (id == null) throw const RouteChangeException(RouteChangeFailure.network);
@@ -145,6 +146,8 @@ class RouteChangeController {
           ...quote.toRequest(),
           'routeChange': true,
           'paymentMethod': ride.paymentMethod,
+          if (refundTo != null)
+            'refundTo': refundTo.toString().split('.').last,
         },
         idempotencyKey: 'route:$id:${quote.toRequest().hashCode}',
       ),

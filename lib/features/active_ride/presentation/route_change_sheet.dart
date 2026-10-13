@@ -9,25 +9,39 @@ bool isCashPayment(String paymentMethod) {
   return m == 'cash' || m.contains('pay in car');
 }
 
+/// Where a refund goes when the new route is cheaper.
+enum RefundDestination { wallet, originalMethod }
+
+/// What the rider decided on the route change sheet.
+class RouteChangeDecision {
+  const RouteChangeDecision({required this.confirmed, this.refundTo});
+  final bool confirmed;
+
+  /// Set only for a confirmed refund on a non-cash method.
+  final RefundDestination? refundTo;
+
+  static const declined = RouteChangeDecision(confirmed: false);
+}
+
 /// "New route, new price": the rider confirms a priced route change. For a
-/// card, Apple Pay or wallet a second step confirms the payment update.
-/// Resolves true when confirmed.
+/// card, Apple Pay or wallet a second step confirms the payment update; a
+/// refund also asks where the money should go.
 class RouteChangeSheet extends StatefulWidget {
   const RouteChangeSheet({super.key, required this.quote, required this.paymentMethod});
 
   final RouteChangeQuote quote;
   final String paymentMethod;
 
-  static Future<bool> confirm(
+  static Future<RouteChangeDecision> confirm(
     BuildContext context, {
     required RouteChangeQuote quote,
     required String paymentMethod,
   }) async {
-    final result = await MoveraSheet.show<bool>(
+    final result = await MoveraSheet.show<RouteChangeDecision>(
       context: context,
       builder: (_) => RouteChangeSheet(quote: quote, paymentMethod: paymentMethod),
     );
-    return result == true;
+    return result ?? RouteChangeDecision.declined;
   }
 
   @override
@@ -40,6 +54,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
   static const Color _accent = Color(0xFF2D5878);
 
   bool _paymentStep = false;
+  RefundDestination _refundTo = RefundDestination.wallet;
 
   RouteChangeQuote get quote => widget.quote;
   String get paymentMethod => widget.paymentMethod;
@@ -50,10 +65,20 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
 
   void _confirmRoute() {
     if (_cash || _diff.abs() < 0.5) {
-      Navigator.pop(context, true);
+      Navigator.pop(context, const RouteChangeDecision(confirmed: true));
       return;
     }
     setState(() => _paymentStep = true);
+  }
+
+  void _confirmPayment() {
+    Navigator.pop(
+      context,
+      RouteChangeDecision(
+        confirmed: true,
+        refundTo: _diff < 0 ? _refundTo : null,
+      ),
+    );
   }
 
   @override
@@ -148,7 +173,10 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
           onPressed: _confirmRoute,
         ),
         const SizedBox(height: 8),
-        _secondary('Keep current route', () => Navigator.pop(context, false)),
+        _secondary(
+          'Keep current route',
+          () => Navigator.pop(context, RouteChangeDecision.declined),
+        ),
       ],
     );
   }
@@ -162,14 +190,14 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Update payment',
+          more ? 'Confirm payment' : 'Choose your refund',
           style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: _ink),
         ),
         const SizedBox(height: 6),
         Text(
           more
-              ? 'The difference is charged now to your payment method.'
-              : 'The difference goes back to your payment method.',
+              ? 'The additional amount for the new route is charged to your payment method now.'
+              : 'Your new route costs less. Please choose how you would like to receive the difference.',
           style: GoogleFonts.poppins(fontSize: 13.5, color: _muted),
         ),
         const SizedBox(height: 16),
@@ -189,22 +217,102 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
               _kv('New price', _kr(quote.newPriceKr)),
               const Divider(height: 20),
               _kv(
-                more ? 'Charged now' : 'Returned to you',
-                '${more ? '+' : '−'}${_kr(diff.abs())}',
+                more ? 'Charged now' : 'Refund amount',
+                '${more ? '+' : ''}${_kr(diff.abs())}',
                 bold: true,
               ),
             ],
           ),
         ),
+        if (!more) ...[
+          const SizedBox(height: 14),
+          _refundOption(
+            RefundDestination.wallet,
+            key: const ValueKey('refund-to-wallet'),
+            title: 'Movera Wallet',
+            subtitle:
+                'Available immediately and used first on your next ride.',
+            icon: Icons.account_balance_wallet_outlined,
+          ),
+          const SizedBox(height: 8),
+          _refundOption(
+            RefundDestination.originalMethod,
+            key: const ValueKey('refund-to-original'),
+            title: paymentMethod,
+            subtitle:
+                'Returned to your original payment method within 2 to 3 business days.',
+            icon: Icons.credit_card_outlined,
+          ),
+        ],
         const SizedBox(height: 18),
         _primary(
           key: const ValueKey('route-change-pay'),
-          label: more ? 'Confirm and pay ${_kr(diff)}' : 'Confirm refund',
-          onPressed: () => Navigator.pop(context, true),
+          label: more
+              ? 'Confirm and pay ${_kr(diff)}'
+              : _refundTo == RefundDestination.wallet
+              ? 'Confirm refund to Movera Wallet'
+              : 'Confirm refund to $paymentMethod',
+          onPressed: _confirmPayment,
         ),
         const SizedBox(height: 8),
         _secondary('Back', () => setState(() => _paymentStep = false)),
       ],
+    );
+  }
+
+  Widget _refundOption(
+    RefundDestination value, {
+    required Key key,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final selected = _refundTo == value;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        key: key,
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _refundTo = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? _ink : const Color(0xFFE2E6EA),
+              width: selected ? 1.8 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 22, color: _ink),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.poppins(fontSize: 14.5, fontWeight: FontWeight.w600, color: _ink),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: GoogleFonts.poppins(fontSize: 12.5, color: _muted)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                size: 22,
+                color: selected ? _ink : const Color(0xFFC3C9CE),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
