@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
@@ -439,11 +440,20 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   // ---- Sheet: drag anywhere on it, soft landing + haptic. ----
 
+  bool _sheetDragging = false;
+
+  void _onSheetDragStart(DragStartDetails details) {
+    _sheetDragging = true;
+  }
+
   void _onSheetDrag(DragUpdateDetails details) {
+    if (!_sheetDragging) return;
     _sheet.value -= (details.primaryDelta ?? 0) / _dragRange;
   }
 
   void _onSheetDragEnd(DragEndDetails details) {
+    if (!_sheetDragging) return;
+    _sheetDragging = false;
     final velocity = details.primaryVelocity ?? 0;
     final open = velocity.abs() > 420 ? velocity < 0 : _sheet.value > 0.5;
     _settleSheet(open);
@@ -475,19 +485,29 @@ class _SetPickupPageState extends State<SetPickupPage>
     final media = MediaQuery.of(context);
     final height = media.size.height;
     final pinY = height * SetPickupPage.pinFraction;
-    // The map is taller than the screen so its centre (the pickup) sits at
-    // [pinY]; the sheet sliding never resizes it, so it never moves.
-    final mapHeight = 2 * (height - pinY);
+    // The map fills the screen like every other map screen; its camera
+    // target is moved up to the pin with map padding. The sheet never
+    // resizes the map, so the map never moves on its own. (A map drawn
+    // taller than the screen crashed the iPhone build on touch.) The web
+    // maps plugin ignores padding, so only there the map is drawn taller,
+    // centred on the pin.
+    final mapHeight = kIsWeb ? 2 * (height - pinY) : height;
+    final mapTop = kIsWeb ? height - mapHeight : 0.0;
+    final mapPadding = kIsWeb
+        ? EdgeInsets.zero
+        : EdgeInsets.only(bottom: height - 2 * pinY);
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
           Positioned(
-            top: height - mapHeight,
+            top: mapTop,
             left: 0,
             right: 0,
             height: mapHeight,
-            child: _mapReady ? _liveMap() : const ColoredBox(color: Color(0xFFE9EEF1)),
+            child: _mapReady
+                ? _liveMap(mapPadding)
+                : const ColoredBox(color: Color(0xFFE9EEF1)),
           ),
           Positioned(
             top: pinY - _PickupPin.tipOffset,
@@ -515,10 +535,11 @@ class _SetPickupPageState extends State<SetPickupPage>
     );
   }
 
-  Widget _liveMap() {
+  Widget _liveMap(EdgeInsets padding) {
     return CustomGoogleMap(
       key: const ValueKey('set-pickup-map'),
       initialPosition: CameraPosition(target: _center, zoom: 16.2),
+      padding: padding,
       myLocationEnabled: true,
       markers: {
         if (_destinationPin != null)
@@ -609,8 +630,10 @@ class _SetPickupPageState extends State<SetPickupPage>
           ),
           GestureDetector(
             behavior: HitTestBehavior.opaque,
+            onVerticalDragStart: _onSheetDragStart,
             onVerticalDragUpdate: _onSheetDrag,
             onVerticalDragEnd: _onSheetDragEnd,
+            onVerticalDragCancel: () => _sheetDragging = false,
             child: Container(
               key: const ValueKey('set-pickup-sheet'),
               width: double.infinity,
