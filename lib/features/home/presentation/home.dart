@@ -438,8 +438,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     });
     await _persistAddressData();
     await _withParkedHomeMap(() async {
-      final pickupResult = await _openPickupMapPicker(
+      final pickupResult = await _prefillPickup(
         _pickupAddress ?? 'Current location',
+        null,
       );
       if (pickupResult == null || !mounted) return null;
       final pickupPosition = pickupResult.position;
@@ -574,12 +575,48 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     });
   }
 
+  /// The pickup the categories screen starts from: a point the rider chose,
+  /// an address they typed, or else their current location. Only with no
+  /// location at all does the map picker open here.
+  Future<PickupMapResult?> _prefillPickup(
+    String address,
+    GeoPoint? point,
+  ) async {
+    final clean = address.trim();
+    if (point != null) {
+      return PickupMapResult(
+        address: clean,
+        position: LatLng(point.latitude, point.longitude),
+      );
+    }
+    final typedByRider =
+        !isPlaceholderPickupLabel(clean) &&
+        !isUnusablePickupLabel(clean) &&
+        clean != (_pickupAddress?.trim() ?? '');
+    if (typedByRider) {
+      final geocoded = await _locationCtl.geocodeLatLng(clean);
+      if (geocoded != null) {
+        return PickupMapResult(address: clean, position: geocoded);
+      }
+    }
+    final here = _tripPickupLatLng ?? _currentLatLng;
+    if (here != null) {
+      return PickupMapResult(
+        address: typedByRider ? 'Current location' : clean,
+        position: here,
+      );
+    }
+    if (!mounted) return null;
+    return _openPickupMapPicker(clean);
+  }
+
   /// The step after the rider taps a real destination.
   Future<Map<String, dynamic>?> _confirmRouteSelection(
     RoutePickerSelection selection,
   ) async {
-    // Book now always confirms pickup; GPS only prefills.
-    final pickup = await _openPickupMapPicker(selection.pickup);
+    // Book now always confirms pickup; GPS only prefills. The confirm step
+    // is Set pickup, opened after Book on the categories screen.
+    final pickup = await _prefillPickup(selection.pickup, selection.pickupPoint);
     if (pickup == null || !mounted) return null;
     var destination = selection.destination;
     var destinationPoint = selection.destinationPoint;

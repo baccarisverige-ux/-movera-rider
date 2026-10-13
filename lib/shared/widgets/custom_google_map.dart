@@ -32,6 +32,7 @@ class CustomGoogleMap extends StatefulWidget {
   final void Function(LatLng)? onLongPress;
   final void Function(CameraPosition)? onCameraMove;
   final void Function()? onCameraIdle;
+  final void Function()? onCameraMoveStarted;
   final EdgeInsets padding;
   final String? customMapStyle;
 
@@ -60,6 +61,7 @@ class CustomGoogleMap extends StatefulWidget {
     this.onLongPress,
     this.onCameraMove,
     this.onCameraIdle,
+    this.onCameraMoveStarted,
     this.padding = EdgeInsets.zero,
     this.customMapStyle,
   });
@@ -123,6 +125,7 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
       onLongPress: widget.onLongPress,
       onCameraMove: widget.onCameraMove,
       onCameraIdle: widget.onCameraIdle,
+      onCameraMoveStarted: widget.onCameraMoveStarted,
     );
   }
 

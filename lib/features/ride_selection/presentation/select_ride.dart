@@ -25,6 +25,9 @@ import 'package:movera_rider/features/booking/application/booking_controller.dar
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
+import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -240,7 +243,7 @@ class _SelectRideState extends State<SelectRide>
   bool _bookingInFlight = false;
   // The driver-notes block was removed (owner request); bags are asked
   // on Set pickup instead.
-  final RideNotes _notes = RideNotes.empty;
+  RideNotes _notes = RideNotes.empty;
   late String _pickupAddress;
   late LatLng _pickupPosition;
   // ignore: unused_field
@@ -936,6 +939,63 @@ class _SelectRideState extends State<SelectRide>
     _bookNow();
   }
 
+  /// Saved places offered as quick pickup spots on Set pickup.
+  Future<List<PlaceShortcut>> _pickupSpots() async {
+    try {
+      final places = AppScope.instance.savedPlaces;
+      await places.hydrate().timeout(const Duration(milliseconds: 600));
+      return places.shortcuts();
+    } catch (_) {
+      return const <PlaceShortcut>[];
+    }
+  }
+
+  Future<SetPickupResult?> _openSetPickup(_RideOption ride) async {
+    final spots = await _pickupSpots();
+    if (!mounted) return null;
+    final quote = _selection.authoritativeQuotes[ride.id];
+    final promotion = _promotion;
+    SetPickupPayment paymentLine() {
+      final item = _selection.selectedPaymentItem();
+      return SetPickupPayment(
+        brand: item?.brand ?? 'cash',
+        name: item?.name ?? 'Pay in car',
+        detail: item?.detail ?? '',
+      );
+    }
+
+    return SetPickupPage.open(
+      context,
+      initialPosition: _pickupPosition,
+      initialAddress: _pickupAddress,
+      destinationAddress: widget.destinationAddress,
+      destinationPosition: widget.destinationPosition,
+      ride: SetPickupRide(
+        name: ride.name,
+        image: ride.image,
+        seats: ride.seats,
+        etaMin: ride.etaMin,
+        tripMinutes: _tripMinutes(),
+      ),
+      fare: SetPickupFare(
+        totalKr: _priceFor(ride),
+        discountKr: _discountFor(ride),
+        promotionPercent: quote != null && quote.discountMinor > 0
+            ? promotion?.percentOff
+            : null,
+      ),
+      payment: paymentLine(),
+      brandMark: _brandMark,
+      onChangePayment: () async {
+        await _showPaymentPicker();
+        return paymentLine();
+      },
+      initialBagLevel: _notes.bagLevel,
+      spots: spots,
+      initialIsCurrentLocation: !_pickupConfirmed,
+    );
+  }
+
   void _bookNow() {
     final selected = _selectedRideOrNull;
     if (selected == null) {
@@ -963,7 +1023,7 @@ class _SelectRideState extends State<SelectRide>
       _releaseBookingLock();
       return;
     }
-    final payment = _PaymentOption(
+    var payment = _PaymentOption(
       brand: paymentItem.brand,
       name: paymentItem.name,
       detail: paymentItem.detail,
@@ -972,6 +1032,26 @@ class _SelectRideState extends State<SelectRide>
       try {
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
+        // A card needs to be saved first: Add card opens before Set pickup.
+        if (payment.brand == 'cards' && !_selection.hasSavedCard) {
+          await AddCardPage.open(context);
+          return;
+        }
+        // Set pickup every time; the current location is preselected.
+        final spot = await _openSetPickup(selected);
+        if (spot == null || !mounted) return;
+        _pickupAddress = spot.address;
+        _pickupPosition = spot.position;
+        _pickupConfirmed = true;
+        _notes = _notes.withBagLevel(spot.bagLevel);
+        final chosen = _selection.selectedPaymentItem();
+        if (chosen != null) {
+          payment = _PaymentOption(
+            brand: chosen.brand,
+            name: chosen.name,
+            detail: chosen.detail,
+          );
+        }
 
         String rideId;
         try {

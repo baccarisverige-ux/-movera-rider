@@ -1,0 +1,1095 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
+import 'package:google_fonts/google_fonts.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/maps/map_owners.dart';
+import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
+import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
+import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/shared/styles/route_style.dart';
+import 'package:movera_rider/shared/widgets/custom_google_map.dart';
+import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
+
+/// "Current location" and other stand-ins that are not a real address.
+bool _isPlaceholder(String? label) {
+  final clean = label?.trim().toLowerCase() ?? '';
+  return clean.isEmpty ||
+      clean == 'current location' ||
+      clean.startsWith('location off');
+}
+
+/// The ride the rider picked on the categories screen, as Set pickup shows it.
+class SetPickupRide {
+  const SetPickupRide({
+    required this.name,
+    required this.image,
+    required this.seats,
+    required this.etaMin,
+    required this.tripMinutes,
+  });
+
+  final String name;
+  final String image;
+  final int seats;
+
+  /// Minutes until the driver reaches the pickup.
+  final int etaMin;
+
+  /// Minutes from pickup to destination.
+  final int tripMinutes;
+}
+
+/// The fare from the server quote. [discountKr] is 0 without a promotion.
+class SetPickupFare {
+  const SetPickupFare({
+    required this.totalKr,
+    this.discountKr = 0,
+    this.promotionPercent,
+  });
+
+  final double totalKr;
+  final double discountKr;
+  final int? promotionPercent;
+}
+
+/// The payment line at the bottom of the sheet.
+class SetPickupPayment {
+  const SetPickupPayment({
+    required this.brand,
+    required this.name,
+    required this.detail,
+  });
+
+  final String brand;
+  final String name;
+  final String detail;
+}
+
+class SetPickupResult {
+  const SetPickupResult({
+    required this.position,
+    required this.address,
+    required this.bagLevel,
+  });
+
+  final LatLng position;
+  final String address;
+
+  /// 0 = no bags, 1 = 1–2 bags, 2 = 3 or more.
+  final int bagLevel;
+}
+
+/// "Set pickup": shown every time after Book, with the current location
+/// preselected. The rider drags the map under a fixed pin; the map never
+/// moves by itself (only a spot chip or My location glides it). The sheet
+/// slides between all details and a short pickup + Confirm view.
+class SetPickupPage extends StatefulWidget {
+  const SetPickupPage({
+    super.key,
+    required this.initialPosition,
+    required this.initialAddress,
+    required this.destinationAddress,
+    required this.destinationPosition,
+    required this.ride,
+    required this.fare,
+    required this.payment,
+    required this.brandMark,
+    this.onChangePayment,
+    this.initialBagLevel = 0,
+    this.spots = const <PlaceShortcut>[],
+    this.initialIsCurrentLocation = true,
+    this.positionIsFallback = false,
+  });
+
+  static Future<SetPickupResult?> open(
+    BuildContext context, {
+    required LatLng initialPosition,
+    required String initialAddress,
+    required String destinationAddress,
+    required LatLng destinationPosition,
+    required SetPickupRide ride,
+    required SetPickupFare fare,
+    required SetPickupPayment payment,
+    required Widget Function(String brand) brandMark,
+    Future<SetPickupPayment?> Function()? onChangePayment,
+    int initialBagLevel = 0,
+    List<PlaceShortcut> spots = const <PlaceShortcut>[],
+    bool initialIsCurrentLocation = true,
+    bool positionIsFallback = false,
+  }) async {
+    final route = RightToLeftTransition<SetPickupResult>(
+      SetPickupPage(
+        initialPosition: initialPosition,
+        initialAddress: initialAddress,
+        destinationAddress: destinationAddress,
+        destinationPosition: destinationPosition,
+        ride: ride,
+        fare: fare,
+        payment: payment,
+        brandMark: brandMark,
+        onChangePayment: onChangePayment,
+        initialBagLevel: initialBagLevel,
+        spots: spots,
+        initialIsCurrentLocation: initialIsCurrentLocation,
+        positionIsFallback: positionIsFallback,
+      ),
+      settings: const RouteSettings(name: AppRoutes.confirmPickup),
+    );
+    final result = await Navigator.of(context).push<SetPickupResult>(route);
+    await route.completed;
+    return result;
+  }
+
+  final LatLng initialPosition;
+  final String initialAddress;
+  final String destinationAddress;
+  final LatLng destinationPosition;
+  final SetPickupRide ride;
+  final SetPickupFare fare;
+  final SetPickupPayment payment;
+  final Widget Function(String brand) brandMark;
+  final Future<SetPickupPayment?> Function()? onChangePayment;
+  final int initialBagLevel;
+  final List<PlaceShortcut> spots;
+  final bool initialIsCurrentLocation;
+
+  /// The start point is a default map point, not the rider: Confirm waits
+  /// until the pin is moved or a real location arrives.
+  final bool positionIsFallback;
+
+  /// Where the pin's tip sits, as a share of the screen height.
+  static const pinFraction = 0.34;
+
+  @override
+  State<SetPickupPage> createState() => _SetPickupPageState();
+}
+
+class _SetPickupPageState extends State<SetPickupPage>
+    with TickerProviderStateMixin {
+  static const _ink = Color(0xFF1D252C);
+  static const _muted = Color(0xFF5C656C);
+  static const _line = Color(0xFFE7EBEE);
+  static const _accent = Color(0xFF2D5878);
+  static const _field = Color(0xFFF6F8FA);
+  static const _cta = Color(0xFF11181D);
+
+  /// How far a drag must travel to move the sheet from open to short.
+  static const _dragRange = 340.0;
+
+  late final AnimationController _sheet = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+    value: 1,
+  );
+  late final AnimationController _lift = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    reverseDuration: const Duration(milliseconds: 520),
+  );
+  late final PickupMapController _pickup = PickupMapController(
+    location: AppScope.instance.location,
+    geocoding: AppScope.instance.geocoding,
+  );
+
+  GoogleMapController? _map;
+  late LatLng _center = widget.initialPosition;
+  late LatLng _routeStart = widget.initialPosition;
+  late String _address = widget.initialAddress;
+  late bool _atCurrentLocation = widget.initialIsCurrentLocation;
+  late bool _usable = !widget.positionIsFallback;
+  late int _bags = widget.initialBagLevel;
+  late SetPickupPayment _payment = widget.payment;
+  bool _mapReady = false;
+  bool _mapMountScheduled = false;
+  bool _moving = false;
+  bool _resolving = false;
+  bool _confirming = false;
+  BitmapDescriptor? _destinationPin;
+
+  @override
+  void initState() {
+    super.initState();
+    setWebOverlayOpen(false);
+    unawaited(_loadDestinationPin());
+    if (_isPlaceholder(_address) || isUnusablePickupLabel(_address)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _resolveAddress());
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_mapMountScheduled) return;
+    _mapMountScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_mountMapWhenRouteSettles());
+    });
+  }
+
+  Future<void> _mountMapWhenRouteSettles() async {
+    await waitForCurrentRouteToSettle(context);
+    if (!mounted) return;
+    setState(() => _mapReady = true);
+  }
+
+  @override
+  void dispose() {
+    _sheet.dispose();
+    _lift.dispose();
+    _pickup.dispose();
+    AppScope.instance.maps.detach(owner: MapOwners.pickup);
+    super.dispose();
+  }
+
+  String get _arriveClock {
+    final at = DateTime.now().add(
+      Duration(minutes: widget.ride.etaMin + widget.ride.tripMinutes),
+    );
+    return '${at.hour.toString().padLeft(2, '0')}:'
+        '${at.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _loadDestinationPin() async {
+    final pin = await RouteTimeMarker.createIcon(
+      pickup: false,
+      label: 'Arrive by $_arriveClock',
+    );
+    if (mounted) setState(() => _destinationPin = pin);
+  }
+
+  bool _isAwayFrom(LatLng a, LatLng b) =>
+      (a.latitude - b.latitude).abs() > 0.00015 ||
+      (a.longitude - b.longitude).abs() > 0.00015;
+
+  // ---- Pin: lifts while the map moves, drops with a small bounce. ----
+
+  void _onMoveStarted() {
+    _moving = true;
+    _lift.forward();
+  }
+
+  void _onCameraIdle() {
+    if (!_moving) return;
+    _moving = false;
+    _lift.reverse();
+    if (_isAwayFrom(_center, _routeStart)) {
+      HapticFeedback.lightImpact();
+      setState(() {
+        _routeStart = _center;
+        _usable = true;
+        _atCurrentLocation =
+            widget.initialIsCurrentLocation &&
+            !_isAwayFrom(_center, widget.initialPosition);
+      });
+      unawaited(_resolveAddress());
+    }
+  }
+
+  Future<void> _resolveAddress() async {
+    final at = _center;
+    setState(() => _resolving = true);
+    final address = await _pickup.reverse(at);
+    if (!mounted || _isAwayFrom(at, _center)) return;
+    setState(() {
+      _resolving = false;
+      if (!isUnusablePickupLabel(address)) {
+        _address = address!.trim();
+      } else if (_isPlaceholder(_address)) {
+        _address = pickupLocationFallbackLabel;
+      }
+    });
+  }
+
+  /// Chips and My location are the only things that move the map.
+  Future<void> _glideTo(LatLng target, {String? address, bool here = false}) async {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _center = target;
+      _routeStart = target;
+      _usable = true;
+      _atCurrentLocation = here;
+      if (address != null && address.trim().isNotEmpty) {
+        _address = address.trim();
+      }
+    });
+    _lift.forward().then((_) {
+      if (mounted) _lift.reverse();
+    });
+    try {
+      await _map?.animateCamera(CameraUpdate.newLatLng(target));
+    } catch (_) {}
+    if (address == null) unawaited(_resolveAddress());
+  }
+
+  Future<void> _useCurrentLocation() async {
+    final result = await _pickup.currentPosition();
+    if (!mounted) return;
+    final position = result.position;
+    if (position == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Current location is unavailable. Move the map instead.'),
+        ),
+      );
+      return;
+    }
+    await _glideTo(position, here: true);
+  }
+
+  Future<void> _useSpot(PlaceShortcut spot) async {
+    final found = await _pickup.search(spot.subtitle);
+    if (!mounted) return;
+    if (found == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text('Could not find ${spot.title} on the map.')),
+      );
+      return;
+    }
+    await _glideTo(found.position, address: found.address ?? spot.subtitle);
+  }
+
+  Future<void> _searchAddress() async {
+    final controller = TextEditingController();
+    final query = await MoveraSheet.show<String>(
+      context: context,
+      builder: (sheetContext) => PointerInterceptor(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Pickup address', style: _text(18, weight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (value) => Navigator.pop(sheetContext, value),
+                  decoration: InputDecoration(
+                    hintText: 'Search address',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    filled: true,
+                    fillColor: _field,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    final text = query?.trim() ?? '';
+    if (text.isEmpty || !mounted) return;
+    final found = await _pickup.search(text);
+    if (!mounted) return;
+    if (found == null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(content: Text('Address not found. Move the map instead.')),
+      );
+      return;
+    }
+    await _glideTo(found.position, address: found.address ?? text);
+  }
+
+  Future<void> _changePayment() async {
+    final change = widget.onChangePayment;
+    if (change == null) return;
+    final next = await change();
+    if (next != null && mounted) setState(() => _payment = next);
+  }
+
+  void _confirm() {
+    if (_confirming || !_usable) return;
+    _confirming = true;
+    HapticFeedback.mediumImpact();
+    Navigator.pop(
+      context,
+      SetPickupResult(
+        position: _center,
+        address: confirmedPickupAddress(_address, _center),
+        bagLevel: _bags,
+      ),
+    );
+  }
+
+  // ---- Sheet: drag anywhere on it, soft landing + haptic. ----
+
+  void _onSheetDrag(DragUpdateDetails details) {
+    _sheet.value -= (details.primaryDelta ?? 0) / _dragRange;
+  }
+
+  void _onSheetDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final open = velocity.abs() > 420 ? velocity < 0 : _sheet.value > 0.5;
+    _settleSheet(open);
+  }
+
+  void _settleSheet(bool open) {
+    final target = open ? 1.0 : 0.0;
+    if (_sheet.value != target) HapticFeedback.selectionClick();
+    _sheet.animateTo(
+      target,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  TextStyle _text(
+    double size, {
+    FontWeight weight = FontWeight.w400,
+    Color color = _ink,
+  }) => GoogleFonts.poppins(
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: 1.25,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final height = media.size.height;
+    final pinY = height * SetPickupPage.pinFraction;
+    // The map is taller than the screen so its centre (the pickup) sits at
+    // [pinY]; the sheet sliding never resizes it, so it never moves.
+    final mapHeight = 2 * (height - pinY);
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          Positioned(
+            top: height - mapHeight,
+            left: 0,
+            right: 0,
+            height: mapHeight,
+            child: _mapReady ? _liveMap() : const ColoredBox(color: Color(0xFFE9EEF1)),
+          ),
+          Positioned(
+            top: pinY - _PickupPin.tipOffset,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Center(
+                child: _PickupPin(
+                  key: const ValueKey('set-pickup-pin'),
+                  lift: _lift,
+                  minutes: widget.ride.etaMin,
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: _topBar(),
+            ),
+          ),
+          Align(alignment: Alignment.bottomCenter, child: _sheetView(media)),
+        ],
+      ),
+    );
+  }
+
+  Widget _liveMap() {
+    return CustomGoogleMap(
+      key: const ValueKey('set-pickup-map'),
+      initialPosition: CameraPosition(target: _center, zoom: 16.2),
+      myLocationEnabled: true,
+      markers: {
+        if (_destinationPin != null)
+          Marker(
+            markerId: const MarkerId('destination'),
+            position: widget.destinationPosition,
+            icon: _destinationPin!,
+            anchor: RouteTimeMarker.anchor,
+          ),
+      },
+      polylines: styledRoute(
+        routePolyline(
+          id: 'set-pickup-route',
+          from: _routeStart,
+          to: widget.destinationPosition,
+          color: RiderRouteStyle.color,
+        ),
+      ),
+      onMapCreated: (controller) {
+        _map = controller;
+        AppScope.instance.maps.attach(controller, owner: MapOwners.pickup);
+      },
+      onCameraMoveStarted: _onMoveStarted,
+      onCameraMove: (position) {
+        if (!_moving) _onMoveStarted();
+        _center = position.target;
+      },
+      onCameraIdle: _onCameraIdle,
+    );
+  }
+
+  Widget _topBar() {
+    return PointerInterceptor(
+      child: Material(
+        color: Colors.white,
+        elevation: 0,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.only(left: 4, right: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A11181D),
+                blurRadius: 18,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                tooltip: 'Back',
+                icon: const Icon(Icons.arrow_back_rounded, color: _ink),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  widget.destinationAddress,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _text(16, weight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetView(MediaQueryData media) {
+    return PointerInterceptor(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 0, 16, 12),
+            child: MoveraIconButton.round(
+              icon: Icons.my_location_rounded,
+              onPressed: _useCurrentLocation,
+              label: 'My location',
+              iconSize: 20,
+            ),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: _onSheetDrag,
+            onVerticalDragEnd: _onSheetDragEnd,
+            child: Container(
+              key: const ValueKey('set-pickup-sheet'),
+              width: double.infinity,
+              constraints: BoxConstraints(maxHeight: media.size.height * 0.72),
+              padding: EdgeInsets.fromLTRB(20, 10, 20, 16 + media.padding.bottom),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x1411181D),
+                    blurRadius: 24,
+                    offset: Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: GestureDetector(
+                        key: const ValueKey('set-pickup-handle'),
+                        onTap: () => _settleSheet(_sheet.value < 0.5),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: _line,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    _reveal(0.0, 0.55, _rideHeader()),
+                    const SizedBox(height: 8),
+                    Text('Pickup spot', style: _text(13.5, weight: FontWeight.w600, color: _muted)),
+                    const SizedBox(height: 8),
+                    _pickupCard(),
+                    _reveal(0.15, 0.75, _spotChips()),
+                    _reveal(0.25, 0.85, _bagsRow()),
+                    _reveal(0.35, 0.95, _priceBox()),
+                    _reveal(0.45, 1.0, _paymentLine()),
+                    const SizedBox(height: 14),
+                    _confirmButton(),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Folds a section away as the sheet slides down; staggered by [start].
+  Widget _reveal(double start, double end, Widget child) {
+    final curve = CurvedAnimation(
+      parent: _sheet,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+    return SizeTransition(
+      sizeFactor: curve,
+      alignment: Alignment.topCenter,
+      child: FadeTransition(
+        opacity: curve,
+        child: AnimatedBuilder(
+          animation: curve,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(0, 10 * (1 - curve.value)),
+            child: child,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  Widget _rideHeader() {
+    final ride = widget.ride;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            height: 46,
+            child: Image.asset(
+              ride.image,
+              fit: BoxFit.contain,
+              excludeFromSemantics: true,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.directions_car_filled_rounded,
+                color: _muted,
+                size: 34,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        ride.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(19, weight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.person_outline_rounded, size: 16, color: _muted),
+                    Text('${ride.seats}', style: _text(13.5, weight: FontWeight.w600, color: _muted)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Driver arrives in ${ride.etaMin} min · Arrive $_arriveClock',
+                  style: _text(13, color: _muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pickupCard() {
+    final subtitle = _resolving
+        ? 'Finding the address…'
+        : _atCurrentLocation
+        ? 'Your current location'
+        : 'Drag the map to adjust';
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: _searchAddress,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _accent, width: 1.4),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.location_on_rounded, color: RiderRouteStyle.pickup, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: Text(
+                        _address,
+                        key: ValueKey(_address),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(15.5, weight: FontWeight.w600),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: _text(12.5, color: _accent)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('Change', style: _text(14, weight: FontWeight.w600, color: _accent)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, VoidCallback onTap, {IconData? icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: _field,
+        shape: StadiumBorder(side: BorderSide(color: _line)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 16, color: _ink),
+                  const SizedBox(width: 4),
+                ],
+                Text(label, style: _text(13.5, weight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _spotChips() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final spot in widget.spots.take(3))
+              _chip(spot.title, () => _useSpot(spot)),
+            _chip('On map', () => _settleSheet(false), icon: Icons.add_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bagsRow() {
+    const labels = ['No', '1–2', '3+'];
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        children: [
+          const Icon(Icons.luggage_rounded, color: _accent, size: 22),
+          const SizedBox(width: 8),
+          Expanded(child: Text('Bags?', style: _text(15, weight: FontWeight.w600))),
+          for (var i = 0; i < labels.length; i++)
+            Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+              child: Semantics(
+                selected: _bags == i,
+                button: true,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _bags = i);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _bags == i ? _accent : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _bags == i ? _accent : _line),
+                    ),
+                    child: Text(
+                      labels[i],
+                      style: _text(
+                        13.5,
+                        weight: FontWeight.w600,
+                        color: _bags == i ? Colors.white : _ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _priceRow(String label, String value, {bool bold = false, Color color = _ink}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: _text(14.5, weight: bold ? FontWeight.w700 : FontWeight.w400, color: color),
+            ),
+          ),
+          Text(
+            value,
+            style: _text(14.5, weight: bold ? FontWeight.w700 : FontWeight.w500, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _priceBox() {
+    final fare = widget.fare;
+    final hasDiscount = fare.discountKr > 0;
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        children: [
+          if (hasDiscount) ...[
+            _priceRow('Ride price', formatKr(fare.totalKr + fare.discountKr)),
+            _priceRow(
+              fare.promotionPercent == null
+                  ? 'Promotion'
+                  : 'Promotion ${fare.promotionPercent}%',
+              '-${formatKr(fare.discountKr)}',
+              color: _accent,
+            ),
+            const Divider(height: 12, color: _line),
+          ],
+          _priceRow('Total', formatKr(fare.totalKr), bold: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _paymentLine() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: widget.onChangePayment == null ? null : _changePayment,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              SizedBox(width: 40, height: 32, child: Center(child: widget.brandMark(_payment.brand))),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_payment.name, style: _text(14.5, weight: FontWeight.w600)),
+                    if (_payment.detail.trim().isNotEmpty)
+                      Text(_payment.detail, style: _text(12.5, color: _muted)),
+                  ],
+                ),
+              ),
+              if (widget.onChangePayment != null)
+                Text('Change ›', style: _text(14, weight: FontWeight.w600, color: _accent)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _confirmButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton(
+        key: const ValueKey('set-pickup-confirm'),
+        onPressed: _usable ? _confirm : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: _cta,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+        child: Text(
+          'Confirm and search',
+          style: _text(16, weight: FontWeight.w600, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+/// The fixed centre pin: a green "N min" bubble on a stem. It lifts while the
+/// map moves (its shadow spreads) and drops back with a small bounce.
+class _PickupPin extends StatelessWidget {
+  const _PickupPin({super.key, required this.lift, required this.minutes});
+
+  final Animation<double> lift;
+  final int minutes;
+
+  static const _bubble = 52.0;
+  static const _stem = 14.0;
+
+  /// From the top of the widget to the pin's tip.
+  static const tipOffset = _bubble + _stem + 4;
+
+  @override
+  Widget build(BuildContext context) {
+    final drop = CurvedAnimation(
+      parent: lift,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.bounceIn,
+    );
+    return AnimatedBuilder(
+      animation: drop,
+      builder: (context, _) {
+        final t = drop.value;
+        return SizedBox(
+          width: 80,
+          height: tipOffset + 10,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              // Shadow on the ground: grows and softens as the pin rises.
+              Positioned(
+                top: tipOffset - 4,
+                child: Container(
+                  width: 10 + 14 * t,
+                  height: 6 + 3 * t,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.28 - 0.12 * t),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              Transform.translate(
+                offset: Offset(0, -14 * t),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: _bubble,
+                      height: _bubble,
+                      decoration: BoxDecoration(
+                        color: RiderRouteStyle.pickup,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: RiderRouteStyle.pickup.withValues(alpha: 0.35),
+                            blurRadius: 10 + 8 * t,
+                            offset: Offset(0, 4 + 6 * t),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '$minutes',
+                            style: GoogleFonts.poppins(
+                              fontSize: 17,
+                              height: 1.0,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'min',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              height: 1.1,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(width: 3, height: _stem, color: RiderRouteStyle.pickup),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: RiderRouteStyle.pickup,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

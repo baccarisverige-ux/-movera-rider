@@ -504,6 +504,10 @@ void main() {
     final nowStart = selectRide.indexOf('void _bookNow()');
     final now = selectRide.substring(nowStart);
     expect(now.contains('FindingDrivers'), isTrue);
+    // Set pickup opens after Book every time, before the search starts.
+    expect(selectRide.contains('SetPickupPage.open('), isTrue);
+    expect(now.indexOf('_openSetPickup('), lessThan(now.indexOf('FindingDrivers(')));
+    expect(now.contains('AddCardPage.open('), isTrue);
   });
 
   test(

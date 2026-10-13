@@ -14,7 +14,7 @@ import 'package:movera_rider/features/active_ride/presentation/waiting_for_drive
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
-import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -127,21 +127,6 @@ void main() {
       final pick = find.textContaining('Stockholm Arlanda Airport', findRichText: true);
       expect(pick, findsWidgets);
       await tester.tap(pick.first);
-      // Next awaits a real (mocked) geocode round trip and the Home map
-      // parking sequence before ConfirmPickupSpot is pushed. Poll instead of
-      // a fixed pump, matching the wait pattern already used for SelectRide
-      // and FindingDrivers below.
-      for (var i = 0;
-          i < 40 && find.byType(ConfirmPickupSpot).evaluate().isEmpty;
-          i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(find.byType(ConfirmPickupSpot), findsOneWidget);
-      final confirmPickup = find.text('Confirm pickup');
-      expect(confirmPickup, findsOneWidget);
-      await tester.ensureVisible(confirmPickup);
-      await tester.tap(confirmPickup);
-
       // The route sheet closes, both addresses are normalized in parallel, and
       // the production category selector is pushed.
       for (var i = 0; i < 30 && find.byType(SelectRide).evaluate().isEmpty; i++) {
@@ -159,6 +144,17 @@ void main() {
       expect(selectMovera, findsOneWidget);
       await tester.ensureVisible(selectMovera);
       await tester.tap(selectMovera);
+
+      // Set pickup opens after Book, with the pickup preselected.
+      for (var i = 0;
+          i < 40 && find.byType(SetPickupPage).evaluate().isEmpty;
+          i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SetPickupPage), findsOneWidget);
+      final confirmSearch = find.text('Confirm and search');
+      expect(confirmSearch, findsOneWidget);
+      await tester.tap(confirmSearch);
 
       for (var i = 0;
           i < 40 && find.byType(FindingDrivers).evaluate().isEmpty;
