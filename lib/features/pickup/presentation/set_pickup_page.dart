@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
@@ -21,6 +22,32 @@ import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+
+/// The map point [pixelsAboveCentre] above the camera [target] on screen,
+/// at [zoom] (Web Mercator). The map fills the screen like every other map
+/// screen; the pin sits a third of the way down, so the pickup is this far
+/// north of the camera centre. Works the same on phones and on the web.
+LatLng setPickupPointAbove(LatLng target, double zoom, double pixelsAboveCentre) {
+  final metersPerPixel =
+      156543.03392 * math.cos(target.latitude * math.pi / 180) / math.pow(2, zoom);
+  final degreesPerPixel = metersPerPixel / 111320.0;
+  return LatLng(
+    (target.latitude + pixelsAboveCentre * degreesPerPixel).clamp(-85.0, 85.0),
+    target.longitude,
+  );
+}
+
+/// The camera centre that puts [pickup] at the pin (inverse of
+/// [setPickupPointAbove]).
+LatLng setPickupCameraFor(LatLng pickup, double zoom, double pixelsAboveCentre) {
+  final metersPerPixel =
+      156543.03392 * math.cos(pickup.latitude * math.pi / 180) / math.pow(2, zoom);
+  final degreesPerPixel = metersPerPixel / 111320.0;
+  return LatLng(
+    (pickup.latitude - pixelsAboveCentre * degreesPerPixel).clamp(-85.0, 85.0),
+    pickup.longitude,
+  );
+}
 
 /// "Current location" and other stand-ins that are not a real address.
 bool _isPlaceholder(String? label) {
@@ -227,6 +254,10 @@ class _SetPickupPageState extends State<SetPickupPage>
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
+  // Screen geometry of the pin: how far above the map centre it sits, and
+  // the current zoom, so camera positions convert to the pickup point.
+  double _pinAboveCentrePx = 0;
+  double _zoom = 16.2;
   bool _resolving = false;
   bool _confirming = false;
   BitmapDescriptor? _destinationPin;
@@ -341,6 +372,9 @@ class _SetPickupPageState extends State<SetPickupPage>
     });
   }
 
+  LatLng _cameraFor(LatLng pickup) =>
+      setPickupCameraFor(pickup, _zoom, _pinAboveCentrePx);
+
   /// Chips and My location are the only things that move the map.
   Future<void> _glideTo(LatLng target, {String? address, bool here = false}) async {
     HapticFeedback.selectionClick();
@@ -357,7 +391,7 @@ class _SetPickupPageState extends State<SetPickupPage>
       if (mounted) _lift.reverse();
     });
     try {
-      await _map?.animateCamera(CameraUpdate.newLatLng(target));
+      await _map?.animateCamera(CameraUpdate.newLatLng(_cameraFor(target)));
     } catch (_) {}
     if (address == null) unawaited(_resolveAddress());
   }
@@ -514,28 +548,20 @@ class _SetPickupPageState extends State<SetPickupPage>
     final media = MediaQuery.of(context);
     final height = media.size.height;
     final pinY = height * SetPickupPage.pinFraction;
-    // The map fills the screen like every other map screen; its camera
-    // target is moved up to the pin with map padding. The sheet never
-    // resizes the map, so the map never moves on its own. (A map drawn
-    // taller than the screen crashed the iPhone build on touch.) The web
-    // maps plugin ignores padding, so only there the map is drawn taller,
-    // centred on the pin.
-    final mapHeight = kIsWeb ? 2 * (height - pinY) : height;
-    final mapTop = kIsWeb ? height - mapHeight : 0.0;
-    final mapPadding = kIsWeb
-        ? EdgeInsets.zero
-        : EdgeInsets.only(bottom: height - 2 * pinY);
+    // The map fills the screen like every other map screen, on every
+    // platform. The pin sits a third of the way down, so the pickup is the
+    // point that far above the camera centre (plain map maths, no map
+    // padding, no map drawn larger than the screen: the oversized map
+    // crashed the live web app in Safari on touch). The sheet never
+    // resizes the map, so the map never moves on its own.
+    _pinAboveCentrePx = height / 2 - pinY;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned(
-            top: mapTop,
-            left: 0,
-            right: 0,
-            height: mapHeight,
+          Positioned.fill(
             child: _mapReady
-                ? _liveMap(mapPadding)
+                ? _liveMap()
                 : const ColoredBox(color: Color(0xFFE9EEF1)),
           ),
           Positioned(
@@ -567,11 +593,10 @@ class _SetPickupPageState extends State<SetPickupPage>
     );
   }
 
-  Widget _liveMap(EdgeInsets padding) {
+  Widget _liveMap() {
     return CustomGoogleMap(
       key: const ValueKey('set-pickup-map'),
-      initialPosition: CameraPosition(target: _center, zoom: 16.2),
-      padding: padding,
+      initialPosition: CameraPosition(target: _cameraFor(_center), zoom: _zoom),
       myLocationEnabled: true,
       markers: {
         if (_destinationPin != null)
@@ -597,7 +622,12 @@ class _SetPickupPageState extends State<SetPickupPage>
       onCameraMoveStarted: _onMoveStarted,
       onCameraMove: (position) {
         if (!_moving) _onMoveStarted();
-        _center = position.target;
+        _zoom = position.zoom;
+        _center = setPickupPointAbove(
+          position.target,
+          position.zoom,
+          _pinAboveCentrePx,
+        );
       },
       onCameraIdle: _onCameraIdle,
     );
