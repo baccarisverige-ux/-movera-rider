@@ -254,8 +254,13 @@ class _SelectRideState extends State<SelectRide>
   BitmapDescriptor? _destinationTimePin;
   String? _timePinKey;
   bool _openedAtMiddle = false;
-  bool _listDragging = false;
-  final ScrollController _listScroll = ScrollController();
+  // One scrollable drives both the sheet and the list: dragging anywhere on
+  // the sheet moves it between its stops, and once it is fully up the same
+  // finger keeps scrolling the rides.
+  final DraggableScrollableController _sheetController =
+      DraggableScrollableController();
+  MediaQueryData? _media;
+  double? _settledStop;
 
   /// The rider's promotion (admin panel), shown on top of the list.
   RiderPromotion? get _promotion => AppScope.instance.promotion.active;
@@ -276,6 +281,7 @@ class _SelectRideState extends State<SelectRide>
       value: 1,
     );
     _sheetSlide.addListener(_syncSheetOverlay);
+    _sheetController.addListener(_syncSheetSlide);
     _syncSheetOverlay();
     if (widget.initialRideId != null) {
       final ride = _selection.rideByIdOrNull(widget.initialRideId!);
@@ -360,7 +366,8 @@ class _SelectRideState extends State<SelectRide>
   void dispose() {
     if (_ownsSelection) _selection.dispose();
     _sheetSlide.removeListener(_syncSheetOverlay);
-    _listScroll.dispose();
+    _sheetController.removeListener(_syncSheetSlide);
+    _sheetController.dispose();
     _sheetSlide.dispose();
     _mapController = null;
     setWebOverlayOpen(false);
@@ -460,84 +467,56 @@ class _SelectRideState extends State<SelectRide>
     return ((_midSheet(media) - _minSheet(media)) / range).clamp(0.0, 1.0);
   }
 
-  void _onSheetDragUpdate(DragUpdateDetails details, MediaQueryData media) {
-    final range = _maxSheet(media) - _minSheet(media);
+  /// The sheet's height as a fraction of the screen, which is how the
+  /// draggable sheet measures its stops.
+  double _fractionOf(double pixels, MediaQueryData media) =>
+      (pixels / media.size.height).clamp(0.0, 1.0);
+
+  /// Mirrors the sheet's position onto [_sheetSlide] (0 = low stop, 1 = full),
+  /// which the list, the filters, the map framing and the web overlay follow.
+  void _syncSheetSlide() {
+    final media = _media;
+    if (media == null || !_sheetController.isAttached) return;
+    final minSheet = _minSheet(media);
+    final range = _maxSheet(media) - minSheet;
     if (range <= 0) return;
-    final next = (_sheetSlide.value - details.primaryDelta! / range).clamp(
+    _sheetSlide.value = ((_sheetController.pixels - minSheet) / range).clamp(
       0.0,
       1.0,
     );
-    _sheetSlide.value = next;
-  }
-
-  /// Three stops: low, middle, full. A fling moves one stop; otherwise the
-  /// sheet settles on the nearest one.
-  void _onSheetDragEnd(DragEndDetails details, MediaQueryData media) {
-    final velocity = details.primaryVelocity ?? 0;
-    final current = _sheetSlide.value;
-    final snaps = <double>[0, _midValue(media), 1];
-    double target;
-    if (velocity < -480) {
-      target = snaps.firstWhere((s) => s > current + 0.01, orElse: () => 1);
-    } else if (velocity > 480) {
-      target = snaps.lastWhere((s) => s < current - 0.01, orElse: () => 0);
-    } else {
-      target = snaps.reduce(
-        (a, b) => (a - current).abs() <= (b - current).abs() ? a : b,
-      );
-    }
-    _snapSheetTo(target);
   }
 
   void _snapSheetTo(double target) {
-    _sheetSlide
-        .animateTo(
-          target,
-          duration: MoveraMotion.of(context, MoveraDurations.large),
-          curve: MoveraCurves.snap,
-        )
-        .whenComplete(() {
-          if (!mounted) return;
-          HapticFeedback.selectionClick();
-          // Gently keep the whole route above the sheet.
-          unawaited(_fitRoute());
-        });
+    final media = _media;
+    if (media == null || !_sheetController.isAttached) return;
+    final minSheet = _minSheet(media);
+    final pixels = minSheet + (_maxSheet(media) - minSheet) * target;
+    unawaited(
+      _sheetController.animateTo(
+        _fractionOf(pixels, media),
+        duration: MoveraMotion.of(context, MoveraDurations.large),
+        curve: MoveraCurves.snap,
+      ),
+    );
   }
 
   void _toggleSheet(MediaQueryData media) {
     _snapSheetTo(_sheetSlide.value > 0.98 ? _midValue(media) : 1);
   }
 
-  /// Scrolling the full list hands over to the sheet at the top: pulling
-  /// further down moves the sheet down.
-  bool _onListScroll(ScrollNotification n, MediaQueryData media) {
-    if (n is OverscrollNotification && n.overscroll < 0 && n.dragDetails != null) {
-      _listDragging = true;
-      _onSheetDragUpdate(
-        DragUpdateDetails(
-          globalPosition: Offset.zero,
-          delta: Offset(0, -n.overscroll),
-          primaryDelta: -n.overscroll,
-        ),
-        media,
-      );
-    } else if (n is ScrollUpdateNotification &&
-        _listDragging &&
-        (n.scrollDelta ?? 0) > 0 &&
-        _sheetSlide.value < 1) {
-      _onSheetDragUpdate(
-        DragUpdateDetails(
-          globalPosition: Offset.zero,
-          delta: Offset(0, -n.scrollDelta!),
-          primaryDelta: -n.scrollDelta!,
-        ),
-        media,
-      );
-      if (_listScroll.hasClients) _listScroll.jumpTo(0);
-    } else if (n is ScrollEndNotification && _listDragging) {
-      _listDragging = false;
-      _onSheetDragEnd(n.dragDetails ?? DragEndDetails(primaryVelocity: 0), media);
-    }
+  /// A tick when the sheet lands on a new stop, and the route re-framed
+  /// above it.
+  bool _onSheetScroll(ScrollNotification n, MediaQueryData media) {
+    if (n is! ScrollEndNotification) return false;
+    final v = _sheetSlide.value;
+    final stops = <double>[0, _midValue(media), 1];
+    final nearest = stops.reduce(
+      (a, b) => (a - v).abs() <= (b - v).abs() ? a : b,
+    );
+    if ((nearest - v).abs() > 0.02 || nearest == _settledStop) return false;
+    _settledStop = nearest;
+    HapticFeedback.selectionClick();
+    unawaited(_fitRoute());
     return false;
   }
 
@@ -1149,6 +1128,8 @@ class _SelectRideState extends State<SelectRide>
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    _media = media;
+    _settledStop ??= _midValue(media);
     _syncTimePins();
     final showLiveMap = _mapReady && !_mapParked;
     final minSheet = _minSheet(media);
@@ -1264,174 +1245,195 @@ class _SelectRideState extends State<SelectRide>
             right: 16,
             child: PointerInterceptor(child: _searchBar()),
           ),
-          AnimatedBuilder(
-            animation: _sheetSlide,
-            builder: (context, _) {
-              final minSheet = _minSheet(media);
-              final maxSheet = _maxSheet(media);
-              final mid = _midValue(media);
-              final v = _sheetSlide.value;
-              final sheetHeight = minSheet + (maxSheet - minSheet) * v;
-              // 0 at the low stop → 1 at the middle: the other rides come in.
-              final listReveal = mid <= 0 ? 1.0 : (v / mid).clamp(0.0, 1.0);
-              // 0 at the middle → 1 at full: descriptions, badges, filters.
-              final detail = mid >= 1
-                  ? 0.0
-                  : Curves.easeOutCubic.transform(
-                      ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
-                    );
-              final scrollable = v > 0.995 || _listDragging;
-              final selectedRide = _selectedRideOrNull;
-              final promotion = _promotion;
-              return Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: sheetHeight,
-                child: PointerInterceptor(
-                  // Drag the sheet from anywhere on it.
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (details) =>
-                        _onSheetDragUpdate(details, media),
-                    onVerticalDragEnd: (details) =>
-                        _onSheetDragEnd(details, media),
-                    child: Material(
-                      color: Colors.white,
-                      elevation: 18,
-                      shadowColor: const Color(
-                        0xFF162C36,
-                      ).withValues(alpha: 0.16),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(28),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        children: [
-                          Semantics(
-                            button: true,
-                            label: v > 0.98 ? 'Show fewer rides' : 'Show all rides',
-                            child: GestureDetector(
-                              key: const ValueKey('select-ride-sheet-handle'),
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => _toggleSheet(media),
-                              child: SizedBox(
-                                width: double.infinity,
-                                height: 22,
-                                child: Center(
-                                  child: Container(
-                                    width: 38,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: _line,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 4, 16, 8),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Choose your ride',
-                                    style: _text(
-                                      22,
-                                      weight: FontWeight.w700,
-                                      letterSpacing: -0.4,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (promotion != null)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                              child: PromotionTicket(promotion: promotion),
-                            ),
-                          // Filters only when the sheet is fully up.
-                          ClipRect(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              heightFactor: detail,
-                              child: Opacity(
-                                opacity: detail,
-                                child: IgnorePointer(
-                                  ignoring: detail < 0.9,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      20,
-                                      2,
-                                      20,
-                                      6,
-                                    ),
-                                    child: _filterRow(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Stack(
-                              children: [
-                                Opacity(
-                                  opacity: listReveal,
-                                  child: NotificationListener<ScrollNotification>(
-                                    onNotification: (n) =>
-                                        _onListScroll(n, media),
-                                    child: ListView.builder(
-                                      controller: _listScroll,
-                                      physics: scrollable
-                                          ? const ClampingScrollPhysics()
-                                          : const NeverScrollableScrollPhysics(),
-                                      padding: EdgeInsets.fromLTRB(
-                                        14,
-                                        2,
-                                        14,
-                                        _footerHeight(media) + 8,
-                                      ),
-                                      itemCount: _visibleRides.length,
-                                      itemBuilder: (context, index) => _rideTile(
-                                        _visibleRides[index],
-                                        detail: detail,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // At the low stop only the chosen ride shows.
-                                if (listReveal < 1 && selectedRide != null)
-                                  Positioned(
-                                    left: 14,
-                                    right: 14,
-                                    top: 2,
-                                    child: IgnorePointer(
-                                      ignoring: listReveal > 0.5,
-                                      child: Opacity(
-                                        opacity: 1 - listReveal,
-                                        child: ColoredBox(
-                                          color: Colors.white,
-                                          child: _rideTile(
-                                            selectedRide,
-                                            detail: 0,
+          Positioned.fill(
+            child: DraggableScrollableSheet(
+              key: const ValueKey('select-ride-sheet'),
+              controller: _sheetController,
+              initialChildSize: _fractionOf(_midSheet(media), media),
+              minChildSize: _fractionOf(minSheet, media),
+              maxChildSize: _fractionOf(_maxSheet(media), media),
+              snap: true,
+              snapSizes: [_fractionOf(_midSheet(media), media)],
+              snapAnimationDuration: MoveraMotion.of(
+                context,
+                MoveraDurations.large,
+              ),
+              builder: (context, scroll) => PointerInterceptor(
+                child: Material(
+                  color: Colors.white,
+                  elevation: 18,
+                  shadowColor: const Color(0xFF162C36).withValues(alpha: 0.16),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (n) => _onSheetScroll(n, media),
+                    child: AnimatedBuilder(
+                      animation: _sheetSlide,
+                      builder: (context, _) {
+                        final mid = _midValue(media);
+                        final v = _sheetSlide.value;
+                        // 0 at the low stop → 1 at the middle: the other
+                        // rides come in.
+                        final listReveal = mid <= 0
+                            ? 1.0
+                            : (v / mid).clamp(0.0, 1.0);
+                        // 0 at the middle → 1 at full: descriptions, badges,
+                        // filters.
+                        final detail = mid >= 1
+                            ? 0.0
+                            : Curves.easeOutCubic.transform(
+                                ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
+                              );
+                        final selectedRide = _selectedRideOrNull;
+                        final promotion = _promotion;
+                        return Stack(
+                          children: [
+                            CustomScrollView(
+                              key: const ValueKey('select-ride-list'),
+                              controller: scroll,
+                              slivers: [
+                                SliverToBoxAdapter(
+                                  child: Column(
+                                    children: [
+                                      Semantics(
+                                        button: true,
+                                        label: v > 0.98
+                                            ? 'Show fewer rides'
+                                            : 'Show all rides',
+                                        child: GestureDetector(
+                                          key: const ValueKey(
+                                            'select-ride-sheet-handle',
+                                          ),
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () => _toggleSheet(media),
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            height: 22,
+                                            child: Center(
+                                              child: Container(
+                                                width: 38,
+                                                height: 4,
+                                                decoration: BoxDecoration(
+                                                  color: _line,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ),
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          20,
+                                          4,
+                                          16,
+                                          8,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Choose your ride',
+                                                style: _text(
+                                                  22,
+                                                  weight: FontWeight.w700,
+                                                  letterSpacing: -0.4,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (promotion != null)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
+                                            0,
+                                            16,
+                                            10,
+                                          ),
+                                          child: PromotionTicket(
+                                            promotion: promotion,
+                                          ),
+                                        ),
+                                      // Filters only when the sheet is fully up.
+                                      ClipRect(
+                                        child: Align(
+                                          alignment: Alignment.topCenter,
+                                          heightFactor: detail,
+                                          child: Opacity(
+                                            opacity: detail,
+                                            child: IgnorePointer(
+                                              ignoring: detail < 0.9,
+                                              child: Padding(
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                      20,
+                                                      2,
+                                                      20,
+                                                      6,
+                                                    ),
+                                                child: _filterRow(),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SliverOpacity(
+                                  opacity: listReveal,
+                                  sliver: SliverPadding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      14,
+                                      2,
+                                      14,
+                                      _footerHeight(media) + 8,
+                                    ),
+                                    sliver: SliverList.builder(
+                                      itemCount: _visibleRides.length,
+                                      itemBuilder: (context, index) =>
+                                          _rideTile(
+                                            _visibleRides[index],
+                                            detail: detail,
+                                          ),
                                     ),
                                   ),
+                                ),
                               ],
                             ),
-                          ),
-                        ],
-                      ),
+                            // At the low stop only the chosen ride shows.
+                            if (listReveal < 1 && selectedRide != null)
+                              Positioned(
+                                left: 14,
+                                right: 14,
+                                top: _headerHeight() + 2,
+                                child: IgnorePointer(
+                                  ignoring: listReveal > 0.5,
+                                  child: Opacity(
+                                    opacity: 1 - listReveal,
+                                    child: ColoredBox(
+                                      color: Colors.white,
+                                      child: _rideTile(
+                                        selectedRide,
+                                        detail: 0,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
-              );
-            },
+              ),
+            ),
           ),
           // The payment block and Book button stay put while the sheet moves.
           Positioned(

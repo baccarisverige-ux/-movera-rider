@@ -77,7 +77,7 @@ void main() {
 
   /// Ride names in the order the list shows them, top to bottom.
   List<String> listedOrder(WidgetTester tester, Iterable<String> names) {
-    final list = find.byType(ListView);
+    final list = find.byKey(const ValueKey('select-ride-list'));
     final positioned = <(String, double)>[];
     for (final name in names) {
       final hit = find.descendant(of: list, matching: find.text(name));
