@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:google_fonts/google_fonts.dart';
@@ -335,15 +336,21 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   // ---- Pin: lifts while the map moves, drops with a small bounce. ----
 
+  // On the web the pin stays still while the map moves: the map is a browser
+  // element, and animating Flutter content on top of it during a drag means
+  // every frame re-renders the canvases above and below it. On an iPhone
+  // Safari ran out of graphics memory doing that and reloaded the page.
+  bool get _animatesPin => !kIsWeb;
+
   void _onMoveStarted() {
     _moving = true;
-    _lift.forward();
+    if (_animatesPin) _lift.forward();
   }
 
   void _onCameraIdle() {
     if (!_moving) return;
     _moving = false;
-    _lift.reverse();
+    if (_animatesPin) _lift.reverse();
     if (_isAwayFrom(_center, _routeStart)) {
       HapticFeedback.lightImpact();
       setState(() {
@@ -387,9 +394,11 @@ class _SetPickupPageState extends State<SetPickupPage>
         _address = address.trim();
       }
     });
-    _lift.forward().then((_) {
-      if (mounted) _lift.reverse();
-    });
+    if (_animatesPin) {
+      _lift.forward().then((_) {
+        if (mounted) _lift.reverse();
+      });
+    }
     try {
       await _map?.animateCamera(CameraUpdate.newLatLng(_cameraFor(target)));
     } catch (_) {}
@@ -572,7 +581,7 @@ class _SetPickupPageState extends State<SetPickupPage>
               child: Center(
                 child: _PickupPin(
                   key: const ValueKey('set-pickup-pin'),
-                  lift: _lift,
+                  lift: _animatesPin ? _lift : kAlwaysDismissedAnimation,
                   minutes: widget.ride.etaMin,
                   timeLabel: widget.scheduledPickup == null
                       ? null
