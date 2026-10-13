@@ -140,6 +140,7 @@ class SetPickupPage extends StatefulWidget {
     required this.payment,
     required this.brandMark,
     this.onChangePayment,
+    this.onRequote,
     this.initialBagLevel = 0,
     this.spots = const <PlaceShortcut>[],
     this.initialIsCurrentLocation = true,
@@ -159,6 +160,7 @@ class SetPickupPage extends StatefulWidget {
     required SetPickupPayment payment,
     required Widget Function(String brand) brandMark,
     Future<SetPickupPayment?> Function()? onChangePayment,
+    Future<SetPickupFare?> Function(LatLng pin)? onRequote,
     int initialBagLevel = 0,
     List<PlaceShortcut> spots = const <PlaceShortcut>[],
     bool initialIsCurrentLocation = true,
@@ -177,6 +179,7 @@ class SetPickupPage extends StatefulWidget {
         payment: payment,
         brandMark: brandMark,
         onChangePayment: onChangePayment,
+        onRequote: onRequote,
         initialBagLevel: initialBagLevel,
         spots: spots,
         initialIsCurrentLocation: initialIsCurrentLocation,
@@ -200,6 +203,11 @@ class SetPickupPage extends StatefulWidget {
   final SetPickupPayment payment;
   final Widget Function(String brand) brandMark;
   final Future<SetPickupPayment?> Function()? onChangePayment;
+
+  /// Prices the ride again from the exact pin after the rider moves it.
+  /// Returns the new fare, or null to keep the one shown; a throw keeps it
+  /// too. Without this the fare never changes.
+  final Future<SetPickupFare?> Function(LatLng pin)? onRequote;
   final int initialBagLevel;
   final List<PlaceShortcut> spots;
   final bool initialIsCurrentLocation;
@@ -258,6 +266,9 @@ class _SetPickupPageState extends State<SetPickupPage>
   late bool _usable = !widget.positionIsFallback;
   late int _bags = widget.initialBagLevel;
   late SetPickupPayment _payment = widget.payment;
+  late SetPickupFare _fare = widget.fare;
+  bool _requoting = false;
+  int _requoteGeneration = 0;
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
@@ -373,7 +384,28 @@ class _SetPickupPageState extends State<SetPickupPage>
             !_isAwayFrom(_center, widget.initialPosition);
       });
       unawaited(_resolveAddress());
+      unawaited(_requote());
     }
+  }
+
+  /// A fresh price from the exact pin. The latest move wins: an older answer
+  /// that arrives late is ignored. A failed quote keeps the price shown.
+  Future<void> _requote() async {
+    final requote = widget.onRequote;
+    if (requote == null) return;
+    final generation = ++_requoteGeneration;
+    setState(() => _requoting = true);
+    SetPickupFare? fare;
+    try {
+      fare = await requote(_center);
+    } catch (_) {
+      fare = null;
+    }
+    if (!mounted || generation != _requoteGeneration) return;
+    setState(() {
+      _requoting = false;
+      if (fare != null) _fare = fare;
+    });
   }
 
   Future<void> _resolveAddress() async {
@@ -415,6 +447,7 @@ class _SetPickupPageState extends State<SetPickupPage>
       await _map?.animateCamera(CameraUpdate.newLatLng(_cameraFor(target)));
     } catch (_) {}
     if (address == null) unawaited(_resolveAddress());
+    unawaited(_requote());
   }
 
   Future<void> _useCurrentLocation() async {
@@ -1064,7 +1097,7 @@ class _SetPickupPageState extends State<SetPickupPage>
   }
 
   Widget _priceBox() {
-    final fare = widget.fare;
+    final fare = _fare;
     final hasDiscount = fare.discountKr > 0;
     return Container(
       margin: const EdgeInsets.only(top: 14),
@@ -1101,6 +1134,15 @@ class _SetPickupPageState extends State<SetPickupPage>
               key: const ValueKey('set-pickup-remainder'),
             ),
           ],
+          if (_requoting)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 4),
+              child: Text(
+                'Updating price…',
+                key: const ValueKey('set-pickup-requoting'),
+                style: _text(12.5, color: _muted),
+              ),
+            ),
         ],
       ),
     );

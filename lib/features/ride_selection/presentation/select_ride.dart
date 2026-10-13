@@ -19,6 +19,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/maps/straight_line.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -357,8 +358,33 @@ class _SelectRideState extends State<SelectRide>
       generation: generation,
       pickup: widget.pickupAddress,
       destination: widget.destinationAddress,
+      distanceMeters: straightLineMeters(
+        _pickupPosition,
+        widget.destinationPosition,
+      ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// Set location moved the pin: price [ride] again from that exact point
+  /// and adopt the quote, so Confirm books the price shown there.
+  Future<SetPickupFare?> _requoteFromPin(_RideOption ride, LatLng pin) async {
+    final quote = await AppScope.instance.quotes.quote(
+      rideType: ride.id,
+      distanceMeters: straightLineMeters(pin, widget.destinationPosition),
+      pickup: widget.pickupAddress,
+      destination: widget.destinationAddress,
+    );
+    if (!mounted) return null;
+    _selection.adoptQuote(ride.id, quote);
+    final total = quote.totalMinor / 100;
+    final discount = quote.discountMinor / 100;
+    return SetPickupFare(
+      totalKr: total,
+      discountKr: discount,
+      promotionPercent: discount > 0 ? _promotion?.percentOff : null,
+      walletKr: _selection.walletAppliedKr(total),
+    );
   }
 
   @override
@@ -1012,6 +1038,7 @@ class _SelectRideState extends State<SelectRide>
         await _showPaymentPicker();
         return paymentLine();
       },
+      onRequote: (pin) => _requoteFromPin(ride, pin),
       initialBagLevel: _notes.bagLevel,
       spots: spots,
       initialIsCurrentLocation: !_pickupConfirmed,
