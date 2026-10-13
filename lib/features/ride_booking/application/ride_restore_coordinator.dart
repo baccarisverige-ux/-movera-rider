@@ -212,6 +212,7 @@ class RideRestoreCoordinator {
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
           notes: snapshot.notes,
+          stops: snapshot.stops,
         );
       case RestoredSurface.waiting:
         return WaitingForDriver(
@@ -223,6 +224,7 @@ class RideRestoreCoordinator {
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
           notes: snapshot.notes,
+          stops: snapshot.stops,
           driver: snapshot.driver,
         );
       case RestoredSurface.complete:

@@ -22,6 +22,7 @@ import 'package:movera_rider/features/finding_driver/domain/search_copy.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
@@ -128,12 +129,14 @@ class FindingDriverController {
     required double price,
     required String paymentMethod,
     RideNotes notes = RideNotes.empty,
+    List<RouteStop> stops = const <RouteStop>[],
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
   }) {
     start(
       snapshot: RideSnapshot(
+        stops: stops,
         status: RideStatus.findingDriver,
         savedAt: DateTime.now(),
         pickupAddress: pickupAddress,
@@ -435,6 +438,20 @@ class FindingDriverController {
     } finally {
       _finishEdit(editToken);
     }
+  }
+
+  /// Adopts a route change that [RouteChangeController] already applied and
+  /// saved, so the price, pickup, destination and stops stay in sync here.
+  void adoptRouteChange(RideSnapshot updated) {
+    if (_cancelled || _terminated || _disposed) return;
+    _snapshot = updated;
+    _catalogPrice = updated.price;
+    final id = updated.rideId;
+    if (id != null && !_assignmentPending && !_assigned) {
+      unawaited(_loadNearby(id));
+    }
+    _onTick?.call(elapsedSeconds);
+    _reportQa();
   }
 
   Future<bool> confirmPriceIncrease(int kr) async {

@@ -14,6 +14,7 @@ import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
+import 'package:movera_rider/features/active_ride/presentation/route_change_flow.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
@@ -22,7 +23,10 @@ import 'package:movera_rider/features/finding_driver/presentation/price_bump_car
 import 'package:movera_rider/features/finding_driver/presentation/ride_details_sheet.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
+import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
+    show RideSnapshot;
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
@@ -49,9 +53,13 @@ class FindingDrivers extends StatefulWidget {
     required this.price,
     required this.paymentMethod,
     this.notes = RideNotes.empty,
+    this.stops = const <RouteStop>[],
     this.realtime,
     this.etaMinutes,
   });
+
+  /// Stops between the pickup and the destination, in order.
+  final List<RouteStop> stops;
 
   /// The chosen ride's estimated minutes to the pickup, for the time pins
   /// while searching. Null (for example after a restore) shows plain pins.
@@ -97,12 +105,18 @@ class _FindingDriversState extends State<FindingDrivers> {
 
   late String _pickupAddress;
   late LatLng _pickupPosition;
+  late String _destinationAddress;
+  late LatLng _destinationPosition;
+  late List<RouteStop> _stops;
 
   @override
   void initState() {
     super.initState();
     _pickupAddress = widget.pickupAddress;
     _pickupPosition = widget.pickupPosition;
+    _destinationAddress = widget.destinationAddress;
+    _destinationPosition = widget.destinationPosition;
+    _stops = List<RouteStop>.from(widget.stops);
     _sheetController.addListener(_syncSheetOverlay);
     moveraNavigationEpoch.addListener(_onNavigationChanged);
     setWebOverlayOpen(false);
@@ -116,15 +130,16 @@ class _FindingDriversState extends State<FindingDrivers> {
         price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
     _match.startFrom(
       pickupAddress: _pickupAddress,
-      destinationAddress: widget.destinationAddress,
+      destinationAddress: _destinationAddress,
       pickupLat: _pickupPosition.latitude,
       pickupLng: _pickupPosition.longitude,
-      destinationLat: widget.destinationPosition.latitude,
-      destinationLng: widget.destinationPosition.longitude,
+      destinationLat: _destinationPosition.latitude,
+      destinationLng: _destinationPosition.longitude,
       rideType: widget.rideType,
       price: effectivePrice,
       paymentMethod: widget.paymentMethod,
       notes: widget.notes,
+      stops: _stops,
       onTick: (_) {
         if (!mounted) return;
         final nearbyKey = Object.hashAll(
@@ -222,10 +237,11 @@ class _FindingDriversState extends State<FindingDrivers> {
           icon: _riderPuck!,
           anchor: _pinAnchor,
         ),
+      ...routeStopMarkers(_stops),
       Marker(
         markerId: const MarkerId('destination'),
-        position: widget.destinationPosition,
-        infoWindow: InfoWindow(title: widget.destinationAddress),
+        position: _destinationPosition,
+        infoWindow: InfoWindow(title: _destinationAddress),
         icon:
             _destinationPin ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
@@ -252,10 +268,24 @@ class _FindingDriversState extends State<FindingDrivers> {
               color: RiderRouteStyle.color,
               routing: _ResolvedRoute(routePoints),
             )
+          : _stops.isNotEmpty
+          ? routePolyline(
+              id: 'route',
+              from: _pickupPosition,
+              to: _destinationPosition,
+              color: RiderRouteStyle.color,
+              routing: _ResolvedRoute(
+                routeWithStops(
+                  pickup: _pickupPosition,
+                  stops: _stops,
+                  destination: _destinationPosition,
+                ),
+              ),
+            )
           : routePolyline(
               id: 'route',
               from: _pickupPosition,
-              to: widget.destinationPosition,
+              to: _destinationPosition,
               color: RiderRouteStyle.color,
             ),
     );
@@ -266,8 +296,8 @@ class _FindingDriversState extends State<FindingDrivers> {
     final tripMinutes = estimatedTripMinutes(
       GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
       GeoPoint(
-        widget.destinationPosition.latitude,
-        widget.destinationPosition.longitude,
+        _destinationPosition.latitude,
+        _destinationPosition.longitude,
       ),
     );
     final icons = await Future.wait<BitmapDescriptor>([
@@ -295,10 +325,12 @@ class _FindingDriversState extends State<FindingDrivers> {
   }
 
   Future<void> _refreshRoadRoute() async {
+    // With stops the straight pickup → stops → destination line is drawn.
+    if (_stops.isNotEmpty) return;
     final route = await roadRoutePolyline(
       id: 'route',
       from: _pickupPosition,
-      to: widget.destinationPosition,
+      to: _destinationPosition,
       color: RiderRouteStyle.color,
     );
     if (!mounted || route.points.length < 2) return;
@@ -326,13 +358,14 @@ class _FindingDriversState extends State<FindingDrivers> {
       RideStageTransition(
         WaitingForDriver(
           pickupAddress: _pickupAddress,
-          destinationAddress: widget.destinationAddress,
+          destinationAddress: _destinationAddress,
           pickupPosition: _pickupPosition,
-          destinationPosition: widget.destinationPosition,
+          destinationPosition: _destinationPosition,
           rideType: widget.rideType,
           price: _match.currentPrice,
           paymentMethod: widget.paymentMethod,
           notes: widget.notes,
+          stops: _stops,
           driver: _match.matchedDriver,
           realtime: widget.realtime,
         ),
@@ -371,6 +404,59 @@ class _FindingDriversState extends State<FindingDrivers> {
     RideNavigator.home(context);
   }
 
+  /// Change the destination or the stops while searching: the new price is
+  /// confirmed first, then the matching continues with the new route.
+  Future<void> _changeRoute(
+    BuildContext sheetContext,
+    RouteChangeEntry entry, {
+    int? removeStop,
+  }) async {
+    final ride = _match.ownershipSnapshot;
+    if (ride == null) return;
+    AppScope.instance.maps.detach(owner: MapOwners.finding);
+    if (!mounted) return;
+    setState(() {
+      _mapParked = true;
+      _pickupEditOpen = true;
+    });
+    await popCurrentRouteAndWaitForExit(sheetContext);
+    if (!mounted) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    final updated = removeStop != null
+        ? await removeRouteStop(context, ride: ride, index: removeStop)
+        : await openRouteChange(
+            context,
+            ride: ride,
+            entry: entry,
+            pickupLocked: _match.matchCount > 0,
+          );
+    if (!mounted) return;
+    _applyRouteChange(updated);
+    setState(() {
+      _mapParked = false;
+      _pickupEditOpen = false;
+    });
+    if (updated != null) {
+      showRouteUpdated(context, driverAssigned: _match.matchCount > 0);
+    }
+    if (_match.matchCount == 1) _matchedPending = true;
+    _drainDeferredNavigation();
+  }
+
+  void _applyRouteChange(RideSnapshot? updated) {
+    if (updated == null) return;
+    _match.adoptRouteChange(updated);
+    _pickupAddress = updated.pickupAddress;
+    _pickupPosition = LatLng(updated.pickupLat, updated.pickupLng);
+    _destinationAddress = updated.destinationAddress;
+    _destinationPosition = LatLng(updated.destinationLat, updated.destinationLng);
+    _stops = List<RouteStop>.from(updated.stops);
+    _roadRoutePoints = null;
+    _loadMapBits();
+    if (_mapReady) unawaited(_refreshRoadRoute());
+  }
+
   void _showEditFeedback({
     required bool success,
     required String fallback,
@@ -395,13 +481,22 @@ class _FindingDriversState extends State<FindingDrivers> {
         context: context,
       builder: (sheetContext) => RideDetailsSheet(
         pickupAddress: _pickupAddress,
-        destinationAddress: widget.destinationAddress,
+        destinationAddress: _destinationAddress,
+        stops: _stops,
         rideType: widget.rideType,
         price: _match.currentPrice,
         paymentMethod: widget.paymentMethod,
         notes: widget.notes,
         canEditPickup: !_match.editInFlight && _match.matchCount == 0,
-        canEditDestination: false,
+        canEditDestination: !_match.editInFlight,
+        canAddStop: !_match.editInFlight,
+        onAddStop: () =>
+            _changeRoute(sheetContext, RouteChangeEntry.newStop),
+        onRemoveStop: (index) => _changeRoute(
+          sheetContext,
+          RouteChangeEntry.stop,
+          removeStop: index,
+        ),
         onEditPickup: () async {
           AppScope.instance.maps.detach(owner: MapOwners.finding);
           if (!mounted) return;
@@ -460,7 +555,8 @@ class _FindingDriversState extends State<FindingDrivers> {
           if (_match.matchCount == 1) _matchedPending = true;
           _drainDeferredNavigation();
         },
-        onEditDestination: () => Navigator.pop(sheetContext),
+        onEditDestination: () =>
+            _changeRoute(sheetContext, RouteChangeEntry.destination),
         onCancelTrip: () async {
           _cancelSheetOpen = true;
           await popCurrentRouteAndWaitForExit(sheetContext);

@@ -15,6 +15,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
@@ -1002,6 +1003,31 @@ class _SelectRideState extends State<SelectRide>
     );
   }
 
+  /// The stops the rider typed on Plan your ride, with their map points;
+  /// an address that cannot be found is left out rather than blocking the
+  /// booking.
+  Future<List<RouteStop>> _locateStops() async {
+    final located = <RouteStop>[];
+    for (final address in widget.stops) {
+      final clean = address.trim();
+      if (clean.isEmpty) continue;
+      try {
+        final found = await AppScope.instance.geocoding.forward(clean);
+        if (found == null) continue;
+        located.add(
+          RouteStop(
+            address: clean,
+            latitude: found.point.latitude,
+            longitude: found.point.longitude,
+          ),
+        );
+      } catch (_) {
+        // Skip the stop; the driver still gets the pickup and destination.
+      }
+    }
+    return located;
+  }
+
   void _bookNow() {
     final selected = _selectedRideOrNull;
     if (selected == null) {
@@ -1059,9 +1085,13 @@ class _SelectRideState extends State<SelectRide>
           );
         }
 
+        final stops = await _locateStops();
+        if (!mounted) return;
+
         String rideId;
         try {
           rideId = await (widget.booking ?? BookingController()).submitFinding(
+            stops: stops,
             pickupAddress: _pickupAddress,
             destinationAddress: widget.destinationAddress,
             pickupLat: _pickupPosition.latitude,
@@ -1138,6 +1168,7 @@ class _SelectRideState extends State<SelectRide>
                 price: authoritativePrice,
                 paymentMethod: payment.name,
                 notes: _notes,
+                stops: stops,
                 realtime: widget.realtime,
                 etaMinutes: selected.etaMin,
               ),

@@ -10,6 +10,7 @@ import 'package:movera_rider/features/finding_driver/application/finding_driver_
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class BookingCoordinator {
@@ -168,6 +169,7 @@ class BookingCoordinator {
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     if (_inflight != null) return _inflight!;
     if (_findingAlreadyActive) {
@@ -191,6 +193,7 @@ class BookingCoordinator {
       rideTypeLabel: rideTypeLabel,
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
+      stops: stops,
     );
     _inflight = started;
     started.then<void>(
@@ -221,6 +224,7 @@ class BookingCoordinator {
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     final baseIntent = jsonEncode(<String, Object?>{
       'pickupAddress': pickupAddress,
@@ -232,6 +236,7 @@ class BookingCoordinator {
       'categoryId': rideType,
       'paymentMethodId': paymentMethod,
       'notes': notes.toJson(),
+      'stops': [for (final stop in stops) stop.toJson()],
     });
 
     final binding = await _resolveQuoteBinding(
@@ -280,6 +285,7 @@ class BookingCoordinator {
         rideTypeLabel: rideTypeLabel,
         paymentMethodLabel: paymentMethodLabel,
         notes: notes,
+        stops: stops,
         attempt: attempt,
       );
       if (identical(_attempt, attempt)) _attempt = null;
@@ -397,6 +403,7 @@ class BookingCoordinator {
     String? rideTypeLabel,
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
+    List<RouteStop> stops = const <RouteStop>[],
     required BookingAttempt attempt,
   }) async {
     if (quoteId.trim().isEmpty ||
@@ -428,6 +435,7 @@ class BookingCoordinator {
         // cosmetics: the driver needs them before accepting, so they travel
         // with the booking rather than stopping at the selection screen.
         'notes': notes.toJson(),
+        if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
       },
       idempotencyKey: key,
     );

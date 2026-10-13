@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/safety_mock_api.dart';
@@ -500,15 +501,76 @@ class InProcessMockClient extends http.BaseClient {
       if (body['lng'] != null) ride['driverLng'] = body['lng'];
       rides[id] = ride;
       payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
+    } else if (parts.length == 6 &&
+        parts[1] == 'api' &&
+        parts[3] == 'rides' &&
+        parts.last == 'route-quote' &&
+        method == 'POST') {
+      // Prices a route change (new pickup, destination or stops) without
+      // applying it, so the rider sees the new price before confirming.
+      final ride = rides[parts[4]];
+      if (ride == null) {
+        status = 404;
+        payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else {
+        final denied = _routeChangeDenied(ride, body);
+        if (denied != null) {
+          status = 409;
+          payload = {'code': denied, 'ride': ride, 'requestId': requestId};
+        } else {
+          payload = {
+            'code': 'OK',
+            ..._routeChangePricing(ride, body),
+            'requestId': requestId,
+          };
+        }
+      }
     } else if (parts.length == 5 &&
         parts[1] == 'api' &&
         parts[3] == 'rides' &&
         method == 'PATCH') {
       final id = parts[4];
       final ride = rides[id];
+      final routeChange = body['routeChange'] == true;
       if (ride == null) {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
+      } else if (routeChange) {
+        final denied = _routeChangeDenied(ride, body);
+        if (denied != null) {
+          status = 409;
+          payload = {'code': denied, 'ride': ride, 'requestId': requestId};
+        } else {
+          final pricing = _routeChangePricing(ride, body);
+          if (body['pickupAddress'] != null) {
+            ride['pickupAddress'] = body['pickupAddress'];
+            ride['pickupLat'] = body['pickupLat'];
+            ride['pickupLng'] = body['pickupLng'];
+          }
+          ride['destinationAddress'] = body['destinationAddress'];
+          ride['destinationLat'] = body['destinationLat'];
+          ride['destinationLng'] = body['destinationLng'];
+          ride['stops'] = pricing['stops'];
+          ride['price'] = pricing['newPriceKr'];
+          ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
+          ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
+          // The driver app is told on its next poll; the log is what admin
+          // reads later.
+          ride['driverNotifiedAt'] = ride['updatedAt'];
+          (ride['routeChanges'] ??= <Map<String, dynamic>>[]).add({
+            'at': ride['updatedAt'],
+            'destinationAddress': body['destinationAddress'],
+            'stops': pricing['stops'],
+            'newPriceKr': pricing['newPriceKr'],
+            'differenceKr': pricing['differenceKr'],
+          });
+          payload = {
+            'code': 'OK',
+            'ride': ride,
+            ...pricing,
+            'requestId': requestId,
+          };
+        }
       } else {
         final currentStatus = ride['status'] as String?;
         final searching =
@@ -736,6 +798,107 @@ class InProcessMockClient extends http.BaseClient {
     return found.take(8).toList();
   }
 
+  static const _terminalStatuses = {
+    'tripCompleted',
+    'paymentProcessing',
+    'paymentFinalized',
+    'ratingPending',
+    'closed',
+    'cancelledByRider',
+    'cancelledByDriver',
+    'cancelledBySystem',
+    'noDriverFound',
+  };
+
+  /// Pickup can move until the driver is at the door; the destination and
+  /// the stops can change until the trip is over.
+  String? _routeChangeDenied(
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+  ) {
+    final current = ride['status'] as String? ?? '';
+    if (_terminalStatuses.contains(current)) return 'RIDE_FINISHED';
+    final pickupChanged =
+        body['pickupAddress'] != null &&
+        body['pickupAddress'] != ride['pickupAddress'];
+    const pickupEditable = {
+      'findingDriver',
+      'searchDelayed',
+      'driverAssigned',
+      'driverArriving',
+    };
+    if (pickupChanged && !pickupEditable.contains(current)) {
+      return 'PICKUP_LOCKED';
+    }
+    if (body['destinationLat'] is! num || body['destinationLng'] is! num) {
+      return 'DESTINATION_REQUIRED';
+    }
+    return null;
+  }
+
+  static double _km(num lat1, num lng1, num lat2, num lng2) {
+    const r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  /// New price for a changed route: the booked price, plus 25 kr per stop
+  /// and 12 kr per extra kilometre beyond what was booked. Shorter routes
+  /// get the difference back.
+  Map<String, dynamic> _routeChangePricing(
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+  ) {
+    final bookedPrice =
+        (ride['bookedPrice'] as num?)?.toDouble() ??
+        (ride['price'] as num?)?.toDouble() ??
+        0;
+    final pLat = (body['pickupLat'] ?? ride['pickupLat']) as num?;
+    final pLng = (body['pickupLng'] ?? ride['pickupLng']) as num?;
+    final dLat = body['destinationLat'] as num;
+    final dLng = body['destinationLng'] as num;
+    final stops = <Map<String, dynamic>>[
+      if (body['stops'] is List)
+        for (final raw in body['stops'] as List)
+          if (raw is Map && raw['lat'] is num && raw['lng'] is num)
+            {
+              'address': raw['address']?.toString() ?? '',
+              'lat': raw['lat'],
+              'lng': raw['lng'],
+            },
+    ];
+    double routeKm = 0;
+    if (pLat != null && pLng != null) {
+      var lat = pLat;
+      var lng = pLng;
+      for (final stop in stops) {
+        routeKm += _km(lat, lng, stop['lat'] as num, stop['lng'] as num);
+        lat = stop['lat'] as num;
+        lng = stop['lng'] as num;
+      }
+      routeKm += _km(lat, lng, dLat, dLng);
+    }
+    final bookedKm = (ride['bookedKm'] as num?)?.toDouble() ?? routeKm;
+    final newPrice =
+        (bookedPrice + stops.length * 25 + (routeKm - bookedKm) * 12)
+            .clamp(bookedPrice * 0.5, double.infinity)
+            .roundToDouble();
+    final current = (ride['price'] as num?)?.toDouble() ?? bookedPrice;
+    return {
+      'newPriceKr': newPrice,
+      'differenceKr': newPrice - current,
+      'routeKm': double.parse(routeKm.toStringAsFixed(2)),
+      'stops': stops,
+    };
+  }
+
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
     final rideType = body['rideType'] as String? ?? 'movera';
     final kr = CatalogQuoteRepository.pricesKr[rideType] ?? 259;
@@ -840,6 +1003,29 @@ class InProcessMockClient extends http.BaseClient {
       'rideType': categoryId,
       'paymentMethod': paymentMethodId,
       'price': body['price'],
+      'bookedPrice': body['price'],
+      'bookedKm':
+          body['pickupLat'] is num &&
+              body['pickupLng'] is num &&
+              body['destinationLat'] is num &&
+              body['destinationLng'] is num
+          ? _km(
+              body['pickupLat'] as num,
+              body['pickupLng'] as num,
+              body['destinationLat'] as num,
+              body['destinationLng'] as num,
+            )
+          : null,
+      'stops': <Map<String, dynamic>>[
+        if (body['stops'] is List)
+          for (final raw in body['stops'] as List)
+            if (raw is Map && raw['lat'] is num && raw['lng'] is num)
+              {
+                'address': raw['address']?.toString() ?? '',
+                'lat': raw['lat'],
+                'lng': raw['lng'],
+              },
+      ],
       'quoteId': body['quoteId'],
       'quoteSignedPayload': body['quoteSignedPayload'],
       'quoteExpiresAt': body['quoteExpiresAt'],
