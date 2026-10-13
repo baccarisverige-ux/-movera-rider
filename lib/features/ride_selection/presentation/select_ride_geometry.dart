@@ -44,3 +44,24 @@ double selectRideMaxSheetHeight(MediaQueryData media) {
     padding: edgePadding,
   );
 }
+
+/// Rough trip minutes from the straight-line distance, until the server sends
+/// the route duration (LATER_JOB B4): ×1.35 for roads, 40 km/h average.
+int estimatedTripMinutes(GeoPoint from, GeoPoint to) {
+  const r = 6371.0;
+  double rad(double d) => d * math.pi / 180;
+  final dLat = rad(to.latitude - from.latitude);
+  final dLng = rad(to.longitude - from.longitude);
+  final a =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(rad(from.latitude)) *
+          math.cos(rad(to.latitude)) *
+          math.sin(dLng / 2) *
+          math.sin(dLng / 2);
+  final km = r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  return math.max(3, (km * 1.35 / 40 * 60).round());
+}
+
+/// "23:48"
+String clockTime(DateTime time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';

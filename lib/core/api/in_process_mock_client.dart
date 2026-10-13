@@ -37,8 +37,9 @@ class InProcessMockClient extends http.BaseClient {
     'ridesTotal': 5,
     'endsAt': '2026-11-30T23:59:00Z',
     'maxDiscountMinor': 5000,
+    'rideTypes': ['comfort', 'priority', 'premium'],
     'rules': [
-      'Applies to Movera, Comfort and Priority.',
+      'Applies to Comfort, Priority and Premium.',
       'Up to kr 50 off each ride.',
     ],
   };
@@ -716,7 +717,19 @@ class InProcessMockClient extends http.BaseClient {
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
     final rideType = body['rideType'] as String? ?? 'movera';
     final kr = CatalogQuoteRepository.pricesKr[rideType] ?? 259;
-    final minor = kr * 100;
+    final fullMinor = kr * 100;
+    // Demo promotion: discounts the ride types it names, capped per ride.
+    final promo = activePromotion;
+    final eligible =
+        promo != null &&
+        (promo['rideTypes'] as List? ?? const []).contains(rideType);
+    final discountMinor = eligible
+        ? ((fullMinor * (promo['percentOff'] as num) / 100).round()).clamp(
+            0,
+            (promo['maxDiscountMinor'] as num?)?.round() ?? fullMinor,
+          )
+        : 0;
+    final minor = fullMinor - discountMinor;
     final id = 'q_${rideType}_${newRequestId()}';
     return {
       'id': id,
@@ -732,6 +745,7 @@ class InProcessMockClient extends http.BaseClient {
         'distanceMinor': 0,
         'timeMinor': 0,
         'bookingFeeMinor': 0,
+        'discountMinor': discountMinor,
       },
       'signedPayload': 'mock-api',
       'pickup': body['pickup'],

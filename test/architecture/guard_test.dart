@@ -443,7 +443,8 @@ void main() {
     expect(now.contains('FindingDrivers'), isTrue);
     expect(now.contains('submitFinding'), isTrue);
     expect(now.contains('showQuickRideNotesSheet'), isFalse);
-    expect(src.contains('showQuickRideNotesSheet'), isTrue);
+    // The notes block was removed from categories (owner request).
+    expect(src.contains('Anything we should know?'), isFalse);
     expect(now.contains('ScheduledRideBooking.confirm'), isFalse);
     expect(now.contains('_reservations.create'), isFalse);
     final home = homeScreenFiles.map((p) => File(p).readAsStringSync()).join('\n');
