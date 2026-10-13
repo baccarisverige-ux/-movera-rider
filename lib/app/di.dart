@@ -130,7 +130,7 @@ class AppScope {
         : ApiRideRealtime(api: api, connection: realtime);
     sockets = SocketClient(realtime);
     camera = MapCameraController(maps);
-    destinationSearch = DestinationSearchController(search);
+    destinationSearch = DestinationSearchController(search, api: api);
     map = MapFacade(
       provider: maps,
       camera: camera,

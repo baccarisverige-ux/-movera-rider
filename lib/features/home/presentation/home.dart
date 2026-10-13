@@ -45,10 +45,10 @@ import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_n
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:movera_rider/features/home/presentation/widgets/where_to_card.dart';
+import 'package:movera_rider/features/destination_search/presentation/route_picker_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_ticket.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
-import 'package:movera_rider/features/home/presentation/widgets/plan_ride_address_box.dart';
 import 'package:movera_rider/shared/widgets/movera_map_markers.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
@@ -120,11 +120,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   static const int _maxCustomPlaces = HomePlacesController.maxCustom;
 
-  /// U5 stopgap: stops are collected here but dropped by SelectRide, the
-  /// booking payload, RideSnapshot, Finding and Waiting — the rider would be
-  /// charged for a trip that silently ignores them. Hidden until multi-stop
-  /// quoting, routing and booking exist end to end (blocked on backend).
-  static const bool _stopsSupported = false;
+  /// Shown at the owner's request while the app is being built. Stops are not
+  /// yet carried by the quote, booking or driver app (see LATER_JOB.md, B1).
+  static const bool _stopsSupported = true;
 
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
   final MapParkingGuard _mapParkingGuard = MapParkingGuard();
@@ -576,703 +574,88 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     });
   }
 
+  /// The step after the rider taps a real destination.
+  Future<Map<String, dynamic>?> _confirmRouteSelection(
+    RoutePickerSelection selection,
+  ) async {
+    // Book now always confirms pickup; GPS only prefills.
+    final pickup = await _openPickupMapPicker(selection.pickup);
+    if (pickup == null || !mounted) return null;
+    var destination = selection.destination;
+    var destinationPoint = selection.destinationPoint;
+    if (destinationPoint == null) {
+      final geocoded = await _locationCtl.geocodePlace(destination);
+      if (geocoded == null) {
+        if (mounted) {
+          MoveraToast.show(context, 'Choose a valid destination address.');
+        }
+        return null;
+      }
+      destination = geocoded.address;
+      destinationPoint = GeoPoint(
+        geocoded.point.latitude,
+        geocoded.point.longitude,
+      );
+    }
+    return {
+      'pickup': pickup.address,
+      'pickupLat': pickup.position.latitude,
+      'pickupLng': pickup.position.longitude,
+      'destination': destination,
+      'destinationLat': destinationPoint.latitude,
+      'destinationLng': destinationPoint.longitude,
+      'stops': selection.stops,
+    };
+  }
+
   Future<void> _showRouteAddressPicker({
     required String initialField,
     EarlyInputCapture? capture,
   }) async {
-    final pickupController = TextEditingController(
-      text: _pickupAddress?.trim().isNotEmpty == true
-          ? _pickupAddress!.trim()
-          : 'Current location',
-    );
-    final destinationController = TextEditingController(
-      text: _destinationAddress ?? '',
-    );
-    // U5: stops are not honoured downstream yet, so no stale stop fields.
-    final stopControllers = (_stopsSupported ? _routeStops : const <String>[])
-        .map((address) => TextEditingController(text: address))
-        .toList();
-    final pickupFocus = FocusNode();
-    final destinationFocus = FocusNode();
-    final stopFocusNodes = stopControllers.map((_) => FocusNode()).toList();
-
-    var activeField = initialField;
-    var activeStopIndex = -1;
-    var query = initialField == 'pickup'
-        ? pickupController.text
-        : destinationController.text;
-    // ignore: unused_local_variable
-    var pickupConfirmedOnMap = false;
-    // ignore: unused_local_variable
-    LatLng? confirmedPickupLatLng;
-    var destinationConfirmedOnMap = false;
-    LatLng? confirmedDestinationLatLng;
-    var confirmingDestinationNext = false;
-
-    TextEditingController activeController() {
-      if (activeField == 'pickup') return pickupController;
-      if (activeField == 'stop' &&
-          activeStopIndex >= 0 &&
-          activeStopIndex < stopControllers.length) {
-        return stopControllers[activeStopIndex];
-      }
-      return destinationController;
-    }
-
     // Either the capture the caller started at tap time, or a fresh one for
-    // entry points that open this sheet directly.
+    // entry points that open the picker directly.
     final routeCapture = capture ?? (EarlyInputCapture()..start());
     final ownsCapture = capture == null;
-    routeCapture.attach(
-      initialField == 'pickup' ? pickupController : destinationController,
-      initialField == 'pickup' ? pickupFocus : destinationFocus,
-    );
-
-    final sheetDisposables = <ChangeNotifier>[
-      pickupController,
-      destinationController,
-      pickupFocus,
-      destinationFocus,
-      ...stopControllers,
-      ...stopFocusNodes,
-    ];
-
+    final gps = _currentLatLng;
+    final here = gps == null ? null : GeoPoint(gps.latitude, gps.longitude);
     Map<String, dynamic>? draft;
     try {
-      draft = await MoveraSheet.show<Map<String, dynamic>>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.26),
-        builder: (sheetContext) {
-          return MoveraSheetDisposables(
-            disposables: sheetDisposables,
-            child: PointerInterceptor(
-              child: StatefulBuilder(
-              builder: (context, setModalState) {
-                final filteredRecent = _recentAddresses
-                    .where(
-                      (address) =>
-                          query.trim().isEmpty ||
-                          address.toLowerCase().contains(
-                            query.trim().toLowerCase(),
-                          ),
-                    )
-                    .take(5)
-                    .toList();
-
-                void activateField(
-                  String field,
-                  TextEditingController controller, {
-                  int stopIndex = -1,
-                }) {
-                  setModalState(() {
-                    activeField = field;
-                    activeStopIndex = stopIndex;
-                    query = controller.text;
-                  });
-                }
-
-                Widget routeField({
-                  required String field,
-                  required String label,
-                  required String hint,
-                  required TextEditingController controller,
-                  required FocusNode focusNode,
-                  int stopIndex = -1,
-                  bool removable = false,
-                  VoidCallback? onMapTap,
-                  Color? badgeColor,
-                }) {
-                  final isActive =
-                      activeField == field &&
-                      (field != 'stop' || activeStopIndex == stopIndex);
-                  return Row(
-                    children: [
-                      SizedBox(
-                        width: ResSize.w * 27,
-                        child: Center(
-                          child: badgeColor != null
-                              ? Semantics(
-                                  button: true,
-                                  label: field == 'pickup'
-                                      ? 'Set pickup on map'
-                                      : 'Select final destination',
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.opaque,
-                                    onTap:
-                                        onMapTap ??
-                                        () => activateField(
-                                          field,
-                                          controller,
-                                          stopIndex: stopIndex,
-                                        ),
-                                    child: PremiumRouteLocationBadge(
-                                      color: badgeColor,
-                                      size: ResSize.h * 27,
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  width: ResSize.w * 10,
-                                  height: ResSize.h * 10,
-                                  decoration: BoxDecoration(
-                                    color: AppColor.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: _premiumInk,
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ),
-                      8.width,
-                      Expanded(
-                        child: TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          autofocus: isActive,
-                          onTap: () => activateField(
-                            field,
-                            controller,
-                            stopIndex: stopIndex,
-                          ),
-                          onChanged: (value) {
-                            if (isActive) {
-                              setModalState(() {
-                                if (field == 'pickup') {
-                                  pickupConfirmedOnMap = false;
-                                  confirmedPickupLatLng = null;
-                                } else if (field == 'destination') {
-                                  destinationConfirmedOnMap = false;
-                                  confirmedDestinationLatLng = null;
-                                }
-                              });
-                              AppScope.instance.destinationSearch.type(value, (
-                                text,
-                              ) {
-                                if (!mounted) return;
-                                setModalState(() => query = text);
-                              });
-                            }
-                          },
-                          textInputAction: TextInputAction.search,
-                          style: TextStyle(
-                            color: _premiumInk,
-                            fontSize: ResSize.setSp(14),
-                            fontWeight: FontWeight.w600,
-                          ),
-                          decoration: InputDecoration(
-                            labelText: label,
-                            hintText: hint,
-                            labelStyle: TextStyle(
-                              color: isActive ? _premiumAccent : _premiumMuted,
-                              fontSize: ResSize.setSp(10),
-                              fontWeight: FontWeight.w600,
-                            ),
-                            hintStyle: TextStyle(
-                              color: _premiumMuted.withValues(alpha: 0.68),
-                              fontSize: ResSize.setSp(13),
-                              fontWeight: FontWeight.w400,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
-                              vertical: ResSize.h * 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (removable)
-                        IconButton(
-                          onPressed: () {
-                            final removedController = stopControllers.removeAt(
-                              stopIndex,
-                            );
-                            final removedFocus = stopFocusNodes.removeAt(
-                              stopIndex,
-                            );
-                            sheetDisposables.remove(removedController);
-                            sheetDisposables.remove(removedFocus);
-                            removedController.dispose();
-                            removedFocus.dispose();
-                            setModalState(() {
-                              activeField = 'destination';
-                              activeStopIndex = -1;
-                              query = destinationController.text;
-                            });
-                            destinationFocus.requestFocus();
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                          color: _premiumMuted,
-                          iconSize: ResSize.h * 18,
-                          tooltip: 'Remove stop',
-                        ),
-                    ],
-                  );
-                }
-
-                final routeRows = <Widget>[
-                  routeField(
-                    field: 'pickup',
-                    label: 'Pickup',
-                    hint: 'Enter pickup address',
-                    controller: pickupController,
-                    focusNode: pickupFocus,
-                    badgeColor: const Color(0xFF079A60),
-                    onMapTap: () async {
-                      FocusScope.of(context).unfocus();
-                      final result = await _openPickupMapPicker(
-                        pickupController.text.trim(),
-                      );
-                      if (result == null || !mounted) return;
-                      pickupController.text = result.address;
-                      pickupController.selection = TextSelection.collapsed(
-                        offset: pickupController.text.length,
-                      );
-                      setModalState(() {
-                        pickupConfirmedOnMap = true;
-                        confirmedPickupLatLng = result.position;
-                        query = pickupController.text;
-                      });
-                    },
-                  ),
-                  const Divider(
-                    color: Color(0xFFE4E8EA),
-                    height: 1,
-                    indent: 38,
-                  ),
-                ];
-
-                for (var index = 0; index < stopControllers.length; index++) {
-                  routeRows
-                    ..add(
-                      routeField(
-                        field: 'stop',
-                        label: 'Stop ${index + 1}',
-                        hint: 'Enter stop address',
-                        controller: stopControllers[index],
-                        focusNode: stopFocusNodes[index],
-                        stopIndex: index,
-                        removable: true,
-                      ),
-                    )
-                    ..add(
-                      const Divider(
-                        color: Color(0xFFE4E8EA),
-                        height: 1,
-                        indent: 38,
-                      ),
-                    );
-                }
-
-                routeRows.add(
-                  routeField(
-                    field: 'destination',
-                    label: 'Final destination',
-                    hint: 'Where to?',
-                    controller: destinationController,
-                    focusNode: destinationFocus,
-                    badgeColor: const Color(0xFF1769E8),
-                    onMapTap: () {
-                      activateField('destination', destinationController);
-                      destinationFocus.requestFocus();
-                    },
-                  ),
-                );
-
-                routeCapture.onChanged = (value) {
-                  setModalState(() {
-                    if (activeField == 'pickup') {
-                      pickupConfirmedOnMap = false;
-                      confirmedPickupLatLng = null;
-                    } else if (activeField == 'destination') {
-                      destinationConfirmedOnMap = false;
-                      confirmedDestinationLatLng = null;
-                    }
-                  });
-                  AppScope.instance.destinationSearch.type(value, (text) {
-                    if (!mounted) return;
-                    setModalState(() => query = text);
-                  });
-                };
-                // MoveraSheet already applies the keyboard inset outside
-                // this builder. Applying it a second time pushed the primary
-                // Next action below the viewport while an address field was
-                // focused. Keep one keyboard owner and make this surface its
-                // own Material so ListTile ink/backgrounds remain visible.
-                return Material(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(32),
-                    topRight: Radius.circular(32),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Container(
-                    // MoveraSheet already owns the keyboard inset outside this
-                    // builder. Size this surface from the remaining visible
-                    // viewport, not from the full screen, otherwise the sheet
-                    // plus keyboard padding becomes taller than the screen and
-                    // pushes the primary Next action below the hit-test area.
-                    height:
-                        (MediaQuery.sizeOf(context).height -
-                            MediaQuery.viewInsetsOf(context).bottom) *
-                        0.92,
-                    padding: EdgeInsets.fromLTRB(
-                      ResSize.w * 14,
-                      ResSize.h * 10,
-                      ResSize.w * 14,
-                      ResSize.h * 16,
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: ResSize.w * 42,
-                          height: ResSize.h * 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD8DDE0),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        14.height,
-                        Row(
-                          children: [
-                            IconButton(
-                              onPressed: () => Navigator.pop(sheetContext),
-                              icon: const Icon(Icons.arrow_back_rounded),
-                              color: _premiumInk,
-                              tooltip: 'Back',
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: TextWidget(
-                                  text: 'Plan your ride',
-                                  color: _premiumInk,
-                                  fontSize: 19,
-                                  fontWeight: fwBold,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: ResSize.w * 48),
-                          ],
-                        ),
-                        14.height,
-                        Row(
-                          children: [
-                            Expanded(
-                              child: PlanRideAddressBox(
-                                routeRows: routeRows,
-                                showAddStop: _stopsSupported,
-                                stopCount: stopControllers.length,
-                                onAddStop: () {
-                                  final controller = TextEditingController();
-                                  final focusNode = FocusNode();
-                                  setModalState(() {
-                                    stopControllers.add(controller);
-                                    stopFocusNodes.add(focusNode);
-                                    sheetDisposables.add(controller);
-                                    sheetDisposables.add(focusNode);
-                                    activeField = 'stop';
-                                    activeStopIndex = stopControllers.length - 1;
-                                    query = '';
-                                  });
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    focusNode.requestFocus();
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_stopsSupported) ...[
-                        9.height,
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.alt_route_rounded,
-                              size: ResSize.h * 15,
-                              color: _premiumAccent,
-                            ),
-                            7.width,
-                            Expanded(
-                              child: TextWidget(
-                                text: stopControllers.isEmpty
-                                    ? 'Add a stop before your final destination.'
-                                    : 'Stops are visited in order before the final destination.',
-                                color: _premiumMuted,
-                                fontSize: 9,
-                                fontWeight: fwNormal,
-                              ),
-                            ),
-                          ],
-                        ),
-                        ],
-                        13.height,
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextWidget(
-                            text: query.trim().isEmpty
-                                ? 'Recent addresses'
-                                : 'Address results',
-                            color: _premiumMuted,
-                            fontSize: 10.5,
-                            fontWeight: fwSemiBold,
-                          ),
-                        ),
-                        5.height,
-                        Expanded(
-                          child: ListView(
-                            physics: const BouncingScrollPhysics(),
-                            children: [
-                              if (activeField == 'pickup')
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Container(
-                                    width: ResSize.w * 38,
-                                    height: ResSize.h * 38,
-                                    decoration: BoxDecoration(
-                                      color: _premiumAccentSoft,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.my_location_rounded,
-                                      color: _premiumAccent,
-                                      size: ResSize.h * 19,
-                                    ),
-                                  ),
-                                  title: TextWidget(
-                                    text: 'Current location',
-                                    color: _premiumInk,
-                                    fontSize: 11.5,
-                                    fontWeight: fwSemiBold,
-                                  ),
-                                  subtitle: TextWidget(
-                                    text: _shortAddress(
-                                      _pickupAddress,
-                                      maxLength: 38,
-                                    ),
-                                    color: _premiumMuted,
-                                    fontSize: 9,
-                                    fontWeight: fwNormal,
-                                  ),
-                                  onTap: () {
-                                    pickupController.text =
-                                        _pickupAddress ?? 'Current location';
-                                    pickupController.selection =
-                                        TextSelection.collapsed(
-                                          offset: pickupController.text.length,
-                                        );
-                                    setModalState(() {
-                                      query = pickupController.text;
-                                      pickupConfirmedOnMap =
-                                          _currentLatLng != null;
-                                      confirmedPickupLatLng = _currentLatLng;
-                                    });
-                                  },
-                                ),
-                              for (final address in filteredRecent)
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Container(
-                                    width: ResSize.w * 38,
-                                    height: ResSize.h * 38,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFF3F5F5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.history_rounded,
-                                      color: _premiumInk,
-                                      size: ResSize.h * 19,
-                                    ),
-                                  ),
-                                  title: TextWidget(
-                                    text: address,
-                                    color: _premiumInk,
-                                    fontSize: 11.5,
-                                    fontWeight: fwMedium,
-                                  ),
-                                  onTap: () {
-                                    final controller = activeController();
-                                    controller.text = address;
-                                    controller.selection =
-                                        TextSelection.collapsed(
-                                          offset: address.length,
-                                        );
-                                    setModalState(() {
-                                      query = address;
-                                      if (activeField == 'pickup') {
-                                        pickupConfirmedOnMap = false;
-                                        confirmedPickupLatLng = null;
-                                      } else if (activeField == 'destination') {
-                                        destinationConfirmedOnMap = false;
-                                        confirmedDestinationLatLng = null;
-                                      }
-                                    });
-                                  },
-                                ),
-                              if (query.trim().isNotEmpty &&
-                                  !filteredRecent.any(
-                                    (address) =>
-                                        address.toLowerCase() ==
-                                        query.trim().toLowerCase(),
-                                  ))
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Container(
-                                    width: ResSize.w * 38,
-                                    height: ResSize.h * 38,
-                                    decoration: BoxDecoration(
-                                      color: _premiumAccentSoft,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.search_rounded,
-                                      color: _premiumAccent,
-                                      size: ResSize.h * 19,
-                                    ),
-                                  ),
-                                  title: TextWidget(
-                                    text: 'Use “${query.trim()}”',
-                                    color: _premiumInk,
-                                    fontSize: 11.5,
-                                    fontWeight: fwSemiBold,
-                                  ),
-                                  subtitle: TextWidget(
-                                    text: activeField == 'destination'
-                                        ? 'Set as final destination'
-                                        : activeField == 'pickup'
-                                        ? 'Set as pickup'
-                                        : 'Set as Stop ${activeStopIndex + 1}',
-                                    color: _premiumMuted,
-                                    fontSize: 9,
-                                    fontWeight: fwNormal,
-                                  ),
-                                  onTap: () {
-                                    final address = query.trim();
-                                    if (address.isEmpty) return;
-                                    final controller = activeController();
-                                    controller.text = address;
-                                    controller.selection =
-                                        TextSelection.collapsed(
-                                          offset: address.length,
-                                        );
-                                    setModalState(() {
-                                      query = address;
-                                      if (activeField == 'pickup') {
-                                        pickupConfirmedOnMap = false;
-                                        confirmedPickupLatLng = null;
-                                      } else if (activeField == 'destination') {
-                                        destinationConfirmedOnMap = false;
-                                        confirmedDestinationLatLng = null;
-                                      }
-                                    });
-                                    FocusScope.of(context).unfocus();
-                                  },
-                                ),
-                            ],
-                          ),
-                        ),
-                        10.height,
-                        Material(
-                          color: destinationController.text.trim().isEmpty
-                              ? _premiumAccent.withValues(alpha: 0.42)
-                              : _premiumAccent,
-                          borderRadius: BorderRadius.circular(18),
-                          child: InkWell(
-                            onTap: destinationController.text.trim().isEmpty
-                                ? null
-                                : () async {
-                                    if (confirmingDestinationNext) return;
-                                    confirmingDestinationNext = true;
-                                    FocusScope.of(context).unfocus();
-                                    // Book now always confirms pickup; GPS only prefills.
-                                    final result = await _openPickupMapPicker(
-                                      pickupController.text.trim(),
-                                    );
-                                    if (result == null || !mounted) {
-                                      confirmingDestinationNext = false;
-                                      return;
-                                    }
-                                    pickupController.text = result.address;
-                                    final exactPosition = result.position;
-
-                                    var exactDestinationPosition =
-                                        confirmedDestinationLatLng;
-                                    if (!destinationConfirmedOnMap) {
-                                      final destinationText =
-                                          destinationController.text.trim();
-                                      final geocodedDestination =
-                                          await _locationCtl.geocodePlace(
-                                            destinationText,
-                                          );
-                                      if (geocodedDestination != null) {
-                                        destinationController.text =
-                                            geocodedDestination.address;
-                                        exactDestinationPosition =
-                                            geocodedDestination.point;
-                                      } else {
-                                        if (sheetContext.mounted) {
-                                          MoveraToast.show(
-                                            sheetContext,
-                                            'Choose a valid destination address.',
-                                          );
-                                        }
-                                        confirmingDestinationNext = false;
-                                        return;
-                                      }
-                                    }
-                                    if (!mounted ||
-                                        !sheetContext.mounted ||
-                                        exactDestinationPosition == null) {
-                                      confirmingDestinationNext = false;
-                                      return;
-                                    }
-                                    Navigator.pop(sheetContext, {
-                                      'pickup': pickupController.text.trim(),
-                                      'pickupLat': exactPosition.latitude,
-                                      'pickupLng': exactPosition.longitude,
-                                      'destination': destinationController.text
-                                          .trim(),
-                                      'destinationLat':
-                                          exactDestinationPosition.latitude,
-                                      'destinationLng':
-                                          exactDestinationPosition.longitude,
-                                      'stops': stopControllers
-                                          .map(
-                                            (controller) =>
-                                                controller.text.trim(),
-                                          )
-                                          .where(
-                                            (address) => address.isNotEmpty,
-                                          )
-                                          .toList(),
-                                    });
-                                  },
-                            borderRadius: BorderRadius.circular(18),
-                            child: SizedBox(
-                              width: double.infinity,
-                              height: ResSize.h * 48,
-                              child: Center(
-                                child: TextWidget(
-                                  text: 'Next',
-                                  color: AppColor.white,
-                                  fontSize: 12.5,
-                                  fontWeight: fwSemiBold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-            ),
-          );
-        },
+      draft = await Navigator.of(context).push<Map<String, dynamic>>(
+        BottomToTopTransition(
+          RoutePickerPage(
+            pickupAddress: _placeOrNull(_pickupAddress),
+            destinationAddress: _destinationAddress ?? '',
+            stops: _stopsSupported ? _routeStops : const <String>[],
+            stopsSupported: _stopsSupported,
+            initialField: initialField,
+            capture: routeCapture,
+            here: here,
+            homeAddress: _placeOrNull(_homeAddress),
+            workAddress: _placeOrNull(_workAddress),
+            recent: _recentAddresses,
+            onSetFavourite: (target) async {
+              await _showAddressPicker(target: target);
+              return _placeOrNull(
+                target == 'home' ? _homeAddress : _workAddress,
+              );
+            },
+            onPickOnMap: ({required pickup, required address}) async {
+              final result = await _openPickupMapPicker(
+                address,
+                isDestination: !pickup,
+              );
+              if (result == null) return null;
+              return RoutePickerMapPick(
+                address: result.address,
+                point: GeoPoint(
+                  result.position.latitude,
+                  result.position.longitude,
+                ),
+              );
+            },
+            onFinish: _confirmRouteSelection,
+          ),
+        ),
       );
     } finally {
       if (ownsCapture) routeCapture.stop();

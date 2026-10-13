@@ -110,7 +110,7 @@ void main() {
     });
   });
 
-  testWidgets('U5: the add-stop button and stop hint are hidden', (
+  testWidgets('Where to? opens full screen with add-stop and swap', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(430, 932);
@@ -149,12 +149,15 @@ void main() {
     }
     await tester.pump(const Duration(milliseconds: 450));
 
+    // Pickup + destination, a "+" to add a stop and a swap button. Stops are
+    // shown at the owner's request (not yet sent to the quote — LATER_JOB B1).
     expect(find.byType(TextField), findsNWidgets(2));
-    expect(
-      find.text('Add a stop before your final destination.'),
-      findsNothing,
-    );
-    expect(find.byIcon(Icons.alt_route_rounded), findsNothing);
+    expect(find.byTooltip('Add stop'), findsOneWidget);
+    expect(find.byTooltip('Swap pickup and destination'), findsOneWidget);
+    expect(find.text('Next'), findsNothing);
+    await tester.tap(find.byTooltip('Add stop'));
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(TextField), findsNWidgets(3));
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
