@@ -215,16 +215,6 @@ class _SelectRideState extends State<SelectRide>
     }).toList();
   }
 
-  List<_PaymentOption> get _payments {
-    return _selection.payments().map((item) {
-      return _PaymentOption(
-        brand: item.brand,
-        name: item.name,
-        detail: item.detail,
-      );
-    }).toList();
-  }
-
   SelectRideFilter _filter = SelectRideFilter.recommended;
   late final bool _ownsSelection = widget.selection == null;
   late final RideSelectionController _selection =
@@ -297,9 +287,7 @@ class _SelectRideState extends State<SelectRide>
             ? null
             : _reservations.byId(widget.editingReservationId!)?.paymentMethod);
     _selection.selectPaymentNamed(paymentName);
-    if (paymentName == null) {
-      unawaited(_restoreSavedPayment());
-    }
+    unawaited(_loadSavedCards(paymentName));
     if (widget.initialScheduledFor != null) {
       _selection.scheduleFor(widget.initialScheduledFor);
     } else if (widget.bookingMode == BookingMode.scheduled) {
@@ -322,8 +310,17 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  Future<void> _restoreSavedPayment() async {
-    await _selection.restoreDefaultPayment();
+  /// Saved cards first (they are payment methods too), then the remembered
+  /// default when nothing was handed in.
+  Future<void> _loadSavedCards(String? paymentName) async {
+    try {
+      await _selection.loadSavedCards();
+      if (paymentName != null) {
+        _selection.selectPaymentNamed(paymentName);
+      } else {
+        await _selection.restoreDefaultPayment();
+      }
+    } catch (_) {}
     if (mounted) setState(() {});
   }
 
@@ -1082,10 +1079,21 @@ class _SelectRideState extends State<SelectRide>
       try {
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
-        // A card needs to be saved first: Add card opens before Set pickup.
+        // A card needs to be saved first: Add card opens before Set pickup
+        // and the new card becomes the chosen method.
         if (payment.brand == 'cards' && !_selection.hasSavedCard) {
-          await AddCardPage.open(context);
-          return;
+          final card = await AddCardPage.open(context);
+          if (card == null || !mounted) return;
+          final index = _selection.payments().indexWhere(
+            (p) => p.brand == card.methodBrand,
+          );
+          if (index < 0) return;
+          setState(() => _selection.selectPayment(index));
+          payment = _PaymentOption(
+            brand: card.methodBrand,
+            name: card.displayName,
+            detail: 'Expires ${card.expiryLabel}',
+          );
         }
         // Set pickup every time; the current location is preselected.
         final spot = await _openSetPickup(selected);
@@ -1983,7 +1991,14 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _paymentButton() {
-    final method = _payments[_selection.selectedPayment];
+    final item = _selection.selectedPaymentItem();
+    final method = item == null
+        ? const _PaymentOption(brand: 'cash', name: 'Pay in car', detail: '')
+        : _PaymentOption(
+            brand: item.brand,
+            name: item.name,
+            detail: item.detail,
+          );
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -2079,7 +2094,14 @@ class _SelectRideState extends State<SelectRide>
   Widget _brandMark(String brand) {
     Widget logo;
     Color background = Colors.white;
-    if (brand == 'apple') {
+    final savedCard = _selection.savedCardFor(brand);
+    if (savedCard != null) {
+      logo = Image.asset(
+        excludeFromSemantics: true,
+        savedCard.brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'apple') {
       logo = SvgPicture.asset(
         'assets/images/apple_pay_brand.svg',
         fit: BoxFit.contain,

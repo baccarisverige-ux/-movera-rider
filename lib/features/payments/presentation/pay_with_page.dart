@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
@@ -31,9 +32,13 @@ class PayWithPage extends StatefulWidget {
     required this.brandMark,
     this.useWalletFirst = true,
     this.onWalletFirstChanged,
+    this.savedCards,
   });
 
   final List<PayWithMethod> methods;
+
+  /// Where "Add payment method" saves the card (defaults to the app's).
+  final SavedCardsController? savedCards;
 
   /// "Use wallet balance first" and what to do when the rider flips it.
   final bool useWalletFirst;
@@ -54,6 +59,7 @@ class PayWithPage extends StatefulWidget {
     required Widget Function(String brand) brandMark,
     bool useWalletFirst = true,
     ValueChanged<bool>? onWalletFirstChanged,
+    SavedCardsController? savedCards,
   }) {
     return Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
@@ -65,6 +71,7 @@ class PayWithPage extends StatefulWidget {
           brandMark: brandMark,
           useWalletFirst: useWalletFirst,
           onWalletFirstChanged: onWalletFirstChanged,
+          savedCards: savedCards,
         ),
       ),
     );
@@ -112,6 +119,7 @@ class _PayWithPageState extends State<PayWithPage> {
   );
 
   Widget _row({
+    Key? key,
     required Widget leading,
     required String title,
     String? subtitle,
@@ -119,6 +127,7 @@ class _PayWithPageState extends State<PayWithPage> {
     VoidCallback? onTap,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       child: Container(
         constraints: const BoxConstraints(minHeight: 64),
@@ -163,9 +172,22 @@ class _PayWithPageState extends State<PayWithPage> {
     widget.onWalletFirstChanged?.call(value);
   }
 
+  /// Add card; when a card comes back it is the chosen method.
+  Future<void> _addCard() async {
+    final navigator = Navigator.of(context);
+    final card = await AddCardPage.open(context, cards: widget.savedCards);
+    if (card == null || !mounted) return;
+    navigator.pop(card.methodBrand);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final rideMethods = methods.where((m) => m.brand != 'wallet').toList();
+    final hasSavedCards = methods.any((m) => m.brand.startsWith('card:'));
+    // The generic "Card" row only until the rider has saved a card.
+    final rideMethods = methods
+        .where((m) => m.brand != 'wallet')
+        .where((m) => !(hasSavedCards && m.brand == 'cards'))
+        .toList();
     final hasWallet =
         walletBalance > 0 && methods.any((m) => m.brand == 'wallet');
     final promo = promotion;
@@ -214,6 +236,7 @@ class _PayWithPageState extends State<PayWithPage> {
             _section('Payment methods'),
             for (final method in rideMethods)
               _row(
+                key: ValueKey('pay-with-${method.brand}'),
                 leading: brandMark(method.brand),
                 title: method.name,
                 subtitle: method.detail,
@@ -221,9 +244,10 @@ class _PayWithPageState extends State<PayWithPage> {
                 onTap: () => Navigator.of(context).pop(method.brand),
               ),
             _row(
+              key: const ValueKey('pay-with-add'),
               leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
               title: 'Add payment method',
-              onTap: () => AddCardPage.open(context),
+              onTap: _addCard,
             ),
             _section('Vouchers'),
             if (promo != null)
