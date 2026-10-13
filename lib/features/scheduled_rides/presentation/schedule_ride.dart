@@ -13,6 +13,9 @@ import 'package:movera_rider/features/scheduled_rides/presentation/select_date_t
 import 'package:movera_rider/features/pickup/presentation/confirm_pickup_spot.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/scheduled_category_gate.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -110,6 +113,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
   }
 
   int currentStep = 0;
+  int? _tripMinutes;
 
   void _syncRouteToSession() {
     _session.captureRoute(
@@ -182,6 +186,18 @@ class _ScheduleRideState extends State<ScheduleRide> {
       confirmLabel: 'Confirm pickup spot',
     );
     if (spot == null || !mounted) return;
+    // The drop-off must be a real place before choosing a time; its distance
+    // gives the honest arrival estimate on the next screen.
+    final dropoff = await findScheduledPoint(_dropoffController.text);
+    if (!mounted) return;
+    if (dropoff == null) {
+      MoveraToast.show(context, 'Choose a valid destination address.');
+      return;
+    }
+    _tripMinutes = estimatedTripMinutes(
+      GeoPoint(spot.position.latitude, spot.position.longitude),
+      GeoPoint(dropoff.latitude, dropoff.longitude),
+    );
     _pickupController.text = spot.address;
     _session.capturePickupPoint(
       spot.position.latitude,
@@ -234,6 +250,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
       onBack: goToPreviousStep,
       body: body(),
       session: _session,
+      tripMinutes: _tripMinutes,
     );
   }
 

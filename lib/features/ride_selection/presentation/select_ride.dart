@@ -550,21 +550,46 @@ class _SelectRideState extends State<SelectRide>
     ),
   );
 
-  /// "Arrive 23:48" for [ride]: driver to pickup, then the trip.
-  String _arrivalFor(_RideOption ride) => clockTime(
-    DateTime.now().add(Duration(minutes: ride.etaMin + _tripMinutes())),
-  );
+  /// The chosen pickup time of a scheduled ride, or null for "now".
+  DateTime? get _scheduledPickup =>
+      _selection.isScheduled ? _selection.scheduledFor : null;
+
+  /// "Arrive 23:48" for [ride]: driver to pickup, then the trip. A scheduled
+  /// ride is picked up at its chosen time, so only the trip counts.
+  String _arrivalFor(_RideOption ride) {
+    final scheduled = _scheduledPickup;
+    if (scheduled != null) {
+      return clockTime(scheduled.add(Duration(minutes: _tripMinutes())));
+    }
+    return clockTime(
+      DateTime.now().add(Duration(minutes: ride.etaMin + _tripMinutes())),
+    );
+  }
+
+  /// Row line under the ride name: "8 min · Arrive 23:48" now, or
+  /// "Pickup 06:55 · Arrive 07:15" for a scheduled ride.
+  String _timesFor(_RideOption ride) {
+    final scheduled = _scheduledPickup;
+    if (scheduled != null) {
+      return 'Pickup ${clockTime(scheduled)} · Arrive ${_arrivalFor(ride)}';
+    }
+    return '${ride.etaMin} min · Arrive ${_arrivalFor(ride)}';
+  }
 
   /// Pins carry the chosen ride's times; rebuilt when the choice changes.
   void _syncTimePins() {
     final ride = _selectedRideOrNull;
     if (ride == null) return;
-    final key = '${ride.id}|${_arrivalFor(ride)}';
+    final scheduled = _scheduledPickup;
+    final pickupLabel = scheduled != null
+        ? clockTime(scheduled)
+        : '${ride.etaMin}\nmin';
+    final key = '${ride.id}|$pickupLabel|${_arrivalFor(ride)}';
     if (key == _timePinKey) return;
     _timePinKey = key;
     unawaited(() async {
       final pins = await Future.wait([
-        RouteTimeMarker.createIcon(pickup: true, label: '${ride.etaMin}\nmin'),
+        RouteTimeMarker.createIcon(pickup: true, label: pickupLabel),
         RouteTimeMarker.createIcon(
           pickup: false,
           label: 'Arrive by ${_arrivalFor(ride)}',
@@ -1690,7 +1715,7 @@ class _SelectRideState extends State<SelectRide>
                         children: [
                           Expanded(
                             child: Text(
-                              '${ride.etaMin} min · Arrive ${_arrivalFor(ride)}',
+                              _timesFor(ride),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: _text(12.5, color: _muted),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'dart:math' as math;
 
 import 'dart:ui' show ImageFilter;
@@ -495,6 +496,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
     final parkedNow = _mapParkingGuard.enter();
+    final rideBefore = AppScope.instance.ride.rideId;
+    final statusBefore = AppScope.instance.ride.status;
     try {
       if (parkedNow) {
         final parkingWatch = Stopwatch()..start();
@@ -517,6 +520,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         // U6: a finished (or abandoned) booking flow must not leave its
         // pickup behind as the next booking's starting point.
         _tripPickupLatLng = null;
+        // A ride that ended or was cancelled in this flow starts the next
+        // booking from "Where to?", not from the last trip's destination.
+        final ride = AppScope.instance.ride;
+        final changed =
+            ride.rideId != rideBefore || ride.status != statusBefore;
+        if (changed &&
+            (ride.status.isTerminal || ride.status.isCompletedSurface)) {
+          _destinationAddress = null;
+          _routeStops = const <String>[];
+        }
         AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
         _locationCtl.resumeLiveUpdates();
@@ -1414,6 +1427,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   /// the way to the low snap instead of stopping at the middle.
   bool _skipMiddleSnap = false;
   double? _lastSettledSnap;
+  bool _hadFirstSeat = false;
 
   void _onPromotionChanged() {
     if (!mounted) return;
@@ -1458,7 +1472,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final last = _lastSettledSnap;
       if (last != null && (last - snap).abs() < 1.5) return;
       _lastSettledSnap = snap;
-      HapticFeedback.selectionClick();
+      // Not on the very first seat at launch: only a sheet the rider moved.
+      if (last != null || _hadFirstSeat) HapticFeedback.selectionClick();
+      _hadFirstSeat = true;
       if (snap == _sheetMinPixels &&
           _promotion != AppScope.instance.promotion.active) {
         _onPromotionChanged();

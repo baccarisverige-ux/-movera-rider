@@ -261,6 +261,10 @@ void main() {
       expect(AppScope.instance.ride.status, RideStatus.closed);
       expect(AppScope.instance.ride.rideId, rideId);
       expect(await RideSnapshotStore.read(), isNull);
+      // The next booking starts from "Where to?", not the last destination.
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Where to?'), findsOneWidget);
+      expect(find.textContaining('Arlanda'), findsNothing);
 
       // No delayed assignment or stage timer may leak out of this one journey.
       mock.unsubscribe();

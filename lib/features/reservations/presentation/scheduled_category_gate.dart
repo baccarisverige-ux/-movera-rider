@@ -6,6 +6,7 @@ import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
 import 'package:movera_rider/features/scheduled_rides/application/scheduled_rides_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 
 /// After Plan your ride + calendar, open the same category cards as Book now
 /// with bookingMode = scheduled so the CTA is Schedule [category].
@@ -23,8 +24,14 @@ Future<void> openScheduledCategorySelector(
   final pickupPosition = session.pickupLat != null && session.pickupLng != null
       ? LatLng(session.pickupLat!, session.pickupLng!)
       : await resolveScheduledPoint(pickupLabel);
-  final destinationPosition = await resolveScheduledPoint(destinationLabel);
+  // Never book to a made-up point: a destination we cannot find on the map
+  // sends the rider back to fix the address instead.
+  final destinationPosition = await findScheduledPoint(destinationLabel);
   if (!context.mounted) return;
+  if (destinationPosition == null) {
+    MoveraToast.show(context, 'Choose a valid destination address.');
+    return;
+  }
 
   AppScope.instance.maps.detach(owner: MapOwners.schedule);
 
@@ -59,6 +66,21 @@ Future<void> openScheduledCategorySelector(
   if (editingReservationId != null && created != null && context.mounted) {
     Navigator.pop(context);
   }
+}
+
+/// The map point for a typed address, or null when it cannot be found.
+Future<LatLng?> findScheduledPoint(String label) async {
+  final clean = label.trim();
+  if (clean.isEmpty) return null;
+  try {
+    final result = await AppScope.instance.geocoding
+        .geocodeAddress(clean)
+        .timeout(const Duration(seconds: 6));
+    if (result != null) {
+      return LatLng(result.point.latitude, result.point.longitude);
+    }
+  } catch (_) {}
+  return null;
 }
 
 const LatLng kScheduledFallbackPoint = LatLng(59.3293, 18.0686);
