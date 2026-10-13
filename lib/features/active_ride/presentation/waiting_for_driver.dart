@@ -1014,7 +1014,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
               builder: (context, child) {
                 final offset = _sheetOffset(media);
                 final mid = _minSheet(media);
-                final fade = (1 - (offset - mid) / 80).clamp(0.0, 1.0);
+                final fade = (1 - (offset - mid) / 32).clamp(0.0, 1.0);
                 return Positioned(
                   right: 12,
                   bottom: offset + 16,

@@ -121,6 +121,16 @@ void main() {
     expect(full, lessThan(middle));
     // Not pinned under the status bar: the map still shows above it.
     expect(full, greaterThan(80));
+    // The recenter button is gone while the sheet is fully up.
+    final fade = tester.widget<Opacity>(
+      find
+          .ancestor(
+            of: find.bySemanticsLabel('Recenter map'),
+            matching: find.byType(Opacity),
+          )
+          .first,
+    );
+    expect(fade.opacity, 0);
     await close(tester);
   });
 
