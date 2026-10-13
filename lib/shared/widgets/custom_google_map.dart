@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/web/web_maps_available.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../styles/reference_map_style.dart';
@@ -85,6 +86,15 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // Render the real Google Map immediately. The exact Movera style is passed
     // during creation, so there is no separate loading-color cover or reveal
     // timer delaying the first visible map frame.
+    // On the web without the Maps JavaScript API, a GoogleMap throws while
+    // building; show a calm map-coloured surface instead of an error.
+    if (!googleMapsAvailable()) {
+      return const ColoredBox(
+        key: ValueKey('map-unavailable'),
+        color: Color(0xFFE9EEF1),
+        child: SizedBox.expand(),
+      );
+    }
     return GoogleMap(
       initialCameraPosition: widget.initialPosition ?? _defaultPosition,
       markers: widget.markers ?? {},

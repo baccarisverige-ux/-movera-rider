@@ -17,6 +17,10 @@ class ScheduleDateTimeSelector extends StatefulWidget {
   final bool popOnConfirm;
   final DateTime Function()? now;
 
+  /// Trip length for the "Estimated arrival / pickup" row. Unknown (null)
+  /// hides the row rather than showing a made-up time.
+  final int? tripMinutes;
+
   const ScheduleDateTimeSelector({
     super.key,
     required this.body,
@@ -25,6 +29,7 @@ class ScheduleDateTimeSelector extends StatefulWidget {
     this.session,
     this.popOnConfirm = false,
     this.now,
+    this.tripMinutes,
   });
 
   /// Same "When should we pick you up?" screen, used when Book now
@@ -462,9 +467,12 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
 
   @override
   Widget build(BuildContext context) {
-    final estimatedTime = _pickupMode
-        ? _selectedDateTime.add(const Duration(minutes: 20))
-        : _selectedDateTime.subtract(const Duration(minutes: 20));
+    final trip = widget.tripMinutes;
+    final estimatedTime = trip == null
+        ? null
+        : _pickupMode
+        ? _selectedDateTime.add(Duration(minutes: trip))
+        : _selectedDateTime.subtract(Duration(minutes: trip));
 
     return PointerInterceptor(
       child: Material(
@@ -502,8 +510,10 @@ class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
                       _modeSelector(),
                       const SizedBox(height: 18),
                       _selectionCard(),
-                      const SizedBox(height: 18),
-                      _estimateRow(estimatedTime),
+                      if (estimatedTime != null) ...[
+                        const SizedBox(height: 18),
+                        _estimateRow(estimatedTime),
+                      ],
                       const SizedBox(height: 25),
                       Text(
                         'You can cancel without a fee before a driver is assigned. Final terms are shown before booking.',

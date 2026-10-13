@@ -147,6 +147,25 @@ class InProcessMockClient extends http.BaseClient {
         payload = {'code': 'INVALID_QUERY', 'requestId': requestId};
       } else {
         final normalized = query.trim();
+        // A known demo place geocodes to where it really is (Arlanda is not
+        // next to Stockholm Central); anything else gets a stable made-up
+        // point so demo bookings still work.
+        final known = _demoSuggestions(
+          normalized,
+          typedFallback: false,
+        ).firstOrNull;
+        if (known != null) {
+          payload = {
+            'code': 'OK',
+            'data': {
+              'address': '${known['title']}, ${known['subtitle']}',
+              'latitude': known['latitude'],
+              'longitude': known['longitude'],
+            },
+            'requestId': requestId,
+          };
+          return _json(status, payload, requestId);
+        }
         final hash = normalized.toLowerCase().codeUnits.fold<int>(
           0,
           (value, unit) => ((value * 31) + unit) & 0x7fffffff,
@@ -678,7 +697,10 @@ class InProcessMockClient extends http.BaseClient {
     return out.toString();
   }
 
-  List<Map<String, dynamic>> _demoSuggestions(String query) {
+  List<Map<String, dynamic>> _demoSuggestions(
+    String query, {
+    bool typedFallback = true,
+  }) {
     final words = _fold(query.trim()).split(RegExp(r'[\s,]+'))
       ..removeWhere((w) => w.isEmpty);
     if (words.isEmpty) return const [];
@@ -699,7 +721,7 @@ class InProcessMockClient extends http.BaseClient {
     }
     // Anything else typed is still offered, so demo bookings always work.
     final typed = query.trim();
-    if (typed.length >= 3 && found.isEmpty) {
+    if (typedFallback && typed.length >= 3 && found.isEmpty) {
       final hash = _fold(typed).codeUnits.fold<int>(
         0,
         (value, unit) => ((value * 31) + unit) & 0x7fffffff,
