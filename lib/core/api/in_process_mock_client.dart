@@ -27,6 +27,21 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, String> pendingLinks = {};
   final Map<String, Map<String, dynamic>> pushDevices = {};
   final Map<String, Map<String, dynamic>> paymentIntents = {};
+
+  /// The demo rider's promotion; tests may replace or clear it.
+  Map<String, dynamic>? activePromotion = {
+    'id': 'promo_demo_30',
+    'title': '30% off your next 5 rides',
+    'percentOff': 30,
+    'ridesLeft': 4,
+    'ridesTotal': 5,
+    'endsAt': '2026-11-30T23:59:00Z',
+    'maxDiscountMinor': 5000,
+    'rules': [
+      'Applies to Movera, Comfort and Priority.',
+      'Up to kr 50 off each ride.',
+    ],
+  };
   final Map<String, dynamic> accountSecurity = {
     'phone': '',
     'email': '',
@@ -590,6 +605,14 @@ class InProcessMockClient extends http.BaseClient {
         'code': 'OK',
         'status': 'succeeded',
         'amountMinor': body['amountMinor'] ?? 0,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/rider/promotions/active' && method == 'GET') {
+      // Demo transport only: a sample admin promotion so the ticket can be
+      // seen on GitHub Pages. The live API returns the rider's real one.
+      payload = {
+        'code': 'OK',
+        'promotion': activePromotion,
         'requestId': requestId,
       };
     } else if (path == '/health' && method == 'GET') {

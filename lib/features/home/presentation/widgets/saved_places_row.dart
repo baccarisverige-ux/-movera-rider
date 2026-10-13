@@ -17,6 +17,8 @@ class SavedPlacesRow extends StatelessWidget {
     required this.savedPlaces,
     required this.onUseSavedPlace,
     required this.onAddPlace,
+    this.onEditSavedPlace,
+    this.reveal = 1,
   });
 
   final String? homeAddress;
@@ -30,6 +32,21 @@ class SavedPlacesRow extends StatelessWidget {
   onUseSavedPlace;
   final VoidCallback onAddPlace;
 
+  /// Long-press on a place to change its address.
+  final void Function(String target, {String? customType})? onEditSavedPlace;
+
+  /// 0 → hidden, 1 → shown. The cards come in one after the other.
+  final double reveal;
+
+  Widget _staggered(int index, Widget child) {
+    final start = (index * 0.12).clamp(0.0, 0.5);
+    final t = ((reveal - start) / (1 - start)).clamp(0.0, 1.0);
+    return Opacity(
+      opacity: t,
+      child: Transform.translate(offset: Offset(0, 8 * (1 - t)), child: child),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cards = <Widget>[
@@ -38,8 +55,13 @@ class SavedPlacesRow extends StatelessWidget {
         child: _QuickPlaceCard(
           iconAsset: AppAssets.quickHome,
           title: 'Home',
-          subtitle: shortAddress(homeAddress, maxLength: 15),
+          subtitle: homeAddress == null
+              ? 'Set Home'
+              : shortAddress(homeAddress, maxLength: 15),
           onTap: () => onUseSavedPlace(homeAddress, target: 'home'),
+          onLongPress: onEditSavedPlace == null
+              ? null
+              : () => onEditSavedPlace!('home'),
         ),
       ),
       8.width,
@@ -48,8 +70,13 @@ class SavedPlacesRow extends StatelessWidget {
         child: _QuickPlaceCard(
           iconAsset: AppAssets.quickWork,
           title: 'Work',
-          subtitle: shortAddress(workAddress, maxLength: 15),
+          subtitle: workAddress == null
+              ? 'Set Work'
+              : shortAddress(workAddress, maxLength: 15),
           onTap: () => onUseSavedPlace(workAddress, target: 'work'),
+          onLongPress: onEditSavedPlace == null
+              ? null
+              : () => onEditSavedPlace!('work'),
         ),
       ),
       8.width,
@@ -76,6 +103,9 @@ class SavedPlacesRow extends StatelessWidget {
                 target: 'custom',
                 customType: place.type,
               ),
+              onLongPress: onEditSavedPlace == null
+                  ? null
+                  : () => onEditSavedPlace!('custom', customType: place.type),
             ),
           ),
         );
@@ -85,7 +115,12 @@ class SavedPlacesRow extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        child: Row(children: cards),
+        child: Row(
+          children: [
+            for (var i = 0; i < cards.length; i++)
+              _staggered((i + 1) ~/ 2, cards[i]),
+          ],
+        ),
       ),
     );
   }
@@ -111,13 +146,18 @@ IconData _placeIcon(String type) {
 }
 
 class _CustomPlaceCard extends StatelessWidget {
-  const _CustomPlaceCard({required this.place, required this.onTap});
+  const _CustomPlaceCard({
+    required this.place,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   static const Color _premiumInk = Color(0xFF1D252C);
   static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumAccent = Color(0xFF2D5878);
 
   final SavedPlaceData place;
+  final VoidCallback? onLongPress;
   final VoidCallback onTap;
 
   @override
@@ -126,6 +166,7 @@ class _CustomPlaceCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(18),
         child: Container(
           height: ResSize.h * 44,
@@ -182,6 +223,7 @@ class _QuickPlaceCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.onLongPress,
   });
 
   static const Color _premiumInk = Color(0xFF1D252C);
@@ -191,6 +233,7 @@ class _QuickPlaceCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +241,7 @@ class _QuickPlaceCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
