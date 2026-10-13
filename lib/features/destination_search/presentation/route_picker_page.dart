@@ -50,6 +50,10 @@ class RoutePickerPage extends StatefulWidget {
     required this.homeAddress,
     required this.workAddress,
     this.savedPlaces = const [],
+    this.pageTitle = RoutePickerPage.title,
+    this.pickupLocked = false,
+    this.openWithNewStop = false,
+    this.finishLabel,
     required this.recent,
     required this.onSetFavourite,
     required this.onPickOnMap,
@@ -71,6 +75,19 @@ class RoutePickerPage extends StatefulWidget {
   /// with the same icons as the Home page.
   final List<SavedPlaceData> savedPlaces;
   final List<String> recent;
+
+  /// Header text; "Change route" while a ride is live.
+  final String pageTitle;
+
+  /// The driver is already at the pickup: it is shown but cannot change.
+  final bool pickupLocked;
+
+  /// Opens with an empty new stop focused (the "Add stop" entry point).
+  final bool openWithNewStop;
+
+  /// Shows a bottom button that runs [onFinish] with the current route, for
+  /// screens where the destination is already filled in.
+  final String? finishLabel;
 
   /// Opens the "Set your address" popup; returns the saved address.
   final Future<String?> Function(String target) onSetFavourite;
@@ -141,9 +158,35 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   void initState() {
     super.initState();
     _pickupPoint = widget.here;
-    final focus = _active == 'pickup' ? _pickupFocus : _destinationFocus;
+    if (widget.openWithNewStop &&
+        widget.stopsSupported &&
+        _stops.length < _maxStops) {
+      _stops.add(TextEditingController());
+      _stopFocus.add(FocusNode());
+      _active = 'stop';
+      _activeStop = _stops.length - 1;
+    } else if (_active == 'pickup' && widget.pickupLocked) {
+      _active = 'destination';
+    }
+    final focus = _active == 'pickup'
+        ? _pickupFocus
+        : _active == 'stop'
+        ? _stopFocus[_activeStop]
+        : _destinationFocus;
     widget.capture.attach(_activeController, focus);
     widget.capture.onChanged = _onTyped;
+    // Opened on a field that already has an address (changing the route of a
+    // live ride): typing replaces it instead of adding to its end.
+    final prefilled = _activeController;
+    if (prefilled.text.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _activeController != prefilled) return;
+        prefilled.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: prefilled.text.length,
+        );
+      });
+    }
     for (final node in [_pickupFocus, _destinationFocus]) {
       node.addListener(_onFocusChanged);
     }
@@ -175,6 +218,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   }
 
   void _activate(String field, {int stop = -1}) {
+    if (field == 'pickup' && widget.pickupLocked) return;
     setState(() {
       _active = field;
       _activeStop = stop;
@@ -215,6 +259,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   }
 
   void _swap() {
+    if (widget.pickupLocked) return;
     final pickupText = _pickup.text;
     final pickupPoint = _pickupPoint;
     setState(() {
@@ -332,6 +377,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     int stop = -1,
   }) {
     final active = _active == field && (field != 'stop' || _activeStop == stop);
+    final locked = field == 'pickup' && widget.pickupLocked;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       height: 56,
@@ -362,6 +408,8 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               controller: controller,
               focusNode: focus,
               autofocus: active,
+              readOnly: locked,
+              enabled: !locked,
               onTap: () {
                 if (!active) _activate(field, stop: stop);
               },
@@ -373,7 +421,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                   _choose(first.address, point: first.point);
                 }
               },
-              style: _t(16.5),
+              style: _t(16.5, color: locked ? _muted : _ink),
               cursorColor: _accent,
               decoration: InputDecoration(
                 hintText: hint,
@@ -401,7 +449,20 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 ),
               ),
             ),
-          if (stop >= 0)
+          if (locked)
+            Tooltip(
+              message: 'Your driver is already on the way to this pickup',
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  key: const ValueKey('route-picker-pickup-locked'),
+                  size: 18,
+                  color: _muted,
+                ),
+              ),
+            )
+          else if (stop >= 0)
             IconButton(
               onPressed: () => _removeStop(stop),
               icon: const Icon(Icons.close_rounded),
@@ -517,7 +578,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               height: 56,
               child: IconButton(
                 tooltip: 'Swap pickup and destination',
-                onPressed: _swap,
+                onPressed: widget.pickupLocked ? null : _swap,
                 icon: const Icon(Icons.swap_vert_rounded, size: 26),
                 color: _ink,
               ),
@@ -813,7 +874,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                         Expanded(
                           child: Center(
                             child: Text(
-                              RoutePickerPage.title,
+                              widget.pageTitle,
                               style: _t(18, weight: FontWeight.w700),
                             ),
                           ),
@@ -837,6 +898,31 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                 ),
               ],
             ),
+            if (widget.finishLabel != null &&
+                !typing &&
+                _destination.text.trim().isNotEmpty)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.paddingOf(context).bottom + 16,
+                child: SizedBox(
+                  height: 54,
+                  child: FilledButton(
+                    key: const ValueKey('route-picker-done'),
+                    onPressed: _finishing ? null : _finish,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF11181D),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      widget.finishLabel!,
+                      style: _t(16, weight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
             if (_finishing)
               const Positioned.fill(
                 child: ColoredBox(

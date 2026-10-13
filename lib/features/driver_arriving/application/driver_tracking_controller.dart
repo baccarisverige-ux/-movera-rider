@@ -23,10 +23,12 @@ class DriverTrackingController {
   final RideRealtime _realtime;
   final RideSession? _ride;
   final bool persistRideSnapshot;
-  final double pickupLat;
-  final double pickupLng;
-  final double? destinationLat;
-  final double? destinationLng;
+  /// Route ends; updated when the rider changes the route mid-ride so the
+  /// next fix measures the distance to the new place.
+  double pickupLat;
+  double pickupLng;
+  double? destinationLat;
+  double? destinationLng;
   StreamSubscription<RideRealtimeEvent>? _sub;
   Timer? _staleCheck;
   MatchedDriver? driver;

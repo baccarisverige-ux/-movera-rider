@@ -54,9 +54,6 @@ void main() {
       price: 259,
       paymentMethod: 'Apple Pay',
       notes: RideNotes.empty,
-      canEditPickup: true,
-      onEditPickup: () {},
-      onEditDestination: () {},
       onCancelTrip: () {},
     ),
   };
