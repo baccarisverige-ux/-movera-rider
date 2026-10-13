@@ -92,6 +92,10 @@ class RideSelectionController {
   /// when there is money in it.
   double walletBalance = 0;
 
+  /// Whether the rider has a saved card. Cards can only be saved once a
+  /// payment provider is connected, so until then Card opens Add card.
+  bool hasSavedCard = false;
+
   List<RidePaymentItem> payments() {
     final platform = defaultTargetPlatform;
     final mobile =

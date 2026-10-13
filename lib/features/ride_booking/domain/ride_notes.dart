@@ -4,6 +4,7 @@ class RideNotes {
     this.pet = false,
     this.baby = false,
     this.child = false,
+    this.manyBags = false,
   });
 
   final bool bags;
@@ -11,13 +12,27 @@ class RideNotes {
   final bool baby;
   final bool child;
 
+  /// With [bags]: three or more bags (asked on Set pickup as No / 1–2 / 3+).
+  final bool manyBags;
+
   static const empty = RideNotes();
 
   bool get isEmpty => !bags && !pet && !baby && !child;
 
+  /// Bags as the rider chose them on Set pickup: 0 = none, 1 = 1–2, 2 = 3+.
+  int get bagLevel => !bags ? 0 : (manyBags ? 2 : 1);
+
+  RideNotes withBagLevel(int level) => RideNotes(
+    bags: level > 0,
+    manyBags: level > 1,
+    pet: pet,
+    baby: baby,
+    child: child,
+  );
+
   List<String> get selected {
     return [
-      if (bags) 'Bags',
+      if (bags) manyBags ? 'Bags 3+' : 'Bags',
       if (pet) 'Pet',
       if (baby) 'Baby',
       if (child) 'Child',
@@ -27,6 +42,7 @@ class RideNotes {
   RideNotes copyWith({bool? bags, bool? pet, bool? baby, bool? child}) {
     return RideNotes(
       bags: bags ?? this.bags,
+      manyBags: (bags ?? this.bags) && manyBags,
       pet: pet ?? this.pet,
       baby: baby ?? this.baby,
       child: child ?? this.child,
@@ -50,6 +66,7 @@ class RideNotes {
 
   Map<String, dynamic> toJson() => {
     'bags': bags,
+    if (bags) 'bagsCount': manyBags ? '3+' : '1-2',
     'pet': pet,
     'baby': baby,
     'child': child,
@@ -59,6 +76,7 @@ class RideNotes {
     if (json == null) return empty;
     return RideNotes(
       bags: json['bags'] == true,
+      manyBags: json['bags'] == true && json['bagsCount'] == '3+',
       pet: json['pet'] == true,
       baby: json['baby'] == true,
       child: json['child'] == true,
