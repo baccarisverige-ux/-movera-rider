@@ -15,6 +15,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.driver,
     required this.rideId,
     this.status = RideStatus.tripInProgress,
+    this.headline,
     required this.onOpenProfile,
     required this.onCall,
     required this.onMore,
@@ -28,6 +29,10 @@ class RiderInTripPanel extends StatelessWidget {
   final MatchedDriver? driver;
   final String? rideId;
   final RideStatus status;
+
+  /// The live arrival time ("Arrive by 08:19") when known; otherwise the
+  /// stage name is shown.
+  final String? headline;
   final VoidCallback onOpenProfile;
   final VoidCallback onCall;
   final VoidCallback onMore;
@@ -79,7 +84,10 @@ class RiderInTripPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      approaching ? 'Approaching destination' : 'Ride in progress',
+                      headline ??
+                          (approaching
+                              ? 'Approaching destination'
+                              : 'Ride in progress'),
                       style: waitingText(23, weight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
@@ -100,12 +108,18 @@ class RiderInTripPanel extends StatelessWidget {
               WaitingShareButton(rideId: rideId),
             ],
           ),
-          const SizedBox(height: 18),
-          _TripDestinationCard(
-            destinationAddress: destinationAddress,
-            rideType: rideType,
-            paymentMethod: paymentMethod,
-            price: price,
+          const SizedBox(height: 12),
+          // One slim line: the destination is already the subtitle above.
+          Text(
+            '$rideType · $paymentMethod · ${price.round()} kr',
+            key: const ValueKey<String>('trip-summary-line'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: waitingText(
+              13.5,
+              weight: FontWeight.w500,
+              color: MoveraTokens.muted,
+            ),
           ),
           const SizedBox(height: 14),
           WaitingDriverCard(
@@ -166,179 +180,6 @@ class RiderInTripPanel extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _TripDestinationCard extends StatelessWidget {
-  const _TripDestinationCard({
-    required this.destinationAddress,
-    required this.rideType,
-    required this.paymentMethod,
-    required this.price,
-  });
-
-  final String destinationAddress;
-  final String rideType;
-  final String paymentMethod;
-  final double price;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: MoveraTokens.line),
-        boxShadow: [
-          BoxShadow(
-            color: MoveraTokens.ink.withValues(alpha: 0.05),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F7),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.flag_rounded,
-                  size: 19,
-                  color: MoveraTokens.accent,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Destination',
-                      style: waitingText(
-                        12,
-                        weight: FontWeight.w600,
-                        color: MoveraTokens.muted,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      shortPickupPlace(destinationAddress),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: waitingText(
-                        16,
-                        weight: FontWeight.w700,
-                      ).copyWith(height: 1.3),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: MoveraTokens.line),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(child: _TripMeta(label: 'Ride', value: rideType)),
-              const _VerticalRule(),
-              Expanded(
-                child: _TripMeta(
-                  label: 'Payment',
-                  value: paymentMethod,
-                  center: true,
-                ),
-              ),
-              const _VerticalRule(),
-              Expanded(
-                child: _TripMeta(
-                  label: 'Booked',
-                  value: '${price.round()} kr',
-                  end: true,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TripMeta extends StatelessWidget {
-  const _TripMeta({
-    required this.label,
-    required this.value,
-    this.center = false,
-    this.end = false,
-  });
-
-  final String label;
-  final String value;
-  final bool center;
-  final bool end;
-
-  @override
-  Widget build(BuildContext context) {
-    final alignment = end
-        ? CrossAxisAlignment.end
-        : center
-        ? CrossAxisAlignment.center
-        : CrossAxisAlignment.start;
-    final textAlign = end
-        ? TextAlign.right
-        : center
-        ? TextAlign.center
-        : TextAlign.left;
-
-    return Column(
-      crossAxisAlignment: alignment,
-      children: [
-        Text(
-          label,
-          textAlign: textAlign,
-          style: waitingText(
-            11,
-            weight: FontWeight.w500,
-            color: MoveraTokens.muted,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: textAlign,
-          style: waitingText(13, weight: FontWeight.w700),
-        ),
-      ],
-    );
-  }
-}
-
-class _VerticalRule extends StatelessWidget {
-  const _VerticalRule();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 30,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: MoveraTokens.line,
     );
   }
 }

@@ -35,6 +35,7 @@ import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
+import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
@@ -921,7 +922,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
     final driver = _tracking.driver ?? widget.driver;
     final eta = _tracking.eta;
-    final headline = eta?.headline(status: _tracking.status) ?? 'Driver found';
+    final headline = _headlineFor(eta, _tracking.status);
     final subtitle =
         eta?.subtitle(firstName: driver?.displayFirstName, status: _tracking.status) ??
         (driver == null
@@ -1137,6 +1138,28 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     );
   }
 
+  /// The live arrival time during the trip ("Arrive by 08:19"), or null
+  /// while no driver ETA has arrived yet.
+  String? _tripHeadline(DriverEta? eta, RideStatus status) {
+    final seconds = eta?.seconds;
+    if (!DriverEta.isInTrip(status) || seconds == null) return null;
+    return 'Arrive by '
+        '${clockTime(DateTime.now().add(Duration(seconds: seconds)))}';
+  }
+
+  /// Headline for the sheet: the arrival time during the trip, the stage
+  /// name without an ETA, and the driver's ETA to the pickup before it.
+  String _headlineFor(DriverEta? eta, RideStatus status) {
+    final live = _tripHeadline(eta, status);
+    if (live != null) return live;
+    if (DriverEta.isInTrip(status)) {
+      return status == RideStatus.approachingDropoff
+          ? 'Approaching destination'
+          : 'Ride in progress';
+    }
+    return eta?.headline(status: status) ?? 'Driver found';
+  }
+
   double _sheetOffset(MediaQueryData media) {
     if (!_sheetController.hasClient) return _minSheet(media);
     return _sheetController.metrics?.offset ?? _minSheet(media);
@@ -1330,6 +1353,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   Widget _panel(MatchedDriver? driver) {
     if (_isInTrip) {
       return RiderInTripPanel(
+        headline: _tripHeadline(_tracking.eta, _tracking.status),
         destinationAddress: widget.destinationAddress,
         rideType: widget.rideType,
         paymentMethod: widget.paymentMethod,
@@ -1414,6 +1438,11 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
   BitmapDescriptor? _riderPuck;
   BitmapDescriptor? _destinationPin;
   BitmapDescriptor? _driverCar;
+  // Pins that carry times: "N min" over the pickup, "Arrive by HH:MM" over
+  // the destination. Rebuilt only when the minute changes.
+  BitmapDescriptor? _pickupTimePin;
+  BitmapDescriptor? _destinationTimePin;
+  String? _timePinKey;
   DateTime? _lastPaint;
   Timer? _pendingRepaint;
   DateTime? _lastRouteRefresh;
@@ -1518,6 +1547,7 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     }
     _lastPaint = now;
     _updateDriverAnimation();
+    _syncTimePins();
 
     final next = _buildMarkers();
     final markersChanged = !_sameMarkers(_markers, next);
@@ -1645,16 +1675,63 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     return true;
   }
 
+  /// Labels for the time pins from the live ETA; new icons only when the
+  /// label changes (minute granularity), never on every animation tick.
+  void _syncTimePins() {
+    final seconds = widget.tracking.eta?.seconds;
+    if (seconds == null) return;
+    final inTrip = _inTrip;
+    final now = DateTime.now();
+    final toPickupMin = (seconds / 60).ceil().clamp(1, 999);
+    final arrive = inTrip
+        ? now.add(Duration(seconds: seconds))
+        : now.add(
+            Duration(
+              minutes:
+                  toPickupMin +
+                  estimatedTripMinutes(
+                    GeoPoint(
+                      widget.pickupPosition.latitude,
+                      widget.pickupPosition.longitude,
+                    ),
+                    GeoPoint(
+                      widget.destinationPosition.latitude,
+                      widget.destinationPosition.longitude,
+                    ),
+                  ),
+            ),
+          );
+    final pickupLabel = '$toPickupMin\nmin';
+    final arriveLabel = 'Arrive by ${clockTime(arrive)}';
+    final key = '$inTrip|$pickupLabel|$arriveLabel';
+    if (key == _timePinKey) return;
+    _timePinKey = key;
+    unawaited(() async {
+      final pins = await Future.wait([
+        RouteTimeMarker.createIcon(pickup: true, label: pickupLabel),
+        RouteTimeMarker.createIcon(pickup: false, label: arriveLabel),
+      ]);
+      if (!mounted || key != _timePinKey) return;
+      _pickupTimePin = pins[0];
+      _destinationTimePin = pins[1];
+      _markers = _buildMarkers();
+    }());
+  }
+
   Set<Marker> _buildMarkers() {
     final driverPosition = _currentDriverPosition();
+    final pickupIcon = _pickupTimePin ?? _riderPuck;
+    final destinationIcon = _destinationTimePin ?? _destinationPin;
     return {
-      if (!_inTrip && _riderPuck != null)
+      if (!_inTrip && pickupIcon != null)
         Marker(
           markerId: const MarkerId('pickup'),
           position: widget.pickupPosition,
           infoWindow: InfoWindow(title: shortPickupPlace(widget.pickupAddress)),
-          icon: _riderPuck!,
-          anchor: const Offset(0.5, 0.5),
+          icon: pickupIcon,
+          anchor: _pickupTimePin != null
+              ? RouteTimeMarker.anchor
+              : const Offset(0.5, 0.5),
         ),
       Marker(
         markerId: const MarkerId('destination'),
@@ -1663,9 +1740,11 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
           title: shortPickupPlace(widget.destinationAddress),
         ),
         icon:
-            _destinationPin ??
+            destinationIcon ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        anchor: const Offset(0.5, 0.5),
+        anchor: _destinationTimePin != null
+            ? RouteTimeMarker.anchor
+            : const Offset(0.5, 0.5),
       ),
       if (driverPosition != null)
         Marker(
