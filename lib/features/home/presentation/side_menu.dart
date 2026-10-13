@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/core/constants/appfontweight.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
-import 'package:movera_rider/shared/widgets/responsive_size.dart';
-import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
 class RiderSideMenu extends StatelessWidget {
   const RiderSideMenu({super.key, this.onStartBooking, this.onCoveredChanged});
@@ -27,9 +24,9 @@ class RiderSideMenu extends StatelessWidget {
   static const Color _ink = Color(0xFF1C2329);
   static const Color _muted = Color(0xFF7A858E);
   static const Color _accent = Color(0xFF2D5878);
-  static const Color _canvas = Color(0xFFF3F5F6);
-  static const Color _card = Color(0xFFFFFFFF);
-  static const Color _icon = Color(0xFF3A4550);
+  static const Color _icon = Color(0xFF2F3A44);
+  static const Color _line = Color(0xFFEDF0F2);
+  static const Color _avatarTint = Color(0xFFE8EEF2);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -65,11 +62,12 @@ class RiderSideMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
     return Drawer(
-      backgroundColor: _canvas,
+      backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      width: MediaQuery.of(context).size.width * 0.84,
+      width: media.size.width * 0.86,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(28),
@@ -78,25 +76,23 @@ class RiderSideMenu extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: ColoredBox(
-        color: _canvas,
+        color: Colors.white,
         child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    ResSize.w * 16,
-                    ResSize.h * 12,
-                    ResSize.w * 16,
-                    ResSize.h * 12,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _profileCard(),
-                      14.height,
-                      _menuCard(context),
-                      14.height,
+                      _profileHeader(),
+                      const SizedBox(height: 22),
+                      const Divider(height: 1, thickness: 1, color: _line),
+                      const SizedBox(height: 12),
+                      ..._menuGroups(context),
                     ],
                   ),
                 ),
@@ -109,222 +105,185 @@ class RiderSideMenu extends StatelessWidget {
     );
   }
 
-  Widget _cardSurface({required Widget child, EdgeInsetsGeometry? padding}) {
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: child,
+  TextStyle _text(
+    double size, {
+    FontWeight weight = FontWeight.w500,
+    Color color = _ink,
+    double? height,
+    double? letterSpacing,
+  }) {
+    return GoogleFonts.poppins(
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
     );
   }
 
-  Widget _profileCard() {
+  /// Avatar above the name, with room for a long greeting.
+  Widget _profileHeader() {
     final controller = AppScope.instance.profile;
     final profile = controller.profile;
     final hasPhoto = profile.photoAsset.trim().isNotEmpty;
 
-    return _cardSurface(
-      padding: EdgeInsets.fromLTRB(
-        ResSize.w * 18,
-        ResSize.h * 18,
-        ResSize.w * 18,
-        ResSize.h * 18,
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              ClipOval(
-                child: SizedBox(
-                  width: ResSize.w * 56,
-                  height: ResSize.h * 56,
-                  child: hasPhoto
-                      ? Image.asset(
-                          excludeFromSemantics: true,
-                          profile.photoAsset,
-                          fit: BoxFit.cover,
-                        )
-                      : ColoredBox(
-                          color: const Color(0xFFE7EDF1),
-                          child: Icon(
-                            Icons.person_outline_rounded,
-                            color: _muted,
-                            size: 28 * ResSize.h,
-                          ),
-                        ),
-                ),
-              ),
-              14.width,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextWidget(
-                      text: controller.displayName(),
-                      color: _ink,
-                      fontSize: 18,
-                      fontWeight: fwSemiBold,
+          ClipOval(
+            child: SizedBox(
+              width: 68,
+              height: 68,
+              child: hasPhoto
+                  ? Image.asset(
+                      excludeFromSemantics: true,
+                      profile.photoAsset,
+                      fit: BoxFit.cover,
+                    )
+                  : const ColoredBox(
+                      color: _avatarTint,
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: _muted,
+                        size: 34,
+                      ),
                     ),
-                  ],
-                ),
-              ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            controller.displayName(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: _text(
+              24,
+              weight: FontWeight.w700,
+              height: 1.15,
+              letterSpacing: -0.4,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _menuCard(BuildContext context) {
-    final items =
-        <({IconData? icon, String? image, String title, VoidCallback onTap})>[
-          (
-            icon: Icons.account_balance_wallet_outlined,
-            image: null,
-            title: 'Wallet',
-            onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
+  List<Widget> _menuGroups(BuildContext context) {
+    final groups = <List<_MenuItem>>[
+      [
+        _MenuItem(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Wallet',
+          onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
+        ),
+        _MenuItem(
+          icon: Icons.history_rounded,
+          title: 'Ride History',
+          onTap: () => _pushPage(context, RideHistory()),
+        ),
+        _MenuItem(
+          icon: Icons.credit_card_outlined,
+          title: 'Payments',
+          onTap: () => _pushPage(
+            context,
+            const WalletAndPaymentsScreen(initialTab: 1),
           ),
-          (
-            icon: Icons.history_rounded,
-            image: null,
-            title: 'Ride History',
-            onTap: () => _pushPage(context, RideHistory()),
-          ),
-          (
-            icon: Icons.credit_card_outlined,
-            image: null,
-            title: 'Payments',
-            onTap: () => _pushPage(
-              context,
-              const WalletAndPaymentsScreen(initialTab: 1),
+        ),
+      ],
+      [
+        // Notifications and Saved places were both finished screens with no
+        // way in: nothing in the app built either of them.
+        _MenuItem(
+          icon: Icons.notifications_none_rounded,
+          title: 'Notifications',
+          onTap: () => _pushPage(context, const NotificationScreen()),
+        ),
+        _MenuItem(
+          icon: Icons.bookmark_border_rounded,
+          title: 'Saved Places',
+          onTap: () => _pushPage(context, SavedPlaces()),
+        ),
+      ],
+      [
+        _MenuItem(
+          image: AppAssets.safetyShield,
+          title: 'Safety',
+          onTap: () => _pushPage(context, const SafetyHub()),
+        ),
+        _MenuItem(
+          icon: Icons.headset_mic_outlined,
+          title: 'Support',
+          onTap: () => _pushPage(context, const SupportHome()),
+        ),
+        _MenuItem(
+          icon: Icons.info_outline_rounded,
+          title: 'About',
+          onTap: () => _pushPage(
+            context,
+            const HelpArticle(
+              title: 'About Movera',
+              body:
+                  'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
             ),
           ),
-          // Notifications and Saved places were both finished screens with no
-          // way in: nothing in the app built either of them.
-          (
-            icon: Icons.notifications_none_rounded,
-            image: null,
-            title: 'Notifications',
-            onTap: () => _pushPage(context, const NotificationScreen()),
-          ),
-          (
-            icon: Icons.bookmark_border_rounded,
-            image: null,
-            title: 'Saved Places',
-            onTap: () => _pushPage(context, SavedPlaces()),
-          ),
-          (
-            icon: null,
-            image: AppAssets.safetyShield,
-            title: 'Safety',
-            onTap: () => _pushPage(context, const SafetyHub()),
-          ),
-          (
-            icon: Icons.headset_mic_outlined,
-            image: null,
-            title: 'Support',
-            onTap: () => _pushPage(context, const SupportHome()),
-          ),
-          (
-            icon: Icons.info_outline_rounded,
-            image: null,
-            title: 'About',
-            onTap: () => _pushPage(
-              context,
-              const HelpArticle(
-                title: 'About Movera',
-                body:
-                    'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
-              ),
-            ),
-          ),
-        ];
+        ),
+      ],
+    ];
 
-    return _cardSurface(
-      child: Column(
-        children: [
-          for (var i = 0; i < items.length; i++)
-            _menuRow(
-              icon: items[i].icon,
-              image: items[i].image,
-              title: items[i].title,
-              onTap: items[i].onTap,
-              isFirst: i == 0,
-              isLast: i == items.length - 1,
-            ),
-        ],
-      ),
-    );
+    return [
+      for (var g = 0; g < groups.length; g++) ...[
+        if (g > 0)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, thickness: 1, color: _line),
+          ),
+        for (final item in groups[g]) _menuRow(item),
+      ],
+    ];
   }
 
-  Widget _menuRow({
-    IconData? icon,
-    String? image,
-    required String title,
-    required VoidCallback onTap,
-    required bool isFirst,
-    required bool isLast,
-  }) {
+  Widget _menuRow(_MenuItem item) {
     return Semantics(
       button: true,
-      label: title,
-      onTap: onTap,
+      label: item.title,
+      onTap: item.onTap,
       child: ExcludeSemantics(
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.vertical(
-              top: isFirst ? const Radius.circular(22) : Radius.zero,
-              bottom: isLast ? const Radius.circular(22) : Radius.zero,
-            ),
-            splashColor: _accent.withValues(alpha: 0.05),
-            highlightColor: _accent.withValues(alpha: 0.03),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                ResSize.w * 18,
-                ResSize.h * 16,
-                ResSize.w * 18,
-                ResSize.h * 16,
-              ),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: ResSize.w * 26,
-                    height: ResSize.h * 26,
-                    child: image != null
-                        ? Image.asset(
-                            excludeFromSemantics: true,
-                            image,
-                            fit: BoxFit.contain,
-                          )
-                        : Icon(icon, size: 22 * ResSize.h, color: _icon),
-                  ),
-                  16.width,
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _ink,
-                        fontSize: ResSize.setSp(16),
-                        fontWeight: fwMedium,
+            onTap: item.onTap,
+            borderRadius: BorderRadius.circular(16),
+            splashColor: _accent.withValues(alpha: 0.06),
+            highlightColor: _accent.withValues(alpha: 0.04),
+            child: SizedBox(
+              height: 58,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: item.image != null
+                          ? Image.asset(
+                              excludeFromSemantics: true,
+                              item.image!,
+                              fit: BoxFit.contain,
+                            )
+                          : Icon(item.icon, size: 25, color: _icon),
+                    ),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(17, weight: FontWeight.w500),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -335,35 +294,39 @@ class RiderSideMenu extends StatelessWidget {
 
   Widget _footer() {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        ResSize.w * 16,
-        ResSize.h * 8,
-        ResSize.w * 16,
-        ResSize.h * 16,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Image.asset(
             excludeFromSemantics: true,
             AppAssets.logo,
-            height: ResSize.h * 18,
+            height: 18,
           ),
-          8.width,
+          const SizedBox(width: 8),
           Flexible(
             child: Text(
               'Movera Rider',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: _muted,
-                fontSize: ResSize.setSp(11),
-                fontWeight: fwMedium,
-              ),
+              style: _text(12, color: _muted),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _MenuItem {
+  const _MenuItem({
+    this.icon,
+    this.image,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData? icon;
+  final String? image;
+  final String title;
+  final VoidCallback onTap;
 }
