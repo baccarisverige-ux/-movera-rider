@@ -699,6 +699,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             here: here,
             homeAddress: _placeOrNull(_homeAddress),
             workAddress: _placeOrNull(_workAddress),
+            savedPlaces: _places.savedPlaces,
             recent: _recentAddresses,
             onSetFavourite: (target) async {
               await _showAddressPicker(target: target);

@@ -126,6 +126,29 @@ class SavedPlacesRow extends StatelessWidget {
   }
 }
 
+/// Icon for a custom saved place, shared with every screen that lists one.
+IconData placeIconFor(String type) => _placeIcon(type);
+
+/// Label for a custom saved place type ("gym" → "Gym").
+String placeLabelFor(String type) {
+  switch (type) {
+    case 'gym':
+      return 'Gym';
+    case 'mall':
+      return 'Mall';
+    case 'school':
+      return 'School';
+    case 'airport':
+      return 'Airport';
+    case 'family':
+      return 'Family';
+    case 'restaurant':
+      return 'Restaurant';
+    default:
+      return 'Other';
+  }
+}
+
 IconData _placeIcon(String type) {
   switch (type) {
     case 'gym':
