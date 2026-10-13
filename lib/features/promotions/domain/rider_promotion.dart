@@ -12,6 +12,7 @@ class RiderPromotion {
     required this.ridesTotal,
     this.endsAt,
     this.maxDiscountMinor,
+    this.rideTypes = const [],
     this.rules = const [],
   });
 
@@ -22,7 +23,14 @@ class RiderPromotion {
   final int ridesTotal;
   final DateTime? endsAt;
   final int? maxDiscountMinor;
+
+  /// Ride category ids the promotion applies to. Empty means every category.
+  final List<String> rideTypes;
   final List<String> rules;
+
+  /// Whether a ride of category [rideId] gets this promotion's discount.
+  bool appliesTo(String rideId) =>
+      rideTypes.isEmpty || rideTypes.contains(rideId);
 
   bool isActiveAt(DateTime now) =>
       ridesLeft > 0 && (endsAt == null || now.isBefore(endsAt!));
@@ -39,6 +47,7 @@ class RiderPromotion {
     final ends = json['endsAt'];
     final max = json['maxDiscountMinor'];
     final rules = json['rules'];
+    final rideTypes = json['rideTypes'];
     return RiderPromotion(
       id: id,
       title: title.trim(),
@@ -47,6 +56,9 @@ class RiderPromotion {
       ridesTotal: total is num ? total.toInt() : left.toInt(),
       endsAt: ends is String ? DateTime.tryParse(ends) : null,
       maxDiscountMinor: max is num ? max.toInt() : null,
+      rideTypes: rideTypes is List
+          ? rideTypes.whereType<String>().toList()
+          : const [],
       rules: rules is List ? rules.whereType<String>().toList() : const [],
     );
   }
