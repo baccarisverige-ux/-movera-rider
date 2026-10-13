@@ -158,7 +158,7 @@ class InProcessMockClient extends http.BaseClient {
           payload = {
             'code': 'OK',
             'data': {
-              'address': '${known['title']}, ${known['subtitle']}',
+              'address': normalized,
               'latitude': known['latitude'],
               'longitude': known['longitude'],
             },

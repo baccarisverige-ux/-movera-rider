@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 
 /// The demo transport geocodes its known places to where they really are, so
@@ -22,7 +21,7 @@ void main() {
     final data = await geocode('Arlanda');
     expect(data['latitude'], closeTo(59.65, 0.01));
     expect(data['longitude'], closeTo(17.92, 0.01));
-    expect(data['address'], contains('Arlanda'));
+    expect(data['address'], 'Arlanda');
   });
 
   test('unknown text still gets a stable demo point near Stockholm', () async {
