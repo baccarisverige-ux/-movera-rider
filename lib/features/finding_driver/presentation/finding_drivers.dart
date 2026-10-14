@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
@@ -100,6 +101,9 @@ class _FindingDriversState extends State<FindingDrivers> {
   RideStatus? _terminalPending;
   bool _overlayOn = false;
 
+  /// Whether the sheet is pulled up past its resting height; the collapse
+  /// chevron is only offered then (AUD-3).
+  bool _sheetExpanded = false;
   int _nearbyPaintKey = 0;
   final SheetController _sheetController = SheetController();
   /// Green pickup pin (the rider waits there).
@@ -575,12 +579,26 @@ class _FindingDriversState extends State<FindingDrivers> {
     final media = MediaQuery.maybeOf(context);
     if (media == null) return;
     final offset = _sheetController.metrics?.offset;
-    final cover =
-        (offset != null && offset > _minSheet(media) + 12) ||
-        _match.showPriceBump;
+    final expanded = offset != null && offset > _minSheet(media) + 12;
+    if (expanded != _sheetExpanded) _setSheetExpanded(expanded);
+    final cover = expanded || _match.showPriceBump;
     if (cover == _overlayOn) return;
     _overlayOn = cover;
     setWebOverlayOpen(cover);
+  }
+
+  void _setSheetExpanded(bool expanded) {
+    // Sheet metrics can change mid-layout; never rebuild during a frame.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _sheetExpanded != expanded) {
+          setState(() => _sheetExpanded = expanded);
+        }
+      });
+      return;
+    }
+    if (mounted) setState(() => _sheetExpanded = expanded);
   }
 
   String _shortPlace(String value) => shortenPlace(value);
@@ -658,25 +676,28 @@ class _FindingDriversState extends State<FindingDrivers> {
               child: PointerInterceptor(
                 child: Row(
                   children: [
+                    // AUD-3: cancelling has its own labelled control; the
+                    // chevron only ever collapses the sheet.
                     MoveraIconButton.round(
-                      icon: Icons.keyboard_arrow_down_rounded,
-                      onPressed: () {
-                        final minSheet = _minSheet(media);
-                        final offset = _sheetController.hasClient
-                            ? _sheetController.metrics?.offset
-                            : null;
-                        if (offset != null && offset > minSheet + 12) {
+                      icon: Icons.close_rounded,
+                      onPressed: _confirmCancel,
+                      label: 'Cancel request',
+                    ),
+                    if (_sheetExpanded) ...[
+                      const SizedBox(width: 8),
+                      MoveraIconButton.round(
+                        icon: Icons.keyboard_arrow_down_rounded,
+                        onPressed: () {
+                          if (!_sheetController.hasClient) return;
                           _sheetController.animateTo(
-                            SheetOffset.absolute(minSheet),
+                            SheetOffset.absolute(_minSheet(media)),
                             duration: MoveraDurations.large,
                             curve: MoveraCurves.close,
                           );
-                        } else {
-                          _confirmCancel();
-                        }
-                      },
-                      label: 'Collapse',
-                    ),
+                        },
+                        label: 'Collapse',
+                      ),
+                    ],
                     const Spacer(),
                     SafetyKitMapButton(rideId: _match.ride.rideId),
                   ],
