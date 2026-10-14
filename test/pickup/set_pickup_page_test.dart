@@ -2,9 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
+import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
-import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+
+class _MemoryStore implements PreviousPickupsStore {
+  List<PreviousPickup> items = const [];
+
+  @override
+  Future<List<PreviousPickup>> read() async => items;
+
+  @override
+  Future<void> write(List<PreviousPickup> pickups) async => items = pickups;
+}
+
+class _ResultBox {
+  SetPickupResult? value;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +29,11 @@ void main() {
     WidgetTester tester, {
     SetPickupFare fare = const SetPickupFare(totalKr: 237),
     bool fallback = false,
+    LatLng? home,
+    _MemoryStore? store,
+    _ResultBox? box,
   }) {
+    final spotStore = store ?? _MemoryStore();
     SetPickupResult? result;
     var done = false;
     return () async {
@@ -49,11 +68,11 @@ void main() {
                     ),
                     brandMark: (_) => const Icon(Icons.directions_car),
                     onChangePayment: () async => null,
-                    spots: const [
-                      PlaceShortcut(title: 'Home', subtitle: 'Odenplan', kind: 'home'),
-                    ],
+                    spotsController: PickupSpotsController(store: spotStore),
+                    home: home,
                     positionIsFallback: fallback,
                   );
+                  box?.value = result;
                   done = true;
                 },
                 child: const Text('open'),
@@ -84,7 +103,10 @@ void main() {
     expect(find.text('Pickup spot'), findsOneWidget);
     expect(find.text('Klockarvägen 37'), findsOneWidget);
     expect(find.text('Your current location'), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Main entrance'), findsOneWidget);
+    expect(find.text('Side entrance'), findsOneWidget);
+    expect(find.text('Parking'), findsOneWidget);
+    expect(find.text('Near Home'), findsNothing);
     expect(find.text('On map'), findsOneWidget);
     expect(find.text('Bags?'), findsOneWidget);
     expect(find.text('Ride price'), findsOneWidget);
@@ -136,6 +158,7 @@ void main() {
                     detail: '',
                   ),
                   brandMark: (_) => const SizedBox(),
+                  spotsController: PickupSpotsController(store: _MemoryStore()),
                 );
               },
               child: const Text('open'),
@@ -222,6 +245,110 @@ void main() {
     }
     expect(chip.hitTestable(), findsNothing);
     expect(find.text('Bags?').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets('spot chips show for the address; Near Home only close to Home', (
+    tester,
+  ) async {
+    await openPage(tester, home: const LatLng(59.3300, 18.0686))();
+    final row = find.byKey(const ValueKey('set-pickup-spots'));
+    expect(row, findsOneWidget);
+    expect(find.text('Main entrance').hitTestable(), findsOneWidget);
+    // The row scrolls sideways; later chips come into view.
+    for (final label in ['Side entrance', 'Parking', 'Near Home', 'On map']) {
+      await tester.ensureVisible(find.text(label));
+      await tester.pump();
+      expect(find.text(label).hitTestable(), findsOneWidget, reason: label);
+    }
+    expect(find.byIcon(Icons.door_front_door_rounded), findsNWidgets(2));
+    expect(find.byIcon(Icons.local_parking_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+  });
+
+  testWidgets('tapping a spot chip renames the pickup, fills the chip and '
+      'confirms with that label', (tester) async {
+    final store = _MemoryStore();
+    final box = _ResultBox();
+    await openPage(tester, store: store, box: box)();
+    expect(find.text('Klockarvägen 37'), findsOneWidget);
+
+    await tester.tap(find.text('Main entrance'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Klockarvägen 37 – Main entrance'), findsOneWidget);
+    expect(find.text('Front of the building'), findsOneWidget);
+    final chipKey = const ValueKey('set-pickup-spot-entrance-main');
+    final chip = tester.widget<Material>(
+      find.descendant(of: find.byKey(chipKey), matching: find.byType(Material)).first,
+    );
+    expect(chip.color, const Color(0xFF11181D));
+    final parkingChip = tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('set-pickup-spot-parking')),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(parkingChip.color, isNot(const Color(0xFF11181D)));
+
+    // Another chip takes over.
+    await tester.ensureVisible(find.text('Parking'));
+    await tester.pump();
+    await tester.tap(find.text('Parking'));
+    await tester.pump(const Duration(milliseconds: 300));
+    // The old label fades out over two frames.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Klockarvägen 37 – Parking'), findsOneWidget);
+    expect(find.text('Short walk'), findsOneWidget);
+    expect(find.text('Klockarvägen 37 – Main entrance'), findsNothing);
+
+    await tester.tap(find.text('Confirm and search'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(SetPickupPage), findsNothing);
+    // The spot itself is the pickup point, ~60 m east of the address.
+    final result = box.value;
+    expect(result, isNotNull);
+    expect(result!.address, 'Klockarvägen 37 – Parking');
+    expect(result.position.longitude, greaterThan(18.0686));
+    expect(result.position.latitude, closeTo(59.3293, 1e-6));
+    // Confirming remembers the spot for next time.
+    expect(store.items.single.address, 'Klockarvägen 37 – Parking');
+    expect(store.items.single.position, result.position);
+  });
+
+  testWidgets('a remembered pickup comes back as Previously used, first', (
+    tester,
+  ) async {
+    final store = _MemoryStore()
+      ..items = [
+        PreviousPickup(
+          position: const LatLng(59.3293, 18.0693),
+          address: 'Klockarvägen 37 – Courtyard',
+          savedAt: DateTime(2026, 1, 1),
+        ),
+      ];
+    await openPage(tester, store: store)();
+    expect(find.text('Previously used'), findsOneWidget);
+    expect(find.byIcon(Icons.history_rounded), findsOneWidget);
+    final row = tester.widget<Row>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('set-pickup-spots')),
+            matching: find.byType(Row),
+          )
+          .first,
+    );
+    final firstChip = row.children.first;
+    expect(
+      find.descendant(of: find.byWidget(firstChip), matching: find.text('Previously used')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Previously used'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Klockarvägen 37 – Previously used'), findsOneWidget);
+    expect(find.text('Courtyard'), findsOneWidget);
   });
 
   test('bags are kept on the ride notes', () {

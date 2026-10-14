@@ -22,6 +22,20 @@ void main() {
     expect(p.endsAt, DateTime.utc(2026, 11, 30, 23, 59));
   });
 
+  test('parses the categories the promotion applies to', () {
+    final p = RiderPromotion.fromJson({
+      ...json,
+      'rideTypes': ['comfort', 'priority', 7, 'premium'],
+    })!;
+    expect(p.rideTypes, ['comfort', 'priority', 'premium']);
+    expect(p.appliesTo('comfort'), isTrue);
+    expect(p.appliesTo('movera'), isFalse);
+    // No list from the server means every category.
+    final all = RiderPromotion.fromJson(json)!;
+    expect(all.rideTypes, isEmpty);
+    expect(all.appliesTo('movera'), isTrue);
+  });
+
   test('nothing from the server means no promotion', () {
     expect(RiderPromotion.fromJson(null), isNull);
     expect(RiderPromotion.fromJson({'id': 'x'}), isNull);

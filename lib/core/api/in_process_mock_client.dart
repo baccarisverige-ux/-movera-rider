@@ -1005,10 +1005,25 @@ class InProcessMockClient extends http.BaseClient {
     };
   }
 
+  /// The catalog price covers a trip this long; the fare then moves 12 kr
+  /// per kilometre either way (the route-change rate), never below 60% of
+  /// the catalog price. So a 3 km quote is the demo list price.
+  static const _catalogTripMeters = 3000;
+  static const _krPerKm = 12;
+
+  int _fareKr(String rideType, int distanceMeters) {
+    final catalogKr = _catalogPriceKr(rideType);
+    final extraKm = (distanceMeters - _catalogTripMeters) / 1000;
+    final kr = (catalogKr + extraKm * _krPerKm).round();
+    return math.max((catalogKr * 0.6).round(), kr);
+  }
+
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
     final rideType = body['rideType'] as String? ?? 'movera';
-    final kr = _catalogPriceKr(rideType);
-    final fullMinor = kr * 100;
+    final distanceMeters =
+        (body['distanceMeters'] as num?)?.round() ?? _catalogTripMeters;
+    final catalogMinor = _catalogPriceKr(rideType) * 100;
+    final fullMinor = _fareKr(rideType, distanceMeters) * 100;
     // Demo promotion: discounts the ride types it names, capped per ride.
     final promo = activePromotion;
     final eligible =
@@ -1032,8 +1047,8 @@ class InProcessMockClient extends http.BaseClient {
       'expiresAt': DateTime.now().add(const Duration(minutes: 2)).toIso8601String(),
       'expiresInSec': 120,
       'breakdown': {
-        'baseMinor': minor,
-        'distanceMinor': 0,
+        'baseMinor': math.min(fullMinor, catalogMinor),
+        'distanceMinor': math.max(0, fullMinor - catalogMinor),
         'timeMinor': 0,
         'bookingFeeMinor': 0,
         'discountMinor': discountMinor,

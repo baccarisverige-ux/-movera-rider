@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:movera_rider/features/payments/presentation/pay_with_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
+import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
 import 'package:movera_rider/features/promotions/presentation/promotion_ticket.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -18,6 +19,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
+import 'package:movera_rider/core/maps/straight_line.dart';
 import 'package:movera_rider/core/performance/route_transition_metrics.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -26,7 +28,6 @@ import 'package:movera_rider/features/booking/application/booking_controller.dar
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
-import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -227,16 +228,6 @@ class _SelectRideState extends State<SelectRide>
     _ => null,
   };
 
-  List<_PaymentOption> get _payments {
-    return _selection.payments().map((item) {
-      return _PaymentOption(
-        brand: item.brand,
-        name: item.name,
-        detail: item.detail,
-      );
-    }).toList();
-  }
-
   SelectRideFilter _filter = SelectRideFilter.recommended;
   late final bool _ownsSelection = widget.selection == null;
   late final RideSelectionController _selection =
@@ -314,9 +305,7 @@ class _SelectRideState extends State<SelectRide>
             ? null
             : _reservations.byId(widget.editingReservationId!)?.paymentMethod);
     _selection.selectPaymentNamed(paymentName);
-    if (paymentName == null) {
-      unawaited(_restoreSavedPayment());
-    }
+    unawaited(_loadSavedCards(paymentName));
     if (widget.initialScheduledFor != null) {
       _selection.scheduleFor(widget.initialScheduledFor);
     } else if (widget.bookingMode == BookingMode.scheduled) {
@@ -339,8 +328,17 @@ class _SelectRideState extends State<SelectRide>
     });
   }
 
-  Future<void> _restoreSavedPayment() async {
-    await _selection.restoreDefaultPayment();
+  /// Saved cards first (they are payment methods too), then the remembered
+  /// default when nothing was handed in.
+  Future<void> _loadSavedCards(String? paymentName) async {
+    try {
+      await _selection.loadSavedCards();
+      if (paymentName != null) {
+        _selection.selectPaymentNamed(paymentName);
+      } else {
+        await _selection.restoreDefaultPayment();
+      }
+    } catch (_) {}
     if (mounted) setState(() {});
   }
 
@@ -395,8 +393,33 @@ class _SelectRideState extends State<SelectRide>
       generation: generation,
       pickup: widget.pickupAddress,
       destination: widget.destinationAddress,
+      distanceMeters: straightLineMeters(
+        _pickupPosition,
+        widget.destinationPosition,
+      ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// Set location moved the pin: price [ride] again from that exact point
+  /// and adopt the quote, so Confirm books the price shown there.
+  Future<SetPickupFare?> _requoteFromPin(_RideOption ride, LatLng pin) async {
+    final quote = await AppScope.instance.quotes.quote(
+      rideType: ride.id,
+      distanceMeters: straightLineMeters(pin, widget.destinationPosition),
+      pickup: widget.pickupAddress,
+      destination: widget.destinationAddress,
+    );
+    if (!mounted) return null;
+    _selection.adoptQuote(ride.id, quote);
+    final total = quote.totalMinor / 100;
+    final discount = quote.discountMinor / 100;
+    return SetPickupFare(
+      totalKr: total,
+      discountKr: discount,
+      promotionPercent: discount > 0 ? _promotion?.percentOff : null,
+      walletKr: _selection.walletAppliedKr(total),
+    );
   }
 
   @override
@@ -494,10 +517,8 @@ class _SelectRideState extends State<SelectRide>
       math.max(selectRideMaxSheetHeight(media), _minSheet(media) + 120);
 
   /// Middle stop: about three short rows.
-  double _midSheet(MediaQueryData media) => math.min(
-    _minSheet(media) + _rowHeight * 2 + 4,
-    _maxSheet(media) - 60,
-  );
+  double _midSheet(MediaQueryData media) =>
+      math.min(_minSheet(media) + _rowHeight * 2 + 4, _maxSheet(media) - 60);
 
   double _midValue(MediaQueryData media) {
     final range = _maxSheet(media) - _minSheet(media);
@@ -696,7 +717,8 @@ class _SelectRideState extends State<SelectRide>
     try {
       await action();
     } finally {
-      final routeIsCurrent = mounted && (ModalRoute.of(context)?.isCurrent ?? false);
+      final routeIsCurrent =
+          mounted && (ModalRoute.of(context)?.isCurrent ?? false);
       if (routeIsCurrent) setState(() => _mapParked = false);
     }
   }
@@ -790,7 +812,11 @@ class _SelectRideState extends State<SelectRide>
       context,
       methods: [
         for (final item in _selection.payments())
-          PayWithMethod(brand: item.brand, name: item.name, detail: item.detail),
+          PayWithMethod(
+            brand: item.brand,
+            name: item.name,
+            detail: item.detail,
+          ),
       ],
       selectedBrand: current?.brand,
       walletBalance: _selection.walletBalance,
@@ -948,8 +974,6 @@ class _SelectRideState extends State<SelectRide>
     return parts.join(' · ');
   }
 
-
-
   void _releaseBookingLock() {
     _bookingInFlight = false;
     if (mounted) setState(() {});
@@ -971,15 +995,15 @@ class _SelectRideState extends State<SelectRide>
     final selected = _selectedRideOrNull;
     if (selected == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No ride category is available. Try again.')),
+        const SnackBar(
+          content: Text('No ride category is available. Try again.'),
+        ),
       );
       return;
     }
     if (!_selection.quoteIsAvailable(selected.id)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Price unavailable. Refreshing fare…'),
-        ),
+        const SnackBar(content: Text('Price unavailable. Refreshing fare…')),
       );
       unawaited(_loadQuotes());
       return;
@@ -994,14 +1018,21 @@ class _SelectRideState extends State<SelectRide>
     _bookNow();
   }
 
-  /// Saved places offered as quick pickup spots on Set pickup.
-  Future<List<PlaceShortcut>> _pickupSpots() async {
+  /// Where the rider's Home is, so Set pickup can offer a "Near Home" spot.
+  /// Best effort: no Home, or a slow lookup, simply means no such spot.
+  Future<LatLng?> _homePosition() async {
     try {
       final places = AppScope.instance.savedPlaces;
       await places.hydrate().timeout(const Duration(milliseconds: 600));
-      return places.shortcuts();
+      final home = places.shortcuts().where((p) => p.kind == 'home');
+      if (home.isEmpty) return null;
+      final found = await AppScope.instance.geocoding
+          .geocodeAddress(home.first.subtitle)
+          .timeout(const Duration(milliseconds: 900));
+      if (found == null) return null;
+      return LatLng(found.point.latitude, found.point.longitude);
     } catch (_) {
-      return const <PlaceShortcut>[];
+      return null;
     }
   }
 
@@ -1010,7 +1041,7 @@ class _SelectRideState extends State<SelectRide>
     String confirmLabel = 'Confirm and search',
     DateTime? scheduledPickup,
   }) async {
-    final spots = await _pickupSpots();
+    final home = await _homePosition();
     if (!mounted) return null;
     final quote = _selection.authoritativeQuotes[ride.id];
     final promotion = _promotion;
@@ -1050,8 +1081,9 @@ class _SelectRideState extends State<SelectRide>
         await _showPaymentPicker();
         return paymentLine();
       },
+      onRequote: (pin) => _requoteFromPin(ride, pin),
       initialBagLevel: _notes.bagLevel,
-      spots: spots,
+      home: home,
       initialIsCurrentLocation: !_pickupConfirmed,
       confirmLabel: confirmLabel,
       scheduledPickup: scheduledPickup,
@@ -1096,7 +1128,9 @@ class _SelectRideState extends State<SelectRide>
         quote.signedPayload == null ||
         quote.signedPayload!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fare changed or expired. Refreshing price…')),
+        const SnackBar(
+          content: Text('Fare changed or expired. Refreshing price…'),
+        ),
       );
       _releaseBookingLock();
       unawaited(_loadQuotes());
@@ -1119,10 +1153,21 @@ class _SelectRideState extends State<SelectRide>
       try {
         if (!mounted) return;
         if (FindingDriverController.active != null) return;
-        // A card needs to be saved first: Add card opens before Set pickup.
+        // A card needs to be saved first: Add card opens before Set pickup
+        // and the new card becomes the chosen method.
         if (payment.brand == 'cards' && !_selection.hasSavedCard) {
-          await AddCardPage.open(context);
-          return;
+          final card = await AddCardPage.open(context);
+          if (card == null || !mounted) return;
+          final index = _selection.payments().indexWhere(
+            (p) => p.brand == card.methodBrand,
+          );
+          if (index < 0) return;
+          setState(() => _selection.selectPayment(index));
+          payment = _PaymentOption(
+            brand: card.methodBrand,
+            name: card.displayName,
+            detail: 'Expires ${card.expiryLabel}',
+          );
         }
         // Set pickup every time; the current location is preselected.
         final spot = await _openSetPickup(selected);
@@ -1190,8 +1235,9 @@ class _SelectRideState extends State<SelectRide>
 
         final existingOwner = FindingDriverController.active;
         if (existingOwner != null) {
-          final authoritativeRideId = await (widget.booking ?? BookingController())
-              .reconcileCreatedFinding(rideId);
+          final authoritativeRideId =
+              await (widget.booking ?? BookingController())
+                  .reconcileCreatedFinding(rideId);
           if (!mounted) {
             if (authoritativeRideId == rideId) {
               await RideRestoreCoordinator.instance.recoverCreatedFinding(
@@ -1214,7 +1260,7 @@ class _SelectRideState extends State<SelectRide>
           await Navigator.push(
             context,
             RideStageTransition(
-            FindingDrivers(
+              FindingDrivers(
                 pickupAddress: _pickupAddress,
                 destinationAddress: widget.destinationAddress,
                 pickupPosition: _pickupPosition,
@@ -1252,340 +1298,344 @@ class _SelectRideState extends State<SelectRide>
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F5F1),
         body: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: minSheet,
-            child: RepaintBoundary(
-              child: showLiveMap
-                  ? CustomGoogleMap(
-                      key: const ValueKey('select-ride-map'),
-                      initialPosition: CameraPosition(
-                        target: _pickupPosition,
-                        zoom: 13.2,
-                      ),
-                      markers: {
-                        if ((_pickupTimePin ?? _pickupPin) != null)
-                          Marker(
-                            markerId: const MarkerId('pickup'),
-                            position: _pickupPosition,
-                            icon: (_pickupTimePin ?? _pickupPin)!,
-                            anchor: _pickupTimePin != null
-                                ? RouteTimeMarker.anchor
-                                : const Offset(0.5, 0.5),
-                          ),
-                        if ((_destinationTimePin ?? _destinationPin) != null)
-                          Marker(
-                            markerId: const MarkerId('destination'),
-                            position: widget.destinationPosition,
-                            icon: (_destinationTimePin ?? _destinationPin)!,
-                            anchor: _destinationTimePin != null
-                                ? RouteTimeMarker.anchor
-                                : const Offset(0.5, 0.5),
-                          ),
-                      },
-                      polylines: styledRoute(
-                        routePolyline(
-                          id: 'route',
-                          from: _pickupPosition,
-                          to: widget.destinationPosition,
-                          color: RiderRouteStyle.color,
+          children: [
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: minSheet,
+              child: RepaintBoundary(
+                child: showLiveMap
+                    ? CustomGoogleMap(
+                        key: const ValueKey('select-ride-map'),
+                        initialPosition: CameraPosition(
+                          target: _pickupPosition,
+                          zoom: 13.2,
                         ),
-                      ),
-                      myLocationEnabled: false,
-                      myLocationButtonEnabled: false,
-                      zoomControlsEnabled: false,
-                      mapToolbarEnabled: false,
-                      compassEnabled: false,
-                      // Green free-flow traffic hides the Waze road palette;
-                      // traffic stays on the active-trip map only.
-                      trafficEnabled: false,
-                      buildingsEnabled: false,
-                      indoorViewEnabled: false,
-                      tiltGesturesEnabled: false,
-                      rotateGesturesEnabled: false,
-                      onMapCreated: (controller) {
-                        final nextMapReadyWatch = _nextMapReadyWatch;
-                        if (nextMapReadyWatch != null) {
-                          nextMapReadyWatch.stop();
-                          RouteTransitionMetrics.nextMapReady(
-                            nextMapReadyWatch.elapsed,
+                        markers: {
+                          if ((_pickupTimePin ?? _pickupPin) != null)
+                            Marker(
+                              markerId: const MarkerId('pickup'),
+                              position: _pickupPosition,
+                              icon: (_pickupTimePin ?? _pickupPin)!,
+                              anchor: _pickupTimePin != null
+                                  ? RouteTimeMarker.anchor
+                                  : const Offset(0.5, 0.5),
+                            ),
+                          if ((_destinationTimePin ?? _destinationPin) != null)
+                            Marker(
+                              markerId: const MarkerId('destination'),
+                              position: widget.destinationPosition,
+                              icon: (_destinationTimePin ?? _destinationPin)!,
+                              anchor: _destinationTimePin != null
+                                  ? RouteTimeMarker.anchor
+                                  : const Offset(0.5, 0.5),
+                            ),
+                        },
+                        polylines: styledRoute(
+                          routePolyline(
+                            id: 'route',
+                            from: _pickupPosition,
+                            to: widget.destinationPosition,
+                            color: RiderRouteStyle.color,
+                          ),
+                        ),
+                        myLocationEnabled: false,
+                        myLocationButtonEnabled: false,
+                        zoomControlsEnabled: false,
+                        mapToolbarEnabled: false,
+                        compassEnabled: false,
+                        // Green free-flow traffic hides the Waze road palette;
+                        // traffic stays on the active-trip map only.
+                        trafficEnabled: false,
+                        buildingsEnabled: false,
+                        indoorViewEnabled: false,
+                        tiltGesturesEnabled: false,
+                        rotateGesturesEnabled: false,
+                        onMapCreated: (controller) {
+                          final nextMapReadyWatch = _nextMapReadyWatch;
+                          if (nextMapReadyWatch != null) {
+                            nextMapReadyWatch.stop();
+                            RouteTransitionMetrics.nextMapReady(
+                              nextMapReadyWatch.elapsed,
+                            );
+                            _nextMapReadyWatch = null;
+                          }
+                          _mapController = controller;
+                          AppScope.instance.maps.attach(
+                            controller,
+                            owner: MapOwners.selectRide,
                           );
-                          _nextMapReadyWatch = null;
-                        }
-                        _mapController = controller;
-                        AppScope.instance.maps.attach(
-                          controller,
-                          owner: MapOwners.selectRide,
-                        );
-                        AppScope.instance.map.drawRoute(
-                          'select',
-                          GeoPoint(
-                            _pickupPosition.latitude,
-                            _pickupPosition.longitude,
-                          ),
-                          GeoPoint(
-                            widget.destinationPosition.latitude,
-                            widget.destinationPosition.longitude,
-                          ),
-                        );
-                        AppScope.instance.map.upsertMarker(
-                          'pickup',
-                          GeoPoint(
-                            _pickupPosition.latitude,
-                            _pickupPosition.longitude,
-                          ),
-                        );
-                        AppScope.instance.map.upsertMarker(
-                          'destination',
-                          GeoPoint(
-                            widget.destinationPosition.latitude,
-                            widget.destinationPosition.longitude,
-                          ),
-                        );
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) unawaited(_fitRoute());
-                        });
-                      },
-                    )
-                  : const SelectRideRouteCanvas(),
-            ),
-          ),
-          Positioned(
-            top: media.padding.top + 8,
-            left: 16,
-            right: 16,
-            child: PointerInterceptor(child: _searchBar()),
-          ),
-          Positioned.fill(
-            child: DraggableScrollableSheet(
-              key: const ValueKey('select-ride-sheet'),
-              controller: _sheetController,
-              initialChildSize: _fractionOf(_midSheet(media), media),
-              minChildSize: _fractionOf(minSheet, media),
-              maxChildSize: _fractionOf(_maxSheet(media), media),
-              snap: true,
-              snapSizes: [_fractionOf(_midSheet(media), media)],
-              snapAnimationDuration: MoveraMotion.of(
-                context,
-                MoveraDurations.large,
+                          AppScope.instance.map.drawRoute(
+                            'select',
+                            GeoPoint(
+                              _pickupPosition.latitude,
+                              _pickupPosition.longitude,
+                            ),
+                            GeoPoint(
+                              widget.destinationPosition.latitude,
+                              widget.destinationPosition.longitude,
+                            ),
+                          );
+                          AppScope.instance.map.upsertMarker(
+                            'pickup',
+                            GeoPoint(
+                              _pickupPosition.latitude,
+                              _pickupPosition.longitude,
+                            ),
+                          );
+                          AppScope.instance.map.upsertMarker(
+                            'destination',
+                            GeoPoint(
+                              widget.destinationPosition.latitude,
+                              widget.destinationPosition.longitude,
+                            ),
+                          );
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) unawaited(_fitRoute());
+                          });
+                        },
+                      )
+                    : const SelectRideRouteCanvas(),
               ),
-              builder: (context, scroll) => PointerInterceptor(
-                child: Material(
-                  color: Colors.white,
-                  elevation: 18,
-                  shadowColor: const Color(0xFF162C36).withValues(alpha: 0.16),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (n) => _onSheetScroll(n, media),
-                    child: AnimatedBuilder(
-                      animation: _sheetSlide,
-                      builder: (context, _) {
-                        final mid = _midValue(media);
-                        final v = _sheetSlide.value;
-                        // 0 at the low stop → 1 at the middle: the other
-                        // rides come in.
-                        final listReveal = mid <= 0
-                            ? 1.0
-                            : (v / mid).clamp(0.0, 1.0);
-                        // 0 at the middle → 1 at full: descriptions and
-                        // badges.
-                        final detail = mid >= 1
-                            ? 0.0
-                            : Curves.easeOutCubic.transform(
-                                ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
-                              );
-                        final showFilters = v > 0.92;
-                        final selectedRide = _selectedRideOrNull;
-                        final promotion = _promotion;
-                        return Column(
-                          children: [
-                            // Title, promotion and filters stay put while
-                            // the rides scroll under them; dragging here
-                            // still moves the sheet.
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onVerticalDragUpdate: (details) =>
-                                  _onHeaderDragUpdate(details, media),
-                              onVerticalDragEnd: (details) =>
-                                  _onHeaderDragEnd(details, media),
-                              child: Column(
-                                children: [
-                                  Semantics(
-                                    button: true,
-                                    label: v > 0.98
-                                        ? 'Show fewer rides'
-                                        : 'Show all rides',
-                                    child: GestureDetector(
-                                      key: const ValueKey(
-                                        'select-ride-sheet-handle',
-                                      ),
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () => _toggleSheet(media),
-                                      child: SizedBox(
-                                        width: double.infinity,
-                                        height: 22,
-                                        child: Center(
-                                          child: Container(
-                                            width: 38,
-                                            height: 4,
-                                            decoration: BoxDecoration(
-                                              color: _line,
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                          ),
+            ),
+            Positioned(
+              top: media.padding.top + 8,
+              left: 16,
+              right: 16,
+              child: PointerInterceptor(child: _searchBar()),
+            ),
+            Positioned.fill(
+              child: DraggableScrollableSheet(
+                key: const ValueKey('select-ride-sheet'),
+                controller: _sheetController,
+                initialChildSize: _fractionOf(_midSheet(media), media),
+                minChildSize: _fractionOf(minSheet, media),
+                maxChildSize: _fractionOf(_maxSheet(media), media),
+                snap: true,
+                snapSizes: [_fractionOf(_midSheet(media), media)],
+                snapAnimationDuration: MoveraMotion.of(
+                  context,
+                  MoveraDurations.large,
+                ),
+                builder: (context, scroll) => PointerInterceptor(
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 18,
+                    shadowColor: const Color(
+                      0xFF162C36,
+                    ).withValues(alpha: 0.16),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: (n) => _onSheetScroll(n, media),
+                      child: AnimatedBuilder(
+                        animation: _sheetSlide,
+                        builder: (context, _) {
+                          final mid = _midValue(media);
+                          final v = _sheetSlide.value;
+                          // 0 at the low stop → 1 at the middle: the other
+                          // rides come in.
+                          final listReveal = mid <= 0
+                              ? 1.0
+                              : (v / mid).clamp(0.0, 1.0);
+                          // 0 at the middle → 1 at full: descriptions and
+                          // badges.
+                          final detail = mid >= 1
+                              ? 0.0
+                              : Curves.easeOutCubic.transform(
+                                  ((v - mid) / (1 - mid)).clamp(0.0, 1.0),
+                                );
+                          final showFilters = v > 0.92;
+                          final selectedRide = _selectedRideOrNull;
+                          final promotion = _promotion;
+                          return Column(
+                            children: [
+                              // Title, promotion and filters stay put while
+                              // the rides scroll under them; dragging here
+                              // still moves the sheet.
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onVerticalDragUpdate: (details) =>
+                                    _onHeaderDragUpdate(details, media),
+                                onVerticalDragEnd: (details) =>
+                                    _onHeaderDragEnd(details, media),
+                                child: Column(
+                                  children: [
+                                    Semantics(
+                                      button: true,
+                                      label: v > 0.98
+                                          ? 'Show fewer rides'
+                                          : 'Show all rides',
+                                      child: GestureDetector(
+                                        key: const ValueKey(
+                                          'select-ride-sheet-handle',
                                         ),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      20,
-                                      4,
-                                      16,
-                                      8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Choose your ride',
-                                            style: _text(
-                                              22,
-                                              weight: FontWeight.w700,
-                                              letterSpacing: -0.4,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (promotion != null)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        0,
-                                        16,
-                                        10,
-                                      ),
-                                      child: PromotionTicket(
-                                        promotion: promotion,
-                                      ),
-                                    ),
-                                  // Filters fade and slide in once the sheet
-                                  // is fully up, and away again as it leaves.
-                                  ClipRect(
-                                    child: AnimatedSize(
-                                      duration: const Duration(
-                                        milliseconds: 240,
-                                      ),
-                                      curve: Curves.easeOutCubic,
-                                      alignment: Alignment.topCenter,
-                                      child: Align(
-                                        alignment: Alignment.topCenter,
-                                        heightFactor: showFilters ? 1 : 0,
-                                        child: AnimatedOpacity(
-                                          opacity: showFilters ? 1 : 0,
-                                          duration: const Duration(
-                                            milliseconds: 220,
-                                          ),
-                                          child: AnimatedSlide(
-                                            offset: showFilters
-                                                ? Offset.zero
-                                                : const Offset(0, -0.35),
-                                            duration: const Duration(
-                                              milliseconds: 240,
-                                            ),
-                                            curve: Curves.easeOutCubic,
-                                            child: IgnorePointer(
-                                              ignoring: !showFilters,
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.fromLTRB(
-                                                      20,
-                                                      2,
-                                                      20,
-                                                      8,
-                                                    ),
-                                                child: _filterRow(),
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => _toggleSheet(media),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          height: 22,
+                                          child: Center(
+                                            child: Container(
+                                              width: 38,
+                                              height: 4,
+                                              decoration: BoxDecoration(
+                                                color: _line,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
                                               ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Stack(
-                                children: [
-                                  Opacity(
-                                    opacity: listReveal,
-                                    child: ListView.builder(
-                                      key: const ValueKey('select-ride-list'),
-                                      controller: scroll,
-                                      padding: EdgeInsets.fromLTRB(
-                                        14,
-                                        2,
-                                        14,
-                                        _footerHeight(media) + 8,
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        20,
+                                        4,
+                                        16,
+                                        8,
                                       ),
-                                      itemCount: _visibleRides.length,
-                                      itemBuilder: (context, index) =>
-                                          _rideTile(
-                                            _visibleRides[index],
-                                            detail: detail,
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Choose your ride',
+                                              style: _text(
+                                                22,
+                                                weight: FontWeight.w700,
+                                                letterSpacing: -0.4,
+                                              ),
+                                            ),
                                           ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  // At the low stop only the chosen ride
-                                  // shows.
-                                  if (listReveal < 1 && selectedRide != null)
-                                    Positioned(
-                                      left: 14,
-                                      right: 14,
-                                      top: 2,
-                                      child: IgnorePointer(
-                                        ignoring: listReveal > 0.5,
-                                        child: Opacity(
-                                          opacity: 1 - listReveal,
-                                          child: ColoredBox(
-                                            color: Colors.white,
-                                            child: _rideTile(
-                                              selectedRide,
-                                              detail: 0,
+                                    if (promotion != null)
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(
+                                          16,
+                                          0,
+                                          16,
+                                          10,
+                                        ),
+                                        child: PromotionTicket(
+                                          promotion: promotion,
+                                          onTap: () =>
+                                              _openPromotionDetails(promotion),
+                                        ),
+                                      ),
+                                    // Filters fade and slide in once the sheet
+                                    // is fully up, and away again as it leaves.
+                                    ClipRect(
+                                      child: AnimatedSize(
+                                        duration: const Duration(
+                                          milliseconds: 240,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        alignment: Alignment.topCenter,
+                                        child: Align(
+                                          alignment: Alignment.topCenter,
+                                          heightFactor: showFilters ? 1 : 0,
+                                          child: AnimatedOpacity(
+                                            opacity: showFilters ? 1 : 0,
+                                            duration: const Duration(
+                                              milliseconds: 220,
+                                            ),
+                                            child: AnimatedSlide(
+                                              offset: showFilters
+                                                  ? Offset.zero
+                                                  : const Offset(0, -0.35),
+                                              duration: const Duration(
+                                                milliseconds: 240,
+                                              ),
+                                              curve: Curves.easeOutCubic,
+                                              child: IgnorePointer(
+                                                ignoring: !showFilters,
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.fromLTRB(
+                                                        20,
+                                                        2,
+                                                        20,
+                                                        8,
+                                                      ),
+                                                  child: _filterRow(),
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        );
-                      },
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    Opacity(
+                                      opacity: listReveal,
+                                      child: ListView.builder(
+                                        key: const ValueKey('select-ride-list'),
+                                        controller: scroll,
+                                        padding: EdgeInsets.fromLTRB(
+                                          14,
+                                          2,
+                                          14,
+                                          _footerHeight(media) + 8,
+                                        ),
+                                        itemCount: _visibleRides.length,
+                                        itemBuilder: (context, index) =>
+                                            _rideTile(
+                                              _visibleRides[index],
+                                              detail: detail,
+                                            ),
+                                      ),
+                                    ),
+                                    // At the low stop only the chosen ride
+                                    // shows.
+                                    if (listReveal < 1 && selectedRide != null)
+                                      Positioned(
+                                        left: 14,
+                                        right: 14,
+                                        top: 2,
+                                        child: IgnorePointer(
+                                          ignoring: listReveal > 0.5,
+                                          child: Opacity(
+                                            opacity: 1 - listReveal,
+                                            child: ColoredBox(
+                                              color: Colors.white,
+                                              child: _rideTile(
+                                                selectedRide,
+                                                detail: 0,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          // The payment block and Book button stay put while the sheet moves.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: PointerInterceptor(child: _footer(media.padding.bottom)),
-          ),
+            // The payment block and Book button stay put while the sheet moves.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: PointerInterceptor(child: _footer(media.padding.bottom)),
+            ),
           ],
         ),
       ),
@@ -1695,6 +1745,35 @@ class _SelectRideState extends State<SelectRide>
           ],
         ),
       ),
+    );
+  }
+
+  /// Every category's price before and after the promotion, from the quotes
+  /// we have right now; categories still waiting for a quote are left out.
+  Map<String, PromotionPrice> _promotionPrices() {
+    final prices = <String, PromotionPrice>{};
+    for (final ride in _allRides) {
+      final quote = _selection.authoritativeQuotes[ride.id];
+      if (quote == null) continue;
+      final discounted = quote.totalMinor / 100;
+      prices[ride.id] = (
+        original: discounted + quote.discountMinor / 100,
+        discounted: discounted,
+      );
+    }
+    return prices;
+  }
+
+  /// The promo ticket opens the details with this screen's current prices.
+  Future<void> _openPromotionDetails(RiderPromotion promotion) {
+    return PromotionDetailsSheet.open(
+      context,
+      promotion,
+      categories: [
+        for (final ride in _allRides)
+          PromotionCategory(id: ride.id, name: ride.name),
+      ],
+      prices: _promotionPrices(),
     );
   }
 
@@ -1845,10 +1924,10 @@ class _SelectRideState extends State<SelectRide>
                           if (discount > 0)
                             Text(
                               _kr(price + discount),
-                              style: _text(
-                                12,
-                                color: const Color(0xFF8A9399),
-                              ).copyWith(decoration: TextDecoration.lineThrough),
+                              style: _text(12, color: const Color(0xFF8A9399))
+                                  .copyWith(
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
                             ),
                         ],
                       ),
@@ -1891,7 +1970,9 @@ class _SelectRideState extends State<SelectRide>
                                       style: _text(
                                         9.5,
                                         weight: FontWeight.w700,
-                                        color: selected ? Colors.white : _accent,
+                                        color: selected
+                                            ? Colors.white
+                                            : _accent,
                                         letterSpacing: 0.4,
                                       ),
                                     ),
@@ -1924,7 +2005,11 @@ class _SelectRideState extends State<SelectRide>
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
-          const Icon(Icons.account_balance_wallet_outlined, size: 13, color: green),
+          const Icon(
+            Icons.account_balance_wallet_outlined,
+            size: 13,
+            color: green,
+          ),
           const SizedBox(width: 4),
           Expanded(
             child: rest <= 0
@@ -2020,7 +2105,14 @@ class _SelectRideState extends State<SelectRide>
   }
 
   Widget _paymentButton() {
-    final method = _payments[_selection.selectedPayment];
+    final item = _selection.selectedPaymentItem();
+    final method = item == null
+        ? const _PaymentOption(brand: 'cash', name: 'Pay in car', detail: '')
+        : _PaymentOption(
+            brand: item.brand,
+            name: item.name,
+            detail: item.detail,
+          );
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -2116,7 +2208,14 @@ class _SelectRideState extends State<SelectRide>
   Widget _brandMark(String brand) {
     Widget logo;
     Color background = Colors.white;
-    if (brand == 'apple') {
+    final savedCard = _selection.savedCardFor(brand);
+    if (savedCard != null) {
+      logo = Image.asset(
+        excludeFromSemantics: true,
+        savedCard.brand == 'mastercard' ? AppAssets.mastercard : AppAssets.visa,
+        fit: BoxFit.contain,
+      );
+    } else if (brand == 'apple') {
       logo = SvgPicture.asset(
         'assets/images/apple_pay_brand.svg',
         fit: BoxFit.contain,

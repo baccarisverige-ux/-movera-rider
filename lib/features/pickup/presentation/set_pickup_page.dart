@@ -14,7 +14,8 @@ import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
-import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
+import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
+import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -140,8 +141,10 @@ class SetPickupPage extends StatefulWidget {
     required this.payment,
     required this.brandMark,
     this.onChangePayment,
+    this.onRequote,
     this.initialBagLevel = 0,
-    this.spots = const <PlaceShortcut>[],
+    this.home,
+    this.spotsController,
     this.initialIsCurrentLocation = true,
     this.positionIsFallback = false,
     this.confirmLabel = 'Confirm and search',
@@ -159,8 +162,10 @@ class SetPickupPage extends StatefulWidget {
     required SetPickupPayment payment,
     required Widget Function(String brand) brandMark,
     Future<SetPickupPayment?> Function()? onChangePayment,
+    Future<SetPickupFare?> Function(LatLng pin)? onRequote,
     int initialBagLevel = 0,
-    List<PlaceShortcut> spots = const <PlaceShortcut>[],
+    LatLng? home,
+    PickupSpotsController? spotsController,
     bool initialIsCurrentLocation = true,
     bool positionIsFallback = false,
     String confirmLabel = 'Confirm and search',
@@ -177,8 +182,10 @@ class SetPickupPage extends StatefulWidget {
         payment: payment,
         brandMark: brandMark,
         onChangePayment: onChangePayment,
+        onRequote: onRequote,
         initialBagLevel: initialBagLevel,
-        spots: spots,
+        home: home,
+        spotsController: spotsController,
         initialIsCurrentLocation: initialIsCurrentLocation,
         positionIsFallback: positionIsFallback,
         confirmLabel: confirmLabel,
@@ -200,8 +207,19 @@ class SetPickupPage extends StatefulWidget {
   final SetPickupPayment payment;
   final Widget Function(String brand) brandMark;
   final Future<SetPickupPayment?> Function()? onChangePayment;
+
+  /// Prices the ride again from the exact pin after the rider moves it.
+  /// Returns the new fare, or null to keep the one shown; a throw keeps it
+  /// too. Without this the fare never changes.
+  final Future<SetPickupFare?> Function(LatLng pin)? onRequote;
   final int initialBagLevel;
-  final List<PlaceShortcut> spots;
+
+  /// The rider's Home, when known: a "Near Home" spot appears when the
+  /// pickup is within a few hundred metres of it.
+  final LatLng? home;
+
+  /// Suggests the pickup spots; the app's own controller when null.
+  final PickupSpotsController? spotsController;
   final bool initialIsCurrentLocation;
 
   /// Button text: "Confirm and search" now, "Confirm and schedule" later.
@@ -249,6 +267,17 @@ class _SetPickupPageState extends State<SetPickupPage>
     location: AppScope.instance.location,
     geocoding: AppScope.instance.geocoding,
   );
+  late final PickupSpotsController _spotsController =
+      widget.spotsController ?? AppScope.instance.pickupSpots;
+
+  // Spots for the address under the pin. They reload (debounced, and only
+  // the newest request lands) when the pin settles on a new point.
+  List<PickupSpot> _spots = const <PickupSpot>[];
+  PickupSpot? _selectedSpot;
+  // The street the chips belong to; the label reads "<street> – <spot>".
+  String _spotStreet = '';
+  Timer? _spotsTimer;
+  int _spotsGeneration = 0;
 
   GoogleMapController? _map;
   late LatLng _center = widget.initialPosition;
@@ -258,6 +287,9 @@ class _SetPickupPageState extends State<SetPickupPage>
   late bool _usable = !widget.positionIsFallback;
   late int _bags = widget.initialBagLevel;
   late SetPickupPayment _payment = widget.payment;
+  late SetPickupFare _fare = widget.fare;
+  bool _requoting = false;
+  int _requoteGeneration = 0;
   bool _mapReady = false;
   bool _mapMountScheduled = false;
   bool _moving = false;
@@ -278,6 +310,39 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (_isPlaceholder(_address) || isUnusablePickupLabel(_address)) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _resolveAddress());
     }
+    _scheduleSpots(immediately: true);
+  }
+
+  /// Loads the spots for the point under the pin. Debounced so a series of
+  /// small moves asks once; a generation counter drops answers for points
+  /// the pin has already left.
+  void _scheduleSpots({bool immediately = false}) {
+    _spotsTimer?.cancel();
+    final generation = ++_spotsGeneration;
+    _spotsTimer = Timer(
+      immediately ? Duration.zero : const Duration(milliseconds: 350),
+      () => unawaited(_loadSpots(generation)),
+    );
+  }
+
+  Future<void> _loadSpots(int generation) async {
+    final at = _center;
+    final address = _address;
+    List<PickupSpot> spots;
+    try {
+      spots = await _spotsController.forAddress(
+        at: at,
+        address: address,
+        home: widget.home,
+      );
+    } catch (_) {
+      spots = const <PickupSpot>[];
+    }
+    if (!mounted || generation != _spotsGeneration) return;
+    setState(() {
+      _spots = spots;
+      if (_selectedSpot == null) _spotStreet = pickupSpotStreet(_address);
+    });
   }
 
   @override
@@ -298,6 +363,7 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   @override
   void dispose() {
+    _spotsTimer?.cancel();
     _mapTouch?.cancel();
     _sheet.dispose();
     _lift.dispose();
@@ -371,9 +437,40 @@ class _SetPickupPageState extends State<SetPickupPage>
         _atCurrentLocation =
             widget.initialIsCurrentLocation &&
             !_isAwayFrom(_center, widget.initialPosition);
+        _deselectSpot();
       });
       unawaited(_resolveAddress());
+      _scheduleSpots();
+      unawaited(_requote());
     }
+  }
+
+  /// The pin left the chosen spot: the chip lets go and the label returns
+  /// to the plain street until the new address resolves.
+  void _deselectSpot() {
+    if (_selectedSpot == null) return;
+    _selectedSpot = null;
+    if (_spotStreet.isNotEmpty) _address = _spotStreet;
+  }
+
+  /// A fresh price from the exact pin. The latest move wins: an older answer
+  /// that arrives late is ignored. A failed quote keeps the price shown.
+  Future<void> _requote() async {
+    final requote = widget.onRequote;
+    if (requote == null) return;
+    final generation = ++_requoteGeneration;
+    setState(() => _requoting = true);
+    SetPickupFare? fare;
+    try {
+      fare = await requote(_center);
+    } catch (_) {
+      fare = null;
+    }
+    if (!mounted || generation != _requoteGeneration) return;
+    setState(() {
+      _requoting = false;
+      if (fare != null) _fare = fare;
+    });
   }
 
   Future<void> _resolveAddress() async {
@@ -388,6 +485,7 @@ class _SetPickupPageState extends State<SetPickupPage>
       } else if (_isPlaceholder(_address)) {
         _address = pickupLocationFallbackLabel;
       }
+      if (_selectedSpot == null) _spotStreet = pickupSpotStreet(_address);
     });
   }
 
@@ -395,17 +493,38 @@ class _SetPickupPageState extends State<SetPickupPage>
       setPickupCameraFor(pickup, _zoom, _pinAboveCentrePx);
 
   /// Chips and My location are the only things that move the map.
-  Future<void> _glideTo(LatLng target, {String? address, bool here = false}) async {
+  Future<void> _glideTo(
+    LatLng target, {
+    String? address,
+    bool here = false,
+    PickupSpot? spot,
+  }) async {
     HapticFeedback.selectionClick();
+    // The camera target depends on the zoom; until the map has moved once,
+    // _zoom is only the requested value (the web map may round it), so ask
+    // the map. Otherwise the pin lands a little off the spot and the chip
+    // would let go at once.
+    try {
+      final zoom = await _map?.getZoomLevel();
+      if (zoom != null) _zoom = zoom;
+    } catch (_) {}
+    if (!mounted) return;
     setState(() {
       _center = target;
       _routeStart = target;
       _usable = true;
       _atCurrentLocation = here;
+      if (spot != null) {
+        _selectedSpot = spot;
+      } else {
+        _deselectSpot();
+      }
       if (address != null && address.trim().isNotEmpty) {
         _address = address.trim();
       }
     });
+    // A new place gets its own spots; a spot keeps the row it came from.
+    if (spot == null) _scheduleSpots();
     if (!kIsWeb) {
       _lift.forward().then((_) {
         if (mounted) _lift.reverse();
@@ -415,6 +534,7 @@ class _SetPickupPageState extends State<SetPickupPage>
       await _map?.animateCamera(CameraUpdate.newLatLng(_cameraFor(target)));
     } catch (_) {}
     if (address == null) unawaited(_resolveAddress());
+    unawaited(_requote());
   }
 
   Future<void> _useCurrentLocation() async {
@@ -432,16 +552,15 @@ class _SetPickupPageState extends State<SetPickupPage>
     await _glideTo(position, here: true);
   }
 
-  Future<void> _useSpot(PlaceShortcut spot) async {
-    final found = await _pickup.search(spot.subtitle);
-    if (!mounted) return;
-    if (found == null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text('Could not find ${spot.title} on the map.')),
-      );
-      return;
-    }
-    await _glideTo(found.position, address: found.address ?? spot.subtitle);
+  Future<void> _useSpot(PickupSpot spot) async {
+    if (_selectedSpot?.id == spot.id) return;
+    final street = _spotStreet.isNotEmpty ? _spotStreet : pickupSpotStreet(_address);
+    if (_spotStreet.isEmpty) _spotStreet = street;
+    await _glideTo(
+      spot.position,
+      address: pickupSpotLabel(street, spot),
+      spot: spot,
+    );
   }
 
   Future<void> _searchAddress() async {
@@ -512,13 +631,13 @@ class _SetPickupPageState extends State<SetPickupPage>
     if (_confirming || !_usable) return;
     _confirming = true;
     HapticFeedback.mediumImpact();
+    final address = confirmedPickupAddress(_address, _center);
+    // Next time this address comes up, the spot is offered as "Previously
+    // used". Fire and forget: confirming never waits on storage.
+    unawaited(_spotsController.remember(position: _center, address: address));
     Navigator.pop(
       context,
-      SetPickupResult(
-        position: _center,
-        address: confirmedPickupAddress(_address, _center),
-        bagLevel: _bags,
-      ),
+      SetPickupResult(position: _center, address: address, bagLevel: _bags),
     );
   }
 
@@ -752,7 +871,7 @@ class _SetPickupPageState extends State<SetPickupPage>
                     ),
                     const SizedBox(height: 8),
                     _pickupCard(),
-                    _reveal(0.15, 0.75, _spotChips()),
+                    _spotChips(),
                     _reveal(0.25, 0.85, _bagsRow()),
                     _reveal(0.35, 0.95, _priceBox()),
                     _reveal(0.45, 1.0, _paymentLine()),
@@ -842,8 +961,11 @@ class _SetPickupPageState extends State<SetPickupPage>
   }
 
   Widget _pickupCard() {
+    final spot = _selectedSpot;
     final subtitle = _resolving
         ? 'Finding the address…'
+        : spot != null
+        ? spot.subtitle
         : _atCurrentLocation
         ? 'Your current location'
         : 'Drag the map to adjust';
@@ -891,12 +1013,20 @@ class _SetPickupPageState extends State<SetPickupPage>
     );
   }
 
-  Widget _chip(String label, VoidCallback onTap, {IconData? icon}) {
+  Widget _chip(
+    String label,
+    VoidCallback onTap, {
+    IconData? icon,
+    bool selected = false,
+    Key? key,
+  }) {
+    final fg = selected ? Colors.white : _ink;
     return Padding(
+      key: key,
       padding: const EdgeInsets.only(right: 8),
       child: Material(
-        color: _field,
-        shape: StadiumBorder(side: BorderSide(color: _line)),
+        color: selected ? _cta : _field,
+        shape: StadiumBorder(side: BorderSide(color: selected ? _cta : _line)),
         child: InkWell(
           customBorder: const StadiumBorder(),
           onTap: onTap,
@@ -906,10 +1036,10 @@ class _SetPickupPageState extends State<SetPickupPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 16, color: _ink),
-                  const SizedBox(width: 4),
+                  Icon(icon, size: 16, color: fg),
+                  const SizedBox(width: 5),
                 ],
-                Text(label, style: _text(13.5, weight: FontWeight.w500)),
+                Text(label, style: _text(13.5, weight: FontWeight.w500, color: fg)),
               ],
             ),
           ),
@@ -918,15 +1048,36 @@ class _SetPickupPageState extends State<SetPickupPage>
     );
   }
 
+  static IconData _spotIcon(PickupSpotKind kind) => switch (kind) {
+    PickupSpotKind.entrance => Icons.door_front_door_rounded,
+    PickupSpotKind.parking => Icons.local_parking_rounded,
+    PickupSpotKind.previous => Icons.history_rounded,
+    PickupSpotKind.home => Icons.home_rounded,
+  };
+
+  /// Spots for the address under the pin, then "On map" to place the pin
+  /// by hand. The chosen spot is filled black.
   Widget _spotChips() {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: SingleChildScrollView(
+        key: const ValueKey('set-pickup-spots'),
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            for (final spot in widget.spots.take(3))
-              _chip(spot.title, () => _useSpot(spot)),
+            for (final spot in _spots)
+              Semantics(
+                button: true,
+                selected: _selectedSpot?.id == spot.id,
+                label: '${spot.title}, ${spot.subtitle}',
+                child: _chip(
+                  spot.title,
+                  () => _useSpot(spot),
+                  icon: _spotIcon(spot.kind),
+                  selected: _selectedSpot?.id == spot.id,
+                  key: ValueKey('set-pickup-spot-${spot.id}'),
+                ),
+              ),
             _chip('On map', () => _settleSheet(false), icon: Icons.add_rounded),
           ],
         ),
@@ -1064,7 +1215,7 @@ class _SetPickupPageState extends State<SetPickupPage>
   }
 
   Widget _priceBox() {
-    final fare = widget.fare;
+    final fare = _fare;
     final hasDiscount = fare.discountKr > 0;
     return Container(
       margin: const EdgeInsets.only(top: 14),
@@ -1101,6 +1252,15 @@ class _SetPickupPageState extends State<SetPickupPage>
               key: const ValueKey('set-pickup-remainder'),
             ),
           ],
+          if (_requoting)
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 4),
+              child: Text(
+                'Updating price…',
+                key: const ValueKey('set-pickup-requoting'),
+                style: _text(12.5, color: _muted),
+              ),
+            ),
         ],
       ),
     );
