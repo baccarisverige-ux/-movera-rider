@@ -44,6 +44,9 @@ class AppAssets {
   static const String solarPhone = 'assets/icons/solar_phone.svg';
   static const String solarLetter = 'assets/icons/solar_letter.svg';
   static const String solarGlobal = 'assets/icons/solar_global.svg';
+  static const String solarArrowLeft = 'assets/icons/solar_arrow_left.svg';
+  static const String solarSearch = 'assets/icons/solar_search.svg';
+  static const String solarBuildings = 'assets/icons/solar_buildings.svg';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';

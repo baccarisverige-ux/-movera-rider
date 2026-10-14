@@ -118,12 +118,12 @@ void main() {
     );
     // The back arrow returns to Home.
     await tester.scrollUntilVisible(
-      find.byIcon(Icons.arrow_back_rounded),
+      find.byKey(const ValueKey('menu-back')),
       -300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.tap(find.byKey(const ValueKey('menu-back')));
     await tester.pumpAndSettle();
     expect(find.byType(RiderMenuPage), findsNothing);
     expect(find.text('Home body'), findsOneWidget);
