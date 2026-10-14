@@ -11,6 +11,7 @@ import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
@@ -986,9 +987,10 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Widget _profileSelector() {
+    // UI-4: the 4 px frame is part of each option's target (46 px tall), not
+    // padding around the 38 px options.
     return Container(
       height: 46,
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(16),
@@ -1000,12 +1002,14 @@ class _WalletScreenState extends State<WalletScreen> {
             icon: Icons.person_outline_rounded,
             selected: !_businessProfile,
             onTap: () => _selectProfile(false),
+            frame: const EdgeInsets.fromLTRB(4, 4, 0, 4),
           ),
           _profileOption(
             label: 'Business',
             icon: Icons.business_center_outlined,
             selected: _businessProfile,
             onTap: () => _selectProfile(true),
+            frame: const EdgeInsets.fromLTRB(0, 4, 4, 4),
           ),
         ],
       ),
@@ -1017,46 +1021,56 @@ class _WalletScreenState extends State<WalletScreen> {
     required IconData icon,
     required bool selected,
     required VoidCallback onTap,
+    required EdgeInsets frame,
   }) {
     return Expanded(
-      child: Material(
-        color: selected ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(13),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(13),
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
+      child: MoveraHitArea(
+        label: label,
+        selected: selected,
+        onTap: onTap,
+        child: Padding(
+          padding: frame,
+          child: Material(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(13),
+            child: InkWell(
+              onTap: onTap,
+              excludeFromSemantics: true,
               borderRadius: BorderRadius.circular(13),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.055),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : const [],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: selected ? _ink : _muted, size: 16),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _style(
-                      11.5,
-                      weight: selected ? FontWeight.w600 : FontWeight.w500,
-                      color: selected ? _ink : _muted,
-                    ),
-                  ),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(13),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.055),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : const [],
                 ),
-              ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: selected ? _ink : _muted, size: 16),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _style(
+                          11.5,
+                          weight: selected ? FontWeight.w600 : FontWeight.w500,
+                          color: selected ? _ink : _muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

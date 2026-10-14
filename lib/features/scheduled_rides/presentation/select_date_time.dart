@@ -63,7 +63,8 @@ class ScheduleDateTimeSelector extends StatefulWidget {
 
 class _ScheduleDateTimeSelectorState extends State<ScheduleDateTimeSelector> {
   static const Color _ink = Color(0xFF15191C);
-  static const Color _muted = Color(0xFF7B8287);
+  // UI-6: was 0xFF7B8287 (3.90:1 on white).
+  static const Color _muted = Color(0xFF6B7176);
   static const Color _surface = Color(0xFFF5F5F3);
   static const Color _line = Color(0xFFE7E7E4);
 

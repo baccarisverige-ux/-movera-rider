@@ -9,8 +9,10 @@ class AppColor {
   static const Color bg = Color(0xFFFFFFFF);
   static const Color title = Color(0xFF333333);
   static const Color darkTitle = Color(0xFF161616);
-  static const Color hintText = Color(0xFF909090);
-  static const Color subtitle = Color(0xFF909090);
+  // UI-6: 0xFF909090 was 3.19:1 on white; 0xFF737373 is 4.74:1. Borders
+  // keep the lighter grey (non-text, 3:1 is enough).
+  static const Color hintText = Color(0xFF737373);
+  static const Color subtitle = Color(0xFF737373);
   static const Color border = Color(0xFF909090);
   static const Color red = Color(0xFFE31E37);
   static const Color green = Color(0xFF0FA85B);

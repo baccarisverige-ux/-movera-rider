@@ -147,7 +147,12 @@ class SafetyRow extends StatelessWidget {
       children: [
         Semantics(
           button: onTap != null,
-          label: title,
+          // UI-7: the subtitle and status (e.g. "Unavailable") are heard too.
+          label: [
+            title,
+            subtitle,
+            if (status != null && status!.isNotEmpty) status!,
+          ].where((part) => part.trim().isNotEmpty).join(', '),
           onTap: onTap,
           child: ExcludeSemantics(
             child: InkWell(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:movera_rider/app/app.dart';
+import 'package:movera_rider/app/bundled_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
@@ -53,6 +54,8 @@ void _openNotificationsFromPush() {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // UI-15: bundled Poppins, when present, means no font download at start.
+  await configureBundledFonts();
   // Before anything can call the API: a 401 during start-up still has a
   // Sign in screen to show.
   registerSessionExpiredNavigation();

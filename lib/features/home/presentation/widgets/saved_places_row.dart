@@ -247,7 +247,8 @@ class _CustomPlaceCard extends StatelessWidget {
                     2.height,
                     TextWidget(
                       text: shortAddress(place.address, maxLength: 15),
-                      color: _premiumMuted.withValues(alpha: 0.82),
+                      // UI-6: full strength (the 0.82 alpha gave 3.96:1).
+                      color: _premiumMuted,
                       fontSize: 7.8,
                       fontWeight: fwNormal,
                     ),
@@ -335,7 +336,8 @@ class _QuickPlaceCard extends StatelessWidget {
                     2.height,
                     TextWidget(
                       text: subtitle,
-                      color: _premiumMuted.withValues(alpha: 0.82),
+                      // UI-6: full strength (the 0.82 alpha gave 3.96:1).
+                      color: _premiumMuted,
                       fontSize: 8.25,
                       fontWeight: fwNormal,
                     ),

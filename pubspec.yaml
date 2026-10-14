@@ -89,6 +89,8 @@ flutter:
     - assets/images/rides/
     - assets/images/menu/
     - assets/images/notes/
+    # UI-15: Poppins for offline use; see assets/google_fonts/README.md.
+    - assets/google_fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

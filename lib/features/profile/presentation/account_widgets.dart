@@ -5,7 +5,8 @@ import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 const Color kAccountInk = Color(0xFF1C2329);
-const Color kAccountMuted = Color(0xFF7A858E);
+// UI-6: was 0xFF7A858E (3.77:1 on white); now ≥ 4.5:1 on kAccountSoft.
+const Color kAccountMuted = Color(0xFF687179);
 const Color kAccountLine = Color(0xFFE8EBED);
 const Color kAccountSoft = Color(0xFFF3F5F6);
 const Color kAccountCta = Color(0xFF11181D);

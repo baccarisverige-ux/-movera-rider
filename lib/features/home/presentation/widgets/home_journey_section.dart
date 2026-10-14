@@ -12,10 +12,13 @@ import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 
 const _ink = Color(0xFF1D252C);
-const _muted = Color(0xFF6B757D);
-const _label = Color(0xFF8A939B);
+// UI-6: was 0xFF6B757D (4.27:1 on the card fill).
+const _muted = MoveraTokens.subtleOnFill;
+// UI-6: was 0xFF8A939B (3.12:1 on white).
+const _label = MoveraTokens.subtle;
 const _card = Color(0xFFF3F4F5);
 const _line = Color(0xFFE7EBEE);
 const _teal = Color(0xFF2A7A84);
