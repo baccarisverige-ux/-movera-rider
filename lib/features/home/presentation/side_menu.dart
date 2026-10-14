@@ -21,12 +21,12 @@ class RiderSideMenu extends StatelessWidget {
   /// `false` once it is popped, so Home can pause its puck work while hidden.
   final ValueChanged<bool>? onCoveredChanged;
 
-  static const Color _ink = Color(0xFF1C2329);
-  static const Color _muted = Color(0xFF7A858E);
-  static const Color _accent = Color(0xFF2D5878);
-  static const Color _icon = Color(0xFF2F3A44);
-  static const Color _line = Color(0xFFEDF0F2);
-  static const Color _avatarTint = Color(0xFFE8EEF2);
+  static const Color _ink = Color(0xFF1D252C);
+  static const Color _muted = Color(0xFF8A939B);
+  static const Color _card = Color(0xFFF2F4F6);
+  static const Color _tile = Color(0xFF11181D);
+  static const Color _chevron = Color(0xFFB3BAC0);
+  static const Color _avatarTint = Color(0xFFE4E8EC);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -84,14 +84,12 @@ class RiderSideMenu extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _profileHeader(),
-                      const SizedBox(height: 22),
-                      const Divider(height: 1, thickness: 1, color: _line),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 18),
                       ..._menuGroups(context),
                     ],
                   ),
@@ -121,50 +119,57 @@ class RiderSideMenu extends StatelessWidget {
     );
   }
 
-  /// Avatar above the name, with room for a long greeting.
+  /// Avatar beside the name on a soft card, like the rows below it.
   Widget _profileHeader() {
     final controller = AppScope.instance.profile;
     final profile = controller.profile;
     final hasPhoto = profile.photoAsset.trim().isNotEmpty;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipOval(
-            child: SizedBox(
-              width: 68,
-              height: 68,
-              child: hasPhoto
-                  ? Image.asset(
-                      excludeFromSemantics: true,
-                      profile.photoAsset,
-                      fit: BoxFit.cover,
-                    )
-                  : const ColoredBox(
-                      color: _avatarTint,
-                      child: Icon(
-                        Icons.person_rounded,
-                        color: _muted,
-                        size: 34,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            ClipOval(
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: hasPhoto
+                    ? Image.asset(
+                        excludeFromSemantics: true,
+                        profile.photoAsset,
+                        fit: BoxFit.cover,
+                      )
+                    : const ColoredBox(
+                        color: _avatarTint,
+                        child: Icon(
+                          Icons.person_rounded,
+                          color: _muted,
+                          size: 30,
+                        ),
                       ),
-                    ),
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            controller.displayName(),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: _text(
-              24,
-              weight: FontWeight.w700,
-              height: 1.15,
-              letterSpacing: -0.4,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                controller.displayName(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: _text(
+                  20,
+                  weight: FontWeight.w700,
+                  height: 1.15,
+                  letterSpacing: -0.3,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -233,12 +238,29 @@ class RiderSideMenu extends StatelessWidget {
 
     return [
       for (var g = 0; g < groups.length; g++) ...[
-        if (g > 0)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1, thickness: 1, color: _line),
+        if (g > 0) const SizedBox(height: 12),
+        Material(
+          color: _card,
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < groups[g].length; i++) ...[
+                if (i > 0)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 70, right: 16),
+                    child: Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Colors.white,
+                    ),
+                  ),
+                _menuRow(groups[g][i]),
+              ],
+            ],
           ),
-        for (final item in groups[g]) _menuRow(item),
+        ),
       ],
     ];
   }
@@ -249,41 +271,50 @@ class RiderSideMenu extends StatelessWidget {
       label: item.title,
       onTap: item.onTap,
       child: ExcludeSemantics(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(16),
-            splashColor: _accent.withValues(alpha: 0.06),
-            highlightColor: _accent.withValues(alpha: 0.04),
-            child: SizedBox(
-              height: 58,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: item.image != null
-                          ? Image.asset(
-                              excludeFromSemantics: true,
-                              item.image!,
-                              fit: BoxFit.contain,
-                            )
-                          : Icon(item.icon, size: 25, color: _icon),
+        child: InkWell(
+          onTap: item.onTap,
+          splashColor: _ink.withValues(alpha: 0.05),
+          highlightColor: _ink.withValues(alpha: 0.04),
+          child: SizedBox(
+            height: 62,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: _tile,
+                      borderRadius: BorderRadius.circular(13),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _text(17, weight: FontWeight.w500),
-                      ),
+                    alignment: Alignment.center,
+                    child: item.image != null
+                        ? Image.asset(
+                            excludeFromSemantics: true,
+                            item.image!,
+                            width: 22,
+                            height: 22,
+                            fit: BoxFit.contain,
+                            color: Colors.white,
+                          )
+                        : Icon(item.icon, size: 21, color: Colors.white),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _text(16, weight: FontWeight.w600),
                     ),
-                  ],
-                ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: _chevron,
+                  ),
+                ],
               ),
             ),
           ),
