@@ -1,7 +1,6 @@
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
-import 'package:flutter/material.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
-import 'package:movera_rider/app/navigator_key.dart';
+import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/config/pin_composition.dart';
 import 'package:movera_rider/app/config/transport_composition.dart';
@@ -52,7 +51,6 @@ import 'package:movera_rider/features/profile/data/account_security_repository.d
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
-import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -96,12 +94,13 @@ class AppScope {
       env: environment,
       tokens: tokens,
       onSessionExpired: () async {
-        await RideSnapshotStore.clear();
+        // The live ride snapshot is deliberately kept: the ride goes on
+        // server-side, and after the rider signs back in enterMoveraApp
+        // resumes it and the server re-validates it. Wiping another rider's
+        // data on sign-out / account switch is the sign-out flow's job.
         await LocationRepository.clearLastGoodFix();
-        moveraNavigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => const SignIn()),
-          (_) => false,
-        );
+        // Sign in becomes the root gate's child so the gate survives.
+        showMoveraRoot(const SignIn());
       },
     );
     paymentGateway = environment.allowsMockTransport
