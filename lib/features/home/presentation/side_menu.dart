@@ -23,8 +23,7 @@ class RiderSideMenu extends StatelessWidget {
 
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF6B757D);
-  static const Color _card = Color(0xFFF4F6F8);
-  static const Color _line = Color(0xFFEDF0F3);
+  static const Color _card = Color(0xFFF3F4F5);
   static const Color _avatarTint = Color(0xFFE6EAEE);
   static const Color _chevron = Color(0xFFC5CBD1);
 
@@ -68,7 +67,7 @@ class RiderSideMenu extends StatelessWidget {
       backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      width: media.size.width * 0.86,
+      width: media.size.width * 0.92,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(24),
@@ -85,15 +84,24 @@ class RiderSideMenu extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _profileHeader(),
                       const SizedBox(height: 26),
-                      _shortcuts(groups.first),
-                      const SizedBox(height: 22),
-                      ..._list(groups.skip(1).toList()),
+                      // Wallet as the wide card, the rest as a grid of tiles,
+                      // About as the closing wide card: the account-page
+                      // layout, with our sections and wording.
+                      _wideCard(groups.first.first),
+                      const SizedBox(height: 10),
+                      _grid([
+                        ...groups.first.skip(1),
+                        ...groups[1],
+                        ...groups[2].take(2),
+                      ]),
+                      const SizedBox(height: 10),
+                      _wideCard(groups[2].last),
                     ],
                   ),
                 ),
@@ -136,53 +144,135 @@ class RiderSideMenu extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: _text(
-              24,
+              30,
               weight: FontWeight.w700,
-              height: 1.15,
-              letterSpacing: -0.5,
+              height: 1.1,
+              letterSpacing: -0.8,
             ),
           ),
         ),
         const SizedBox(width: 14),
-        Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: _line, width: 1.5),
-          ),
-          child: ClipOval(
-            child: SizedBox(
-              width: 54,
-              height: 54,
-              child: hasPhoto
-                  ? Image.asset(
-                      excludeFromSemantics: true,
-                      profile.photoAsset,
-                      fit: BoxFit.cover,
-                    )
-                  : const ColoredBox(
-                      color: _avatarTint,
-                      child: Icon(
-                        Icons.person_rounded,
-                        color: _muted,
-                        size: 30,
-                      ),
-                    ),
-            ),
+        ClipOval(
+          child: SizedBox(
+            width: 68,
+            height: 68,
+            child: hasPhoto
+                ? Image.asset(
+                    excludeFromSemantics: true,
+                    profile.photoAsset,
+                    fit: BoxFit.cover,
+                  )
+                : const ColoredBox(
+                    color: _avatarTint,
+                    child: Icon(Icons.person_rounded, color: _muted, size: 34),
+                  ),
           ),
         ),
       ],
     );
   }
 
-  /// A round icon badge: white on the grey cards, grey on the white rows.
-  Widget _badge(IconData icon, {required Color fill}) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-      alignment: Alignment.center,
-      child: Icon(icon, size: 21, color: _ink),
+  /// A wide grey card: icon, bold title, detail or chevron on the right.
+  Widget _wideCard(_MenuItem item) {
+    return _tap(
+      item,
+      height: 76,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        child: Row(
+          children: [
+            Icon(item.icon, size: 26, color: _ink),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _text(18, weight: FontWeight.w600),
+              ),
+            ),
+            item.detail ??
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 24,
+                  color: _chevron,
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Two columns of grey tiles, icon then bold label.
+  Widget _grid(List<_MenuItem> items) {
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i += 2) {
+      rows.add(
+        Row(
+          children: [
+            Expanded(child: _tile(items[i])),
+            const SizedBox(width: 10),
+            Expanded(
+              child: i + 1 < items.length
+                  ? _tile(items[i + 1])
+                  : const SizedBox(),
+            ),
+          ],
+        ),
+      );
+      if (i + 2 < items.length) rows.add(const SizedBox(height: 10));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
+    );
+  }
+
+  Widget _tile(_MenuItem item) {
+    return _tap(
+      item,
+      height: 72,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            Icon(item.icon, size: 22, color: _ink),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  style: _text(14.5, weight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tap(_MenuItem item, {required double height, required Widget child}) {
+    return Semantics(
+      button: true,
+      label: item.title,
+      onTap: item.onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: _card,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: item.onTap,
+            splashColor: _ink.withValues(alpha: 0.05),
+            highlightColor: _ink.withValues(alpha: 0.04),
+            child: SizedBox(height: height, child: child),
+          ),
+        ),
+      ),
     );
   }
 
@@ -248,66 +338,6 @@ class RiderSideMenu extends StatelessWidget {
     ];
   }
 
-  /// The money group as three shortcut cards; Wallet carries the balance.
-  Widget _shortcuts(List<_MenuItem> items) {
-    return Row(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(child: _shortcutCard(items[i])),
-        ],
-      ],
-    );
-  }
-
-  Widget _shortcutCard(_MenuItem item) {
-    return Semantics(
-      button: true,
-      label: item.title,
-      onTap: item.onTap,
-      child: ExcludeSemantics(
-        child: Material(
-          color: _card,
-          borderRadius: BorderRadius.circular(18),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: item.onTap,
-            splashColor: _ink.withValues(alpha: 0.05),
-            highlightColor: _ink.withValues(alpha: 0.04),
-            child: SizedBox(
-              height: 120,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _badge(item.icon, fill: Colors.white),
-                    const Spacer(),
-                    Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: _text(
-                        13,
-                        weight: FontWeight.w600,
-                        height: 1.2,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    if (item.detail != null) ...[
-                      const SizedBox(height: 2),
-                      item.detail!,
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// The wallet balance, shown under "Wallet" on its card.
   Widget _walletBalance() {
     return FutureBuilder<double>(
@@ -318,67 +348,9 @@ class RiderSideMenu extends StatelessWidget {
         return Text(
           'kr ${balance.toStringAsFixed(0)}',
           maxLines: 1,
-          style: _text(13, weight: FontWeight.w600, color: _muted),
+          style: _text(18, weight: FontWeight.w700),
         );
       },
-    );
-  }
-
-  /// Everything after the money group, as a quiet list.
-  List<Widget> _list(List<List<_MenuItem>> groups) {
-    return [
-      for (var g = 0; g < groups.length; g++) ...[
-        if (g > 0)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(56, 8, 4, 8),
-            child: Divider(height: 1, thickness: 1, color: _line),
-          ),
-        for (final item in groups[g]) _menuRow(item),
-      ],
-    ];
-  }
-
-  Widget _menuRow(_MenuItem item) {
-    return Semantics(
-      button: true,
-      label: item.title,
-      onTap: item.onTap,
-      child: ExcludeSemantics(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(14),
-            splashColor: _ink.withValues(alpha: 0.05),
-            highlightColor: _ink.withValues(alpha: 0.04),
-            child: SizedBox(
-              height: 60,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Row(
-                  children: [
-                    _badge(item.icon, fill: _card),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _text(16, weight: FontWeight.w500),
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 22,
-                      color: _chevron,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
