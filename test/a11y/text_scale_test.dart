@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -23,6 +22,8 @@ import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../responsive/responsive_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -39,29 +40,9 @@ void main() {
       ..restoreFromBackend(RideStatus.idle);
   });
 
+  // UI-11: the app's own ScreenUtil setup, not a test-only design size.
   Future<void> pumpScaled(WidgetTester tester, Widget screen) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      ScreenUtilInit(
-        designSize: const Size(390, 844),
-        minTextAdapt: true,
-        splitScreenMode: true,
-        builder: (_, __) => MaterialApp(
-          builder: (context, child) {
-            return MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: const TextScaler.linear(2)),
-              child: child!,
-            );
-          },
-          home: screen,
-        ),
-      ),
-    );
+    await pumpMoveraScreen(tester, screen, textScale: 2);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
   }

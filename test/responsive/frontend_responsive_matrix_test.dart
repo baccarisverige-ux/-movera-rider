@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
@@ -48,11 +48,9 @@ void main() {
     required String label,
   }) async {
     await tester.pumpWidget(
-      ScreenUtilInit(
+      // UI-11: the app's own ScreenUtil setup.
+      MoveraScreenUtilInit(
         key: ValueKey('${viewport.width}x${viewport.height}-$label'),
-        designSize: const Size(390, 844),
-        minTextAdapt: true,
-        splitScreenMode: true,
         builder: (_, __) => MaterialApp(home: screen),
       ),
     );
@@ -195,10 +193,7 @@ void main() {
     await security.load();
 
     await tester.pumpWidget(
-      ScreenUtilInit(
-        designSize: const Size(390, 844),
-        minTextAdapt: true,
-        splitScreenMode: true,
+      MoveraScreenUtilInit(
         builder: (_, __) => MaterialApp(
           home: PersonalInfoPage(
             controller: profile,
