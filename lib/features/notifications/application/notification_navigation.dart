@@ -68,6 +68,9 @@ bool pushPageOnce(Widget Function() page, String name) {
 Future<bool> openRideFromNotification(String rideId) async {
   final expected = rideId.trim();
   if (expected.isEmpty) return false;
+  // NAV-15: on a cold start from a push, let the gate's first restore land
+  // before resuming, so the ride is not built twice (or over Sign in).
+  await RideRestoreCoordinator.instance.firstRootResolved;
   // Handled on purpose: neither the ride nor the notification list may open
   // over Sign in.
   if (await navigationBlockedBySignIn()) return true;

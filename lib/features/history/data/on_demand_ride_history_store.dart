@@ -143,7 +143,10 @@ abstract final class OnDemandRideHistoryStore {
       note: snapshot.notes.selected.isEmpty
           ? null
           : snapshot.notes.selected.join(', '),
-      cancellationReason: cancellationReason ?? snapshot.cancellationReason,
+      cancellationReason:
+          cancellationReason ??
+          snapshot.cancellationReason ??
+          _endedSearchReason(terminalStatus),
     );
 
     // Two archives finishing at once both read, prepend and write, so the
@@ -197,11 +200,21 @@ abstract final class OnDemandRideHistoryStore {
     if (status.isCompletedSurface) return ReservationStatus.completed;
     if (status == RideStatus.cancelledByRider ||
         status == RideStatus.cancelledByDriver ||
-        status == RideStatus.cancelledBySystem) {
+        status == RideStatus.cancelledBySystem ||
+        // ARCH-3 / RIDE-5: a search the server ended is a request that did
+        // not happen; History keeps the attempt as a cancelled ride.
+        status == RideStatus.noDriverFound ||
+        status == RideStatus.bookingExpired) {
       return ReservationStatus.cancelled;
     }
     return null;
   }
+
+  static String? _endedSearchReason(RideStatus status) => switch (status) {
+    RideStatus.noDriverFound => 'No driver found',
+    RideStatus.bookingExpired => 'Request expired',
+    _ => null,
+  };
 
   static ReservationDriver? _driver(RideSnapshot snapshot) {
     final driver = snapshot.driver;

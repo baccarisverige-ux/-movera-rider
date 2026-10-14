@@ -8,6 +8,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
@@ -22,6 +23,7 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
+import 'package:movera_rider/features/finding_driver/presentation/still_looking_card.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
 import 'package:movera_rider/features/active_ride/application/route_change_controller.dart'
     show RideSnapshot;
@@ -57,8 +59,21 @@ class FindingDrivers extends StatefulWidget {
     this.stops = const <RouteStop>[],
     this.realtime,
     this.etaMinutes,
+    this.searchStartedAt,
+    this.createdAt,
     @visibleForTesting this.controller,
+    @visibleForTesting this.booking,
   });
+
+  /// When this ride's search started, for a restored search (ARCH-3: the
+  /// "still looking" mark is not restarted by a reload). Null: now.
+  final DateTime? searchStartedAt;
+
+  /// When the ride was created, for a restored search. Null: now.
+  final DateTime? createdAt;
+
+  /// Test seam for "Try again" after no driver was found (RIDE-19).
+  final BookingController? booking;
 
   /// The part of the fare booked to the Movera Wallet, in öre.
   final int walletAmountMinor;
@@ -137,10 +152,18 @@ class _FindingDriversState extends State<FindingDrivers> {
     setWebOverlayOpen(false);
     _loadMapBits();
     unawaited(_prepareMapVisuals());
-    _startMatching(price: widget.price);
+    _startMatching(
+      price: widget.price,
+      searchStartedAt: widget.searchStartedAt,
+      createdAt: widget.createdAt,
+    );
   }
 
-  void _startMatching({double? price}) {
+  void _startMatching({
+    double? price,
+    DateTime? searchStartedAt,
+    DateTime? createdAt,
+  }) {
     final effectivePrice =
         price ?? (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
     _match.startFrom(
@@ -156,6 +179,8 @@ class _FindingDriversState extends State<FindingDrivers> {
       walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
       stops: _stops,
+      searchStartedAt: searchStartedAt,
+      createdAt: createdAt,
       onTick: (_) {
         if (!mounted) return;
         final nearbyKey = Object.hashAll(
@@ -219,10 +244,17 @@ class _FindingDriversState extends State<FindingDrivers> {
     }
   }
 
-  void _resumeFindingAfterDriverCancel() {
+  Future<void> _resumeFindingAfterDriverCancel() async {
     if (!mounted) return;
-    final effectivePrice =
-        _match.currentPrice > 0 ? _match.currentPrice : widget.price;
+    // RIDE-8: a route change made on Waiting is saved to the ride snapshot
+    // (and the server), not handed back here. Search again with the ride's
+    // current route and price, not the ones this screen started with.
+    final current = await _match.storedRide();
+    if (!mounted) return;
+    if (current != null) _adoptRoute(current);
+    final effectivePrice = current != null
+        ? current.price
+        : (_match.currentPrice > 0 ? _match.currentPrice : widget.price);
     _leaving = false;
     _cancelSheetOpen = false;
     _driverMatched.value = false;
@@ -231,7 +263,8 @@ class _FindingDriversState extends State<FindingDrivers> {
     _nearbyPaintKey = 0;
     setWebOverlayOpen(false);
     setState(() => _mapParked = false);
-    _startMatching(price: effectivePrice);
+    // A new dispatch round: its own "still looking" mark.
+    _startMatching(price: effectivePrice, searchStartedAt: DateTime.now());
     _loadMapBits();
   }
 
@@ -239,9 +272,86 @@ class _FindingDriversState extends State<FindingDrivers> {
     if (!mounted || _leaving) return;
     _leaving = true;
     setState(() {});
-    await showRideTerminalStateSheet(context, status: status);
+    final ended = _match.ownershipSnapshot;
+    final canRetry = status == RideStatus.noDriverFound &&
+        ended != null &&
+        ended.categoryId != null &&
+        ended.paymentMethodId != null;
+    if (!canRetry) {
+      await showRideTerminalStateSheet(context, status: status);
+      if (!mounted) return;
+      RideNavigator.home(context, status: status);
+      return;
+    }
+    // RIDE-19: the server found no driver. Offer the same request again, or
+    // a different route from "Where to?".
+    final choice = await showNoDriverFoundSheet(context);
+    if (!mounted) return;
+    if (choice == NoDriverChoice.tryAgain && await _requestAgain(ended)) {
+      return;
+    }
     if (!mounted) return;
     RideNavigator.home(context, status: status);
+  }
+
+  /// Requests the same route, category and payment again as a new booking
+  /// (a new ride, so a new idempotency key). True when the new search runs.
+  Future<bool> _requestAgain(RideSnapshot ended) async {
+    String rideId;
+    try {
+      rideId = await (widget.booking ?? BookingController()).submitFinding(
+        pickupAddress: ended.pickupAddress,
+        destinationAddress: ended.destinationAddress,
+        pickupLat: ended.pickupLat,
+        pickupLng: ended.pickupLng,
+        destinationLat: ended.destinationLat,
+        destinationLng: ended.destinationLng,
+        rideType: ended.categoryId!,
+        price: ended.price,
+        paymentMethod: ended.paymentMethodId!,
+        rideTypeLabel: widget.rideType,
+        paymentMethodLabel: widget.paymentMethod,
+        notes: widget.notes,
+        stops: ended.stops,
+        useWalletFirst: widget.walletAmountMinor > 0,
+        walletAmountMinor: widget.walletAmountMinor,
+      );
+    } catch (_) {
+      _showCancelNotice(
+        'We couldn’t request a new ride. Choose your route and try again.',
+      );
+      return false;
+    }
+    if (!mounted || rideId.trim().isEmpty) return false;
+    final booked = await _match.storedRide(rideId: rideId);
+    if (!mounted) return false;
+    if (booked != null) _adoptRoute(booked);
+    _leaving = false;
+    _terminalPending = null;
+    _matchedPending = false;
+    _driverMatched.value = false;
+    _nearbyPaintKey = 0;
+    setState(() {});
+    _startMatching(
+      price: booked?.price ?? ended.price,
+      searchStartedAt: booked?.searchStart,
+      createdAt: booked?.createdAt,
+    );
+    _loadMapBits();
+    return true;
+  }
+
+  /// Takes over [ride]'s route on this screen (without telling the server,
+  /// which already has it).
+  void _adoptRoute(RideSnapshot ride) {
+    _pickupAddress = ride.pickupAddress;
+    _pickupPosition = LatLng(ride.pickupLat, ride.pickupLng);
+    _destinationAddress = ride.destinationAddress;
+    _destinationPosition = LatLng(ride.destinationLat, ride.destinationLng);
+    _stops = List<RouteStop>.from(ride.stops);
+    _roadRoutePoints = null;
+    _loadMapBits();
+    if (_mapReady) unawaited(_refreshRoadRoute());
   }
 
   void _loadMapBits() {
@@ -392,7 +502,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       ),
     );
     if (!mounted || researchDriver != true) return;
-    _resumeFindingAfterDriverCancel();
+    await _resumeFindingAfterDriverCancel();
   }
 
   /// Cancel-first (CODE-3): Cancel request commits the cancel straight away
@@ -866,7 +976,17 @@ class _FindingDriversState extends State<FindingDrivers> {
               color: const Color(0xFF2D5878),
             ),
           ),
-          if (_match.showPriceBump) ...[
+          if (_match.showStillLooking) ...[
+            const SizedBox(height: 16),
+            StillLookingCard(
+              onKeepSearching: () {
+                _match.keepSearching();
+                setState(() {});
+              },
+              onCancel: _confirmCancel,
+            ),
+          ],
+          if (_match.showPriceBump && !_match.showStillLooking) ...[
             const SizedBox(height: 16),
             PriceBumpCard(
               currentPrice: _match.currentPrice,

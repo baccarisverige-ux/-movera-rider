@@ -466,16 +466,32 @@ class BookingCoordinator {
     final collisionBeforeCommit = await _standDownIfFindingOwned(createdRideId: id);
     if (collisionBeforeCommit != null) return collisionBeforeCommit;
 
-    AppScope.instance.ride.backendReconcile(
+    final version = _rideVersion(json);
+    final serverUpdatedAt = _rideUpdatedAt(json);
+    final session = AppScope.instance.ride;
+    session.backendReconcile(
       RideStatus.findingDriver,
       id: id,
-      version: _rideVersion(json),
-      updatedAt: _rideUpdatedAt(json),
+      version: version,
+      updatedAt: serverUpdatedAt,
     );
+    session
+      ..bookedCategoryId = rideType
+      ..bookedPaymentMethodId = paymentMethod;
+    final now = DateTime.now();
+    // ARCH-1 / RIDE-17: the first snapshot already carries the server's
+    // ordering (version + updatedAt) and the stops, so a reload in the first
+    // seconds of the search restores the same ride, in the right order.
     await RideSnapshotStore.save(
       RideSnapshot(
         status: RideStatus.findingDriver,
-        savedAt: DateTime.now(),
+        savedAt: now,
+        searchStartedAt: now,
+        version: version,
+        serverUpdatedAt: serverUpdatedAt?.toUtc(),
+        stops: stops,
+        categoryId: rideType,
+        paymentMethodId: paymentMethod,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,

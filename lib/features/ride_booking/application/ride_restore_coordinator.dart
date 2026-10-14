@@ -14,7 +14,10 @@ import 'package:movera_rider/core/web/web_search_interrupted.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/auth/presentation/sign_in.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/finding_driver/data/pending_cancel_store.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/application/search_interrupted_notice.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -32,7 +35,9 @@ class RideRestoreCoordinator {
     bool Function()? authRequired,
     Future<bool> Function()? hasSession,
     SearchInterruptedNotice? interruptedNotice,
+    Future<PendingCancel?> Function(String rideId)? pendingCancel,
   }) : _reader = reader ?? RideSnapshotStore.read,
+       _pendingCancel = pendingCancel ?? PendingCancelStore.find,
        _skipRestore = skipRestore ?? defaultSkipRestore,
        _resync = resync ?? _defaultResync,
        _authRequired = authRequired ?? _defaultAuthRequired,
@@ -45,6 +50,51 @@ class RideRestoreCoordinator {
   final bool Function() _authRequired;
   final Future<bool> Function() _hasSession;
   final SearchInterruptedNotice _interruptedNotice;
+  final Future<PendingCancel?> Function(String rideId) _pendingCancel;
+
+  /// NAV-15: completes once the first [root] call has resolved, so a
+  /// notification opener on a cold start does not race the gate's own
+  /// restore. Already complete when no [root] call ever started (hosts
+  /// without a gate).
+  Completer<void>? _firstRoot;
+  Future<void> get firstRootResolved =>
+      _firstRoot?.future ?? Future<void>.value();
+
+  /// PR-3 follow-up: a reload while the rider's cancel was still on its way
+  /// leaves the snapshot behind with the cancel queued in the outbox. That
+  /// ride is over for the rider: archive it, drop the snapshot, let the
+  /// outbox send the cancel, and restore Home instead of the search.
+  Future<RideSnapshot?> _dropIfCancelQueued(RideSnapshot? snapshot) async {
+    final id = snapshot?.rideId?.trim();
+    if (snapshot == null || id == null || id.isEmpty) return snapshot;
+    // A mounted search that owns this ride is waiting for the server's
+    // answer itself (a 409 must still be able to move it to Waiting).
+    if (FindingDriverController.active?.ownedRideId == id) return snapshot;
+    PendingCancel? queued;
+    try {
+      queued = await _pendingCancel(id);
+    } catch (_) {
+      return snapshot;
+    }
+    if (queued == null) return snapshot;
+    AppLog.info('ride.restore.cancel_queued', extra: {'rideId': id});
+    final session = AppScope.instance.ride;
+    if (session.rideId == null || session.rideId == id) {
+      session.backendReconcile(RideStatus.cancelledByRider, id: id);
+    }
+    try {
+      await OnDemandRideHistoryStore.archiveCancelledThenClear(
+        snapshot: snapshot,
+        reasonId: queued.reasonId,
+      );
+    } catch (_) {
+      await RideSnapshotStore.clear();
+    }
+    unawaited(
+      FindingDriverController.flushPendingCancels().catchError((Object _) {}),
+    );
+    return null;
+  }
 
   static Future<void> _defaultResync(String rideId) =>
       AppScope.instance.rideRealtime.reconnectAndResync(rideId);
@@ -189,12 +239,17 @@ class RideRestoreCoordinator {
     // restore. Without a persisted version there is nothing to protect
     // against; that gap is closed as soon as the first live event persists
     // one (see DriverTrackingController._persistLiveStatus).
-    AppScope.instance.ride.backendReconcile(
+    // ARCH-1: only server-issued ordering may seed the session. savedAt is
+    // the device clock at the last local save; used as the server time it
+    // made a driver assignment from just before the reload look stale.
+    final session = AppScope.instance.ride;
+    session.backendReconcile(
       snapshot.status,
       id: snapshot.rideId,
       version: snapshot.version,
-      updatedAt: snapshot.savedAt,
+      updatedAt: snapshot.serverUpdatedAt,
     );
+    _adoptBookingIds(snapshot);
     final pickup = LatLng(snapshot.pickupLat, snapshot.pickupLng);
     final drop = LatLng(snapshot.destinationLat, snapshot.destinationLng);
     if (surface == RestoredSurface.waiting) {
@@ -225,6 +280,8 @@ class RideRestoreCoordinator {
           walletAmountMinor: snapshot.walletAmountMinor,
           notes: snapshot.notes,
           stops: snapshot.stops,
+          searchStartedAt: snapshot.searchStart,
+          createdAt: snapshot.createdAt,
         );
       case RestoredSurface.waiting:
         return WaitingForDriver(
@@ -254,7 +311,28 @@ class RideRestoreCoordinator {
     }
   }
 
+  void _adoptBookingIds(RideSnapshot snapshot) {
+    final session = AppScope.instance.ride;
+    if (session.rideId != snapshot.rideId) return;
+    session.bookedCategoryId = snapshot.categoryId ?? session.bookedCategoryId;
+    session.bookedPaymentMethodId =
+        snapshot.paymentMethodId ?? session.bookedPaymentMethodId;
+  }
+
   Future<Widget> root() async {
+    final first = _firstRoot ??= Completer<void>();
+    try {
+      return await _root();
+    } finally {
+      // On the event queue, so the gate's own `.then` (which shows the page
+      // and sets [authRootShowing]) has run before a waiting opener resumes.
+      Timer.run(() {
+        if (!first.isCompleted) first.complete();
+      });
+    }
+  }
+
+  Future<Widget> _root() async {
     reportRestoreSurface('hold');
     if (_skipRestore()) {
       RideSnapshot? snapshot;
@@ -272,7 +350,7 @@ class RideRestoreCoordinator {
       return const Home();
     }
     try {
-      final snapshot = await _reader();
+      final snapshot = await _dropIfCancelQueued(await _reader());
       AppLog.info(
         'ride.restore.cold',
         extra: {'status': snapshot?.status.name ?? 'none'},
@@ -335,7 +413,10 @@ class RideRestoreCoordinator {
     AppScope.instance.ride.backendReconcile(
       snapshot.status,
       id: expectedId,
+      version: snapshot.version,
+      updatedAt: snapshot.serverUpdatedAt,
     );
+    _adoptBookingIds(snapshot);
 
     final finding = FindingDrivers(
       pickupAddress: snapshot.pickupAddress,
@@ -350,6 +431,9 @@ class RideRestoreCoordinator {
       paymentMethod: snapshot.paymentMethod,
       walletAmountMinor: snapshot.walletAmountMinor,
       notes: snapshot.notes,
+      stops: snapshot.stops,
+      searchStartedAt: snapshot.searchStart,
+      createdAt: snapshot.createdAt,
       realtime: realtime,
     );
 
@@ -412,6 +496,7 @@ class RideRestoreCoordinator {
         snapshot = await _reader();
       } catch (_) {}
     }
+    snapshot = await _dropIfCancelQueued(snapshot);
     if (!atRoot) return null;
     if (AppScope.instance.ride.suppressRestore) {
       unawaited(RideSnapshotStore.clear());

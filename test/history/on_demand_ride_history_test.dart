@@ -162,15 +162,26 @@ void main() {
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
   });
 
-  test('only completed or explicit cancellation terminal states archive', () async {
+  test('only completed, cancelled or server-ended searches archive', () async {
     await expectLater(
       OnDemandRideHistoryStore.archive(
-        snapshot(rideId: 'ride-no-driver'),
-        terminalStatus: RideStatus.noDriverFound,
+        snapshot(rideId: 'ride-payment-failed'),
+        terminalStatus: RideStatus.paymentFailed,
       ),
       throwsA(isA<ArgumentError>()),
     );
     expect(await OnDemandRideHistoryStore.read(), isEmpty);
+
+    // ARCH-3 / RIDE-5: a search the server ended is kept as a cancelled
+    // attempt, with the reason the rider saw.
+    await OnDemandRideHistoryStore.archive(
+      snapshot(rideId: 'ride-no-driver'),
+      terminalStatus: RideStatus.noDriverFound,
+    );
+    final history = await OnDemandRideHistoryStore.read();
+    expect(history.single.reservationId, 'ondemand-ride-no-driver');
+    expect(history.single.status.name, 'cancelled');
+    expect(history.single.cancellationReason, 'No driver found');
   });
 
   test('multiple archived rides are newest first', () async {

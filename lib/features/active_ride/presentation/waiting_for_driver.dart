@@ -232,6 +232,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _tracking.start(
         rideId: rideId,
         initial: widget.driver,
+        initialStatus: _knownStatus(rideId),
         onChange: _onLiveTick,
       );
     } else {
@@ -243,6 +244,15 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   }
 
   bool _missingRideId = false;
+
+  /// RIDE-7: the stage this ride is already known to be in (a restore seeds
+  /// the session from the snapshot), so tracking starts there.
+  RideStatus? _knownStatus(String rideId) {
+    final session = AppScope.instance.ride;
+    if (session.rideId?.trim() != rideId.trim()) return null;
+    final status = session.status;
+    return status.isMatched ? status : null;
+  }
 
   void _retryTracking() {
     final rideId = _rideId;

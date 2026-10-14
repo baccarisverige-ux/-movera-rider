@@ -136,7 +136,10 @@ void main() {
     rt.dispose();
   });
 
-  test('search timeout produces noDriverFound and terminates once', () async {
+  test('search timeout keeps searching until the server says no driver, '
+      'then terminates once', () async {
+    final server = InProcessMockClient();
+    server.rides['r1'] = {'id': 'r1', 'status': 'findingDriver', 'version': 1};
     final rt = MockRideRealtime(assignAfter: const Duration(days: 1));
     final ride = RideSession()..rideId = 'r1';
     final terminal = <RideStatus>[];
@@ -144,6 +147,7 @@ void main() {
       rt,
       ride,
       searchTimeout: const Duration(seconds: 2),
+      api: ApiClient(client: server),
     );
     controller.start(
       snapshot: snap(),
@@ -151,11 +155,23 @@ void main() {
       onMatched: () {},
       onTerminal: terminal.add,
     );
+    // ARCH-3: the client mark is a UI hint, not the end of the ride.
     controller.debugAdvance(2);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(controller.stillLooking, isTrue);
+    expect(ride.status, isNot(RideStatus.noDriverFound));
+    expect(terminal, isEmpty);
+
+    // The server ends the search; the next check reports it.
+    server.rides['r1']!
+      ..['status'] = 'noDriverFound'
+      ..['version'] = 2;
+    await controller.checkServerSearchState();
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(ride.status, RideStatus.noDriverFound);
     expect(terminal, <RideStatus>[RideStatus.noDriverFound]);
-    controller.debugAdvance(10);
+    controller.debugAdvance(30);
+    await controller.checkServerSearchState();
     await Future<void>.delayed(Duration.zero);
     expect(terminal, hasLength(1));
     controller.dispose();

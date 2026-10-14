@@ -38,6 +38,7 @@ class DriverTrackingController {
   String? signalMessage;
   RideStatus? _lastPersistedStatus;
   int? _lastVersion;
+  DateTime? _lastServerTime;
   void Function()? onChange;
 
   /// Re-evaluates staleness on a timer, independent of new fixes arriving.
@@ -50,9 +51,16 @@ class DriverTrackingController {
   void start({
     required String rideId,
     MatchedDriver? initial,
+    RideStatus? initialStatus,
     void Function()? onChange,
   }) {
     driver = initial;
+    // RIDE-7: a restored ride resumes from its own stage (for example in
+    // trip), not from the "driver assigned" default.
+    if (initialStatus != null &&
+        (initialStatus.isMatched || initialStatus.isCompletedSurface)) {
+      status = initialStatus;
+    }
     this.onChange = onChange;
     // A fresh subscription is a fresh feed; only its own errors degrade it.
     connectionDegraded = false;
@@ -80,6 +88,7 @@ class DriverTrackingController {
           lastSignal = event.signal;
           signalMessage = event.message;
           _lastVersion = eventVersion;
+          _lastServerTime = event.serverTime ?? _lastServerTime;
         }
         if (event.driver != null) driver = event.driver;
         final incomingLocationAt = event.locationAt ?? event.at;
@@ -111,7 +120,10 @@ class DriverTrackingController {
             status: status,
           );
         }
-        if (statusChanged) {
+        // Also persist an accepted event that confirms the current stage
+        // when that stage is not stored yet (start never stores a stage it
+        // could not prove, RIDE-7).
+        if (statusChanged || (accepted && _lastPersistedStatus != status)) {
           unawaited(_persistLiveStatus());
         }
         this.onChange?.call();
@@ -146,6 +158,10 @@ class DriverTrackingController {
     if (_lastPersistedStatus == status) return;
     final stored = await RideSnapshotStore.read();
     if (stored == null) return;
+    // RIDE-7: never move the stored ride backwards. A later stage stored
+    // with the same or a newer server version stays; only a newer version
+    // (for example a fresh match after a driver drop) may replace it.
+    if (_wouldRegress(stored)) return;
     _lastPersistedStatus = status;
     await RideSnapshotStore.save(
       stored.copyWith(
@@ -153,8 +169,19 @@ class DriverTrackingController {
         savedAt: DateTime.now(),
         driver: driver ?? stored.driver,
         version: _lastVersion,
+        serverUpdatedAt: _lastServerTime?.toUtc(),
       ),
     );
+  }
+
+  bool _wouldRegress(RideSnapshot stored) {
+    if (stored.status.isTerminal || stored.status.index <= status.index) {
+      return false;
+    }
+    final incoming = _lastVersion;
+    final current = stored.version;
+    if (incoming == null) return true;
+    return current != null && incoming <= current;
   }
 
   void dispose() {

@@ -25,6 +25,12 @@ class RideSession {
   int? authoritativeVersion;
   DateTime? authoritativeUpdatedAt;
 
+  /// The booked category and payment method ids of [rideId] (RIDE-19), so
+  /// the search screen can request the same ride again. Set by booking and
+  /// by restore; the labels shown to the rider live in the snapshot.
+  String? bookedCategoryId;
+  String? bookedPaymentMethodId;
+
   /// Strict client-side mutation path. Local/UI actions must obey the graph.
   RideStatus localTransition(RideStatus next) {
     status = transitionRide(status, next);
@@ -67,6 +73,8 @@ class RideSession {
     if (isNewRide) {
       authoritativeVersion = null;
       authoritativeUpdatedAt = null;
+      bookedCategoryId = null;
+      bookedPaymentMethodId = null;
     } else if (!_isFreshBackendProjection(
       backendStatus,
       version: version,
@@ -121,6 +129,12 @@ class RideSession {
       if (updatedAt == null || currentUpdatedAt == null) return false;
       return updatedAt.isAfter(currentUpdatedAt);
     }
+
+    // ARCH-1: a versioned server projection outranks a session that has no
+    // server version yet. Whatever timestamp the session holds then came
+    // from a path without server ordering, so it must not reject a newer
+    // server state.
+    if (version != null && currentVersion == null) return true;
 
     if (updatedAt != null && currentUpdatedAt != null) {
       if (updatedAt.isBefore(currentUpdatedAt)) return false;
