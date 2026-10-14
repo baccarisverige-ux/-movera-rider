@@ -65,8 +65,19 @@ These do **not** block local architecture completion:
 - Sentry / Crashlytics
 - separate Admin app
 
-`InProcessMockClient` + `backend/src/index.js` stay the v1 mock contract.
-`AppEnv.current` remains `https://api.dev.movera.invalid`.
+`InProcessMockClient` is the v1 mock contract. `backend/src/index.js` is a
+frozen, unused Node mock (see `backend/README.md`); only the phase74, phase78
+and phase80 CI workflows still boot it as a smoke target, so it is not a
+second source of truth.
+`AppEnv.current` defaults to `https://api.demo.movera.invalid`
+(`MOVERA_API_BASE_URL` overrides it).
+
+Contract types live in `lib/core/contracts` (P1): `TripStatus` with its
+snake_case wire parser, `RideStatus` (Rider UI enum) and its one wire adapter,
+`Money` (integer minor units + ISO-4217) and `WireTime` (RFC 3339 UTC).
+`lib/core` never imports `lib/features` or `app/di.dart`, DI never imports a
+screen, and application services do not import presentation; the
+architecture guard test enforces this.
 
 ## Live
 

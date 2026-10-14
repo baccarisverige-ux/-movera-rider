@@ -80,16 +80,12 @@ Future<void> bootstrap() async {
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
+    // CODE-20: record() already logs it as a fatal `crash`; logging it a
+    // second time counted every framework error twice.
     AppScope.instance.crashes.record(
       details.exception,
       details.stack ?? StackTrace.empty,
       screen: details.library,
-    );
-    AppLog.fatal(
-      'flutter.error',
-      error: details.exception,
-      stackTrace: details.stack,
-      extra: {'library': details.library ?? ''},
     );
   };
 
