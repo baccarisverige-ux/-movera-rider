@@ -88,7 +88,12 @@ Future<bool> openRideFromNotification(String rideId) async {
 Future<bool> _openRide(String expected) async {
   await AppScope.instance.rideRealtime.reconnectAndResync(expected);
 
-  final snapshot = await RideSnapshotStore.read();
+  // ARCH-12: a push for a ride this device never saved (second device,
+  // cleared storage) asks the server for the rider's active trip.
+  final snapshot = await RideSnapshotStore.read() ??
+      await RideRestoreCoordinator.instance.adoptServerActiveTrip(
+        expectedRideId: expected,
+      );
   if (snapshot == null || snapshot.rideId?.trim() != expected) {
     return _openReservation(expected);
   }

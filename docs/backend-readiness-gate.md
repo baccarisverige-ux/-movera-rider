@@ -9,6 +9,7 @@ The gate verifies:
 - authenticated Safety networking
 - release telemetry sinks and privacy scrubbing
 - explicit environment/transport composition with production mock rejection
+- repository composition: release accepts only server-backed rider repositories; wallet, Book for later and saved cards are switched off there until theirs exist (`RepositoryComposition`, ARCH-6/ARCH-7)
 - versioned realtime event contract
 - controlled routing boundary
 - snapshot/lifecycle/realtime/state-ordering destructive races

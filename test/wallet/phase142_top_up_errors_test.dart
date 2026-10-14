@@ -38,6 +38,8 @@ class _ScriptedGateway implements PaymentGateway {
     required int amountMinor,
     required String currency,
     required String idempotencyKey,
+    PaymentPurpose? purpose,
+    String? rideId,
   }) async {
     keys.add(idempotencyKey);
     final error = createError;

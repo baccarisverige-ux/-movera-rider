@@ -70,23 +70,3 @@ class RidePin {
     );
   }
 }
-
-class PinVerifyResult {
-  const PinVerifyResult({
-    required this.valid,
-    required this.rideId,
-    this.code = 'OK',
-  });
-
-  final bool valid;
-  final String rideId;
-  final String code;
-
-  factory PinVerifyResult.fromJson(Map<String, dynamic> json) {
-    return PinVerifyResult(
-      valid: json['valid'] == true,
-      rideId: json['rideId'] as String? ?? '',
-      code: json['code'] as String? ?? 'OK',
-    );
-  }
-}

@@ -41,12 +41,26 @@ class TopUpUnconfirmed extends TopUpOutcome {
 }
 
 class WalletController {
-  WalletController({WalletStore? store, PaymentGateway? gateway})
-    : _store = store ?? WalletStore(),
-      _gateway = gateway;
+  /// [balances] is where the balance lives (ARCH-6); without it the
+  /// device-local ledger over [store] is used, as before. AppScope passes
+  /// the composed one, which release builds switch off.
+  WalletController({
+    WalletStore? store,
+    PaymentGateway? gateway,
+    WalletBalanceRepository? balances,
+  }) : _store = store ?? WalletStore(),
+       _gateway = gateway,
+       _balancesOverride = balances;
 
   final WalletStore _store;
   final PaymentGateway? _gateway;
+  final WalletBalanceRepository? _balancesOverride;
+  late final WalletBalanceRepository _balances =
+      _balancesOverride ?? LocalWalletRepository(_store);
+
+  /// False when this build has no wallet (release until a server ledger
+  /// exists).
+  bool get available => _balances.available;
   final Set<String> _topUpKeys = {};
 
   Future<WalletPaymentSettings> loadPayments() => _store.loadPayments();
@@ -82,7 +96,7 @@ class WalletController {
   Future<void> savePayments(WalletPaymentSettings settings) =>
       _store.savePayments(settings);
 
-  Future<double> loadBalance() => _store.loadBalance();
+  Future<double> loadBalance() => _balances.loadBalance();
 
   Future<TopUpOutcome> topUp({
     required double previous,
@@ -90,6 +104,10 @@ class WalletController {
     String? idempotencyKey,
   }) async {
     final key = idempotencyKey ?? newIdempotencyKey('wallet');
+    // ARCH-6: never take card money that nothing authoritative can credit.
+    if (!_balances.available) {
+      return const TopUpNotCharged(error: WalletUnavailableException());
+    }
     if (_topUpKeys.contains(key)) return TopUpCredited(previous);
     _topUpKeys.add(key);
     final gateway = _gateway ?? AppScope.instance.paymentGateway;
@@ -115,6 +133,7 @@ class WalletController {
         amountMinor: (amount * 100).round(),
         currency: 'SEK',
         idempotencyKey: key,
+        purpose: PaymentPurpose.walletTopUp,
       );
     } catch (error, stack) {
       // The provider may have created an intent before the response was lost.
@@ -152,9 +171,13 @@ class WalletController {
     }
 
     Analytics.track('payment_succeeded', extra: {'intent': intent.id});
-    final next = previous + amount;
+    var next = previous + amount;
     try {
-      await _store.saveBalance(next);
+      next = await _balances.creditTopUp(
+        paymentIntentId: intent.id,
+        previous: previous,
+        amount: amount,
+      );
     } catch (error, stack) {
       // The money was taken: show it rather than hide it, and report that
       // the local copy could not be saved.
@@ -217,6 +240,7 @@ class WalletController {
     if (id.isEmpty || snapshot == null || snapshot.rideId?.trim() != id) {
       return null;
     }
+    if (!_balances.available) return null;
     // A wallet ride is charged in full; with "Use wallet balance first" the
     // wallet part booked with the ride is charged (never more than the
     // fare), and the method pays the rest.
@@ -250,8 +274,12 @@ class WalletController {
       // Record first: a crash between the two writes must err towards not
       // charging twice rather than charging again on the next launch.
       await prefs.setStringList(chargedRidesKey, [...kept, id]);
-      final previous = await _store.loadBalance();
-      final next = await chargeRide(previous: previous, amount: amount);
+      final previous = await _balances.loadBalance();
+      final next = await chargeRide(
+        previous: previous,
+        amount: amount,
+        rideId: id,
+      );
       AppLog.info(
         'wallet.ride_charged',
         extra: {'rideId': id, 'amount': amount, 'localOnly': true},
@@ -265,9 +293,13 @@ class WalletController {
   Future<double> chargeRide({
     required double previous,
     required double amount,
+    String? rideId,
   }) async {
-    final next = previous - amount;
-    await _store.saveBalance(next);
+    final next = await _balances.debitRide(
+      rideId: rideId,
+      previous: previous,
+      amount: amount,
+    );
     AppScope.instance.wallet.add(
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -283,8 +315,7 @@ class WalletController {
     required double previous,
     required double amount,
   }) async {
-    final next = previous + amount;
-    await _store.saveBalance(next);
+    final next = await _balances.refund(previous: previous, amount: amount);
     AppScope.instance.wallet.add(
       WalletEntry(
         id: DateTime.now().millisecondsSinceEpoch.toString(),

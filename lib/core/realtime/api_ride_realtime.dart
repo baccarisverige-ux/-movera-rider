@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
@@ -11,18 +12,37 @@ import 'package:movera_rider/core/contracts/wire_time.dart';
 
 /// Polls each active ride once and shares its events across all screen owners.
 /// A screen cancelling its subscription cannot disconnect another screen.
+///
+/// ARCH-13, event envelope (contract C-6, PROPOSED, needs agreement with
+/// Driver, Admin and backend): besides the ride projection a response may
+/// carry `eventId` (unique per change, replayed unchanged on reconnect),
+/// `serverTime` (the server clock when it answered) and the projection's
+/// `etaSeconds`. Events are deduplicated by `eventId` and ordered by the
+/// projection's monotonic `version`; the transport `sequence` survives a
+/// re-subscribe so it never restarts at 1 for the same ride.
 class ApiRideRealtime implements RideRealtime {
   ApiRideRealtime({
     required ApiClient api,
     RealtimeConnection? connection,
     this.pollInterval = const Duration(seconds: 2),
+    this.notFoundLimit = 3,
+    DateTime Function()? clock,
   }) : _api = api,
-       connection = connection ?? RealtimeConnection();
+       connection = connection ?? RealtimeConnection(),
+       _clock = clock ?? WireTime.now;
 
   final ApiClient _api;
   final RealtimeConnection connection;
   final Duration pollInterval;
+
+  /// Consecutive `404`s after which the ride is treated as gone
+  /// (`cancelledBySystem`) and polling stops.
+  final int notFoundLimit;
+  final DateTime Function() _clock;
   final Map<String, _RidePoll> _rides = {};
+
+  /// Per-ride transport sequence, kept across subscriptions (ARCH-13).
+  final Map<String, int> _sequences = {};
   bool _disposed = false;
 
   @override
@@ -57,12 +77,19 @@ class ApiRideRealtime implements RideRealtime {
     return poll.controller!.stream;
   }
 
-  Future<void> _poll(_RidePoll poll) async {
+  Future<void> _poll(_RidePoll poll, {bool force = false}) async {
     if (_disposed || !_rides.containsKey(poll.id) || poll.inFlight) return;
+    if (poll.ended) return;
+    // ARCH-13: after a failure, wait out the connection's backoff instead
+    // of hammering the server every tick. A resync asks right away.
+    final retryAt = poll.retryAt;
+    if (!force && retryAt != null && _clock().isBefore(retryAt)) return;
     poll.inFlight = true;
     try {
       final json = await _api.get('/api/v1/rides/${Uri.encodeComponent(poll.id)}');
       if (_disposed || !identical(_rides[poll.id], poll)) return;
+      poll.retryAt = null;
+      poll.notFound = 0;
       final rawRide = json['ride'];
       if (rawRide is! Map) throw const FormatException('Missing ride projection');
       final ride = Map<String, dynamic>.from(rawRide);
@@ -75,6 +102,12 @@ class ApiRideRealtime implements RideRealtime {
         // Keep the last valid state and retry. An unknown backend status is
         // never evidence that a matched ride resumed searching.
         connection.markFailed();
+        return;
+      }
+      final eventId = _eventId(json['eventId'] ?? ride['eventId']);
+      if (eventId != null && poll.seenEventIds.contains(eventId)) {
+        // The same server change again (a replay after reconnect).
+        connection.markConnected();
         return;
       }
       final version = _version(ride['version'] ?? json['version']);
@@ -117,17 +150,30 @@ class ApiRideRealtime implements RideRealtime {
       poll.lastStatus = status;
       poll.lastLat = ride['driverLat'];
       poll.lastLng = ride['driverLng'];
-      poll.sequence++;
+      if (eventId != null) poll.remember(eventId);
+      final sequence = _nextSequence(poll.id);
+      final serverLocationAt = _date(
+        ride['locationAt'] ?? ride['driverLocationAt'],
+      );
       poll.controller?.add(RideRealtimeEvent(
         rideId: poll.id,
         status: status,
-        sequence: poll.sequence,
+        sequence: sequence,
+        eventId: eventId,
         version: version,
         serverTime: updatedAt,
         driver: driver,
         latitude: (ride['driverLat'] as num?)?.toDouble(),
         longitude: (ride['driverLng'] as num?)?.toDouble(),
-        locationAt: _date(ride['locationAt'] ?? ride['driverLocationAt']),
+        etaSeconds: _seconds(ride['etaSeconds']),
+        locationAt: _onDeviceClock(
+          serverLocationAt,
+          serverNow: _date(json['serverTime'] ?? ride['serverTime']),
+        ),
+        payload: {
+          if (serverLocationAt != null)
+            'serverLocationAt': WireTime.format(serverLocationAt),
+        },
       ));
       connection.markConnected();
     } catch (error) {
@@ -137,11 +183,58 @@ class ApiRideRealtime implements RideRealtime {
           'error': error.toString(),
         });
         connection.markFailed();
+        if (error is ApiError && error.statusCode == 404) {
+          poll.notFound += 1;
+          if (poll.notFound >= notFoundLimit) {
+            _endNotFound(poll);
+            return;
+          }
+        }
+        poll.retryAt = _clock().add(connection.nextBackoff());
       }
     } finally {
       poll.inFlight = false;
     }
   }
+
+  int _nextSequence(String rideId) =>
+      _sequences[rideId] = (_sequences[rideId] ?? 0) + 1;
+
+  /// ARCH-13: the server no longer knows the ride. Polling stops and owners
+  /// get one terminal `cancelledBySystem` ordered after everything the
+  /// server sent (version + 1), marked as decided by the client.
+  void _endNotFound(_RidePoll poll) {
+    poll.ended = true;
+    poll.timer?.cancel();
+    poll.timer = null;
+    AppLog.warning('realtime.ride_not_found', extra: {'rideId': poll.id});
+    final last = poll.version;
+    poll.controller?.add(RideRealtimeEvent(
+      rideId: poll.id,
+      status: RideStatus.cancelledBySystem,
+      sequence: _nextSequence(poll.id),
+      version: last == null ? null : last + 1,
+      payload: const {'source': 'client_not_found'},
+    ));
+  }
+
+  /// ARCH-13: [locationAt] is server time; staleness is judged against the
+  /// device clock. With the server's own clock at answer time the age is
+  /// `serverNow - locationAt`, which is moved onto the device clock so a
+  /// phone whose clock runs fast or slow does not see a fresh fix as stale.
+  DateTime? _onDeviceClock(DateTime? locationAt, {DateTime? serverNow}) {
+    if (locationAt == null || serverNow == null) return locationAt;
+    final age = serverNow.difference(locationAt);
+    return _clock().subtract(age.isNegative ? Duration.zero : age);
+  }
+
+  String? _eventId(Object? raw) {
+    if (raw is! String) return null;
+    final value = raw.trim();
+    return value.isEmpty ? null : value;
+  }
+
+  int? _seconds(Object? raw) => raw is num && raw >= 0 ? raw.round() : null;
 
   // ARCH-10: P1 snake_case TripStatus wire names (driver_to_pickup) and the
   // legacy RideStatus names both parse through the one contract adapter.
@@ -157,7 +250,7 @@ class ApiRideRealtime implements RideRealtime {
     final poll = _rides[rideId.trim()];
     if (poll == null) return;
     connection.markReconnecting();
-    await _poll(poll);
+    await _poll(poll, force: true);
   }
 
   @override
@@ -208,7 +301,18 @@ class _RidePoll {
   StreamController<RideRealtimeEvent>? controller;
   Timer? timer;
   bool inFlight = false;
-  int sequence = 0;
+  bool ended = false;
+  int notFound = 0;
+  DateTime? retryAt;
+
+  /// Recent server event ids, newest last, for dedupe on replay.
+  final List<String> seenEventIds = [];
+
+  void remember(String eventId) {
+    seenEventIds.add(eventId);
+    if (seenEventIds.length > 64) seenEventIds.removeAt(0);
+  }
+
   int? version;
   DateTime? updatedAt;
   RideStatus? lastStatus;

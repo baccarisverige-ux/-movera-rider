@@ -1,6 +1,5 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/api/api_client.dart';
-import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/safety/data/safety_data_sources.dart';
@@ -117,18 +116,6 @@ class SafetyStore {
     _cache.pin = confirmed.copyWith(requiredForStart: _cache.preferences.pinRequired);
     await _local.save(_cache);
     return _cache.pin;
-  }
-
-  Future<PinVerifyResult> verifyPin({required String rideId, required String pin}) async {
-    await _ensure();
-    try {
-      return await _remote.verifyPin(rideId: rideId, pin: pin);
-    } on ApiError catch (error) {
-      if (error.statusCode == 409 || error.code.contains('409')) {
-        return PinVerifyResult(valid: false, rideId: rideId, code: 'PIN_INVALID');
-      }
-      rethrow;
-    }
   }
 
   Future<EmergencyContact> createContact({
@@ -447,8 +434,6 @@ class RidePinRepository {
   RidePin current() => _store.pin;
   Future<RidePin> rotate({String? idempotencyKey}) =>
       _store.rotatePin(idempotencyKey: idempotencyKey);
-  Future<PinVerifyResult> verify({required String rideId, required String pin}) =>
-      _store.verifyPin(rideId: rideId, pin: pin);
 }
 
 class EmergencyContactsRepository {

@@ -15,6 +15,8 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/ride_selection/application/scheduled_ride_booking.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
+import '../reservations/scheduled_quote_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -40,6 +42,8 @@ void main() {
       selection.scheduleFor(pickupAt);
       final ride = selection.rideById('movera');
       selection.selectRide(ride.id, ride.price);
+      // ARCH-16: Select Ride has the server quote before Book for later.
+      adoptScheduledQuote(selection, ride.id);
 
       Reservation? created;
       tester.view.physicalSize = const Size(430, 932);

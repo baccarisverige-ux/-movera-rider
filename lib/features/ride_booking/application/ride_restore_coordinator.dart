@@ -36,7 +36,9 @@ class RideRestoreCoordinator {
     Future<bool> Function()? hasSession,
     SearchInterruptedNotice? interruptedNotice,
     Future<PendingCancel?> Function(String rideId)? pendingCancel,
+    Future<RideSnapshot?> Function()? serverActiveTrip,
   }) : _reader = reader ?? RideSnapshotStore.read,
+       _serverActiveTrip = serverActiveTrip ?? _defaultServerActiveTrip,
        _pendingCancel = pendingCancel ?? PendingCancelStore.find,
        _skipRestore = skipRestore ?? defaultSkipRestore,
        _resync = resync ?? _defaultResync,
@@ -51,6 +53,39 @@ class RideRestoreCoordinator {
   final Future<bool> Function() _hasSession;
   final SearchInterruptedNotice _interruptedNotice;
   final Future<PendingCancel?> Function(String rideId) _pendingCancel;
+  final Future<RideSnapshot?> Function() _serverActiveTrip;
+
+  static Future<RideSnapshot?> _defaultServerActiveTrip() =>
+      AppScope.instance.activeTrips.fetchActive();
+
+  /// ARCH-12: when this device holds no live ride, asks the server for the
+  /// rider's active trip (contract C-5) and, if there is one, saves it as
+  /// the snapshot so restore and push taps can open it. [expectedRideId]
+  /// limits it to that ride. Never replaces a snapshot this device has, and
+  /// returns null on any failure: restore then behaves as before.
+  Future<RideSnapshot?> adoptServerActiveTrip({String? expectedRideId}) async {
+    try {
+      if (await _reader() != null) return null;
+      final trip = await _serverActiveTrip();
+      final id = trip?.rideId?.trim();
+      if (trip == null || id == null || id.isEmpty || trip.status.isTerminal) {
+        return null;
+      }
+      if (expectedRideId != null && id != expectedRideId.trim()) return null;
+      await RideSnapshotStore.save(trip);
+      AppLog.info('ride.restore.server_active_trip', extra: {
+        'rideId': id,
+        'status': trip.status.name,
+      });
+      return await _reader() ?? trip;
+    } catch (error) {
+      AppLog.warning(
+        'restore.active_trip_failed',
+        extra: {'error': '$error'},
+      );
+      return null;
+    }
+  }
 
   /// NAV-15: completes once the first [root] call has resolved, so a
   /// notification opener on a cold start does not race the gate's own
@@ -381,7 +416,7 @@ class RideRestoreCoordinator {
         reportRestoreSurface('signInPreview');
         return const SignIn();
       }
-      return pageFor(snapshot);
+      return pageFor(snapshot ?? await adoptServerActiveTrip());
     } catch (error) {
       AppLog.error('ride.restore.corrupt', extra: {'reason': error.toString()});
       showing = RestoredSurface.home;

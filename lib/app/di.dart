@@ -2,11 +2,14 @@ import 'package:movera_rider/features/promotions/application/rider_promotion_con
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/config/pin_composition.dart';
+import 'package:movera_rider/app/config/repository_composition.dart';
 import 'package:movera_rider/app/config/transport_composition.dart';
 import 'package:movera_rider/app/config/auth_composition.dart';
+import 'package:movera_rider/app/config/wallet_composition.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/auth/secure_token_store.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
@@ -39,17 +42,28 @@ import 'package:movera_rider/features/destination/application/destination_contro
 import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/onboarding/application/onboarding_controller.dart';
+import 'package:movera_rider/features/history/data/ride_history_repositories.dart';
+import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
+import 'package:movera_rider/features/payments/data/api_payment_method_repository.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/payments/data/local_payment_repository.dart';
+import 'package:movera_rider/features/payments/data/saved_cards_store.dart';
+import 'package:movera_rider/features/payments/domain/payment_repository.dart';
 import 'package:movera_rider/features/pickup/application/pickup_session.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
+import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/disabled_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_session.dart';
+import 'package:movera_rider/features/ride_booking/data/active_trip_repositories.dart';
+import 'package:movera_rider/features/ride_booking/domain/active_trip_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
@@ -59,19 +73,19 @@ import 'package:movera_rider/features/safety/application/emergency_call_service.
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/wallet/application/wallet_controller.dart';
+import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/wallet/domain/wallet_ledger.dart';
 
 class AppScope {
   AppScope._(this.environment)
-      : maps = GoogleMapProvider(),
+      : flags = FeatureFlags.forEnvironment(environment),
+        maps = GoogleMapProvider(),
         mapLifecycle = MapLifecycleController(),
         markers = MarkerStore(),
         motion = MotionEngine(),
         ride = RideSession(),
         tokens = SecureTokenStore(),
         realtime = RealtimeConnection(),
-        payments = LocalPaymentRepository(),
-        defaultPayment = const PrefsDefaultPaymentStore(),
         wallet = WalletLedger(),
         lifecycle = AppLifecycleObserver(),
         permissions = PermissionService(),
@@ -80,15 +94,7 @@ class AppScope {
         crashes = const CrashReporter(),
         pickup = PickupSession(),
         destination = DestinationSession(),
-        booking = BookingCoordinator(),
-        reservations = ReservationController(
-          environment: environment,
-          // Simulated scheduled-ride dispatch: mock-transport builds only.
-          mockDispatch: environment.allowsMockTransport
-              ? MockReservationDispatch()
-              : null,
-        ),
-        profile = ProfileController() {
+        booking = BookingCoordinator() {
     api = ApiClient(
       env: environment,
       tokens: tokens,
@@ -122,6 +128,46 @@ class AppScope {
         crashSink: sink,
       );
     }
+
+    // ARCH-6 / ARCH-7: rider-facing repositories. Demo/dev keep the
+    // device-only ones; release builds get the server-backed ones, and a
+    // feature with no server side yet is switched off by its flag and gets a
+    // fail-closed stand-in. RepositoryComposition below enforces it.
+    final release = environment.isReleaseLike;
+    walletBalances = flags.wallet || !release
+        ? LocalWalletRepository()
+        : const DisabledWalletRepository();
+    reservationRepository =
+        flags.scheduledRides || flags.bookingLater || !release
+        ? LocalReservationRepository()
+        : DisabledReservationRepository();
+    savedCardsStore = flags.savedCards || !release
+        ? const PrefsSavedCardsStore()
+        : const DisabledSavedCardsStore();
+    if (release) {
+      final methods = ApiPaymentMethodRepository(api: api);
+      payments = methods;
+      defaultPayment = methods;
+      rideHistory = ApiRideHistoryRepository(api: api);
+      activeTrips = ApiActiveTripRepository(api: api);
+    } else {
+      payments = LocalPaymentRepository();
+      defaultPayment = const PrefsDefaultPaymentStore();
+      rideHistory = const LocalRideHistoryRepository();
+      activeTrips = const DeviceOnlyActiveTripRepository();
+    }
+    reservations = ReservationController(
+      store: reservationRepository,
+      environment: environment,
+      // Simulated scheduled-ride dispatch: mock-transport builds only.
+      mockDispatch: environment.allowsMockTransport
+          ? MockReservationDispatch()
+          : null,
+    );
+    // FLOW-7: the name, language and consents go to the server; the device
+    // copy is the cache. With the mock transport the in-process mock
+    // answers, so a demo rider sees no difference.
+    profile = ProfileController(store: SyncedProfileRepository(api: api));
 
     accountSecurity = AccountSecurityController(
       repository: AccountSecurityRepository(api: api),
@@ -164,6 +210,35 @@ class AppScope {
       crashes: Observability.crashes,
     );
     AuthComposition.validate(environment);
+    WalletComposition.validate(
+      environment: environment,
+      usesLocalBalanceSource: flags.wallet && walletBalances is! ServerBackedRepository,
+    );
+    RepositoryComposition.validate(
+      environment: environment,
+      surfaces: [
+        RepositorySurface(
+          'wallet',
+          implementation: walletBalances,
+          enabled: flags.wallet,
+        ),
+        RepositorySurface(
+          'reservations',
+          implementation: reservationRepository,
+          enabled: flags.scheduledRides || flags.bookingLater,
+        ),
+        RepositorySurface(
+          'savedCards',
+          implementation: savedCardsStore,
+          enabled: flags.savedCards,
+        ),
+        RepositorySurface('paymentMethods', implementation: payments),
+        RepositorySurface('defaultPayment', implementation: defaultPayment),
+        RepositorySurface('rideHistory', implementation: rideHistory),
+        RepositorySurface('activeTrip', implementation: activeTrips),
+        RepositorySurface('profile', implementation: profile.repository),
+      ],
+    );
   }
 
   static final instance = AppScope._(AppEnv.current);
@@ -190,8 +265,13 @@ class AppScope {
   final RealtimeConnection realtime;
   late final SocketClient sockets;
   late final QuoteRepository quotes;
-  final LocalPaymentRepository payments;
-  final DefaultPaymentStore defaultPayment;
+  late final PaymentRepository payments;
+  late final DefaultPaymentStore defaultPayment;
+  late final WalletBalanceRepository walletBalances;
+  late final ReservationRepository reservationRepository;
+  late final SavedCardsStore savedCardsStore;
+  late final RideHistoryRepository rideHistory;
+  late final ActiveTripRepository activeTrips;
   late final PaymentGateway paymentGateway;
   final WalletLedger wallet;
   final AppLifecycleObserver lifecycle;
@@ -207,8 +287,8 @@ class AppScope {
   late final DestinationSearchController destinationSearch;
   late final RoutingService routing;
   late final RideRealtime rideRealtime;
-  final ReservationController reservations;
-  final ProfileController profile;
+  late final ReservationController reservations;
+  late final ProfileController profile;
   late final AccountSecurityController accountSecurity;
 
   // Phase 138: these default-construct their own dependencies internally
@@ -222,7 +302,9 @@ class AppScope {
   // correctness under construction order, not normal use.
   late final AuthController auth = AuthController();
   late final RideCompleteController rideComplete = RideCompleteController();
-  late final WalletController walletController = WalletController();
+  late final WalletController walletController = WalletController(
+    balances: walletBalances,
+  );
   late final SavedPlacesController savedPlaces = SavedPlacesController();
   late final PickupSpotsController pickupSpots = PickupSpotsController();
   late final SupportController support = SupportController();
@@ -236,7 +318,9 @@ class AppScope {
 
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).
-  late final SavedCardsController savedCards = SavedCardsController();
+  late final SavedCardsController savedCards = SavedCardsController(
+    store: savedCardsStore,
+  );
 
   /// The in-app explanation in front of the OS notification prompt.
   late final PushPermissionGate pushPermission = PushPermissionGate(
@@ -247,7 +331,9 @@ class AppScope {
     api,
   );
   HttpObservabilitySink? observabilitySink;
-  FeatureFlags flags = FeatureFlags.current;
+  /// Per flavor (ARCH-6 / ARCH-7): release switches off the features whose
+  /// data still lives only on this device.
+  FeatureFlags flags;
 
   EmergencyDialer get emergencyDialer => EmergencyCallService.shared.dialer;
 

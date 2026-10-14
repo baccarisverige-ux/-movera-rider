@@ -11,6 +11,8 @@ class MockPaymentGateway implements PaymentGateway {
     required int amountMinor,
     required String currency,
     required String idempotencyKey,
+    PaymentPurpose? purpose,
+    String? rideId,
   }) async {
     if (failNext) {
       failNext = false;

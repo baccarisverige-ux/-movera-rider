@@ -15,6 +15,8 @@ import 'package:movera_rider/features/ride_selection/application/scheduled_ride_
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../reservations/scheduled_quote_harness.dart';
+
 /// Book now E2E on two paths: GPS available and GPS unavailable.
 /// Both must open Confirm pickup. Later stays off Finding Driver.
 void main() {
@@ -192,6 +194,7 @@ void main() {
       bookingMode: BookingMode.scheduled,
     );
     selection.scheduleFor(DateTime(2026, 9, 23, 6, 55));
+    adoptScheduledQuote(selection, selection.selectedRideId);
     expect(selection.bookingMode.ctaLabel('Movera'), 'Schedule Movera');
     expect(selection.entersFindingDriver, isFalse);
     expect(selection.createsReservation, isTrue);

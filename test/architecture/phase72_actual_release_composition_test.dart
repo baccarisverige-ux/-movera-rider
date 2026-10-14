@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/observability.dart';
@@ -43,6 +44,23 @@ void main() {
     expect(Observability.logger, isNot(isA<NoopLoggerSink>()));
     expect(Observability.analytics, isNot(isA<NoopAnalyticsSink>()));
     expect(Observability.crashes, isNot(isA<NoopCrashSink>()));
+    // ARCH-6 / ARCH-7: no device-only rider repository either.
+    for (final repository in <Object>[
+      scope.walletBalances,
+      scope.reservationRepository,
+      scope.savedCardsStore,
+    ]) {
+      expect(repository, isA<FeatureOffRepository>());
+    }
+    for (final repository in <Object>[
+      scope.payments,
+      scope.defaultPayment,
+      scope.rideHistory,
+      scope.activeTrips,
+      scope.profile.repository,
+    ]) {
+      expect(repository, isA<ServerBackedRepository>());
+    }
   });
 
   test('demo AppScope is explicitly allowed to use mock transports', () {
