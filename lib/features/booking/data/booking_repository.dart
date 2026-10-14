@@ -27,6 +27,8 @@ class BookingRepository {
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
     List<RouteStop> stops = const <RouteStop>[],
+    bool useWalletFirst = false,
+    int walletAmountMinor = 0,
   }) {
     return _coordinator.submitFinding(
       pickupAddress: pickupAddress,
@@ -46,6 +48,8 @@ class BookingRepository {
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
       stops: stops,
+      useWalletFirst: useWalletFirst,
+      walletAmountMinor: walletAmountMinor,
     );
   }
   Future<String> reconcileCreatedFinding(String createdRideId) {

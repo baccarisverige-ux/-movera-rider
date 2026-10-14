@@ -39,6 +39,7 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
 class FindingDrivers extends StatefulWidget {
@@ -51,12 +52,16 @@ class FindingDrivers extends StatefulWidget {
     required this.rideType,
     required this.price,
     required this.paymentMethod,
+    this.walletAmountMinor = 0,
     this.notes = RideNotes.empty,
     this.stops = const <RouteStop>[],
     this.realtime,
     this.etaMinutes,
     @visibleForTesting this.controller,
   });
+
+  /// The part of the fare booked to the Movera Wallet, in öre.
+  final int walletAmountMinor;
 
   /// Stops between the pickup and the destination, in order.
   final List<RouteStop> stops;
@@ -148,6 +153,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       rideType: widget.rideType,
       price: effectivePrice,
       paymentMethod: widget.paymentMethod,
+      walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
       stops: _stops,
       onTick: (_) {
@@ -376,6 +382,7 @@ class _FindingDriversState extends State<FindingDrivers> {
           rideType: widget.rideType,
           price: _match.currentPrice,
           paymentMethod: widget.paymentMethod,
+          walletAmountMinor: widget.walletAmountMinor,
           notes: widget.notes,
           stops: _stops,
           driver: _match.matchedDriver,
@@ -910,7 +917,12 @@ class _FindingDriversState extends State<FindingDrivers> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '${widget.paymentMethod}  ·  ${_match.currentPrice.round()} kr',
+                        bookedPaymentLine(
+                          paymentMethod: widget.paymentMethod,
+                          priceKr: _match.currentPrice,
+                          walletMinor: widget.walletAmountMinor,
+                          separator: '  ·  ',
+                        ),
                         style: GoogleFonts.poppins(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w500,

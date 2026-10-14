@@ -32,6 +32,7 @@ class RideSnapshot {
     this.cancellationReason,
     this.version,
     this.readEpoch,
+    this.walletAmountMinor = 0,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -67,6 +68,9 @@ class RideSnapshot {
   /// whose read happened before a [RideSnapshotStore.clear] is recognised as
   /// stale by [RideSnapshotStore.save] and can never bring the ride back.
   final int? readEpoch;
+  /// "Use wallet balance first": the part of [price] booked to the Movera
+  /// Wallet, in öre (0 = none). The rest goes to [paymentMethod].
+  final int walletAmountMinor;
 
   /// How long a saved ride may go untouched and still be worth restoring.
   ///
@@ -105,6 +109,7 @@ class RideSnapshot {
     String? cancellationReason,
     int? version,
     int? readEpoch,
+    int? walletAmountMinor,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -126,6 +131,7 @@ class RideSnapshot {
       cancellationReason: cancellationReason ?? this.cancellationReason,
       version: version ?? this.version,
       readEpoch: readEpoch ?? this.readEpoch,
+      walletAmountMinor: walletAmountMinor ?? this.walletAmountMinor,
     );
   }
 
@@ -149,6 +155,7 @@ class RideSnapshot {
     if (driver != null) 'driver': driver!.toJson(),
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
     if (version != null) 'version': version,
+    if (walletAmountMinor > 0) 'walletAmountMinor': walletAmountMinor,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -230,6 +237,7 @@ class RideSnapshot {
           : null,
       cancellationReason: json['cancellationReason'] as String?,
       version: (json['version'] as num?)?.toInt(),
+      walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
     );
   }
 }

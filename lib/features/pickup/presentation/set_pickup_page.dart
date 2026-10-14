@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/web/map_touch.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
@@ -16,6 +17,7 @@ import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/application/pickup_controller.dart';
 import 'package:movera_rider/features/pickup/application/pickup_spots_controller.dart';
 import 'package:movera_rider/features/pickup/domain/pickup_spot.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/design_system/movera_icon_button.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
@@ -96,6 +98,12 @@ class SetPickupFare {
   final double walletKr;
 
   double get remainderKr => totalKr - walletKr;
+
+  /// The same split in öre, for display: its parts add up to the total.
+  WalletSplit get split => WalletSplit.booked(
+    totalMinor: krToMinor(totalKr),
+    walletMinor: krToMinor(walletKr),
+  );
 }
 
 /// The payment line at the bottom of the sheet.
@@ -116,10 +124,15 @@ class SetPickupResult {
     required this.position,
     required this.address,
     required this.bagLevel,
+    this.fareTotalKr,
   });
 
   final LatLng position;
   final String address;
+
+  /// The total Set pickup showed when the rider confirmed, so the caller
+  /// can tell when the price it is about to book differs from it.
+  final double? fareTotalKr;
 
   /// 0 = no bags, 1 = 1–2 bags, 2 = 3 or more.
   final int bagLevel;
@@ -142,6 +155,7 @@ class SetPickupPage extends StatefulWidget {
     required this.brandMark,
     this.onChangePayment,
     this.onRequote,
+    this.fareAfterPaymentChange,
     this.initialBagLevel = 0,
     this.home,
     this.spotsController,
@@ -149,6 +163,7 @@ class SetPickupPage extends StatefulWidget {
     this.positionIsFallback = false,
     this.confirmLabel = 'Confirm and search',
     this.scheduledPickup,
+    this.geocoding,
   });
 
   static Future<SetPickupResult?> open(
@@ -163,6 +178,7 @@ class SetPickupPage extends StatefulWidget {
     required Widget Function(String brand) brandMark,
     Future<SetPickupPayment?> Function()? onChangePayment,
     Future<SetPickupFare?> Function(LatLng pin)? onRequote,
+    SetPickupFare Function(SetPickupFare fare)? fareAfterPaymentChange,
     int initialBagLevel = 0,
     LatLng? home,
     PickupSpotsController? spotsController,
@@ -183,6 +199,7 @@ class SetPickupPage extends StatefulWidget {
         brandMark: brandMark,
         onChangePayment: onChangePayment,
         onRequote: onRequote,
+        fareAfterPaymentChange: fareAfterPaymentChange,
         initialBagLevel: initialBagLevel,
         home: home,
         spotsController: spotsController,
@@ -212,6 +229,10 @@ class SetPickupPage extends StatefulWidget {
   /// Returns the new fare, or null to keep the one shown; a throw keeps it
   /// too. Without this the fare never changes.
   final Future<SetPickupFare?> Function(LatLng pin)? onRequote;
+
+  /// The fare's wallet part for the method chosen in Change payment (the
+  /// wallet split depends on it), so the split shown is the one booked.
+  final SetPickupFare Function(SetPickupFare fare)? fareAfterPaymentChange;
   final int initialBagLevel;
 
   /// The rider's Home, when known: a "Near Home" spot appears when the
@@ -232,6 +253,9 @@ class SetPickupPage extends StatefulWidget {
   /// The start point is a default map point, not the rider: Confirm waits
   /// until the pin is moved or a real location arrives.
   final bool positionIsFallback;
+
+  /// Looks up the pin's address; the app's own geocoder when null.
+  final AppGeocoding? geocoding;
 
   /// Where the pin's tip sits, as a share of the screen height.
   static const pinFraction = 0.34;
@@ -265,7 +289,7 @@ class _SetPickupPageState extends State<SetPickupPage>
   );
   late final PickupMapController _pickup = PickupMapController(
     location: AppScope.instance.location,
-    geocoding: AppScope.instance.geocoding,
+    geocoding: widget.geocoding ?? AppScope.instance.geocoding,
   );
   late final PickupSpotsController _spotsController =
       widget.spotsController ?? AppScope.instance.pickupSpots;
@@ -301,6 +325,22 @@ class _SetPickupPageState extends State<SetPickupPage>
   double _zoom = 16.2;
   bool _resolving = false;
   bool _confirming = false;
+
+  /// [_address] does not (yet) name the point under the pin: the pin moved
+  /// and its lookup has not answered, or the lookup failed.
+  late bool _addressIsStale =
+      _isPlaceholder(_address) || needsDroppedPinLabel(_address);
+  int _resolveGeneration = 0;
+  Future<void>? _resolveTask;
+  Future<void>? _requoteTask;
+
+  /// Confirm was tapped while the address or the price was still loading;
+  /// the button shows a spinner for at most [confirmWait].
+  bool _confirmWaiting = false;
+
+  /// How long Confirm waits for the pin's address and price before booking
+  /// with what is known (a dropped-pin label, the fare shown).
+  static const confirmWait = Duration(seconds: 3);
 
   @override
   void initState() {
@@ -434,6 +474,7 @@ class _SetPickupPageState extends State<SetPickupPage>
       setState(() {
         _routeStart = _center;
         _usable = true;
+        _addressIsStale = true;
         _atCurrentLocation =
             widget.initialIsCurrentLocation &&
             !_isAwayFrom(_center, widget.initialPosition);
@@ -455,7 +496,13 @@ class _SetPickupPageState extends State<SetPickupPage>
 
   /// A fresh price from the exact pin. The latest move wins: an older answer
   /// that arrives late is ignored. A failed quote keeps the price shown.
-  Future<void> _requote() async {
+  Future<void> _requote() {
+    final task = _requoteNow();
+    _requoteTask = task;
+    return task;
+  }
+
+  Future<void> _requoteNow() async {
     final requote = widget.onRequote;
     if (requote == null) return;
     final generation = ++_requoteGeneration;
@@ -473,17 +520,29 @@ class _SetPickupPageState extends State<SetPickupPage>
     });
   }
 
-  Future<void> _resolveAddress() async {
+  Future<void> _resolveAddress() {
+    final task = _resolveAddressNow();
+    _resolveTask = task;
+    return task;
+  }
+
+  Future<void> _resolveAddressNow() async {
     final at = _center;
+    final generation = ++_resolveGeneration;
     setState(() => _resolving = true);
     final address = await _pickup.reverse(at);
-    if (!mounted || _isAwayFrom(at, _center)) return;
+    if (!mounted || generation != _resolveGeneration) return;
+    if (_isAwayFrom(at, _center)) return;
     setState(() {
       _resolving = false;
       if (!isUnusablePickupLabel(address)) {
         _address = address!.trim();
-      } else if (_isPlaceholder(_address)) {
-        _address = pickupLocationFallbackLabel;
+        _addressIsStale = false;
+      } else if (_addressIsStale || _isPlaceholder(_address)) {
+        // No street for this point: say it is a dropped pin rather than
+        // keep the previous street or a placeholder (AUD-2).
+        _address = droppedPinPickupAddress(at);
+        _addressIsStale = false;
       }
       if (_selectedSpot == null) _spotStreet = pickupSpotStreet(_address);
     });
@@ -521,6 +580,12 @@ class _SetPickupPageState extends State<SetPickupPage>
       }
       if (address != null && address.trim().isNotEmpty) {
         _address = address.trim();
+        _addressIsStale = false;
+        // A lookup still running for an earlier point must not replace it.
+        _resolveGeneration += 1;
+        _resolving = false;
+      } else {
+        _addressIsStale = true;
       }
     });
     // A new place gets its own spots; a spot keeps the row it came from.
@@ -624,20 +689,57 @@ class _SetPickupPageState extends State<SetPickupPage>
     final change = widget.onChangePayment;
     if (change == null) return;
     final next = await change();
-    if (next != null && mounted) setState(() => _payment = next);
+    if (!mounted) return;
+    final refresh = widget.fareAfterPaymentChange;
+    setState(() {
+      if (next != null) _payment = next;
+      if (refresh != null) _fare = refresh(_fare);
+    });
   }
 
-  void _confirm() {
+  /// Books the point under the pin. While its address or price is still
+  /// loading, waits a moment (bounded by [confirmWait]) so the street and
+  /// the fare confirmed are the pin's own (RIDE-12). If the street is still
+  /// unknown then, the pickup is a labelled dropped pin with its
+  /// coordinates, never the previous street or "Pickup location" (AUD-2).
+  Future<void> _confirm() async {
     if (_confirming || !_usable) return;
     _confirming = true;
     HapticFeedback.mediumImpact();
-    final address = confirmedPickupAddress(_address, _center);
+    final at = _center;
+    final pending = <Future<void>>[
+      if (_resolving && _resolveTask != null) _resolveTask!,
+      if (_requoting && _requoteTask != null) _requoteTask!,
+    ];
+    if (pending.isNotEmpty) {
+      setState(() => _confirmWaiting = true);
+      try {
+        await Future.wait(pending).timeout(confirmWait);
+      } catch (_) {
+        // Book with what is known.
+      }
+      if (!mounted) return;
+      setState(() => _confirmWaiting = false);
+      if (_isAwayFrom(at, _center)) {
+        // The pin moved while waiting: the rider confirms again.
+        _confirming = false;
+        return;
+      }
+    }
+    final address = _addressIsStale || needsDroppedPinLabel(_address)
+        ? droppedPinPickupAddress(_center)
+        : confirmedPickupAddress(_address, _center);
     // Next time this address comes up, the spot is offered as "Previously
     // used". Fire and forget: confirming never waits on storage.
     unawaited(_spotsController.remember(position: _center, address: address));
     Navigator.pop(
       context,
-      SetPickupResult(position: _center, address: address, bagLevel: _bags),
+      SetPickupResult(
+        position: _center,
+        address: address,
+        bagLevel: _bags,
+        fareTotalKr: _fare.totalKr,
+      ),
     );
   }
 
@@ -1238,17 +1340,17 @@ class _SetPickupPageState extends State<SetPickupPage>
             const Divider(height: 12, color: _line),
           ],
           _priceRow('Total', formatKr(fare.totalKr), bold: true),
-          if (fare.walletKr > 0) ...[
+          if (fare.split.usesWallet) ...[
             const Divider(height: 12, color: _line),
             _priceRow(
               'Movera Wallet',
-              '-${formatKr(fare.walletKr)}',
+              '-${formatKr(fare.split.walletKr)}',
               color: _walletGreen,
               key: const ValueKey('set-pickup-wallet-part'),
             ),
             _priceRow(
-              fare.remainderKr > 0 ? _payment.name : 'Nothing more to pay',
-              formatKr(fare.remainderKr),
+              fare.split.paidByWallet ? 'Nothing more to pay' : _payment.name,
+              formatKr(fare.split.remainderKr),
               key: const ValueKey('set-pickup-remainder'),
             ),
           ],
@@ -1305,15 +1407,25 @@ class _SetPickupPageState extends State<SetPickupPage>
       height: 56,
       child: FilledButton(
         key: const ValueKey('set-pickup-confirm'),
-        onPressed: _usable ? _confirm : null,
+        onPressed: _usable ? () => unawaited(_confirm()) : null,
         style: FilledButton.styleFrom(
           backgroundColor: _cta,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         ),
-        child: Text(
-          widget.confirmLabel,
-          style: _text(16, weight: FontWeight.w600, color: Colors.white),
-        ),
+        child: _confirmWaiting
+            ? const SizedBox(
+                key: ValueKey('set-pickup-confirm-waiting'),
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                widget.confirmLabel,
+                style: _text(16, weight: FontWeight.w600, color: Colors.white),
+              ),
       ),
     );
   }

@@ -1108,6 +1108,16 @@ class InProcessMockClient extends http.BaseClient {
       return 'QUOTE_PRICE_MISMATCH';
     }
 
+    // "Use wallet balance first" (contract C-3): the wallet part may not
+    // exceed the fare, and is zero when the rider switched it off.
+    final walletMinor = (body['walletAmountMinor'] as num?)?.round() ?? 0;
+    final walletFirst = body['useWalletFirst'] == true;
+    if (walletMinor < 0 ||
+        walletMinor > serverTotal ||
+        (!walletFirst && walletMinor != 0)) {
+      return 'WALLET_AMOUNT_INVALID';
+    }
+
     return null;
   }
 
@@ -1155,6 +1165,8 @@ class InProcessMockClient extends http.BaseClient {
       'quoteSignedPayload': body['quoteSignedPayload'],
       'quoteExpiresAt': body['quoteExpiresAt'],
       'quoteTotalMinor': body['quoteTotalMinor'],
+      'useWalletFirst': body['useWalletFirst'] == true,
+      'walletAmountMinor': (body['walletAmountMinor'] as num?)?.round() ?? 0,
       'pickupAddress': body['pickupAddress'],
       'destinationAddress': body['destinationAddress'],
       'pickupLat': body['pickupLat'],
