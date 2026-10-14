@@ -1,4 +1,4 @@
-import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
 
 /// Drivers the mock matching service hands back when a ride is assigned.
 ///

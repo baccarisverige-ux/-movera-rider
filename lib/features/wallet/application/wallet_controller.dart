@@ -56,16 +56,27 @@ class WalletController {
   Future<bool> loadUseWalletFirst() async =>
       (await _store.loadPayments()).useWalletFirst;
 
-  Future<void> saveUseWalletFirst(bool value) async {
-    final current = await _store.loadPayments();
-    await _store.savePayments(
-      WalletPaymentSettings(
-        defaultMethod: current.defaultMethod,
-        business: current.business,
-        extraMethods: current.extraMethods,
-        useWalletFirst: value,
-      ),
-    );
+  /// Returns false, logged, when the setting could not be saved, so the
+  /// caller can put its toggle back (CODE-16).
+  Future<bool> saveUseWalletFirst(bool value) async {
+    try {
+      final current = await _store.loadPayments();
+      await _store.savePayments(
+        WalletPaymentSettings(
+          defaultMethod: current.defaultMethod,
+          business: current.business,
+          extraMethods: current.extraMethods,
+          useWalletFirst: value,
+        ),
+      );
+      return true;
+    } catch (error) {
+      AppLog.warning(
+        'wallet.use_wallet_first_save_failed',
+        extra: {'error': '$error'},
+      );
+      return false;
+    }
   }
 
   Future<void> savePayments(WalletPaymentSettings settings) =>

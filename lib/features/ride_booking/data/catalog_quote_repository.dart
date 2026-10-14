@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/api/mock_catalog_fares.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
@@ -5,15 +6,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 /// Dev fallback only. Live Select Ride must go through [ApiQuoteRepository].
 class CatalogQuoteRepository implements QuoteRepository {
-  static const pricesKr = <String, int>{
-    'movera': 259,
-    'comfort': 339,
-    'premium': 369,
-    'priority': 289,
-    'xl': 399,
-    'electric': 259,
-    'pet': 279,
-  };
+  static const pricesKr = mockCatalogPricesKr;
 
   @override
   Future<RideQuote> quote({

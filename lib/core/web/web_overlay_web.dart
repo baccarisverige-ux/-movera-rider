@@ -37,7 +37,9 @@ void _applyHomeLockCss(bool lock) {
     );
     web.document.body?.style.setProperty('overscroll-behavior', 'none');
     web.document.body?.style.setProperty('overscroll-behavior-x', 'none');
-  } catch (_) {}
+  } catch (_) {
+    // Web interop: older browsers ignore these style properties.
+  }
 }
 
 void _installHomeLock() {
@@ -58,7 +60,7 @@ void _installHomeLock() {
     window._moveraHomeLock = !!lock;
     try {
       document.documentElement.classList.toggle('movera-home-lock', !!lock);
-    } catch (_) {}
+    } catch (_) { /* best effort */ }
     if (!lock) {
       window._moveraHomeSentinel = false;
       return;
@@ -68,11 +70,11 @@ void _installHomeLock() {
     try {
       history.replaceState({ moveraHome: 1 }, '', location.href);
       history.pushState({ moveraHome: 1 }, '', location.href);
-    } catch (_) {}
+    } catch (_) { /* best effort */ }
   };
   window.addEventListener('popstate', function() {
     if (!window._moveraHomeLock) return;
-    try { history.pushState({ moveraHome: 1 }, '', location.href); } catch (_) {}
+    try { history.pushState({ moveraHome: 1 }, '', location.href); } catch (_) { /* best effort */ }
   });
 })();
 ''';

@@ -4,8 +4,10 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
-import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 
 /// Polls each active ride once and shares its events across all screen owners.
 /// A screen cancelling its subscription cannot disconnect another screen.
@@ -141,18 +143,14 @@ class ApiRideRealtime implements RideRealtime {
     }
   }
 
-  RideStatus? _status(Object? raw) {
-    for (final status in RideStatus.values) {
-      if (status.name == raw) return status;
-    }
-    return null;
-  }
+  // ARCH-10: P1 snake_case TripStatus wire names (driver_to_pickup) and the
+  // legacy RideStatus names both parse through the one contract adapter.
+  RideStatus? _status(Object? raw) => RideStatusWire.parse(raw);
 
   int? _version(Object? raw) =>
       raw is int ? raw : (raw is String ? int.tryParse(raw) : null);
 
-  DateTime? _date(Object? raw) =>
-      raw is String ? DateTime.tryParse(raw)?.toUtc() : null;
+  DateTime? _date(Object? raw) => WireTime.tryParse(raw);
 
   @override
   Future<void> reconnectAndResync(String rideId) async {

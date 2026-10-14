@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
@@ -493,7 +494,8 @@ class BookingCoordinator {
         quoteSignedPayload.trim().isEmpty ||
         !quoteExpiresAt.isAfter(DateTime.now()) ||
         quoteTotalMinor <= 0 ||
-        (price * 100).round() != quoteTotalMinor) {
+        // ARCH-11: the shown price must be the quote, compared in öre.
+        Money.fromLegacyMajor(price).amountMinor != quoteTotalMinor) {
       throw StateError('A fresh authoritative quote is required for booking');
     }
 

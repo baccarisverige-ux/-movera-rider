@@ -1,5 +1,4 @@
-import 'dart:math';
-
+import 'package:movera_rider/core/maps/geo_distance.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class DriverEta {
@@ -34,22 +33,11 @@ class DriverEta {
     double lng1,
     double lat2,
     double lng2,
-  ) {
-    const radius = 6371000.0;
-    final p1 = lat1 * pi / 180;
-    final p2 = lat2 * pi / 180;
-    final dLat = (lat2 - lat1) * pi / 180;
-    final dLng = (lng2 - lng1) * pi / 180;
-    final a =
-        sin(dLat / 2) * sin(dLat / 2) +
-        cos(p1) * cos(p2) * sin(dLng / 2) * sin(dLng / 2);
-    return 2 * radius * atan2(sqrt(a), sqrt(1 - a));
-  }
+  ) =>
+      GeoDistance.metersBetween(lat1, lng1, lat2, lng2);
 
-  static int secondsForDistance(double meters) {
-    const urbanMetersPerSecond = 8.3;
-    return (meters / urbanMetersPerSecond).round().clamp(20, 1800);
-  }
+  static int secondsForDistance(double meters) =>
+      GeoDistance.urbanSecondsForDistance(meters);
 
   factory DriverEta.fromFix({
     required double latitude,
