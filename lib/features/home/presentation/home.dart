@@ -1637,7 +1637,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       _withParkedHomeMap(() {
         return RiderMenuPage.open(
           context,
-          onStartBooking: () => unawaited(_openDestinationSheet()),
+          onStartBooking: () => unawaited(_handleDestinationTap()),
           onSchedule: () => unawaited(_openSchedule()),
         );
       }),

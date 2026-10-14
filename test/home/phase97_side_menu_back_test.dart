@@ -196,7 +196,7 @@ void main() {
     ).readAsStringSync();
     expect(
       home,
-      contains('onStartBooking: () => unawaited(_openDestinationSheet())'),
+      contains('onStartBooking: () => unawaited(_handleDestinationTap())'),
     );
   });
 
