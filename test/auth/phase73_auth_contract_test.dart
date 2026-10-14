@@ -104,7 +104,7 @@ void main() {
     expect(root, isA<SignIn>());
   });
 
-  test('active ride restore requires session and clears stale snapshot', () async {
+  test('active ride restore requires session and keeps the snapshot', () async {
     final snapshot = RideSnapshot(
       status: RideStatus.findingDriver,
       savedAt: DateTime.now(),
@@ -132,7 +132,9 @@ void main() {
     final root = await coordinator.root();
 
     expect(root, isA<SignIn>());
-    expect(await RideSnapshotStore.read(), isNull);
+    // A reload or expired session must not lose the live ride: it is
+    // re-read from the server once the rider has signed in again.
+    expect((await RideSnapshotStore.read())?.rideId, 'ride_phase73');
   });
 
   test('a first verify reports a new rider; the same phone later does not', () async {
