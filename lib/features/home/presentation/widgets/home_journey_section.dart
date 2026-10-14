@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
@@ -206,7 +208,12 @@ class _MonthCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tileHeight = ResSize.h * 58;
+    // UI-2: the tiles keep their drawn height at normal text and grow by the
+    // extra line height large text needs (Poppins lines are about 1.5x).
+    final labelSize = ResSize.setSp(10);
+    final labelGrowth =
+        (MediaQuery.textScalerOf(context).scale(labelSize) - labelSize) * 1.5;
+    final tileHeight = ResSize.h * 58 + math.max(0.0, labelGrowth);
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
@@ -261,11 +268,15 @@ class _MonthCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextWidget(
-                        text: 'Rides per week',
-                        color: _muted,
-                        fontSize: 10,
-                        fontWeight: fwNormal,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: TextWidget(
+                          text: 'Rides per week',
+                          color: _muted,
+                          fontSize: 10,
+                          fontWeight: fwNormal,
+                        ),
                       ),
                       SizedBox(height: ResSize.h * 4),
                       Expanded(child: _WeekBars(counts: stats.ridesPerWeek)),
@@ -467,7 +478,8 @@ class _HelpRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          height: ResSize.h * 52,
+          // UI-2: grows with large text instead of clipping it.
+          constraints: BoxConstraints(minHeight: ResSize.h * 52),
           padding: EdgeInsets.symmetric(horizontal: ResSize.w * 12),
           decoration: BoxDecoration(
             color: _card,

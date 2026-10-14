@@ -42,12 +42,16 @@ class SafetyKitMapButton extends StatelessWidget {
                 children: [
                   const Icon(Icons.shield_outlined, size: 18, color: _icon),
                   const SizedBox(width: 8),
-                  Text(
-                    'Safety Kit',
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _ink,
+                  Flexible(
+                    child: Text(
+                      'Safety Kit',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _ink,
+                      ),
                     ),
                   ),
                 ],
