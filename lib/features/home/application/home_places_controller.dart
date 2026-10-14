@@ -6,13 +6,18 @@ class SavedPlaceData {
     required this.title,
     required this.type,
     required this.address,
+    this.id,
   });
 
   final String title;
   final String type;
   final String address;
 
+  /// Saved Places' identity for this place (FLOW-5); kept on every write.
+  final String? id;
+
   Map<String, String> toJson() => {
+    if (id != null) 'id': id!,
     'title': title,
     'type': type,
     'address': address,
@@ -26,6 +31,7 @@ class SavedPlaceData {
           : type,
       type: type,
       address: json['address'] as String? ?? '',
+      id: json['id'] as String?,
     );
   }
 }
@@ -125,11 +131,19 @@ class HomePlacesController {
       case 'custom':
         final type = customType ?? 'other';
         final existingIndex = savedPlaces.indexWhere((place) => place.type == type);
-        final place = SavedPlaceData(title: type, type: type, address: address);
         if (existingIndex >= 0) {
-          savedPlaces[existingIndex] = place;
+          // Same place, new address: keep its name and id (FLOW-5).
+          final existing = savedPlaces[existingIndex];
+          savedPlaces[existingIndex] = SavedPlaceData(
+            id: existing.id,
+            title: existing.title,
+            type: type,
+            address: address,
+          );
         } else if (savedPlaces.length < maxCustom) {
-          savedPlaces.add(place);
+          savedPlaces.add(
+            SavedPlaceData(title: type, type: type, address: address),
+          );
         }
         break;
     }

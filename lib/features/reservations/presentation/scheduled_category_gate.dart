@@ -24,6 +24,12 @@ Future<void> openScheduledCategorySelector(
   final pickupPosition = session.pickupLat != null && session.pickupLng != null
       ? LatLng(session.pickupLat!, session.pickupLng!)
       : await resolveScheduledPoint(pickupLabel);
+  // CODE-5: never book a pickup at a made-up point either.
+  if (!context.mounted) return;
+  if (pickupPosition == null) {
+    MoveraToast.show(context, 'Choose a valid pickup address.');
+    return;
+  }
   // Never book to a made-up point: a destination we cannot find on the map
   // sends the rider back to fix the address instead.
   final destinationPosition = await findScheduledPoint(destinationLabel);
@@ -85,9 +91,11 @@ Future<LatLng?> findScheduledPoint(String label) async {
   return null;
 }
 
-const LatLng kScheduledFallbackPoint = LatLng(59.3293, 18.0686);
-
-Future<LatLng> resolveScheduledPoint(String label) async {
+/// The point for a scheduled pickup: the device position for "Current
+/// location", else the geocoded address. Null when neither can be found:
+/// CODE-5, this used to answer with the Stockholm city centre, which then
+/// became the booked pickup.
+Future<LatLng?> resolveScheduledPoint(String label) async {
   final clean = label.trim();
   if (clean.isEmpty || clean.toLowerCase() == 'current location') {
     try {
@@ -96,7 +104,8 @@ Future<LatLng> resolveScheduledPoint(String label) async {
       );
       return LatLng(pos.latitude, pos.longitude);
     } catch (_) {
-      return kScheduledFallbackPoint;
+      // No fix in time: the caller asks the rider to choose the pickup.
+      return null;
     }
   }
   try {
@@ -107,7 +116,7 @@ Future<LatLng> resolveScheduledPoint(String label) async {
       return LatLng(result.point.latitude, result.point.longitude);
     }
   } catch (_) {
-    // Best-effort geocode: the fallback point below is used.
+    // Best-effort geocode: null below sends the rider back to fix it.
   }
-  return kScheduledFallbackPoint;
+  return null;
 }

@@ -83,7 +83,16 @@ class SelectRide extends StatefulWidget {
     this.pickupIsFallback = false,
   });
 
+  /// Whether [origin] has the exact points a return ride needs (CODE-5).
+  static bool canPlanReturn(Reservation origin) =>
+      origin.pickup.lat != null &&
+      origin.pickup.lng != null &&
+      origin.destination.lat != null &&
+      origin.destination.lng != null;
+
   /// Return-ride entry: same category cards, scheduled mode, reverse route.
+  /// Needs both points of [origin] ([canPlanReturn]); CODE-5: it used to
+  /// invent nearby points (or the Stockholm centre) when they were missing.
   factory SelectRide.forReturnRide(
     Reservation origin, {
     Key? key,
@@ -91,19 +100,18 @@ class SelectRide extends StatefulWidget {
     Future<void> Function(BuildContext context, String reservationId)?
     onScheduled,
   }) {
-    const stockholm = LatLng(59.3293, 18.0686);
-    LatLng? tryPoint(ReservationPlace place) {
-      if (place.lat == null || place.lng == null) return null;
-      return LatLng(place.lat!, place.lng!);
+    if (!canPlanReturn(origin)) {
+      throw ArgumentError.value(
+        origin.reservationId,
+        'origin',
+        'A return ride needs the exact pickup and drop-off points.',
+      );
     }
-
-    final originPickup = tryPoint(origin.pickup);
-    final originDest = tryPoint(origin.destination);
-    final known = originDest ?? originPickup ?? stockholm;
-    final returnPickup =
-        originDest ?? LatLng(known.latitude + 0.006, known.longitude + 0.008);
-    final returnDest =
-        originPickup ?? LatLng(known.latitude - 0.004, known.longitude - 0.006);
+    final returnPickup = LatLng(
+      origin.destination.lat!,
+      origin.destination.lng!,
+    );
+    final returnDest = LatLng(origin.pickup.lat!, origin.pickup.lng!);
     return SelectRide(
       key: key,
       pickupAddress: origin.destination.label,

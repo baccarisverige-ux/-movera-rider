@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/data/safety_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
 import 'safety_recorder.dart';
@@ -94,6 +95,36 @@ class SafetyAudioService {
       );
     }
     return next;
+  }
+
+  /// FLOW-6: stops and saves a running recording; does nothing when none
+  /// runs. For the moments the rider can no longer reach Stop audio (the
+  /// Safety Kit closed, the ride ended), so it never throws. If the save
+  /// fails the microphone is still released.
+  Future<AudioRecording?> stopIfRecording({String reason = 'unknown'}) async {
+    if (_active == null) return null;
+    try {
+      final saved = await stop();
+      AppLog.info('safety.audio.auto_stopped', extra: {'reason': reason});
+      return saved;
+    } catch (error) {
+      AppLog.warning(
+        'safety.audio.auto_stop_failed',
+        extra: {'reason': reason, 'error': '$error'},
+      );
+      if (_active != null) {
+        _active = null;
+        try {
+          await _recorder.cancel();
+        } catch (cancelError) {
+          AppLog.warning(
+            'safety.audio.cancel_failed',
+            extra: {'error': '$cancelError'},
+          );
+        }
+      }
+      return null;
+    }
   }
 
   Future<void> delete(AudioRecording recording) async {

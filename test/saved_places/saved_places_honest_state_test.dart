@@ -101,7 +101,12 @@ void main() {
           designSize: const Size(390, 844),
           minTextAdapt: true,
           splitScreenMode: true,
-          builder: (_, __) => const MaterialApp(home: AddPlace()),
+          builder: (_, __) => MaterialApp(
+            home: AddPlace(
+              // FLOW-4: Current location resolves to a real address.
+              currentAddress: () async => 'Drottninggatan 10, Stockholm',
+            ),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -114,7 +119,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Add new address'), findsOneWidget);
-      expect(find.text('Current location'), findsOneWidget);
+      expect(find.text('Drottninggatan 10, Stockholm'), findsOneWidget);
+      expect(find.text('Current location'), findsNothing);
       expect(find.text('Pickup location'), findsNothing);
     },
   );

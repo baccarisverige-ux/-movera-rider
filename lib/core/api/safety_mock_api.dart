@@ -1,5 +1,68 @@
+import 'dart:convert';
+
+import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/storage/preferences_store.dart';
+
 /// In-process Safety mock. Same paths/DTOs the real API will use.
 class SafetyMockApi {
+  /// FLOW-9: the demo build has no server, so the mock keeps the rider's
+  /// Safety settings, PIN and trusted contacts here between launches; a
+  /// reload used to wipe them. `movera_` prefixed, so sign-out removes it.
+  static const storageKey = 'movera_safety_demo_v1';
+
+  bool _restored = false;
+
+  /// Loads what an earlier launch saved. Runs once per mock instance.
+  Future<void> restoreOnce() async {
+    if (_restored) return;
+    _restored = true;
+    try {
+      final prefs = await PreferencesStore.load();
+      final raw = prefs.getString(storageKey);
+      if (raw == null) {
+        // First launch: keep this PIN, so it no longer changes per launch.
+        await persist();
+        return;
+      }
+      final saved = jsonDecode(raw);
+      if (saved is! Map) return;
+      final prefsMap = saved['preferences'];
+      if (prefsMap is Map) preferences.addAll(Map<String, dynamic>.from(prefsMap));
+      final pinMap = saved['pin'];
+      if (pinMap is Map) pin = Map<String, dynamic>.from(pinMap);
+      final rideCheckMap = saved['rideCheck'];
+      if (rideCheckMap is Map) {
+        rideCheck = Map<String, dynamic>.from(rideCheckMap);
+      }
+      final list = saved['contacts'];
+      if (list is List) {
+        contacts
+          ..clear()
+          ..addAll(list.whereType<Map>().map(Map<String, dynamic>.from));
+      }
+    } catch (error) {
+      AppLog.warning('safety.mock_restore_failed', extra: {'error': '$error'});
+    }
+  }
+
+  /// Saves the settings, PIN and contacts for the next launch.
+  Future<void> persist() async {
+    try {
+      final prefs = await PreferencesStore.load();
+      await prefs.setString(
+        storageKey,
+        jsonEncode({
+          'preferences': preferences,
+          'pin': pin,
+          'rideCheck': rideCheck,
+          'contacts': contacts,
+        }),
+      );
+    } catch (error) {
+      AppLog.warning('safety.mock_persist_failed', extra: {'error': '$error'});
+    }
+  }
+
   final Map<String, dynamic> preferences = {
     'userId': 'rider-local',
     'pinRequired': false,

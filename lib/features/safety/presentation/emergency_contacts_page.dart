@@ -5,8 +5,10 @@ import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
+import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
   const EmergencyContactsPage({super.key, required this.controller});
@@ -41,6 +43,37 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
       builder: (context) =>
           _ContactEditor(controller: _ctl, existing: existing),
     );
+  }
+
+  /// FLOW-15: asks before deleting and says so when it fails.
+  Future<void> _delete(EmergencyContact contact) async {
+    final confirmed = await confirmMoveraAction(
+      context,
+      title: 'Delete ${contact.name}?',
+      message: 'They will no longer be one of your emergency contacts.',
+      confirmLabel: 'Delete contact',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _ctl.removeContact(contact.id);
+    } catch (_) {
+      if (mounted) {
+        MoveraToast.show(context, 'Could not delete that contact. Try again.');
+      }
+    }
+  }
+
+  Future<void> _makePrimary(EmergencyContact contact) async {
+    try {
+      await _ctl.makePrimary(contact.id);
+    } catch (_) {
+      if (mounted) {
+        MoveraToast.show(
+          context,
+          'Could not make ${contact.name} your primary contact. Try again.',
+        );
+      }
+    }
   }
 
   @override
@@ -100,17 +133,21 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
           else
             Container(
               decoration: SafetyUi.cardDecoration(),
-              child: Column(
-                children: [
-                  for (var i = 0; i < items.length; i++)
-                    _ContactTile(
-                      contact: items[i],
-                      showDivider: i != items.length - 1,
-                      onEdit: () => _edit(items[i]),
-                      onDelete: () => _ctl.removeContact(items[i].id),
-                      onPrimary: () => _ctl.makePrimary(items[i].id),
-                    ),
-                ],
+              // The rows' ink needs a Material above the card's colour.
+              child: Material(
+                type: MaterialType.transparency,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < items.length; i++)
+                      _ContactTile(
+                        contact: items[i],
+                        showDivider: i != items.length - 1,
+                        onEdit: () => _edit(items[i]),
+                        onDelete: () => _delete(items[i]),
+                        onPrimary: () => _makePrimary(items[i]),
+                      ),
+                  ],
+                ),
               ),
             ),
         ],

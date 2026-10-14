@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/features/home/data/home_repository.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/shared/models/saved_places.dart';
@@ -32,32 +33,54 @@ class SavedPlacesController {
       ..addAll(_fromSnapshot(snapshot));
   }
 
-  Future<void> save(PlaceShortcut place) async {
+  /// Saves [place] and returns it as stored.
+  ///
+  /// FLOW-5: Home and Work have one slot each, chosen by [PlaceShortcut.kind].
+  /// Every other place is identified by its [PlaceShortcut.id]: a place
+  /// without one is new and gets a generated id, so a second "Gym" is added
+  /// next to the first instead of replacing it.
+  Future<PlaceShortcut> save(PlaceShortcut place) async {
     final clean = PlaceShortcut(
       title: place.title.trim(),
       subtitle: place.subtitle.trim(),
       kind: _normalizeKind(place.kind),
+      id: place.id?.trim().isNotEmpty == true ? place.id!.trim() : null,
     );
     if (clean.title.isEmpty || clean.subtitle.isEmpty) {
       throw ArgumentError('Saved place requires both a name and a location.');
     }
 
     final snapshot = await _store.load();
-    final places = snapshot.places
-        .map((item) => Map<String, String>.from(item))
-        .toList();
+    final places = _withIds(snapshot.places);
 
     String? home = snapshot.home;
     String? work = snapshot.work;
+    var saved = clean;
     if (clean.kind == 'home') {
       home = clean.subtitle;
+      saved = PlaceShortcut(
+        title: 'Home',
+        subtitle: clean.subtitle,
+        kind: 'home',
+      );
     } else if (clean.kind == 'office') {
       work = clean.subtitle;
-    } else {
-      final index = places.indexWhere(
-        (item) => _normalizeKind(item['type'] ?? '') == clean.kind,
+      saved = PlaceShortcut(
+        title: 'Work',
+        subtitle: clean.subtitle,
+        kind: 'office',
       );
+    } else {
+      final id = clean.id ?? 'place_${newRequestId()}';
+      saved = PlaceShortcut(
+        title: clean.title,
+        subtitle: clean.subtitle,
+        kind: clean.kind,
+        id: id,
+      );
+      final index = places.indexWhere((item) => item['id'] == id);
       final encoded = <String, String>{
+        'id': id,
         'title': clean.title,
         'type': clean.kind,
         'address': clean.subtitle,
@@ -78,27 +101,40 @@ class SavedPlacesController {
       ),
     );
     await hydrate();
+    return saved;
   }
 
-  Future<void> removeKind(String kind) async {
-    final normalized = _normalizeKind(kind);
+  /// Removes exactly [place]: the Home or Work slot, or the one custom
+  /// place with its id (FLOW-5; it used to remove every place of a kind).
+  Future<void> remove(PlaceShortcut place) async {
+    final kind = _normalizeKind(place.kind);
     final snapshot = await _store.load();
-    final places = snapshot.places
-        .map((item) => Map<String, String>.from(item))
-        .where(
-          (item) => _normalizeKind(item['type'] ?? '') != normalized,
-        )
+    final id = place.id;
+    final places = _withIds(snapshot.places)
+        .where((item) => id == null || item['id'] != id)
         .toList();
 
     await _store.save(
       HomeAddressSnapshot(
-        home: normalized == 'home' ? null : snapshot.home,
-        work: normalized == 'office' ? null : snapshot.work,
+        home: kind == 'home' && id == null ? null : snapshot.home,
+        work: kind == 'office' && id == null ? null : snapshot.work,
         recent: snapshot.recent,
         places: places,
       ),
     );
     await hydrate();
+  }
+
+  /// Custom places saved before ids existed get a stable id from their
+  /// position, so they can be edited and removed one by one.
+  List<Map<String, String>> _withIds(List<Map<String, String>> raw) {
+    return [
+      for (var i = 0; i < raw.length; i++)
+        {
+          ...raw[i],
+          if ((raw[i]['id'] ?? '').trim().isEmpty) 'id': 'place_legacy_$i',
+        },
+    ];
   }
 
   List<PlaceShortcut> _fromSnapshot(HomeAddressSnapshot snapshot) {
@@ -111,7 +147,8 @@ class SavedPlacesController {
     if (work?.isNotEmpty == true) {
       result.add(PlaceShortcut(title: 'Work', subtitle: work!, kind: 'office'));
     }
-    for (final item in snapshot.places) {
+    final places = _withIds(snapshot.places);
+    for (final item in places) {
       final address = (item['address'] ?? '').trim();
       if (address.isEmpty) continue;
       final kind = _normalizeKind(item['type'] ?? 'other');
@@ -121,6 +158,7 @@ class SavedPlacesController {
           title: title.isEmpty ? _labelForKind(kind) : title,
           subtitle: address,
           kind: kind,
+          id: item['id'],
         ),
       );
     }
