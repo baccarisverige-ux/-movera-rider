@@ -87,7 +87,6 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/images/rides/
-    - assets/images/menu/
     - assets/images/notes/
 
   # An image asset can refer to one or more resolution-specific "variants", see

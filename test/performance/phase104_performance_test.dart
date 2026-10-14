@@ -60,59 +60,26 @@ void main() {
     });
   });
 
-  group('side menu', () {
-    Future<GlobalKey<ScaffoldState>> pumpMenu(
-      WidgetTester tester,
-      List<bool> covered,
+  group('menu page', () {
+    testWidgets('a menu page opens on the next frames, no drawer to close', (
+      tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      final key = GlobalKey<ScaffoldState>();
       await tester.pumpWidget(
         ScreenUtilInit(
           designSize: const Size(390, 844),
-          builder: (_, __) => MaterialApp(
-            home: Scaffold(
-              key: key,
-              drawer: RiderSideMenu(onCoveredChanged: covered.add),
-              body: const Center(child: Text('Home body')),
-            ),
-          ),
+          builder: (_, __) => const MaterialApp(home: RiderMenuPage()),
         ),
       );
-      key.currentState!.openDrawer();
       await tester.pumpAndSettle();
-      return key;
-    }
-
-    testWidgets('the page is pushed without waiting on the drawer close', (
-      tester,
-    ) async {
-      final covered = <bool>[];
-      await pumpMenu(tester, covered);
       await tester.tap(find.text('About'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
-      // Two frames in, the drawer (a ~250 ms close) is still closing but the
-      // page is already on its way in.
       expect(find.text('About Movera'), findsWidgets);
-      expect(covered, [true]);
       await tester.pumpAndSettle();
-    });
-
-    testWidgets('Home is told when a menu page covers it and when it leaves', (
-      tester,
-    ) async {
-      final covered = <bool>[];
-      await pumpMenu(tester, covered);
-      await tester.tap(find.text('About'));
-      await tester.pumpAndSettle();
-      expect(covered, [true]);
-      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
-      await tester.pumpAndSettle();
-      expect(covered, [true, false]);
     });
   });
 

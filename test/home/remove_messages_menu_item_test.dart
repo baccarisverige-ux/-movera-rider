@@ -16,20 +16,12 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final key = GlobalKey<ScaffoldState>();
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
-        builder: (_, __) => MaterialApp(
-          home: Scaffold(
-            key: key,
-            drawer: const RiderSideMenu(),
-            body: const Center(child: Text('Home body')),
-          ),
-        ),
+        builder: (_, __) => const MaterialApp(home: RiderMenuPage()),
       ),
     );
-    key.currentState!.openDrawer();
     await tester.pumpAndSettle();
 
     expect(find.text('Messages'), findsNothing);

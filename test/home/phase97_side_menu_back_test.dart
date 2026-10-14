@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Batch 9 Phase 97 — U1 (menu pages return to the menu), D-026 (Ride
 /// History "Book a ride" starts a booking), D-024 (profile empty copy).
+/// The menu is now a full-screen page pushed over Home.
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -23,7 +24,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Future<GlobalKey<ScaffoldState>> pumpHomeWithMenu(
+  /// Home with the menu page pushed over it, as the menu button does.
+  Future<void> pumpHomeWithMenu(
     WidgetTester tester, {
     VoidCallback? onStartBooking,
   }) async {
@@ -31,55 +33,66 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final key = GlobalKey<ScaffoldState>();
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
         builder: (_, __) => MaterialApp(
-          home: Scaffold(
-            key: key,
-            drawer: RiderSideMenu(onStartBooking: onStartBooking),
-            body: const Center(child: Text('Home body')),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => RiderMenuPage.open(
+                    context,
+                    onStartBooking: onStartBooking,
+                  ),
+                  child: const Text('Home body'),
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
-    key.currentState!.openDrawer();
+    await tester.tap(find.text('Home body'));
     await tester.pumpAndSettle();
-    return key;
+    expect(find.byType(RiderMenuPage), findsOneWidget);
   }
 
-  testWidgets('U1: Back from a menu page returns to the open menu', (
-    tester,
-  ) async {
-    final scaffold = await pumpHomeWithMenu(tester);
+  testWidgets('U1: Back from a menu page returns to the menu', (tester) async {
+    await pumpHomeWithMenu(tester);
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
-    expect(scaffold.currentState!.isDrawerOpen, isFalse);
     expect(find.text('About Movera'), findsWidgets);
-
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pumpAndSettle();
-    expect(scaffold.currentState!.isDrawerOpen, isTrue);
+    expect(find.byType(RiderMenuPage), findsOneWidget);
     expect(find.text('About'), findsOneWidget);
   });
 
-  testWidgets('U1: the menu does not reopen over a route pushed on top', (
+  testWidgets("the menu page carries every destination and Home's bar", (
     tester,
   ) async {
-    final scaffold = await pumpHomeWithMenu(tester);
-    await tester.tap(find.text('About'));
+    await pumpHomeWithMenu(tester);
+    for (final title in [
+      'Wallet',
+      'Ride History',
+      'Payments',
+      'Notifications',
+      'Saved Places',
+      'Safety',
+      'Support',
+      'About',
+    ]) {
+      expect(find.text(title), findsOneWidget, reason: title);
+    }
+    for (final tab in ['Map', 'Payment', 'Schedule ride', 'Account']) {
+      expect(find.text(tab), findsOneWidget, reason: tab);
+    }
+    // Map returns to Home.
+    await tester.tap(find.text('Map'));
     await tester.pumpAndSettle();
-    final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
-    // The page is replaced by something else: Home never becomes current.
-    nav.pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(body: Text('Elsewhere')),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Elsewhere'), findsOneWidget);
-    expect(scaffold.currentState!.isDrawerOpen, isFalse);
+    expect(find.byType(RiderMenuPage), findsNothing);
+    expect(find.text('Home body'), findsOneWidget);
   });
 
   testWidgets('D-026: Ride History "Book a ride" asks to start a booking', (
@@ -129,6 +142,8 @@ void main() {
     ).readAsStringSync();
     expect(menu, contains('result == RideHistory.startBookingResult'));
     expect(menu, contains('onStartBooking?.call();'));
+    // The menu page itself leaves first, so booking starts over Home.
+    expect(menu, contains('nav.pop();\n      onStartBooking?.call();'));
     final home = File(
       'lib/features/home/presentation/home.dart',
     ).readAsStringSync();
