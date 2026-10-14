@@ -38,6 +38,12 @@ class AppAssets {
   static const String solarHeadphones = 'assets/icons/solar_headphones.svg';
   static const String solarDocument = 'assets/icons/solar_document.svg';
   static const String solarInfoCircle = 'assets/icons/solar_info_circle.svg';
+  static const String solarUserId = 'assets/icons/solar_user_id.svg';
+  static const String solarMen = 'assets/icons/solar_men.svg';
+  static const String solarWomen = 'assets/icons/solar_women.svg';
+  static const String solarPhone = 'assets/icons/solar_phone.svg';
+  static const String solarLetter = 'assets/icons/solar_letter.svg';
+  static const String solarGlobal = 'assets/icons/solar_global.svg';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';

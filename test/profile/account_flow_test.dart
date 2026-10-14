@@ -127,7 +127,7 @@ void main() {
     expect(c.profile.name, isEmpty);
     expect(c.profile.email, isEmpty);
     expect(c.profile.phone, isEmpty);
-    expect(c.profile.gender, 'Prefer not to say');
+    expect(c.profile.gender, '');
     expect(c.profile.photoAsset, isEmpty);
     expect(c.profile.appleConnected, isFalse);
     expect(c.profile.logins, isEmpty);
@@ -138,7 +138,7 @@ void main() {
     expect(persisted['name'], '');
     expect(persisted.containsKey('email'), isFalse);
     expect(persisted.containsKey('phone'), isFalse);
-    expect(persisted['gender'], 'Prefer not to say');
+    expect(persisted['gender'], '');
     expect(persisted['photoAsset'], '');
     expect(persisted.containsKey('appleConnected'), isFalse);
     expect(persisted.containsKey('logins'), isFalse);

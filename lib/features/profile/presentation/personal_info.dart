@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
@@ -8,11 +10,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 
 class PersonalInfoPage extends StatefulWidget {
-  const PersonalInfoPage({
-    super.key,
-    this.controller,
-    this.securityController,
-  });
+  const PersonalInfoPage({super.key, this.controller, this.securityController});
 
   final ProfileController? controller;
   final AccountSecurityController? securityController;
@@ -87,14 +85,18 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               backgroundImage: hasPhoto ? AssetImage(ride.photoAsset) : null,
               child: hasPhoto
                   ? null
-                  : const Icon(Icons.person_outline_rounded, size: 36),
+                  : const AppIconAsset(
+                      AppAssets.solarUserRounded,
+                      size: 40,
+                      color: Color(0xFF2D5878),
+                    ),
             ),
           ),
           const SizedBox(height: 22),
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountIcon(Icons.badge_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarUserId),
                 title: 'Name',
                 body: _valueOrNotAdded(ride.name),
                 onTap: () async {
@@ -109,19 +111,24 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.wc_outlined),
+                mark: AccountIcon.asset(
+                  ride.gender == 'Woman'
+                      ? AppAssets.solarWomen
+                      : ride.gender == 'Man'
+                      ? AppAssets.solarMen
+                      : AppAssets.solarUserRounded,
+                ),
                 title: 'Gender',
-                body: ride.gender,
+                body: _valueOrNotAdded(
+                  ride.gender == 'Woman' || ride.gender == 'Man'
+                      ? ride.gender
+                      : '',
+                ),
                 onTap: () async {
                   final next = await showAccountChoice(
                     context,
                     title: 'Gender',
-                    options: const [
-                      'Woman',
-                      'Man',
-                      'Non-binary',
-                      'Prefer not to say',
-                    ],
+                    options: const ['Woman', 'Man'],
                     selected: ride.gender,
                   );
                   if (next != null) {
@@ -130,7 +137,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 },
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.phone_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarPhone),
                 title: 'Phone',
                 body: _serverContact(
                   account?.phone ?? '',
@@ -139,7 +146,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 ),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.mail_outline_rounded),
+                mark: const AccountIcon.asset(AppAssets.solarLetter),
                 title: 'Email',
                 body: _serverContact(
                   account?.email ?? '',
@@ -148,7 +155,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 ),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.language_rounded),
+                mark: const AccountIcon.asset(AppAssets.solarGlobal),
                 title: 'Language',
                 body: ride.language,
                 showDivider: false,
