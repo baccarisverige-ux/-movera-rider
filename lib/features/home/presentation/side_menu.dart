@@ -21,8 +21,16 @@ class RiderSideMenu extends StatelessWidget {
   /// `false` once it is popped, so Home can pause its puck work while hidden.
   final ValueChanged<bool>? onCoveredChanged;
 
-  static const Color _ink = Color(0xFF11181D);
-  static const Color _bar = Color(0xFF11181D);
+  static const Color _ink = Color(0xFF1D252C);
+  static const Color _panel = Color(0xFF11181D);
+  static const Color _line = Color(0xFFEEF1F4);
+  static const Color _chevron = Color(0xFFB8C0C7);
+  static const Color _blue = Color(0xFF1A73E8);
+  static const Color _blueTint = Color(0xFFE8F0FC);
+  static const Color _green = Color(0xFF1E9E5A);
+  static const Color _greenTint = Color(0xFFE6F5EC);
+  static const Color _slate = Color(0xFF4A555E);
+  static const Color _slateTint = Color(0xFFEEF1F4);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -60,14 +68,19 @@ class RiderSideMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: _panel,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      width: media.size.width * 0.82,
-      shape: const RoundedRectangleBorder(),
+      width: media.size.width * 0.86,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: ColoredBox(
-        color: Colors.white,
+        color: _panel,
         child: SafeArea(
           bottom: false,
           child: Column(
@@ -76,13 +89,13 @@ class RiderSideMenu extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(28, 56, 28, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _profileHeader(),
-                      const SizedBox(height: 56),
-                      ..._menuGroups(context),
+                      const SizedBox(height: 26),
+                      _menuCard(context),
                     ],
                   ),
                 ),
@@ -111,26 +124,61 @@ class RiderSideMenu extends StatelessWidget {
     );
   }
 
-  /// The Movera logo, large and centred, with the rider's name under it.
+  /// Ringed avatar and the rider's name in white on the dark panel.
   Widget _profileHeader() {
     final controller = AppScope.instance.profile;
-    return Column(
-      children: [
-        Image.asset(
-          excludeFromSemantics: true,
-          AppAssets.logo,
-          height: 64,
-          fit: BoxFit.contain,
-        ),
-        const SizedBox(height: 16),
-        Text(
-          controller.displayName(),
-          textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: _text(15, weight: FontWeight.w700),
-        ),
-      ],
+    final profile = controller.profile;
+    final hasPhoto = profile.photoAsset.trim().isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.28),
+                width: 1.5,
+              ),
+            ),
+            child: ClipOval(
+              child: hasPhoto
+                  ? Image.asset(
+                      excludeFromSemantics: true,
+                      profile.photoAsset,
+                      fit: BoxFit.cover,
+                    )
+                  : ColoredBox(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              controller.displayName(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _text(
+                21,
+                weight: FontWeight.w700,
+                color: Colors.white,
+                height: 1.15,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -199,13 +247,47 @@ class RiderSideMenu extends StatelessWidget {
 
     return [
       for (var g = 0; g < groups.length; g++) ...[
-        for (final item in groups[g]) _menuRow(item),
+        if (g > 0)
+          const Padding(
+            padding: EdgeInsets.only(left: 76, right: 20),
+            child: Divider(height: 1, thickness: 1, color: _line),
+          ),
+        for (final item in groups[g]) _menuRow(item, _tints[g]),
       ],
     ];
   }
 
-  Widget _menuIcon(_MenuItem item, {double size = 28}) {
-    return Icon(item.icon, size: size, color: _ink);
+  /// Icon colours by group: money in brand blue, places in brand green,
+  /// help in slate.
+  static const _tints = <(Color, Color)>[
+    (_blue, _blueTint),
+    (_green, _greenTint),
+    (_slate, _slateTint),
+  ];
+
+  Widget _menuCard(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(28),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: _menuGroups(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _menuIcon(_MenuItem item, (Color, Color) tint) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(color: tint.$2, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Icon(item.icon, size: 22, color: tint.$1),
+    );
   }
 
   /// The wallet row shows the balance on the right, like a receipt line.
@@ -217,40 +299,47 @@ class RiderSideMenu extends StatelessWidget {
         if (balance == null) return const SizedBox.shrink();
         return Text(
           'kr ${balance.toStringAsFixed(0)}',
-          style: _text(18, weight: FontWeight.w600),
+          style: _text(16, weight: FontWeight.w700),
         );
       },
     );
   }
 
-  Widget _menuRow(_MenuItem item) {
+  Widget _menuRow(_MenuItem item, (Color, Color) tint) {
     return Semantics(
       button: true,
       label: item.title,
       onTap: item.onTap,
       child: ExcludeSemantics(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(16),
-            splashColor: _ink.withValues(alpha: 0.05),
-            highlightColor: _ink.withValues(alpha: 0.04),
-            child: SizedBox(
-              height: 68,
+        child: InkWell(
+          onTap: item.onTap,
+          splashColor: _ink.withValues(alpha: 0.05),
+          highlightColor: _ink.withValues(alpha: 0.04),
+          child: SizedBox(
+            height: 62,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 14),
               child: Row(
                 children: [
-                  SizedBox(width: 32, child: _menuIcon(item)),
-                  const SizedBox(width: 22),
+                  _menuIcon(item, tint),
+                  const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _text(19, weight: FontWeight.w600, letterSpacing: -0.2),
+                      style: _text(16, weight: FontWeight.w600),
                     ),
                   ),
-                  if (item.trailing != null) item.trailing!,
+                  if (item.trailing != null) ...[
+                    item.trailing!,
+                    const SizedBox(width: 6),
+                  ],
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 22,
+                    color: _chevron,
+                  ),
                 ],
               ),
             ),
@@ -262,28 +351,29 @@ class RiderSideMenu extends StatelessWidget {
 
   Widget _footer(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
-    return ColoredBox(
-      color: _bar,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(24, 22, 24, 22 + bottom),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Movera Rider',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _text(17, weight: FontWeight.w600, color: Colors.white),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 8, 24, 20 + bottom),
+      child: Row(
+        children: [
+          Image.asset(
+            excludeFromSemantics: true,
+            AppAssets.logo,
+            height: 18,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Movera Rider',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _text(
+                12,
+                color: Colors.white.withValues(alpha: 0.6),
               ),
             ),
-            Image.asset(
-              excludeFromSemantics: true,
-              AppAssets.logo,
-              height: 20,
-              fit: BoxFit.contain,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
