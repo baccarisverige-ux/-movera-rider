@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -9,6 +10,7 @@ import 'package:movera_rider/features/notifications/application/notifications_co
 import 'package:movera_rider/features/notifications/domain/notifications.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
+import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -60,6 +62,7 @@ class NotificationScreen extends StatelessWidget {
               ],
             ),
             12.height,
+            PushStatusBanner(gate: AppScope.instance.pushPermission),
             Expanded(
               child: StreamBuilder<List<AppNotification>>(
                 stream: notificationController.watch(),

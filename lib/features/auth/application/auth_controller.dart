@@ -41,13 +41,18 @@ class AuthController {
 
   Future<bool> hasSession() => _auth.hasSession();
 
+  /// Registers push only for a rider who already accepted the in-app
+  /// explanation (UI-17); a first sign-in sees the explanation on Home
+  /// instead of a cold OS prompt.
   Future<void> _registerPushBestEffort() async {
     try {
-      await AppScope.instance.push.register();
+      await AppScope.instance.pushPermission.registerIfConsented(
+        logEvent: 'auth.push_registration_deferred',
+      );
     } catch (error) {
       AppLog.warning(
         'auth.push_registration_deferred',
-        extra: {'error': error.toString()},
+        extra: {'error': error.runtimeType.toString()},
       );
     }
   }
