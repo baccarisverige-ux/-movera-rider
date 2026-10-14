@@ -107,47 +107,19 @@ abstract final class OnDemandRideHistoryStore {
       );
     }
 
-    final reservationStatus = _reservationStatus(terminalStatus);
-    if (reservationStatus == null) {
+    final record = recordFor(
+      snapshot,
+      terminalStatus: terminalStatus,
+      endedAt: endedAt,
+      cancellationReason: cancellationReason,
+    );
+    if (record == null) {
       throw ArgumentError.value(
         terminalStatus,
         'terminalStatus',
         'Only completed or explicitly cancelled rides can be archived.',
       );
     }
-
-    final ended = endedAt ?? DateTime.now();
-    final record = Reservation(
-      reservationId: 'ondemand-$rideId',
-      createdAt: snapshot.createdAt.toUtc(),
-      scheduledPickupAt: ended.toUtc(),
-      pickup: ReservationPlace(
-        label: snapshot.pickupAddress,
-        lat: snapshot.pickupLat,
-        lng: snapshot.pickupLng,
-      ),
-      destination: ReservationPlace(
-        label: snapshot.destinationAddress,
-        lat: snapshot.destinationLat,
-        lng: snapshot.destinationLng,
-      ),
-      categoryId: _categoryId(snapshot.rideType),
-      categoryName: snapshot.rideType.trim().isEmpty
-          ? 'Movera'
-          : snapshot.rideType,
-      categoryImage: _categoryImage(snapshot.rideType),
-      price: snapshot.price,
-      paymentMethod: snapshot.paymentMethod,
-      status: reservationStatus,
-      driver: _driver(snapshot),
-      note: snapshot.notes.selected.isEmpty
-          ? null
-          : snapshot.notes.selected.join(', '),
-      cancellationReason:
-          cancellationReason ??
-          snapshot.cancellationReason ??
-          _endedSearchReason(terminalStatus),
-    );
 
     // Two archives finishing at once both read, prepend and write, so the
     // slower reader can overwrite the faster writer's record. Rather than queue
@@ -189,6 +161,54 @@ abstract final class OnDemandRideHistoryStore {
         );
       }
     }
+  }
+
+  /// The History record for a finished ride, or null when [terminalStatus]
+  /// is neither completed nor an explicit cancel. Also used to read server
+  /// trips (`ApiRideHistoryRepository`), so both sources look the same.
+  static Reservation? recordFor(
+    RideSnapshot snapshot, {
+    required RideStatus terminalStatus,
+    DateTime? endedAt,
+    String? cancellationReason,
+  }) {
+    final rideId = snapshot.rideId?.trim();
+    final reservationStatus = _reservationStatus(terminalStatus);
+    if (rideId == null || rideId.isEmpty || reservationStatus == null) {
+      return null;
+    }
+    final ended = endedAt ?? DateTime.now();
+    return Reservation(
+      reservationId: 'ondemand-$rideId',
+      createdAt: snapshot.createdAt.toUtc(),
+      scheduledPickupAt: ended.toUtc(),
+      pickup: ReservationPlace(
+        label: snapshot.pickupAddress,
+        lat: snapshot.pickupLat,
+        lng: snapshot.pickupLng,
+      ),
+      destination: ReservationPlace(
+        label: snapshot.destinationAddress,
+        lat: snapshot.destinationLat,
+        lng: snapshot.destinationLng,
+      ),
+      categoryId: _categoryId(snapshot.rideType),
+      categoryName: snapshot.rideType.trim().isEmpty
+          ? 'Movera'
+          : snapshot.rideType,
+      categoryImage: _categoryImage(snapshot.rideType),
+      price: snapshot.price,
+      paymentMethod: snapshot.paymentMethod,
+      status: reservationStatus,
+      driver: _driver(snapshot),
+      note: snapshot.notes.selected.isEmpty
+          ? null
+          : snapshot.notes.selected.join(', '),
+      cancellationReason:
+          cancellationReason ??
+          snapshot.cancellationReason ??
+          _endedSearchReason(terminalStatus),
+    );
   }
 
   static Future<void> clear() async {

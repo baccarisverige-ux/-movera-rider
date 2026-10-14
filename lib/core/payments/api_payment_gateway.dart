@@ -11,6 +11,8 @@ class ApiPaymentGateway implements PaymentGateway {
     required int amountMinor,
     required String currency,
     required String idempotencyKey,
+    PaymentPurpose? purpose,
+    String? rideId,
   }) async {
     if (amountMinor <= 0) {
       throw const PaymentTransportException('Payment amount must be positive.');
@@ -28,6 +30,9 @@ class ApiPaymentGateway implements PaymentGateway {
       body: {
         'amountMinor': amountMinor,
         'currency': normalizedCurrency,
+        // C-10 (PROPOSED): tells the server what to credit on capture.
+        if (purpose != null) 'purpose': purpose.wire,
+        if (rideId != null && rideId.trim().isNotEmpty) 'rideId': rideId.trim(),
       },
       idempotencyKey: key,
     );

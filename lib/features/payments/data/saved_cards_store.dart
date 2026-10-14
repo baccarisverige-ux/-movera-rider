@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/features/payments/domain/saved_card.dart';
 
@@ -55,4 +56,18 @@ class MemorySavedCardsStore implements SavedCardsStore {
   Future<void> write(List<SavedCard> cards) async {
     this.cards = [...cards];
   }
+}
+
+/// Saved cards in a build where they are switched off (release until card
+/// entry runs through the payment provider's hosted fields and the server
+/// returns tokenised methods, ARCH-7 / C-10): none, and nothing is saved.
+class DisabledSavedCardsStore implements SavedCardsStore, FeatureOffRepository {
+  const DisabledSavedCardsStore();
+
+  @override
+  Future<List<SavedCard>> read() async => const [];
+
+  @override
+  Future<void> write(List<SavedCard> cards) =>
+      Future.error(UnsupportedError('Saved cards are not available.'));
 }

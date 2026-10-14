@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
 import 'package:movera_rider/core/api/mock_catalog_fares.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/core/contracts/wire_time.dart';
 
 /// In-process `/api/v1` used on GitHub Pages and tests.
@@ -40,6 +42,12 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, String> pendingLinks = {};
   final Map<String, Map<String, dynamic>> pushDevices = {};
   final Map<String, Map<String, dynamic>> paymentIntents = {};
+
+  /// Last profile sent with `PATCH /api/v1/rider/profile` (FLOW-7).
+  Map<String, dynamic>? riderProfile;
+
+  /// The rider's default payment method on the server (ARCH-7).
+  String defaultPaymentMethodId = 'cash';
 
   /// The demo rider's promotion; tests may replace or clear it.
   Map<String, dynamic>? activePromotion = {
@@ -802,6 +810,9 @@ class InProcessMockClient extends http.BaseClient {
           'status': 'requires_confirmation',
           'amountMinor': amountMinor,
           'currency': 'SEK',
+          // C-10 (PROPOSED): what the intent pays for.
+          if (body['purpose'] is String) 'purpose': body['purpose'],
+          if (body['rideId'] is String) 'rideId': body['rideId'],
         };
         paymentIntents[intent['id'] as String] = intent;
         payload = {
@@ -867,6 +878,81 @@ class InProcessMockClient extends http.BaseClient {
         'promotion': activePromotion,
         'requestId': requestId,
       };
+    } else if (path == '/api/v1/rider/profile' && method == 'PATCH') {
+      // FLOW-7 / C-12 (PROPOSED): name, language and consents.
+      final name = body['name'];
+      final consents = body['consents'];
+      if (name is! String ||
+          name.trim().length > 80 ||
+          (consents != null && consents is! Map)) {
+        status = 422;
+        payload = {'code': 'INVALID_PROFILE', 'requestId': requestId};
+      } else {
+        riderProfile = {
+          'name': name.trim(),
+          if (body['language'] is String) 'language': body['language'],
+          'consents': {
+            ...?(riderProfile?['consents'] as Map?),
+            ...?(consents as Map?),
+          },
+        };
+        payload = {
+          'code': 'OK',
+          'profile': riderProfile,
+          'requestId': requestId,
+        };
+      }
+    } else if (path == '/api/v1/rider/trips/active' && method == 'GET') {
+      // ARCH-12 / C-5 (PROPOSED): the rider's live trip, or none.
+      Map<String, dynamic>? live;
+      for (final ride in rides.values) {
+        final value = RideStatusWire.parse(ride['status']);
+        if (value == null || value.isTerminal || ride['scheduledAt'] != null) {
+          continue;
+        }
+        live = ride;
+      }
+      payload = {'code': 'OK', 'trip': live, 'requestId': requestId};
+    } else if (path == '/api/v1/rider/trips' && method == 'GET') {
+      // ARCH-12 / C-5 (PROPOSED): finished trips, newest first, one page.
+      final finished = [
+        for (final ride in rides.values.toList().reversed)
+          if (RideStatusWire.parse(ride['status']) case final value?)
+            if (value.isTerminal || value.isCompletedSurface) ride,
+      ];
+      payload = {
+        'code': 'OK',
+        'trips': finished,
+        'nextCursor': null,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/payment-methods' && method == 'GET') {
+      // ARCH-7 / C-10 (PROPOSED). Cards would be PSP-tokenised methods.
+      payload = {
+        'code': 'OK',
+        'methods': const [
+          {'id': 'wallet', 'kind': 'wallet', 'label': 'Movera Wallet'},
+          {'id': 'apple', 'kind': 'applePay', 'label': 'Apple Pay'},
+          {'id': 'google', 'kind': 'googlePay', 'label': 'Google Pay'},
+          {'id': 'cash', 'kind': 'cash', 'label': 'Pay in car'},
+        ],
+        'defaultMethodId': defaultPaymentMethodId,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/payment-methods/default' &&
+        method == 'PATCH') {
+      final methodId = body['methodId'];
+      if (methodId is! String || methodId.trim().isEmpty) {
+        status = 422;
+        payload = {'code': 'INVALID_PAYMENT_METHOD', 'requestId': requestId};
+      } else {
+        defaultPaymentMethodId = methodId.trim();
+        payload = {
+          'code': 'OK',
+          'defaultMethodId': defaultPaymentMethodId,
+          'requestId': requestId,
+        };
+      }
     } else if (path == '/health' && method == 'GET') {
       payload = {'ok': true, 'requestId': requestId};
     } else {

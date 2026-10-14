@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/profile/domain/profile.dart';
+import 'package:movera_rider/features/profile/domain/rider_profile_repository.dart';
 
-class ProfileRepository {
+/// The profile kept on this device only (demo, and the cache under
+/// `SyncedProfileRepository`).
+class ProfileRepository implements RiderProfileRepository {
   ProfileRepository({this.storageKey = 'movera_profile_v1'});
 
   static const _legacyName = 'Ben Gleason';
@@ -16,16 +19,19 @@ class ProfileRepository {
   RiderProfileData _profile = RiderProfileData.defaults();
   bool _hydrated = false;
 
+  @override
   RiderProfileData get current => _profile;
 
   static const emptyDisplayName = 'Welcome to Movera';
 
+  @override
   String displayName() {
     final name = _profile.name.trim();
     // D-024: a friendly greeting, not a literal placeholder.
     return name.isEmpty ? emptyDisplayName : name;
   }
 
+  @override
   Future<void> hydrate() async {
     if (_hydrated) return;
     _hydrated = true;
@@ -57,11 +63,13 @@ class ProfileRepository {
 
   /// Forgets the signed-out rider's profile in memory (UserDataWipe removes
   /// the stored copy). The next [hydrate] reads storage again.
+  @override
   void clearLocal() {
     _profile = RiderProfileData.defaults();
     _hydrated = false;
   }
 
+  @override
   Future<RiderProfileData> save(RiderProfileData next) async {
     final sanitized = _presentationOnly(next);
     _profile = sanitized;

@@ -1,14 +1,20 @@
-import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 
 /// Read-only application layer for Book Now ride history.
 ///
-/// It intentionally owns no demo data. The local archive is the temporary
-/// source of truth until the production backend replaces it behind this API.
+/// It intentionally owns no demo data. It reads the composed
+/// [RideHistoryRepository] (ARCH-12): the device archive in demo/dev, the
+/// server's trip list in release.
 class OnDemandHistoryController {
-  const OnDemandHistoryController();
+  const OnDemandHistoryController({RideHistoryRepository? repository})
+    : _repository = repository;
 
-  Future<List<Reservation>> load() => OnDemandRideHistoryStore.read();
+  final RideHistoryRepository? _repository;
+
+  Future<List<Reservation>> load() =>
+      (_repository ?? AppScope.instance.rideHistory).loadOnDemand();
 
   List<Reservation> combine(
     List<Reservation> reservations,
