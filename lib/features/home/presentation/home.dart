@@ -41,7 +41,7 @@ import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
-import 'package:movera_rider/features/home/presentation/widgets/comfort_ride_carousel.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
@@ -1840,8 +1840,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   final premiumDetailContent = Column(
                     children: [
                       AdvanceBookingCard(onOpenSchedule: _openSchedule),
-                      14.height,
-                      ComfortRideCarousel(
+                      12.height,
+                      HomeJourneySection(
                         onDestinationTap: _handleDestinationTap,
                         onOpenSchedule: _openSchedule,
                       ),
