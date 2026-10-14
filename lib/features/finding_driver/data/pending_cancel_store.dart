@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 
 /// A ride cancellation the server never acknowledged.
@@ -32,6 +33,12 @@ class PendingCancel {
   PendingCancel withKey(String key) =>
       PendingCancel(rideId: rideId, reasonId: reasonId, idempotencyKey: key);
 
+  PendingCancel withReason(String? reason) => PendingCancel(
+    rideId: rideId,
+    reasonId: reason,
+    idempotencyKey: idempotencyKey,
+  );
+
   Map<String, dynamic> toJson() => {
     'rideId': rideId,
     'reasonId': reasonId,
@@ -58,15 +65,67 @@ bool isPermanentCancelFailure(Object error) {
 class PendingCancelStore {
   static const _key = 'movera_pending_cancels';
 
+  /// Decodes one stored entry, or null when it is corrupt (not JSON, not an
+  /// object, no usable rideId). CODE-17: one bad entry used to throw out of
+  /// every read, so no later cancel could be queued or flushed at all.
+  static PendingCancel? _decode(String entry) {
+    try {
+      final decoded = jsonDecode(entry);
+      if (decoded is! Map<String, dynamic>) return null;
+      final rideId = decoded['rideId'];
+      if (rideId is! String || rideId.trim().isEmpty) return null;
+      final reasonId = decoded['reasonId'];
+      final key = decoded['idempotencyKey'];
+      return PendingCancel(
+        rideId: rideId,
+        reasonId: reasonId is String ? reasonId : null,
+        idempotencyKey: key is String && key.isNotEmpty ? key : null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void _logCorrupt(int count) {
+    AppLog.warning(
+      'ride.cancel.outbox_corrupt_entry_skipped',
+      extra: {'count': count},
+    );
+  }
+
+  /// Every readable entry; corrupt ones are skipped and logged.
   static Future<List<PendingCancel>> all() async {
     final prefs = await PreferencesStore.load();
     final raw = prefs.getStringList(_key) ?? const <String>[];
-    return raw
-        .map(
-          (entry) =>
-              PendingCancel.fromJson(jsonDecode(entry) as Map<String, dynamic>),
-        )
-        .toList();
+    final entries = <PendingCancel>[];
+    var corrupt = 0;
+    for (final entry in raw) {
+      final decoded = _decode(entry);
+      if (decoded == null) {
+        corrupt += 1;
+      } else {
+        entries.add(decoded);
+      }
+    }
+    if (corrupt > 0) _logCorrupt(corrupt);
+    return entries;
+  }
+
+  /// The stored list without corrupt entries and without [rideId]'s entry.
+  /// Rewriting the list therefore also drops anything unreadable.
+  static List<String> _othersThan(List<String> existing, String rideId) {
+    final kept = <String>[];
+    var corrupt = 0;
+    for (final entry in existing) {
+      final decoded = _decode(entry);
+      if (decoded == null) {
+        corrupt += 1;
+      } else if (decoded.rideId != rideId) {
+        kept.add(entry);
+      }
+    }
+    if (corrupt > 0) _logCorrupt(corrupt);
+    return kept;
   }
 
   static Future<PendingCancel?> find(String rideId) async {
@@ -79,10 +138,7 @@ class PendingCancelStore {
   static Future<void> add(PendingCancel cancel) async {
     final prefs = await PreferencesStore.load();
     final existing = prefs.getStringList(_key) ?? const <String>[];
-    final withoutSameRide = existing.where((entry) {
-      final decoded = jsonDecode(entry) as Map<String, dynamic>;
-      return decoded['rideId'] != cancel.rideId;
-    }).toList();
+    final withoutSameRide = _othersThan(existing, cancel.rideId);
     await prefs.setStringList(_key, [
       ...withoutSameRide,
       jsonEncode(cancel.toJson()),
@@ -111,12 +167,16 @@ class PendingCancelStore {
   static Future<void> remove(String rideId) async {
     final prefs = await PreferencesStore.load();
     final existing = prefs.getStringList(_key) ?? const <String>[];
-    await prefs.setStringList(
-      _key,
-      existing.where((entry) {
-        final decoded = jsonDecode(entry) as Map<String, dynamic>;
-        return decoded['rideId'] != rideId;
-      }).toList(),
-    );
+    await prefs.setStringList(_key, _othersThan(existing, rideId));
+  }
+
+  /// Adds the rider's optional reason to a cancel that is still queued, so
+  /// the retried request carries it. Keeps the entry's idempotency key.
+  /// Returns false when nothing for [rideId] is queued.
+  static Future<bool> attachReason(String rideId, String reasonId) async {
+    final existing = await find(rideId);
+    if (existing == null) return false;
+    await add(existing.withReason(reasonId));
+    return true;
   }
 }
