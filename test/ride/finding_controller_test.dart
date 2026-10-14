@@ -78,8 +78,10 @@ void main() {
       onTick: (_) {},
       onMatched: () => matches += 1,
     );
-    controller.cancelSearch();
+    // Server-first: the assignment lands while the cancel is in flight.
+    final cancelling = controller.cancelSearch();
     rt.emit(RideStatus.driverAssigned, sequence: 9);
+    await cancelling;
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(matches, 0);
     expect(ride.suppressRestore, isTrue);
@@ -196,7 +198,7 @@ void main() {
         onTick: (_) {},
         onMatched: () => matches += 1,
       );
-      controller.cancelSearch();
+      await controller.cancelSearch();
       await Future<void>.delayed(const Duration(milliseconds: 10));
       rt.emit(RideStatus.driverAssigned, sequence: 20);
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -343,7 +345,8 @@ void main() {
         onTick: (_) {},
         onMatched: () => matches += 1,
       );
-      controller.cancelSearch(reasonId: 'wait_too_long');
+      // Server-first: the 404 answer commits the cancel.
+      await controller.cancelSearch(reasonId: 'wait_too_long');
       expect(ride.status, RideStatus.cancelledByRider);
       await Future<void>.delayed(const Duration(milliseconds: 40));
       expect(await RideSnapshotStore.read(), isNull);
