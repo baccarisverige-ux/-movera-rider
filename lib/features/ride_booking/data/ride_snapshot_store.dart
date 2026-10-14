@@ -33,6 +33,10 @@ class RideSnapshot {
     this.version,
     this.readEpoch,
     this.walletAmountMinor = 0,
+    this.serverUpdatedAt,
+    this.searchStartedAt,
+    this.categoryId,
+    this.paymentMethodId,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -72,6 +76,25 @@ class RideSnapshot {
   /// Wallet, in öre (0 = none). The rest goes to [paymentMethod].
   final int walletAmountMinor;
 
+  /// ARCH-1: the server's own `updatedAt` for [status] (from the booking
+  /// response or a live event). Unlike [savedAt], which is the device clock
+  /// at the last local save, this is server ordering data, so restore may
+  /// seed RideSession with it.
+  final DateTime? serverUpdatedAt;
+
+  /// ARCH-3: when the current driver search started. The "still looking"
+  /// mark is measured from here, so a reload does not restart it. Null for
+  /// older snapshots, which fall back to [createdAt] (see [searchStart]).
+  final DateTime? searchStartedAt;
+
+  /// RIDE-19: the booking's category and payment method ids (not the labels
+  /// in [rideType] / [paymentMethod]), so "Try again" can request the same
+  /// ride. Null when unknown.
+  final String? categoryId;
+  final String? paymentMethodId;
+
+  DateTime get searchStart => searchStartedAt ?? createdAt;
+
   /// How long a saved ride may go untouched and still be worth restoring.
   ///
   /// The rule exists to stop an abandoned snapshot reviving days later as a
@@ -110,6 +133,10 @@ class RideSnapshot {
     int? version,
     int? readEpoch,
     int? walletAmountMinor,
+    DateTime? serverUpdatedAt,
+    DateTime? searchStartedAt,
+    String? categoryId,
+    String? paymentMethodId,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -132,6 +159,10 @@ class RideSnapshot {
       version: version ?? this.version,
       readEpoch: readEpoch ?? this.readEpoch,
       walletAmountMinor: walletAmountMinor ?? this.walletAmountMinor,
+      serverUpdatedAt: serverUpdatedAt ?? this.serverUpdatedAt,
+      searchStartedAt: searchStartedAt ?? this.searchStartedAt,
+      categoryId: categoryId ?? this.categoryId,
+      paymentMethodId: paymentMethodId ?? this.paymentMethodId,
     );
   }
 
@@ -156,6 +187,12 @@ class RideSnapshot {
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
     if (version != null) 'version': version,
     if (walletAmountMinor > 0) 'walletAmountMinor': walletAmountMinor,
+    if (serverUpdatedAt != null)
+      'serverUpdatedAt': serverUpdatedAt!.toUtc().toIso8601String(),
+    if (searchStartedAt != null)
+      'searchStartedAt': searchStartedAt!.toUtc().toIso8601String(),
+    if (categoryId != null) 'categoryId': categoryId,
+    if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -238,9 +275,19 @@ class RideSnapshot {
       cancellationReason: json['cancellationReason'] as String?,
       version: (json['version'] as num?)?.toInt(),
       walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
+      serverUpdatedAt: _utcOrNull(json['serverUpdatedAt']),
+      searchStartedAt: _utcOrNull(json['searchStartedAt']),
+      categoryId: _nonEmpty(json['categoryId']),
+      paymentMethodId: _nonEmpty(json['paymentMethodId']),
     );
   }
 }
+
+DateTime? _utcOrNull(Object? raw) =>
+    raw is String ? DateTime.tryParse(raw)?.toUtc() : null;
+
+String? _nonEmpty(Object? raw) =>
+    raw is String && raw.trim().isNotEmpty ? raw.trim() : null;
 
 class RideSnapshotStore {
   /// SharedPreferences key. On Flutter web this is `flutter.movera_active_ride`.
