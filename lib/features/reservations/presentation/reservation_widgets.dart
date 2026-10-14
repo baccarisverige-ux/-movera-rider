@@ -8,7 +8,8 @@ import 'package:movera_rider/features/reservations/presentation/reservation_form
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 const Color kReservationInk = Color(0xFF172127);
-const Color kReservationMuted = Color(0xFF7B858B);
+// UI-6: was 0xFF7B858B (3.77:1 on white); now ≥ 4.5:1 on kReservationSoft.
+const Color kReservationMuted = Color(0xFF6A7278);
 const Color kReservationLine = Color(0xFFE4E7E8);
 const Color kReservationCta = Color(0xFF11181D);
 const Color kReservationAccent = Color(0xFF356879);

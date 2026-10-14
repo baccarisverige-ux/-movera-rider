@@ -230,7 +230,8 @@ class _TopBar extends StatelessWidget {
               style: GoogleFonts.poppins(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: const Color(0xFF738078),
+                // UI-6: was 0xFF738078 (4.13:1 on white).
+                color: const Color(0xFF647069),
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
