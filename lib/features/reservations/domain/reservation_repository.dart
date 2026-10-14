@@ -10,6 +10,10 @@ abstract class ReservationRepository {
 
   Future<void> hydrate();
 
+  /// Forgets the cached reservations in memory (end of a rider's session).
+  /// The next [hydrate] reads storage again.
+  void clearLocal();
+
   Future<Reservation> createReservation(ReservationDraft draft);
 
   Future<Reservation> updateReservation(

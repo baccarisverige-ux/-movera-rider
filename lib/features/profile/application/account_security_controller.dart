@@ -12,21 +12,39 @@ class AccountSecurityController extends ChangeNotifier {
   bool loading = false;
   bool available = true;
   String? errorMessage;
+  int _session = 0;
+
+  /// Forgets the signed-out rider's security state. A load still in flight
+  /// for that rider is ignored when it lands.
+  void clearLocal() {
+    _session += 1;
+    state = null;
+    loading = false;
+    available = true;
+    errorMessage = null;
+    notifyListeners();
+  }
 
   Future<void> load() async {
+    final session = _session;
     loading = true;
     errorMessage = null;
     notifyListeners();
     try {
-      state = await _repository.load();
+      final loaded = await _repository.load();
+      if (session != _session) return;
+      state = loaded;
       available = true;
     } catch (_) {
+      if (session != _session) return;
       state = null;
       available = false;
       errorMessage = 'Account security is unavailable right now.';
     } finally {
-      loading = false;
-      notifyListeners();
+      if (session == _session) {
+        loading = false;
+        notifyListeners();
+      }
     }
   }
 

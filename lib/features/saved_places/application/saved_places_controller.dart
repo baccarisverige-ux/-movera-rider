@@ -22,6 +22,9 @@ class SavedPlacesController {
 
   Stream<void> get changes => _store.changes;
 
+  /// Forgets the signed-out rider's places in memory.
+  void clearLocal() => _shortcuts.clear();
+
   Future<void> hydrate() async {
     final snapshot = await _store.load();
     _shortcuts

@@ -22,4 +22,5 @@ class PreferencesStore {
   Future<void> setBool(String key, bool value) => _prefs.setBool(key, value);
   bool? getBool(String key) => _prefs.getBool(key);
   Future<void> remove(String key) => _prefs.remove(key);
+  Set<String> getKeys() => _prefs.getKeys();
 }

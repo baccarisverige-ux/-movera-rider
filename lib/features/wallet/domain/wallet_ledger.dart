@@ -24,4 +24,7 @@ class WalletLedger {
   int get balanceMinor => _entries.fold(0, (sum, e) => sum + e.amountMinor);
 
   void add(WalletEntry entry) => _entries.add(entry);
+
+  /// Empties the ledger at the end of a rider's session.
+  void clear() => _entries.clear();
 }

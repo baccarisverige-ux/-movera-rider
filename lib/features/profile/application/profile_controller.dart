@@ -17,6 +17,12 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Drops the in-memory profile at the end of a rider's session.
+  void clearLocal() {
+    _store.clearLocal();
+    notifyListeners();
+  }
+
   Future<void> update(RiderProfileData next) async {
     await _store.save(next);
     notifyListeners();
