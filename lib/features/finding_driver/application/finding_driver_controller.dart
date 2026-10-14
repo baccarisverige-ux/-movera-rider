@@ -6,6 +6,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -26,6 +27,30 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+
+/// What happened when the rider cancelled the search (cancel-first).
+enum SearchCancelResult {
+  /// The server confirmed the cancel (or no longer knows the ride). Local
+  /// state is committed: cancelled, archived to History, snapshot cleared.
+  confirmed,
+
+  /// The server could not be reached. The cancel sits in the pending-cancel
+  /// outbox with its idempotency key and is retried on reconnect or launch;
+  /// local state is committed as for [confirmed].
+  queued,
+
+  /// The server refused with 409: a driver accepted the ride first. Nothing
+  /// was committed; the search keeps listening and resyncs so the rider is
+  /// moved to the matched screen.
+  driverAccepted,
+
+  /// The server refused (410/422): the ride can no longer be cancelled.
+  /// Nothing was committed; realtime reports the real outcome.
+  rejected,
+
+  /// Nothing to do: already cancelled, finished, matched or disposed.
+  ignored,
+}
 
 class FindingDriverController {
   FindingDriverController({
@@ -62,11 +87,12 @@ class FindingDriverController {
   final Duration searchTimeout;
   final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
   final MutationAttempt _priceMutation = MutationAttempt('ride-price');
-  final MutationAttempt _cancelMutation = MutationAttempt('ride-cancel');
+  final MutationAttempt _reasonMutation = MutationAttempt('ride-cancel-reason');
   Timer? _tick;
   StreamSubscription<RideRealtimeEvent>? _sub;
   bool _assigned = false;
   bool _cancelled = false;
+  bool _cancelInFlight = false;
   bool _terminated = false;
   bool _disposed = false;
   bool _delayedLogged = false;
@@ -101,6 +127,12 @@ class FindingDriverController {
   RideSnapshot? get ownershipSnapshot => _snapshot;
 
   int get matchCount => _assigned ? 1 : 0;
+
+  /// True while a cancel request is waiting for the server's answer.
+  bool get cancelInFlight => _cancelInFlight;
+
+  /// True once the rider's cancel has been committed locally.
+  bool get cancelled => _cancelled;
   bool get editInFlight => _editInFlight;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
   bool get showPriceBump =>
@@ -128,6 +160,7 @@ class FindingDriverController {
     required String rideType,
     required double price,
     required String paymentMethod,
+    int walletAmountMinor = 0,
     RideNotes notes = RideNotes.empty,
     List<RouteStop> stops = const <RouteStop>[],
     required void Function(int elapsed) onTick,
@@ -150,6 +183,7 @@ class FindingDriverController {
         paymentMethod: paymentMethod,
         rideId: ride.rideId,
         notes: notes,
+        walletAmountMinor: walletAmountMinor,
       ),
       onTick: onTick,
       onMatched: onMatched,
@@ -176,6 +210,7 @@ class FindingDriverController {
     _onTick = onTick;
     _assigned = false;
     _cancelled = false;
+    _cancelInFlight = false;
     _terminated = false;
     _disposed = false;
     _delayedLogged = false;
@@ -203,20 +238,7 @@ class FindingDriverController {
     _sub?.cancel();
     _evaluatePhase();
     _onTick?.call(elapsedSeconds);
-    _tick = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_disposed || _assigned || _cancelled || _terminated) {
-        timer.cancel();
-        return;
-      }
-      elapsedSeconds += 1;
-      if (elapsedSeconds >= searchTimeout.inSeconds) {
-        timer.cancel();
-        unawaited(_finishSearchWithoutDriver());
-        return;
-      }
-      _evaluatePhase();
-      _onTick?.call(elapsedSeconds);
-    });
+    _startTick();
     final rideId = snapshot.rideId ?? ride.rideId ?? 'ride';
     _sub = _realtime.subscribe(rideId).listen((event) {
       if (_disposed || _cancelled || _terminated) return;
@@ -254,6 +276,24 @@ class FindingDriverController {
       advance: debugAdvance,
     );
     _reportQa();
+  }
+
+  void _startTick() {
+    _tick?.cancel();
+    _tick = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_disposed || _assigned || _cancelled || _terminated) {
+        timer.cancel();
+        return;
+      }
+      elapsedSeconds += 1;
+      if (elapsedSeconds >= searchTimeout.inSeconds) {
+        timer.cancel();
+        unawaited(_finishSearchWithoutDriver());
+        return;
+      }
+      _evaluatePhase();
+      _onTick?.call(elapsedSeconds);
+    });
   }
 
   void debugAdvance(int seconds) {
@@ -345,6 +385,7 @@ class FindingDriverController {
     if (_assigned ||
         _assignmentPending ||
         _editInFlight ||
+        _cancelInFlight ||
         _cancelled ||
         _terminated ||
         _disposed) {
@@ -363,7 +404,11 @@ class FindingDriverController {
       _editInFlight = false;
     }
     _onTick?.call(elapsedSeconds);
-    if (_assignmentPending && !_cancelled && !_terminated && !_disposed) {
+    if (_assignmentPending &&
+        !_cancelInFlight &&
+        !_cancelled &&
+        !_terminated &&
+        !_disposed) {
       _assignmentPending = false;
       _completeAssigned();
     }
@@ -557,7 +602,10 @@ class FindingDriverController {
 
   void _completeAssigned() {
     if (_assigned || _cancelled || _terminated || _disposed) return;
-    if (_editInFlight) {
+    if (_editInFlight || _cancelInFlight) {
+      // A cancel waiting on the server decides first: if it is confirmed
+      // this match is dropped; if the server refuses because the driver
+      // accepted, the match completes as soon as the answer arrives.
       _assignmentPending = true;
       return;
     }
@@ -612,7 +660,9 @@ class FindingDriverController {
   }
 
   Future<void> _finishSearchWithoutDriver() async {
-    if (_assigned || _cancelled || _terminated || _disposed) return;
+    if (_assigned || _cancelled || _cancelInFlight || _terminated || _disposed) {
+      return;
+    }
     final accepted = ride.backendReconcile(
       RideStatus.noDriverFound,
       id: _snapshot?.rideId ?? ride.rideId,
@@ -686,9 +736,120 @@ class FindingDriverController {
     }
   }
 
-  Future<void> cancelSearch({String? reasonId}) async {
-    if (_cancelled || _terminated || _disposed) return;
+  /// Cancels the search, server first (CODE-3 / RIDE-4).
+  ///
+  /// The intent goes into the pending-cancel outbox with one idempotency key
+  /// before the request is sent, then the server is asked (one in-session
+  /// retry, same key). Only its answer commits the cancel locally:
+  /// - confirmed (or 404, nothing left to cancel): cancelled, archived to
+  ///   History and the snapshot cleared, so a reload lands on Home;
+  /// - unreachable: the same local commit, with the outbox entry kept so the
+  ///   next reconnect or launch retries it;
+  /// - 409 "driver already accepted" (or 410/422): nothing is committed. The
+  ///   search keeps listening and resyncs, so a match that raced the cancel
+  ///   moves the rider to the matched screen.
+  ///
+  /// The optional reason is usually sent afterwards with [sendCancelReason].
+  Future<SearchCancelResult> cancelSearch({String? reasonId}) async {
+    if (_cancelled || _cancelInFlight || _terminated || _disposed || _assigned) {
+      return SearchCancelResult.ignored;
+    }
+    _cancelInFlight = true;
+    _editEpoch += 1;
+    _nearbyRequestEpoch += 1;
+    _pickupUpdateEpoch += 1;
+    _tick?.cancel();
+    _tick = null;
+    _reportQa();
+    final id = (_snapshot?.rideId ?? ride.rideId)?.trim();
+    SearchCancelResult result;
+    if (id == null || id.isEmpty) {
+      AppLog.warning(
+        'ride.cancel.local_only_no_ride_id',
+        extra: {'status': ride.status.name},
+      );
+      result = SearchCancelResult.confirmed;
+    } else {
+      result = await _requestServerCancel(id, reasonId: reasonId);
+    }
+    if (result == SearchCancelResult.confirmed ||
+        result == SearchCancelResult.queued) {
+      await _commitCancelled(reasonId: reasonId);
+      return result;
+    }
+
+    // Refused: the ride is not ours to cancel any more. Pick up where the
+    // search was, let a match that arrived meanwhile through, and ask the
+    // transport for the server's current state in case it did not.
+    _cancelInFlight = false;
+    AppLog.info(
+      'ride.cancel.refused',
+      extra: {'rideId': id, 'result': result.name},
+    );
+    if (_disposed || _terminated) return result;
+    if (_assignmentPending && !_editInFlight) {
+      _assignmentPending = false;
+      _completeAssigned();
+    } else if (!_assigned) {
+      _startTick();
+    }
+    if (id != null && !_assigned && !_assignmentPending) {
+      unawaited(
+        _realtime.reconnectAndResync(id).catchError((Object error) {
+          AppLog.warning(
+            'ride.cancel.resync_failed',
+            extra: {'rideId': id, 'error': error.toString()},
+          );
+        }),
+      );
+    }
+    _onTick?.call(elapsedSeconds);
+    _reportQa();
+    return result;
+  }
+
+  Future<SearchCancelResult> _requestServerCancel(
+    String id, {
+    String? reasonId,
+  }) async {
+    final entry = await PendingCancelStore.enqueue(
+      rideId: id,
+      reasonId: reasonId,
+    );
+    final reason = entry.reasonId ?? reasonId;
+    for (var attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        await api.post(
+          '/api/v1/rides/$id/cancel',
+          body: {if (reason != null) 'reason': reason},
+          idempotencyKey: entry.idempotencyKey,
+        );
+        await PendingCancelStore.remove(id);
+        return SearchCancelResult.confirmed;
+      } catch (error) {
+        AppLog.warning(
+          'ride.cancel.adapter_failed',
+          extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
+        );
+        if (isPermanentCancelFailure(error)) {
+          // D-020: retrying can never succeed, so the entry leaves the outbox.
+          await PendingCancelStore.remove(id);
+          final status = (error as ApiError).statusCode;
+          if (status == 404) return SearchCancelResult.confirmed;
+          return status == 409
+              ? SearchCancelResult.driverAccepted
+              : SearchCancelResult.rejected;
+        }
+      }
+    }
+    // Still unreachable: the outbox entry, with its key, stays for the
+    // reconnect / next-launch flush.
+    return SearchCancelResult.queued;
+  }
+
+  Future<void> _commitCancelled({String? reasonId}) async {
     _cancelled = true;
+    _cancelInFlight = false;
     _assignmentPending = false;
     _editEpoch += 1;
     _nearbyRequestEpoch += 1;
@@ -708,52 +869,58 @@ class FindingDriverController {
     if (!ride.status.isTerminal) {
       ride.localTransition(RideStatus.cancelledByRider);
     }
-    final id = _snapshot?.rideId ?? ride.rideId;
     await OnDemandRideHistoryStore.archiveCancelledThenClear(
       snapshot: _snapshot,
       reasonId: reasonId,
     );
     _realtime.cancelRide();
-    if (id != null) {
-      unawaited(_cancelViaAdapter(id, reasonId));
-    }
+    _reportQa();
   }
 
-  Future<void> _cancelViaAdapter(String id, String? reasonId) async {
-    final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
-    final key = _cancelMutation.keyFor(intent);
-    for (var attempt = 1; attempt <= 2; attempt += 1) {
+  /// Sends the rider's optional reason for a cancel that is already
+  /// committed. Best effort: it updates the History record, rides along
+  /// with a cancel still queued in the outbox, or is posted to the cancel
+  /// endpoint again (idempotent for a cancelled ride). It never changes the
+  /// ride's state.
+  Future<void> sendCancelReason(String reasonId) async {
+    if (!_cancelled) return;
+    final snapshot = _snapshot;
+    final id = (snapshot?.rideId ?? ride.rideId)?.trim();
+    AppLog.info('ride.cancelled', extra: {'reason': reasonId, 'rideId': id});
+    if (id == null || id.isEmpty) return;
+    if (snapshot != null) {
       try {
-        await api.post(
-          '/api/v1/rides/$id/cancel',
-          body: {if (reasonId != null) 'reason': reasonId},
-          idempotencyKey: key,
-        );
-        _cancelMutation.succeeded(intent);
-        await PendingCancelStore.remove(id);
-        return;
-      } catch (error) {
-        AppLog.warning(
-          'ride.cancel.adapter_failed',
-          extra: {'rideId': id, 'error': error.toString(), 'attempt': attempt},
-        );
-        if (isPermanentCancelFailure(error)) {
-          // D-020: the server no longer has a cancellable ride (404/409).
-          // Retrying — now or on a later launch — can never succeed.
-          _cancelMutation.succeeded(intent);
-          await PendingCancelStore.remove(id);
-          return;
-        }
-        if (attempt == 2) {
-          // Both attempts in this session failed. Persist the request, with
-          // the idempotency key already used for it, so a later session (a
-          // reconnect, a relaunch) retries the same request instead of the
-          // rider's cancel silently never reaching the backend.
-          await PendingCancelStore.add(
-            PendingCancel(rideId: id, reasonId: reasonId, idempotencyKey: key),
+        final writer = _historyArchiveWriter;
+        if (writer != null) {
+          await writer(snapshot, RideStatus.cancelledByRider, reasonId);
+        } else {
+          await OnDemandRideHistoryStore.archive(
+            snapshot,
+            terminalStatus: RideStatus.cancelledByRider,
+            cancellationReason: reasonId,
           );
         }
+      } catch (error) {
+        AppLog.warning(
+          'ride.history.cancel_reason_failed',
+          extra: {'rideId': id, 'error': error.toString()},
+        );
       }
+    }
+    if (await PendingCancelStore.attachReason(id, reasonId)) return;
+    final intent = jsonEncode({'rideId': id, 'reasonId': reasonId});
+    try {
+      await api.post(
+        '/api/v1/rides/$id/cancel',
+        body: {'reason': reasonId},
+        idempotencyKey: _reasonMutation.keyFor(intent),
+      );
+      _reasonMutation.succeeded(intent);
+    } catch (error) {
+      AppLog.warning(
+        'ride.cancel.reason_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
     }
   }
 
@@ -860,6 +1027,8 @@ class FindingDriverController {
     'editInFlight': _editInFlight,
     'editFeedback': editFeedback,
     'terminated': _terminated,
+    'cancelInFlight': _cancelInFlight,
+    'cancelled': _cancelled,
     'status': ride.status.name,
     'offerConfirmation': offerConfirmation,
     'nearby': nearby.length,

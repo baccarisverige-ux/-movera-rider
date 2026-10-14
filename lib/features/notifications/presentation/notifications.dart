@@ -93,7 +93,11 @@ class NotificationScreen extends StatelessWidget {
                               deepLink: notification.deepLink,
                             );
                             if (rideId == null) return;
-                            await (openRide ?? openRideFromNotification)(rideId);
+                            await openNotificationRide(
+                              context,
+                              rideId,
+                              open: openRide,
+                            );
                           },
                           child: _buildNotificationCard(notification),
                         ),

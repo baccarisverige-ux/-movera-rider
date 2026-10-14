@@ -5,7 +5,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:movera_rider/app/app.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
@@ -22,7 +21,6 @@ import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
-import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 
 PushCoordinator? _pushCoordinator;
@@ -46,16 +44,11 @@ Future<void> _registerExistingPushSession() async {
 }
 
 void _openNotificationsFromPush() {
-  final nav = moveraNavigatorKey.currentState;
-  if (nav == null) return;
-  unawaited(
-    nav.push<void>(
-      RightToLeftTransition(
-        const NotificationScreen(),
-        settings: const RouteSettings(name: AppRoutes.notifications),
-      ),
-    ),
-  );
+  unawaited(() async {
+    // Nothing opens over Sign in, and a second open does not stack a copy.
+    if (await navigationBlockedBySignIn()) return;
+    pushPageOnce(() => const NotificationScreen(), AppRoutes.notifications);
+  }());
 }
 
 Future<void> bootstrap() async {
@@ -70,12 +63,9 @@ Future<void> bootstrap() async {
   installWebRidePagehide(RideRestoreCoordinator.instance.onPageHide);
   // Public web gets one navigation-only bridge for Safety. It exposes no
   // ride seeding, matching controls, or Safety mutations.
-  installSafetyNavigationBridge(() {
-    final nav = moveraNavigatorKey.currentState;
-    if (nav == null) return false;
-    unawaited(nav.push<void>(RightToLeftTransition(const SafetyHub())));
-    return true;
-  });
+  installSafetyNavigationBridge(
+    () => pushPageOnce(() => const SafetyHub(), AppRoutes.safety),
+  );
 
   // Debug / MOVERA_QA keeps the broader mutation-capable QA hooks gated off
   // from public release builds.

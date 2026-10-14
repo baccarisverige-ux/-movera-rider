@@ -31,7 +31,8 @@ class ApiClient {
   final AppEnv _env;
   final TokenStore? _tokens;
   final Future<void> Function()? _onSessionExpired;
-  Future<String?>? _refreshInFlight;
+  Future<_Refresh>? _refreshInFlight;
+  String? _expiredAccess;
   static const _timeout = Duration(seconds: 15);
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
@@ -82,7 +83,18 @@ class ApiClient {
       if (response.statusCode == 401 && access?.isNotEmpty == true) {
         // An OTP rejection is not an expired session. Only requests that
         // carried an access token enter the refresh/retry path.
-        final replacement = await _refreshAccess(access!);
+        final refresh = await _refreshAccess(access!);
+        final replacement = refresh.access;
+        if (refresh.unavailable) {
+          // Offline, timed out or a server fault: the refresh token may still
+          // be good, so the rider stays signed in and the caller sees an
+          // ordinary network error it can retry.
+          throw ApiError(
+            code: 'NETWORK',
+            message: "Couldn't reach Movera. Check your connection.",
+            requestId: requestId,
+          );
+        }
         if (replacement != null) {
           response = await _request(method, uri, {
             ...headers,
@@ -90,7 +102,7 @@ class ApiClient {
           }, body);
         }
         if (replacement == null || response.statusCode == 401) {
-          await _expireSession();
+          await _expireSession(replacement ?? access);
         }
       }
       AppLog.info(
@@ -144,7 +156,7 @@ class ApiClient {
       }
   }
 
-  Future<String?> _refreshAccess(String failedAccess) async {
+  Future<_Refresh> _refreshAccess(String failedAccess) async {
     final active = _refreshInFlight;
     if (active != null) return active;
     final pending = _performRefresh(failedAccess);
@@ -156,36 +168,53 @@ class ApiClient {
     }
   }
 
-  Future<String?> _performRefresh(String failedAccess) async {
+  /// Only a definitive answer from the refresh endpoint ends the session.
+  /// Anything that says nothing about the token itself (no network, timeout,
+  /// 5xx, 429, an unreadable 200) keeps the tokens for a later retry.
+  Future<_Refresh> _performRefresh(String failedAccess) async {
     final current = await _tokens?.readAccess();
-    if (current != null && current != failedAccess) return current;
+    if (current != null && current != failedAccess) {
+      return _Refresh.refreshed(current);
+    }
     final refresh = await _tokens?.readRefresh();
-    if (refresh == null || refresh.isEmpty) return null;
+    if (refresh == null || refresh.isEmpty) return const _Refresh.rejected();
     try {
       final response = await _client.post(
         Uri.parse('${_env.apiBaseUrl}/api/v1/auth/refresh'),
         headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
         body: jsonEncode({'refreshToken': refresh}),
       ).timeout(_timeout);
-      if (response.statusCode != 200) return null;
+      final status = response.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        return const _Refresh.rejected();
+      }
+      if (status != 200) return const _Refresh.unavailable();
       final payload = jsonDecode(response.body);
-      if (payload is! Map<String, dynamic>) return null;
+      if (payload is! Map<String, dynamic>) return const _Refresh.unavailable();
       final access = payload['accessToken'];
       final nextRefresh = payload['refreshToken'];
       if (access is! String ||
           access.isEmpty ||
           nextRefresh is! String ||
           nextRefresh.isEmpty) {
-        return null;
+        return const _Refresh.unavailable();
       }
       await _tokens?.save(access: access, refresh: nextRefresh);
-      return access;
-    } catch (_) {
-      return null;
+      return _Refresh.refreshed(access);
+    } catch (error) {
+      AppLog.warning(
+        'api.refresh_unavailable',
+        extra: {'error': error.runtimeType.toString()},
+      );
+      return const _Refresh.unavailable();
     }
   }
 
-  Future<void> _expireSession() async {
+  /// Runs once per rejected access token, so a burst of concurrent 401s
+  /// does not clear the session and open Sign in several times.
+  Future<void> _expireSession(String failedAccess) async {
+    if (_expiredAccess == failedAccess) return;
+    _expiredAccess = failedAccess;
     await _tokens?.clear();
     await _onSessionExpired?.call();
   }
@@ -230,4 +259,15 @@ class ApiClient {
     }
     throw lastError ?? TimeoutException('GET retry failed');
   }
+}
+
+class _Refresh {
+  const _Refresh.refreshed(String this.access) : unavailable = false;
+  const _Refresh.rejected() : access = null, unavailable = false;
+  const _Refresh.unavailable() : access = null, unavailable = true;
+
+  final String? access;
+
+  /// The refresh endpoint could not answer; the tokens are kept.
+  final bool unavailable;
 }
