@@ -12,7 +12,7 @@ class AdvanceBookingCard extends StatelessWidget {
   static const Color _premiumInk = Color(0xFF1D252C);
   static const Color _premiumMuted = Color(0xFF5C656C);
   static const Color _premiumLine = Color(0xFFE7EBEE);
-  static const Color _premiumAccent = Color(0xFF2D5878);
+  static const Color _premiumAccent = Color(0xFF11181D);
 
   final VoidCallback onOpenSchedule;
 
