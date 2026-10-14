@@ -56,6 +56,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_complete/application/ride_complete_controller.dart';
+import 'package:movera_rider/features/ride_selection/application/ride_catalog_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
@@ -218,6 +219,11 @@ class AppScope {
   late final OnboardingController onboarding = OnboardingController();
   late final DestinationController destinationMemory = DestinationController();
   late final RideSelectionRepository rideCatalog = RideSelectionRepository();
+
+  /// Ride categories from the server (admin panel), with cache and built-in
+  /// fallbacks. Loaded at bootstrap and again when Select Ride opens.
+  late final RideCatalogController catalog = RideCatalogController(api: api);
+
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).
   late final SavedCardsController savedCards = SavedCardsController();

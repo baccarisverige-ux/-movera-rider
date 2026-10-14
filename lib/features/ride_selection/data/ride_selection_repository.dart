@@ -1,7 +1,12 @@
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 
 class RideSelectionRepository {
-  List<RideCatalogItem> rides() => const [
+  /// The built-in catalog: what the app ships with. Live categories come
+  /// from the server through `RideCatalogController`; this list is the last
+  /// fallback when neither the server nor the cache can answer.
+  List<RideCatalogItem> rides() => builtInRides;
+
+  static const List<RideCatalogItem> builtInRides = [
     RideCatalogItem(
       id: 'movera',
       image: 'assets/images/rides/movera.webp',
@@ -75,6 +80,85 @@ class RideSelectionRepository {
       price: 279,
       seats: 4,
       glyph: 'pets',
+    ),
+    // Categories the admin may switch on later; the pictures ship with the
+    // app, the admin decides what is shown.
+    RideCatalogItem(
+      id: 'van',
+      image: 'assets/images/rides/van.webp',
+      name: 'Van',
+      note: 'Groups and luggage',
+      arrival: '14 min',
+      etaMin: 14,
+      price: 449,
+      seats: 8,
+      glyph: 'van',
+    ),
+    RideCatalogItem(
+      id: 'wheelchair',
+      image: 'assets/images/rides/wheelchair.webp',
+      name: 'Wheelchair',
+      note: 'Ramp or lift, driver helps on board',
+      arrival: '15 min',
+      etaMin: 15,
+      price: 289,
+      seats: 4,
+      glyph: 'wheelchair',
+    ),
+    RideCatalogItem(
+      id: 'business',
+      image: 'assets/images/rides/business.webp',
+      name: 'Business',
+      note: 'Quiet ride, receipt for your company',
+      arrival: '10 min',
+      etaMin: 10,
+      price: 399,
+      seats: 4,
+      glyph: 'briefcase',
+    ),
+    RideCatalogItem(
+      id: 'airport',
+      image: 'assets/images/rides/airport.webp',
+      name: 'Airport',
+      note: 'Fixed price, flight tracked, extra luggage',
+      arrival: '12 min',
+      etaMin: 12,
+      price: 429,
+      seats: 4,
+      glyph: 'plane',
+    ),
+    RideCatalogItem(
+      id: 'kids',
+      image: 'assets/images/rides/kids.webp',
+      name: 'Kids seat',
+      note: 'Child seat already fitted',
+      arrival: '12 min',
+      etaMin: 12,
+      price: 279,
+      seats: 4,
+      glyph: 'child',
+    ),
+    RideCatalogItem(
+      id: 'women',
+      image: 'assets/images/rides/women.webp',
+      name: 'Women driver',
+      note: 'A woman behind the wheel',
+      arrival: '13 min',
+      etaMin: 13,
+      price: 279,
+      seats: 4,
+      glyph: 'person',
+    ),
+    RideCatalogItem(
+      id: 'delivery',
+      image: 'assets/images/rides/delivery.webp',
+      name: 'Delivery',
+      note: 'Send a parcel across town',
+      arrival: '9 min',
+      etaMin: 9,
+      price: 199,
+      seats: 2,
+      glyph: 'parcel',
     ),
   ];
 

@@ -103,6 +103,9 @@ Future<void> bootstrap() async {
   }
   await AppScope.instance.reservations.hydrate();
   await AppScope.instance.profile.hydrate();
+  // Ride categories from the server. Not awaited: the built-in list stands
+  // in until the answer lands, and Select Ride asks again when it opens.
+  unawaited(AppScope.instance.catalog.load());
   await _registerExistingPushSession();
   unawaited(FindingDriverController.flushPendingCancels());
   AppLog.info('app.start', extra: {'platform': kIsWeb ? 'web' : 'native'});
