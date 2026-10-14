@@ -145,7 +145,9 @@ class HomeLocationController extends ChangeNotifier {
     double? Function()? readCompass,
     void Function()? stopCompass,
     bool? compassSupported,
-  }) : _startCompass = startCompass ?? heading_service.startHeadingTracking,
+    DateTime Function()? clock,
+  }) : _now = clock ?? DateTime.now,
+       _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
        _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
        _compassSupported =
@@ -158,6 +160,14 @@ class HomeLocationController extends ChangeNotifier {
   final Future<bool> Function() _startCompass;
   final double? Function() _readCompass;
   final void Function() _stopCompass;
+  final DateTime Function() _now;
+
+  /// UI-12: a compass sample repaints the puck only when it turned at least
+  /// this far since the last repaint, or [headingRepaintInterval] has passed.
+  static const double headingRepaintDegrees = 2;
+  static const Duration headingRepaintInterval = Duration(milliseconds: 250);
+  double? _deliveredHeading;
+  DateTime? _deliveredAt;
 
   /// False on Android/iOS, which have no compass source (CODE-19): the puck
   /// then turns only with the GPS course and no heading poller runs.
@@ -548,6 +558,19 @@ class HomeLocationController extends ChangeNotifier {
     hasCompassHeading = true;
     heading = blended;
     reportPuckHeading(heading, compass: true);
+    // UI-12: each delivery builds a new marker set and an update over the
+    // platform channel, so small turns are batched.
+    final now = _now();
+    final last = _deliveredHeading;
+    final lastAt = _deliveredAt;
+    if (last != null &&
+        lastAt != null &&
+        shortestTurn(last, heading).abs() < headingRepaintDegrees &&
+        now.difference(lastAt) < headingRepaintInterval) {
+      return;
+    }
+    _deliveredHeading = heading;
+    _deliveredAt = now;
     _onHeading?.call(heading);
   }
 
@@ -605,6 +628,8 @@ class HomeLocationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  double? _paintedAccuracy;
+
   void paintUserPuck({
     required LatLng target,
     required BitmapDescriptor icon,
@@ -612,6 +637,18 @@ class HomeLocationController extends ChangeNotifier {
   }) {
     if (_livePaused) return;
     final accuracy = lastFixAccuracyMeters;
+    // UI-12: the same puck again changes nothing, so it does not notify (a
+    // new set identity rebuilds the map widget).
+    final painted = markers.length == 1 ? markers.first : null;
+    if (painted != null &&
+        painted.markerId == const MarkerId('live_user_location') &&
+        painted.position == target &&
+        identical(painted.icon, icon) &&
+        painted.rotation == heading &&
+        _paintedAccuracy == accuracy) {
+      return;
+    }
+    _paintedAccuracy = accuracy;
     // U2: a low-accuracy fix is shown with its uncertainty, not hidden.
     locationCircles = accuracy != null && accuracy.isFinite && accuracy > 30
         ? {

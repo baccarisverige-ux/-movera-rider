@@ -94,9 +94,12 @@ void main() {
       'Share trip status',
       'RideCheck',
     ]) {
-      final data =
-          tester.getSemantics(find.bySemanticsLabel(label)).getSemanticsData();
-      expect(data.label, label, reason: label);
+      // UI-7: the row reads its title first, then its subtitle and status.
+      final row = find.bySemanticsLabel(
+        RegExp('^${RegExp.escape(label)}, '),
+      );
+      final data = tester.getSemantics(row).getSemanticsData();
+      expect(data.label, startsWith('$label, '), reason: label);
       expect(
         data.flagsCollection.isButton,
         isTrue,
@@ -134,7 +137,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final row = find.bySemanticsLabel(route.$1);
+      final row = find.bySemanticsLabel(
+        RegExp('^${RegExp.escape(route.$1)}, '),
+      );
       expect(row, findsOneWidget, reason: route.$1);
       await tester.ensureVisible(row);
       await tester.pumpAndSettle();

@@ -33,7 +33,8 @@ class ScheduleRide extends StatefulWidget {
 
 class _ScheduleRideState extends State<ScheduleRide> {
   static const Color _scheduleInk = Color(0xFF172127);
-  static const Color _scheduleMuted = Color(0xFF7B858B);
+  // UI-6: was 0xFF7B858B (3.77:1 on white).
+  static const Color _scheduleMuted = Color(0xFF6A7278);
   static const Color _scheduleSurface = Color(0xFFF5F6F6);
   static const Color _scheduleLine = Color(0xFFE4E7E8);
   static const Color _scheduleAccent = Color(0xFF356879);

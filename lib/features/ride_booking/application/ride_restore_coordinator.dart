@@ -591,15 +591,23 @@ class _RideRecoveryBarrier extends StatelessWidget {
 }
 
 
-class _AuthenticatedHomeGate extends StatelessWidget {
+class _AuthenticatedHomeGate extends StatefulWidget {
   const _AuthenticatedHomeGate({required this.hasSession});
 
   final Future<bool> Function() hasSession;
 
   @override
+  State<_AuthenticatedHomeGate> createState() => _AuthenticatedHomeGateState();
+}
+
+/// UI-14: secure storage is read once per gate, not on every rebuild.
+class _AuthenticatedHomeGateState extends State<_AuthenticatedHomeGate> {
+  late final Future<bool> _session = widget.hasSession();
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: hasSession(),
+      future: _session,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const ColoredBox(

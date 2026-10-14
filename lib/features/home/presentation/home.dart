@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'dart:math' as math;
 
-import 'dart:ui' show ImageFilter;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -1904,15 +1903,13 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                       HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress),
                       if (_destinationSheetOpen)
                         Positioned.fill(
+                          // UI-13: a plain 5% white wash. The 1.4 sigma
+                          // backdrop blur over the platform map was costly
+                          // (web, low-end Android) and almost invisible.
                           child: IgnorePointer(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(
-                                sigmaX: 1.4,
-                                sigmaY: 1.4,
-                              ),
-                              child: Container(
-                                color: AppColor.white.withValues(alpha: 0.05),
-                              ),
+                            key: const ValueKey('home-sheet-open-wash'),
+                            child: ColoredBox(
+                              color: AppColor.white.withValues(alpha: 0.05),
                             ),
                           ),
                         ),
@@ -1963,9 +1960,12 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           child: InkWell(
                             onTap: _toggleHomeSheet,
                             borderRadius: BorderRadius.circular(14),
+                            // UI-4: 48 x 44 target (was 48 x 32). It starts
+                            // 6 px higher and the gap below is 6 px shorter,
+                            // so the bar and the content stay where they were.
                             child: SizedBox(
                               width: 48,
-                              height: 32,
+                              height: 44,
                               child: Center(
                                 child: Container(
                                   width: ResSize.w * 42,
@@ -2088,6 +2088,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       ((detailProgress - 0.15) / 0.85).clamp(0.0, 1.0),
     );
     final ticketVisible = 1 - Curves.easeOutCubic.transform(detailProgress);
+    // UI-4: the toggle handle's target is 12 px taller than the 32 px it
+    // used to be; half comes out of the padding above, half out of the gap.
+    final handleLift = math.min(6.0, ResSize.h * 11);
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -2106,14 +2109,16 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
               HomeSheetScroll(child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   ResSize.w * 18,
-                  ResSize.h * 11,
+                  ResSize.h * 11 - handleLift,
                   ResSize.w * 18,
                   ResSize.h * 7,
                 ),
                 child: Column(
                   children: [
                     toggleHandle,
-                    12.height,
+                    SizedBox(
+                      height: math.max(0.0, ResSize.h * 12 + handleLift - 12),
+                    ),
                     if (promotion != null)
                       IgnorePointer(
                         ignoring: ticketVisible < 0.6,
@@ -2172,9 +2177,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   scale: 0.84 + (0.16 * sheetProgress),
                   alignment: Alignment.bottomCenter,
                   child: Container(
+                    // UI-4: the vertical padding is passed to the items as
+                    // hitSlop, so the targets reach the bar's edges.
                     padding: EdgeInsets.symmetric(
                       horizontal: ResSize.w * (4 * (1 - sheetProgress)),
-                      vertical: ResSize.h * (5 * (1 - sheetProgress)),
                     ),
                     decoration: BoxDecoration(
                       color: AppColor.white,
@@ -2217,6 +2223,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 label: 'Home',
                                 active: true,
                                 floatingFraction: 1 - sheetProgress,
+                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: () => _animateHomeSheetTo(
                                   SheetOffset.absolute(_sheetMinPixels),
                                 ),
@@ -2227,6 +2234,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 iconAsset: AppAssets.solarWallet,
                                 label: 'Payment',
                                 floatingFraction: 1 - sheetProgress,
+                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openPayment,
                               ),
                             ),
@@ -2235,6 +2243,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 iconAsset: AppAssets.solarCalendar,
                                 label: 'Schedule ride',
                                 floatingFraction: 1 - sheetProgress,
+                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openSchedule,
                               ),
                             ),
@@ -2243,6 +2252,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                                 iconAsset: AppAssets.solarUser,
                                 label: 'Account',
                                 floatingFraction: 1 - sheetProgress,
+                                hitSlop: ResSize.h * (5 * (1 - sheetProgress)),
                                 onTap: _openAccount,
                               ),
                             ),

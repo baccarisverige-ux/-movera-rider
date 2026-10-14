@@ -10,7 +10,8 @@ abstract final class AuthColors {
   static const ground = Color(0xFFEEF1E8);
   static const ink = Color(0xFF17221C);
   static const muted = Color(0xFF65716B);
-  static const faint = Color(0xFF89948E);
+  // UI-6: was 0xFF89948E (3.14:1 on white); now ≥ 4.5:1 on [ground].
+  static const faint = Color(0xFF676F6B);
   static const green = Color(0xFF147A50);
   static const deepGreen = Color(0xFF123F32);
   static const field = Color(0xFFF1F4F2);

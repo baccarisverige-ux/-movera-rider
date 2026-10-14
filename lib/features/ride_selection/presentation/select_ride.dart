@@ -53,6 +53,7 @@ import 'package:movera_rider/shared/formatters/place_format.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 
@@ -2114,7 +2115,8 @@ class _SelectRideState extends State<SelectRide>
                               context,
                               Text(
                                 _kr(price + discount),
-                                style: _text(12, color: const Color(0xFF8A9399))
+                                // UI-6: was 0xFF8A9399 (3.13:1 on white).
+                                style: _text(12, color: MoveraTokens.subtleOnFill)
                                     .copyWith(
                                       decoration: TextDecoration.lineThrough,
                                     ),
@@ -2273,18 +2275,25 @@ class _SelectRideState extends State<SelectRide>
                 ),
               ),
               const SizedBox(width: 10),
-              Material(
-                color: _cta,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: _showBookingPicker,
-                  child: const SizedBox(
-                    width: 54,
-                    height: 54,
-                    child: Icon(
-                      Icons.calendar_month_rounded,
-                      color: Colors.white,
+              // UI-5: the icon-only button has a name for screen readers.
+              Semantics(
+                button: true,
+                label: 'Book now or later',
+                child: Material(
+                  color: _cta,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _showBookingPicker,
+                    child: const SizedBox(
+                      width: 54,
+                      height: 54,
+                      child: ExcludeSemantics(
+                        child: Icon(
+                          Icons.calendar_month_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ),
