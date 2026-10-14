@@ -20,6 +20,9 @@ import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/wallet/presentation/wallet.dart';
+import 'package:movera_rider/shared/accessibility/a11y.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
+import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// The rider's menu as a full-screen page: name and photo, Wallet, four
@@ -51,12 +54,13 @@ class RiderMenuPage extends StatelessWidget {
 
   static const String appVersion = '1.0.0';
 
-  static const Color _ink = Color(0xFF1D252C);
-  static const Color _muted = Color(0xFF6B757D);
+  static const Color _ink = MoveraTokens.ink;
+  // UI-6: was 0xFF6B757D, 4.27:1 on the card fill 0xFFF3F4F5.
+  static const Color _muted = MoveraTokens.subtleOnFill;
   static const Color _card = Color(0xFFF3F4F5);
   static const Color _avatarTint = Color(0xFFE6EAEE);
   static const Color _badge = Color(0xFFE8333B);
-  static const Color _line = Color(0xFFE7EBEE);
+  static const Color _line = MoveraTokens.line;
 
   static const String _art = 'assets/images/menu';
 
@@ -83,7 +87,7 @@ class RiderMenuPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _topBar(context),
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               _profileHeader(),
               const SizedBox(height: 16),
               _whereTo(context),
@@ -98,7 +102,7 @@ class RiderMenuPage extends StatelessWidget {
               const SizedBox(height: 22),
               Text(
                 'Movera Rider v$appVersion',
-                style: _text(13, color: const Color(0xFF8A939B)),
+                style: _text(13, color: MoveraTokens.subtle),
               ),
             ],
           ),
@@ -135,10 +139,11 @@ class RiderMenuPage extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () => Navigator.of(context).maybePop(),
+            // UI-4: 44 x 44 (was 40 x 40); the gap below is 4 px shorter.
             child: const SizedBox(
               key: ValueKey('menu-back'),
-              width: 40,
-              height: 40,
+              width: A11y.minTapIOS,
+              height: A11y.minTapIOS,
               child: Center(
                 child: AppIconAsset(
                   AppAssets.solarArrowLeft,
@@ -260,15 +265,19 @@ class RiderMenuPage extends StatelessWidget {
                             constraints: BoxConstraints(
                               maxWidth: math.max(48.0, box.maxWidth - 88),
                             ),
-                            child: Semantics(
-                              button: true,
+                            // UI-4: the chip stays 29 px tall; its target
+                            // is 44 px, the height of the search box.
+                            child: MoveraHitArea(
                               label: 'Later',
+                              onTap: () => go(onSchedule),
+                              minWidth: 0,
                               child: Material(
                                 color: _card,
                                 borderRadius: BorderRadius.circular(10),
                                 clipBehavior: Clip.antiAlias,
                                 child: InkWell(
                                   onTap: () => go(onSchedule),
+                                  excludeFromSemantics: true,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -350,9 +359,26 @@ class RiderMenuPage extends StatelessWidget {
 
   /// Wallet with the balance under its title and the wallet picture.
   Widget _walletCard(BuildContext context) {
+    return _WalletBalance(
+      builder: (context, balance, reload) =>
+          _walletTile(context, balance, reload),
+    );
+  }
+
+  Widget _walletTile(
+    BuildContext context,
+    double? balance,
+    VoidCallback reload,
+  ) {
+    final amount = balance == null ? null : 'kr ${balance.toStringAsFixed(0)}';
     return _tap(
-      label: 'Wallet',
-      onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
+      // UI-7: the balance is part of what a screen reader hears.
+      label: amount == null ? 'Wallet' : 'Wallet, $amount',
+      onTap: () async {
+        await _pushPage(context, const WalletAndPaymentsScreen());
+        // A top-up in Wallet shows here on the way back.
+        reload();
+      },
       // UI-10: a minimum height, so large text grows the card.
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 80),
@@ -367,7 +393,14 @@ class RiderMenuPage extends StatelessWidget {
                   children: [
                     Text('Wallet', style: _text(18, weight: FontWeight.w600)),
                     const SizedBox(height: 2),
-                    _walletBalance(),
+                    if (amount == null)
+                      const SizedBox(height: 18)
+                    else
+                      Text(
+                        amount,
+                        maxLines: 1,
+                        style: _text(14, color: _muted),
+                      ),
                   ],
                 ),
               ),
@@ -376,21 +409,6 @@ class RiderMenuPage extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _walletBalance() {
-    return FutureBuilder<double>(
-      future: AppScope.instance.walletController.loadBalance(),
-      builder: (context, snapshot) {
-        final balance = snapshot.data;
-        if (balance == null) return const SizedBox(height: 18);
-        return Text(
-          'kr ${balance.toStringAsFixed(0)}',
-          maxLines: 1,
-          style: _text(14, color: _muted),
-        );
-      },
     );
   }
 
@@ -735,4 +753,39 @@ class _FeatureCard {
   final VoidCallback onTap;
   final bool isNew;
   final double pictureWidth;
+}
+
+/// UI-14: loads the wallet balance once per menu, not on every rebuild, and
+/// again only when asked (back from Wallet).
+class _WalletBalance extends StatefulWidget {
+  const _WalletBalance({required this.builder});
+
+  final Widget Function(
+    BuildContext context,
+    double? balance,
+    VoidCallback reload,
+  )
+  builder;
+
+  @override
+  State<_WalletBalance> createState() => _WalletBalanceState();
+}
+
+class _WalletBalanceState extends State<_WalletBalance> {
+  late Future<double> _balance = _load();
+
+  Future<double> _load() => AppScope.instance.walletController.loadBalance();
+
+  void _reload() {
+    if (mounted) setState(() => _balance = _load());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<double>(
+      future: _balance,
+      builder: (context, snapshot) =>
+          widget.builder(context, snapshot.data, _reload),
+    );
+  }
 }

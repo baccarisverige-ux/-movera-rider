@@ -12,6 +12,7 @@ import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
+import 'package:movera_rider/shared/design_system/movera_hit_area.dart';
 import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 
 /// What the rider picked on [RoutePickerPage].
@@ -451,29 +452,31 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                   color: const Color(0xFF9AA2A8),
                 ),
                 border: InputBorder.none,
-                isDense: true,
+                // UI-4: not dense, so the field is at least 48 px tall (it
+                // was 33); same padding, and the text stays centred.
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
               ),
+              textAlignVertical: TextAlignVertical.center,
             ),
           ),
           if (active && controller.text.isNotEmpty)
-            Semantics(
-              button: true,
+            // UI-4: a 44 x 44 target (was 34 x 22); the circle stays put.
+            MoveraHitArea(
               label: 'Clear',
-              child: GestureDetector(
-                onTap: _clear,
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFC9CED2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
+              onTap: _clear,
+              alignment: Alignment.centerRight,
+              child: Container(
+                width: 22,
+                height: 22,
+                margin: const EdgeInsets.only(right: 4),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFC9CED2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -499,21 +502,16 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               tooltip: 'Remove stop',
             )
           else if (active)
-            Semantics(
-              button: true,
+            // UI-4: a 44 x 44 target (was 42 x 38); the badge stays put.
+            MoveraHitArea(
               label: field == 'pickup'
                   ? 'Set pickup on map'
                   : 'Choose destination on map',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _pickOnMap,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: PremiumRouteLocationBadge(
-                    color: field == 'pickup' ? _pickupGreen : _destinationBlue,
-                    size: 38,
-                  ),
-                ),
+              onTap: _pickOnMap,
+              alignment: Alignment.centerRight,
+              child: PremiumRouteLocationBadge(
+                color: field == 'pickup' ? _pickupGreen : _destinationBlue,
+                size: 38,
               ),
             ),
         ],
