@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/web/web_overlay.dart';
+import 'package:movera_rider/features/auth/presentation/rider_name.dart';
+import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 
 class RideRestoreGate extends StatefulWidget {
@@ -21,10 +23,22 @@ class RideRestoreGate extends StatefulWidget {
 class RideRestoreGateState extends State<RideRestoreGate> {
   Widget? _child;
 
+  /// The hook handed to the coordinator, stored once. A method tear-off is
+  /// `==` but not `identical` to a later tear-off, so comparing `show` in
+  /// [dispose] never matched and left the coordinator calling a dead State.
+  late final void Function(Widget page) _hook = show;
+
   void show(Widget page) {
     if (!mounted) return;
-    setState(() => _child = page);
+    setState(() => _setChild(page));
     _lockHomeIfRoot();
+  }
+
+  void _setChild(Widget page) {
+    _child = page;
+    // Ride and notification openers must not draw over the sign-in flow.
+    RideRestoreCoordinator.instance.authRootShowing =
+        page is SignIn || page is RiderNameScreen;
   }
 
   void _lockHomeIfRoot() {
@@ -39,21 +53,24 @@ class RideRestoreGateState extends State<RideRestoreGate> {
   void initState() {
     super.initState();
     reportRestoreSurface('hold');
-    RideRestoreCoordinator.instance.onReplaceRoot = show;
+    RideRestoreCoordinator.instance.onReplaceRoot = _hook;
     // pagehide used to wipe the snapshot on public web. A crash/reload must
     // keep the ride so cold start can restore it. Tab switch already keeps
     // the in-progress ride (no visibilitychange listener).
     RideRestoreCoordinator.instance.root().then((page) {
       if (!mounted) return;
-      setState(() => _child = page);
+      setState(() => _setChild(page));
       _lockHomeIfRoot();
     });
   }
 
   @override
   void dispose() {
-    if (identical(RideRestoreCoordinator.instance.onReplaceRoot, show)) {
-      RideRestoreCoordinator.instance.onReplaceRoot = null;
+    final coordinator = RideRestoreCoordinator.instance;
+    // A newer gate may already have installed its own hook; leave that one.
+    if (identical(coordinator.onReplaceRoot, _hook)) {
+      coordinator.onReplaceRoot = null;
+      coordinator.authRootShowing = false;
     }
     super.dispose();
   }
