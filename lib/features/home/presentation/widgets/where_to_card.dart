@@ -43,6 +43,8 @@ class WhereToCard extends StatelessWidget {
         ],
       ),
       child: Row(
+        // UI-3: stretch both tap targets to the card's full height.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: Material(
