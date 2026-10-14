@@ -94,7 +94,9 @@ class InProcessMockClient extends http.BaseClient {
       },
     ],
   };
-  final SafetyMockApi safety = safetyMockForProcess();
+  /// The process-wide Safety mock, looked up on each use so a sign-out
+  /// reset (UserDataWipe) reaches every client.
+  SafetyMockApi get safety => safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
 

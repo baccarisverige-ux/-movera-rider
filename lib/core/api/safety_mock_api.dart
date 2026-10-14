@@ -12,12 +12,36 @@ class SafetyMockApi {
 
   bool _restored = false;
 
+  /// Bumped by [reset]; a restore or save that started before a sign-out
+  /// must not bring the previous rider's data back afterwards.
+  int _generation = 0;
+
+  /// Sign-out (UserDataWipe): forget the previous rider's settings, PIN,
+  /// contacts, shares, events and recordings in memory. The next request
+  /// starts from defaults with a new PIN.
+  void reset() {
+    _generation++;
+    _restored = false;
+    preferences
+      ..clear()
+      ..addAll(_defaultPreferences());
+    pin = _newPin(required: false);
+    contacts.clear();
+    shares.clear();
+    rideCheck = _defaultRideCheck();
+    events.clear();
+    recordings.clear();
+    lastLoggedPin = null;
+  }
+
   /// Loads what an earlier launch saved. Runs once per mock instance.
   Future<void> restoreOnce() async {
     if (_restored) return;
     _restored = true;
+    final generation = _generation;
     try {
       final prefs = await PreferencesStore.load();
+      if (generation != _generation) return;
       final raw = prefs.getString(storageKey);
       if (raw == null) {
         // First launch: keep this PIN, so it no longer changes per launch.
@@ -47,8 +71,10 @@ class SafetyMockApi {
 
   /// Saves the settings, PIN and contacts for the next launch.
   Future<void> persist() async {
+    final generation = _generation;
     try {
       final prefs = await PreferencesStore.load();
+      if (generation != _generation) return;
       await prefs.setString(
         storageKey,
         jsonEncode({
@@ -63,7 +89,9 @@ class SafetyMockApi {
     }
   }
 
-  final Map<String, dynamic> preferences = {
+  final Map<String, dynamic> preferences = _defaultPreferences();
+
+  static Map<String, dynamic> _defaultPreferences() => {
     'userId': 'rider-local',
     'pinRequired': false,
     'tripShareEnabled': false,
@@ -76,7 +104,9 @@ class SafetyMockApi {
   Map<String, dynamic> pin = _newPin(required: false);
   final List<Map<String, dynamic>> contacts = [];
   final Map<String, Map<String, dynamic>> shares = {};
-  Map<String, dynamic> rideCheck = {
+  Map<String, dynamic> rideCheck = _defaultRideCheck();
+
+  static Map<String, dynamic> _defaultRideCheck() => {
     'enabled': false,
     'userId': 'rider-local',
   };
