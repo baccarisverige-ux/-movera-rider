@@ -72,6 +72,13 @@ class ReservationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Forgets the signed-out rider's reservations in memory. A simulated trip
+  /// still running stops at its next step, since its ride is gone.
+  void clearLocal() {
+    _store.clearLocal();
+    notifyListeners();
+  }
+
   Future<Reservation> create(ReservationDraft draft) {
     final pending = _pendingCreate;
     if (pending != null) return pending;

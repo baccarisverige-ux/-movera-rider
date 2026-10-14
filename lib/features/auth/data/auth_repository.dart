@@ -122,11 +122,17 @@ class AuthRepository {
     await _tokens.save(access: access, refresh: refresh);
   }
 
+  Future<String?> readAccessToken() => _tokens.readAccess();
+
   Future<bool> hasSession() async {
     final access = await _tokens.readAccess();
     final refresh = await _tokens.readRefresh();
     return access?.isNotEmpty == true && refresh?.isNotEmpty == true;
   }
+
+  /// Forgets the session on this device only (the backend already ended it,
+  /// e.g. after an account deletion request).
+  Future<void> clearLocalSession() => _tokens.clear();
 
   Future<void> signOut() async {
     try {

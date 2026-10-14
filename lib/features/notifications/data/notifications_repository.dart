@@ -68,10 +68,13 @@ class NotificationsRepository {
     _emit();
   }
 
-  void clearForTest() {
+  /// Empties the feed at the end of a rider's session.
+  void clear() {
     _items.clear();
     _emit();
   }
+
+  void clearForTest() => clear();
 
   void _emit() {
     if (_changes.isClosed) return;

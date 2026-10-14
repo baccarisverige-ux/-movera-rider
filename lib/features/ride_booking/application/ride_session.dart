@@ -141,5 +141,20 @@ class RideSession {
 
   Future<RideSnapshot?> loadSnapshot() => RideSnapshotStore.read();
 
+  /// Back to "no ride" at the end of a rider's session. Pending async
+  /// results for the previous ride are made stale.
+  void reset() {
+    stale.next();
+    rideId = null;
+    status = RideStatus.idle;
+    quote = null;
+    suppressRestore = false;
+    authoritativeVersion = null;
+    authoritativeUpdatedAt = null;
+    tripStatus = TripStatus.draft;
+    paymentStatus = PaymentStatus.notStarted;
+    ratingStatus = RatingStatus.notRequested;
+  }
+
   void dispose() => stale.dispose();
 }

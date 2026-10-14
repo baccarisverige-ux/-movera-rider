@@ -37,5 +37,11 @@ class LocalPaymentRepository implements PaymentRepository {
     _hydrated = true;
   }
 
+  /// Forgets the signed-out rider's default method in memory.
+  void clearLocal() {
+    _defaultId = 'cash';
+    _hydrated = false;
+  }
+
   String get defaultId => _defaultId;
 }
