@@ -62,6 +62,7 @@ class FindingDriverController {
     this.delayedAfter = SearchCopy.delayedAfter,
     Duration? priceBumpAfter,
     this.searchTimeout = const Duration(minutes: 3),
+    this.serverCheckEvery = const Duration(seconds: 15),
   }) : priceBumpAfter =
            priceBumpAfter ??
            (AppScope.instance.environment.allowsMockTransport
@@ -84,7 +85,15 @@ class FindingDriverController {
 
   /// When the "raise your offer" card appears, if no driver has accepted.
   final Duration priceBumpAfter;
+
+  /// ARCH-3: after this long without a driver the rider is offered "Still
+  /// looking for a driver" (keep searching or cancel) and the server is asked
+  /// for the ride's state. It is a UI mark only: the ride ends as "no driver
+  /// found" when the server says so, never on this client timer.
   final Duration searchTimeout;
+
+  /// While still looking, how often the server is asked again.
+  final Duration serverCheckEvery;
   final MutationAttempt _pickupMutation = MutationAttempt('ride-pickup');
   final MutationAttempt _priceMutation = MutationAttempt('ride-price');
   final MutationAttempt _reasonMutation = MutationAttempt('ride-cancel-reason');
@@ -100,6 +109,9 @@ class FindingDriverController {
   bool _priceUpdated = false;
   bool _editInFlight = false;
   bool _assignmentPending = false;
+  bool _stillLooking = false;
+  bool _stillLookingDismissed = false;
+  bool _serverCheckInFlight = false;
   int _lastSequence = -1;
   int _nearbyRequestEpoch = 0;
   int _pickupUpdateEpoch = 0;
@@ -135,6 +147,18 @@ class FindingDriverController {
   bool get cancelled => _cancelled;
   bool get editInFlight => _editInFlight;
   bool get isDelayed => elapsedSeconds >= delayedAfter.inSeconds;
+
+  /// True once the search passed [searchTimeout] without a driver. The ride
+  /// is still searching on the server.
+  bool get stillLooking =>
+      _stillLooking && !_assigned && !_cancelled && !_terminated;
+
+  /// The "Still looking for a driver" card (Keep searching / Cancel request).
+  bool get showStillLooking =>
+      stillLooking &&
+      !_stillLookingDismissed &&
+      !_cancelInFlight &&
+      !_assignmentPending;
   bool get showPriceBump =>
       elapsedSeconds >= priceBumpAfter.inSeconds &&
       !_bumpDismissed &&
@@ -148,7 +172,14 @@ class FindingDriverController {
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
   double? get pickupLng => _snapshot?.pickupLng;
-  SearchCopy get copy => SearchCopy.forElapsed(elapsedSeconds);
+  SearchCopy get copy => stillLooking
+      ? stillLookingCopy
+      : SearchCopy.forElapsed(elapsedSeconds);
+
+  static const stillLookingCopy = SearchCopy(
+    headline: 'Still looking for a driver',
+    subtitle: 'No driver has accepted yet. Your request is still active.',
+  );
 
   void startFrom({
     required String pickupAddress,
@@ -163,15 +194,31 @@ class FindingDriverController {
     int walletAmountMinor = 0,
     RideNotes notes = RideNotes.empty,
     List<RouteStop> stops = const <RouteStop>[],
+    DateTime? searchStartedAt,
+    DateTime? createdAt,
     required void Function(int elapsed) onTick,
     required void Function() onMatched,
     void Function(RideStatus status)? onTerminal,
   }) {
+    final now = DateTime.now();
+    final session = ride;
+    final rideId = session.rideId;
     start(
       snapshot: RideSnapshot(
         stops: stops,
         status: RideStatus.findingDriver,
-        savedAt: DateTime.now(),
+        savedAt: now,
+        createdAt: createdAt,
+        // ARCH-3: a restored search keeps its own start, so the "still
+        // looking" mark survives a reload.
+        searchStartedAt: searchStartedAt ?? now,
+        // ARCH-1: keep the server ordering the session already holds for
+        // this ride, so every later snapshot save persists it.
+        version: rideId == null ? null : session.authoritativeVersion,
+        serverUpdatedAt:
+            rideId == null ? null : session.authoritativeUpdatedAt?.toUtc(),
+        categoryId: rideId == null ? null : session.bookedCategoryId,
+        paymentMethodId: rideId == null ? null : session.bookedPaymentMethodId,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
@@ -218,14 +265,17 @@ class FindingDriverController {
     _priceUpdated = false;
     _editInFlight = false;
     _assignmentPending = false;
+    _stillLooking = false;
+    _stillLookingDismissed = false;
+    _serverCheckInFlight = false;
     _lastSequence = -1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     _editEpoch += 1;
-    elapsedSeconds = 0;
-    if (seconds < 0) {
-      elapsedSeconds = 0;
-    }
+    // ARCH-3 / RIDE-5: elapsed counts from when this search started, not
+    // from when this screen mounted, so a reload does not restart it.
+    final sinceStart = DateTime.now().difference(snapshot.searchStart);
+    elapsedSeconds = sinceStart.isNegative ? 0 : sinceStart.inSeconds;
     timeoutLogs = 0;
     offerConfirmation = null;
     editFeedback = null;
@@ -240,6 +290,9 @@ class FindingDriverController {
     _onTick?.call(elapsedSeconds);
     _startTick();
     final rideId = snapshot.rideId ?? ride.rideId ?? 'ride';
+    if (elapsedSeconds >= searchTimeout.inSeconds) {
+      scheduleMicrotask(_reachSearchTimeout);
+    }
     _sub = _realtime.subscribe(rideId).listen((event) {
       if (_disposed || _cancelled || _terminated) return;
       if (event.sequence < _lastSequence) return;
@@ -286,12 +339,8 @@ class FindingDriverController {
         return;
       }
       elapsedSeconds += 1;
-      if (elapsedSeconds >= searchTimeout.inSeconds) {
-        timer.cancel();
-        unawaited(_finishSearchWithoutDriver());
-        return;
-      }
       _evaluatePhase();
+      _afterElapsed(1);
       _onTick?.call(elapsedSeconds);
     });
   }
@@ -299,15 +348,154 @@ class FindingDriverController {
   void debugAdvance(int seconds) {
     if (_disposed || _assigned || _cancelled || _terminated) return;
     elapsedSeconds += seconds;
-    if (elapsedSeconds >= searchTimeout.inSeconds) {
-      _tick?.cancel();
-      _tick = null;
-      unawaited(_finishSearchWithoutDriver());
-      return;
-    }
     _evaluatePhase();
+    _afterElapsed(seconds);
     _onTick?.call(elapsedSeconds);
     _reportQa();
+  }
+
+  /// The search-timeout mark and the periodic server check after it.
+  void _afterElapsed(int step) {
+    if (elapsedSeconds < searchTimeout.inSeconds) return;
+    if (!_stillLooking) {
+      _reachSearchTimeout();
+      return;
+    }
+    final every = serverCheckEvery.inSeconds;
+    if (every <= 0) return;
+    final past = elapsedSeconds - searchTimeout.inSeconds;
+    // A check is due whenever this step crossed a multiple of [every].
+    if (past ~/ every != (past - step) ~/ every) {
+      unawaited(checkServerSearchState());
+    }
+  }
+
+  void _reachSearchTimeout() {
+    if (_stillLooking ||
+        _assigned ||
+        _assignmentPending ||
+        _cancelled ||
+        _terminated ||
+        _disposed) {
+      return;
+    }
+    _stillLooking = true;
+    AppLog.info(
+      'ride.finding.still_looking',
+      extra: {'rideId': _snapshot?.rideId, 'elapsed': elapsedSeconds},
+    );
+    _onTick?.call(elapsedSeconds);
+    _reportQa();
+    unawaited(checkServerSearchState());
+  }
+
+  /// "Keep searching": hides the still-looking card. The search and the
+  /// periodic server check go on.
+  void keepSearching() {
+    if (!stillLooking) return;
+    _stillLookingDismissed = true;
+    _onTick?.call(elapsedSeconds);
+    _reportQa();
+  }
+
+  /// ARCH-3: asks the server (GET /rides/{id}) where the search stands.
+  /// Only the server ends it: "no driver found" / expired is shown when the
+  /// server says so; a driver the server already assigned moves the rider
+  /// on. Anything else, or no answer, keeps the search going.
+  Future<void> checkServerSearchState() async {
+    if (_serverCheckInFlight ||
+        _assigned ||
+        _assignmentPending ||
+        _cancelled ||
+        _cancelInFlight ||
+        _terminated ||
+        _disposed) {
+      return;
+    }
+    final id = (_snapshot?.rideId ?? ride.rideId)?.trim();
+    if (id == null || id.isEmpty) return;
+    _serverCheckInFlight = true;
+    try {
+      final json = await api.get('/api/v1/rides/$id');
+      if (_assigned ||
+          _cancelled ||
+          _cancelInFlight ||
+          _terminated ||
+          _disposed) {
+        return;
+      }
+      final raw = json['ride'];
+      if (raw is! Map || raw['id']?.toString().trim() != id) return;
+      final status = _serverStatus(raw['status']);
+      if (status == null || status.isSearching) return;
+      final version = (raw['version'] as num?)?.toInt();
+      final updatedAt = raw['updatedAt'] is String
+          ? DateTime.tryParse(raw['updatedAt'] as String)
+          : null;
+      final accepted = ride.backendReconcile(
+        status,
+        id: id,
+        version: version,
+        updatedAt: updatedAt,
+      );
+      if (!accepted && ride.status != status) return;
+      if (status.isTerminal) {
+        _realtime.unsubscribe();
+        await _completeTerminal(status);
+        return;
+      }
+      if (status.isMatched) {
+        final driver = raw['driver'];
+        if (driver is Map) {
+          matchedDriver =
+              MatchedDriver.fromJson(Map<String, dynamic>.from(driver)) ??
+              matchedDriver;
+        }
+        _completeAssigned();
+      }
+    } catch (error) {
+      AppLog.warning(
+        'ride.finding.server_check_failed',
+        extra: {'rideId': id, 'error': error.toString()},
+      );
+    } finally {
+      _serverCheckInFlight = false;
+    }
+  }
+
+  static RideStatus? _serverStatus(Object? raw) {
+    if (raw is! String) return null;
+    if (raw == 'expired') return RideStatus.bookingExpired;
+    for (final value in RideStatus.values) {
+      if (value.name == raw) return value;
+    }
+    return null;
+  }
+
+  /// The stored snapshot of [rideId] (the session's ride when null), or
+  /// null when the store holds another ride or none. It carries what other
+  /// screens saved meanwhile, such as a route change made on Waiting.
+  Future<RideSnapshot?> storedRide({String? rideId}) async {
+    final id = (rideId ?? ownedRideId ?? ride.rideId)?.trim();
+    if (id == null || id.isEmpty) return null;
+    try {
+      final stored = await _store.read();
+      return stored?.rideId?.trim() == id ? stored : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The snapshot with the server ordering the session holds for its ride.
+  RideSnapshot _ordered(RideSnapshot snapshot) {
+    final session = ride;
+    if (session.rideId == null || session.rideId != snapshot.rideId) {
+      return snapshot;
+    }
+    return snapshot.copyWith(
+      version: session.authoritativeVersion,
+      serverUpdatedAt: session.authoritativeUpdatedAt?.toUtc(),
+    );
   }
 
   void _evaluatePhase() {
@@ -322,7 +510,7 @@ class FindingDriverController {
       final snapshot = _snapshot;
       if (snapshot != null) {
         _store.save(
-          snapshot.copyWith(
+          _ordered(snapshot).copyWith(
             status: RideStatus.searchDelayed,
             savedAt: DateTime.now(),
           ),
@@ -634,7 +822,7 @@ class FindingDriverController {
   ) async {
     if (snapshot != null) {
       await _store.save(
-        snapshot.copyWith(
+        _ordered(snapshot).copyWith(
           status: ride.status.isMatched
               ? ride.status
               : RideStatus.driverAssigned,
@@ -659,35 +847,30 @@ class FindingDriverController {
     matched?.call();
   }
 
-  Future<void> _finishSearchWithoutDriver() async {
-    if (_assigned || _cancelled || _cancelInFlight || _terminated || _disposed) {
-      return;
-    }
-    final accepted = ride.backendReconcile(
-      RideStatus.noDriverFound,
-      id: _snapshot?.rideId ?? ride.rideId,
-      updatedAt: DateTime.now().toUtc(),
-    );
-    if (!accepted && ride.status != RideStatus.noDriverFound) return;
-    await _completeTerminal(RideStatus.noDriverFound);
-  }
-
   Future<void> _completeTerminal(RideStatus status) async {
     if (_terminated || _cancelled || _disposed || !status.isTerminal) return;
     _terminated = true;
     _assignmentPending = false;
+    // The ride is over; this screen no longer owns a live search, so a new
+    // request ("Try again") is not refused as a duplicate.
+    if (identical(active, this)) active = null;
     _editEpoch += 1;
     _nearbyRequestEpoch += 1;
     _pickupUpdateEpoch += 1;
     _onMatched = null;
     _tick?.cancel();
     _tick = null;
-    await _sub?.cancel();
+    // Not awaited (as in _commitCancelled): the flags above already drop any
+    // later event, and a broadcast cancel's future belongs to the root zone.
+    unawaited(_sub?.cancel());
     _sub = null;
     final snapshot = _snapshot;
     if (snapshot != null &&
         (status == RideStatus.cancelledByDriver ||
-            status == RideStatus.cancelledBySystem)) {
+            status == RideStatus.cancelledBySystem ||
+            // RIDE-5: a search the server ended is kept in History too.
+            status == RideStatus.noDriverFound ||
+            status == RideStatus.bookingExpired)) {
       await _archiveTerminalRide(snapshot, status);
     }
     await _store.clear();
@@ -1029,6 +1212,7 @@ class FindingDriverController {
     'terminated': _terminated,
     'cancelInFlight': _cancelInFlight,
     'cancelled': _cancelled,
+    'stillLooking': stillLooking,
     'status': ride.status.name,
     'offerConfirmation': offerConfirmation,
     'nearby': nearby.length,

@@ -28,17 +28,46 @@ Future<void> showRideTerminalStateSheet(
   );
 }
 
+/// What the rider chose on the "No driver found" sheet (RIDE-19).
+enum NoDriverChoice { tryAgain, changeRoute }
+
+/// "No driver found" after the server ended the search: request the same
+/// ride again, or go back to "Where to?" for another route.
+Future<NoDriverChoice> showNoDriverFoundSheet(BuildContext context) async {
+  final choice = await MoveraSheet.show<NoDriverChoice>(
+    context: context,
+    swipeDismissible: false,
+    barrierDismissible: false,
+    builder: (sheetContext) => RideTerminalStateSheet(
+      status: RideStatus.noDriverFound,
+      spec: RideTerminalStateSpec.noDriverRetry,
+      onAcknowledge: () =>
+          Navigator.of(sheetContext).pop(NoDriverChoice.tryAgain),
+      secondaryLabel: 'Change route',
+      onSecondary: () =>
+          Navigator.of(sheetContext).pop(NoDriverChoice.changeRoute),
+    ),
+  );
+  return choice ?? NoDriverChoice.changeRoute;
+}
+
 class RideTerminalStateSheet extends StatelessWidget {
   const RideTerminalStateSheet({
     super.key,
     required this.status,
     required this.spec,
     required this.onAcknowledge,
+    this.secondaryLabel,
+    this.onSecondary,
   });
 
   final RideStatus status;
   final RideTerminalStateSpec spec;
   final VoidCallback onAcknowledge;
+
+  /// Optional second action under the primary button.
+  final String? secondaryLabel;
+  final VoidCallback? onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +194,27 @@ class RideTerminalStateSheet extends StatelessWidget {
                 ),
               ),
             ),
+            if (secondaryLabel != null && onSecondary != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  key: const ValueKey<String>('ride-terminal-secondary'),
+                  onPressed: onSecondary,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _terminalAction,
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                  child: Text(
+                    secondaryLabel!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -192,6 +242,20 @@ class RideTerminalStateSpec {
   final IconData icon;
   final Color iconBackground;
   final Color iconColor;
+
+  /// RIDE-19: "No driver found" when the same request can be sent again.
+  static const noDriverRetry = RideTerminalStateSpec(
+    eyebrow: 'REQUEST ENDED',
+    title: 'No driver found',
+    message:
+        'No driver accepted this request, so the ride did not start. You can request the same ride again or choose a different route.',
+    reassurance:
+        'Try again keeps your pickup, destination, ride type and payment.',
+    primaryLabel: 'Try again',
+    icon: Icons.local_taxi_outlined,
+    iconBackground: Color(0xFFEAF1F6),
+    iconColor: Color(0xFF2D5878),
+  );
 
   factory RideTerminalStateSpec.fromStatus(RideStatus status) {
     return switch (status) {

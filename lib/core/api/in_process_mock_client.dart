@@ -10,9 +10,17 @@ import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository
 /// In-process `/api/v1` used on GitHub Pages and tests.
 /// Swap [ApiClient] transport to a live HTTP client later — same paths.
 class InProcessMockClient extends http.BaseClient {
-  InProcessMockClient({this.latency = Duration.zero});
+  InProcessMockClient({
+    this.latency = Duration.zero,
+    this.searchExpiresAfter = const Duration(minutes: 3),
+  });
 
   final Duration latency;
+
+  /// ARCH-3: like a real backend, the mock ends a search nobody accepted.
+  /// A ride still searching this long after it was created reads back as
+  /// `noDriverFound`, so the demo still ends when no driver is assigned.
+  final Duration searchExpiresAfter;
   final Map<String, Map<String, dynamic>> idempotency = {};
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
@@ -729,6 +737,7 @@ class InProcessMockClient extends http.BaseClient {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
       } else {
+        _expireSearchIfDue(ride);
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       }
     } else if (path == '/api/v1/payments' && method == 'POST') {
@@ -906,6 +915,19 @@ class InProcessMockClient extends http.BaseClient {
       });
     }
     return found.take(8).toList();
+  }
+
+  void _expireSearchIfDue(Map<String, dynamic> ride) {
+    final current = ride['status'];
+    if (current != 'findingDriver' && current != 'searchDelayed') return;
+    final startedRaw = ride['searchStartedAt'];
+    final started = startedRaw is String ? DateTime.tryParse(startedRaw) : null;
+    if (started == null) return;
+    final now = DateTime.now().toUtc();
+    if (now.difference(started) < searchExpiresAfter) return;
+    ride['status'] = 'noDriverFound';
+    ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
+    ride['updatedAt'] = now.toIso8601String();
   }
 
   static const _terminalStatuses = {
@@ -1131,6 +1153,8 @@ class InProcessMockClient extends http.BaseClient {
       'status': body['scheduledAt'] != null ? 'bookingRequested' : 'findingDriver',
       'version': 1,
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      if (body['scheduledAt'] == null)
+        'searchStartedAt': DateTime.now().toUtc().toIso8601String(),
       'categoryId': categoryId,
       'paymentMethodId': paymentMethodId,
       // Transitional aliases keep older read-side tests compatible while every
