@@ -22,7 +22,6 @@ class RiderSideMenu extends StatelessWidget {
   final ValueChanged<bool>? onCoveredChanged;
 
   static const Color _ink = Color(0xFF11181D);
-  static const Color _muted = Color(0xFF5C656C);
   static const Color _bar = Color(0xFF11181D);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
@@ -64,13 +63,8 @@ class RiderSideMenu extends StatelessWidget {
       backgroundColor: Colors.white,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
-      width: media.size.width * 0.86,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
+      width: media.size.width * 0.82,
+      shape: const RoundedRectangleBorder(),
       clipBehavior: Clip.antiAlias,
       child: ColoredBox(
         color: Colors.white,
@@ -82,12 +76,12 @@ class RiderSideMenu extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 36, 24, 12),
+                  padding: const EdgeInsets.fromLTRB(28, 56, 28, 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _profileHeader(),
-                      const SizedBox(height: 44),
+                      const SizedBox(height: 56),
                       ..._menuGroups(context),
                     ],
                   ),
@@ -125,16 +119,16 @@ class RiderSideMenu extends StatelessWidget {
         Image.asset(
           excludeFromSemantics: true,
           AppAssets.logo,
-          height: 52,
+          height: 64,
           fit: BoxFit.contain,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         Text(
           controller.displayName(),
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: _text(16, weight: FontWeight.w600, color: _muted),
+          style: _text(15, weight: FontWeight.w700),
         ),
       ],
     );
@@ -150,7 +144,7 @@ class RiderSideMenu extends StatelessWidget {
           onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
         ),
         _MenuItem(
-          icon: Icons.history_outlined,
+          icon: Icons.history_rounded,
           title: 'Ride History',
           onTap: () => _pushPage(context, RideHistory()),
         ),
@@ -167,19 +161,19 @@ class RiderSideMenu extends StatelessWidget {
         // Notifications and Saved places were both finished screens with no
         // way in: nothing in the app built either of them.
         _MenuItem(
-          icon: Icons.notifications_none_rounded,
+          icon: Icons.notifications_outlined,
           title: 'Notifications',
           onTap: () => _pushPage(context, const NotificationScreen()),
         ),
         _MenuItem(
-          icon: Icons.bookmark_outline_rounded,
+          icon: Icons.bookmark_border_rounded,
           title: 'Saved Places',
           onTap: () => _pushPage(context, SavedPlaces()),
         ),
       ],
       [
         _MenuItem(
-          image: AppAssets.safetyShield,
+          icon: Icons.shield_outlined,
           title: 'Safety',
           onTap: () => _pushPage(context, const SafetyHub()),
         ),
@@ -189,7 +183,7 @@ class RiderSideMenu extends StatelessWidget {
           onTap: () => _pushPage(context, const SupportHome()),
         ),
         _MenuItem(
-          icon: Icons.info_outlined,
+          icon: Icons.info_outline_rounded,
           title: 'About',
           onTap: () => _pushPage(
             context,
@@ -205,23 +199,13 @@ class RiderSideMenu extends StatelessWidget {
 
     return [
       for (var g = 0; g < groups.length; g++) ...[
-        if (g > 0) const SizedBox(height: 14),
         for (final item in groups[g]) _menuRow(item),
       ],
     ];
   }
 
-  Widget _menuIcon(_MenuItem item, {double size = 30}) {
-    return item.image != null
-        ? Image.asset(
-            excludeFromSemantics: true,
-            item.image!,
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
-            color: _ink,
-          )
-        : Icon(item.icon, size: size, color: _ink);
+  Widget _menuIcon(_MenuItem item, {double size = 28}) {
+    return Icon(item.icon, size: size, color: _ink);
   }
 
   /// The wallet row shows the balance on the right, like a receipt line.
@@ -233,7 +217,7 @@ class RiderSideMenu extends StatelessWidget {
         if (balance == null) return const SizedBox.shrink();
         return Text(
           'kr ${balance.toStringAsFixed(0)}',
-          style: _text(18, weight: FontWeight.w700),
+          style: _text(18, weight: FontWeight.w600),
         );
       },
     );
@@ -253,17 +237,17 @@ class RiderSideMenu extends StatelessWidget {
             splashColor: _ink.withValues(alpha: 0.05),
             highlightColor: _ink.withValues(alpha: 0.04),
             child: SizedBox(
-              height: 64,
+              height: 68,
               child: Row(
                 children: [
-                  SizedBox(width: 34, child: _menuIcon(item)),
-                  const SizedBox(width: 20),
+                  SizedBox(width: 32, child: _menuIcon(item)),
+                  const SizedBox(width: 22),
                   Expanded(
                     child: Text(
                       item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _text(19, weight: FontWeight.w700),
+                      style: _text(19, weight: FontWeight.w600, letterSpacing: -0.2),
                     ),
                   ),
                   if (item.trailing != null) item.trailing!,
@@ -289,13 +273,14 @@ class RiderSideMenu extends StatelessWidget {
                 'Movera Rider',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: _text(17, weight: FontWeight.w700, color: Colors.white),
+                style: _text(17, weight: FontWeight.w600, color: Colors.white),
               ),
             ),
-            const Icon(
-              Icons.directions_car_outlined,
-              color: Colors.white,
-              size: 26,
+            Image.asset(
+              excludeFromSemantics: true,
+              AppAssets.logo,
+              height: 20,
+              fit: BoxFit.contain,
             ),
           ],
         ),
@@ -306,15 +291,13 @@ class RiderSideMenu extends StatelessWidget {
 
 class _MenuItem {
   const _MenuItem({
-    this.icon,
-    this.image,
+    required this.icon,
     required this.title,
     required this.onTap,
     this.trailing,
   });
 
-  final IconData? icon;
-  final String? image;
+  final IconData icon;
   final String title;
   final VoidCallback onTap;
   final Widget? trailing;
