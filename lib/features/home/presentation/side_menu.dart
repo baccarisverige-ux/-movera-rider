@@ -10,6 +10,11 @@ import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
+/// Candidate looks for the owner's pick: 'pills' (one soft pill per row)
+/// or 'tiles' (soft square tiles per group, like the category row in the
+/// reference picture).
+const String kMenuStyle = String.fromEnvironment('MENU_STYLE', defaultValue: 'pills');
+
 class RiderSideMenu extends StatelessWidget {
   const RiderSideMenu({super.key, this.onStartBooking, this.onCoveredChanged});
 
@@ -24,9 +29,6 @@ class RiderSideMenu extends StatelessWidget {
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF8A939B);
   static const Color _card = Color(0xFFF2F4F6);
-  static const Color _tile = Color(0xFF11181D);
-  static const Color _chevron = Color(0xFFB3BAC0);
-  static const Color _avatarTint = Color(0xFFE4E8EC);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -89,7 +91,7 @@ class RiderSideMenu extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _profileHeader(),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 24),
                       ..._menuGroups(context),
                     ],
                   ),
@@ -119,57 +121,50 @@ class RiderSideMenu extends StatelessWidget {
     );
   }
 
-  /// Avatar beside the name on a soft card, like the rows below it.
+  /// Avatar above the name, airy like the reference sheet.
   Widget _profileHeader() {
     final controller = AppScope.instance.profile;
     final profile = controller.profile;
     final hasPhoto = profile.photoAsset.trim().isNotEmpty;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            ClipOval(
-              child: SizedBox(
-                width: 56,
-                height: 56,
-                child: hasPhoto
-                    ? Image.asset(
-                        excludeFromSemantics: true,
-                        profile.photoAsset,
-                        fit: BoxFit.cover,
-                      )
-                    : const ColoredBox(
-                        color: _avatarTint,
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: _muted,
-                          size: 30,
-                        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipOval(
+            child: SizedBox(
+              width: 64,
+              height: 64,
+              child: hasPhoto
+                  ? Image.asset(
+                      excludeFromSemantics: true,
+                      profile.photoAsset,
+                      fit: BoxFit.cover,
+                    )
+                  : const ColoredBox(
+                      color: _card,
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: _muted,
+                        size: 32,
                       ),
-              ),
+                    ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                controller.displayName(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: _text(
-                  20,
-                  weight: FontWeight.w700,
-                  height: 1.15,
-                  letterSpacing: -0.3,
-                ),
-              ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            controller.displayName(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: _text(
+              22,
+              weight: FontWeight.w700,
+              height: 1.15,
+              letterSpacing: -0.3,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -236,33 +231,91 @@ class RiderSideMenu extends StatelessWidget {
       ],
     ];
 
-    return [
-      for (var g = 0; g < groups.length; g++) ...[
-        if (g > 0) const SizedBox(height: 12),
-        Material(
-          color: _card,
-          borderRadius: BorderRadius.circular(22),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    if (kMenuStyle == 'tiles') {
+      return [
+        for (var g = 0; g < groups.length; g++) ...[
+          if (g > 0) const SizedBox(height: 10),
+          Row(
             children: [
               for (var i = 0; i < groups[g].length; i++) ...[
-                if (i > 0)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 70, right: 16),
-                    child: Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Colors.white,
-                    ),
-                  ),
-                _menuRow(groups[g][i]),
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: _menuTile(groups[g][i])),
+              ],
+              // Keep tile widths equal across groups of two and three.
+              for (var i = groups[g].length; i < 3; i++) ...[
+                const SizedBox(width: 10),
+                const Expanded(child: SizedBox()),
               ],
             ],
           ),
-        ),
+        ],
+      ];
+    }
+    return [
+      for (var g = 0; g < groups.length; g++) ...[
+        if (g > 0) const SizedBox(height: 14),
+        for (var i = 0; i < groups[g].length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _menuRow(groups[g][i]),
+        ],
       ],
     ];
+  }
+
+  Widget _menuIcon(_MenuItem item, {double size = 24}) {
+    return item.image != null
+        ? Image.asset(
+            excludeFromSemantics: true,
+            item.image!,
+            width: size,
+            height: size,
+            fit: BoxFit.contain,
+            color: _ink,
+          )
+        : Icon(item.icon, size: size, color: _ink);
+  }
+
+  Widget _menuTile(_MenuItem item) {
+    return Semantics(
+      button: true,
+      label: item.title,
+      onTap: item.onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: _card,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: item.onTap,
+            splashColor: _ink.withValues(alpha: 0.05),
+            highlightColor: _ink.withValues(alpha: 0.04),
+            child: SizedBox(
+              height: 96,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 14, 8, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _menuIcon(item, size: 26),
+                    const Spacer(),
+                    // One line always; a long label shrinks a little.
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        style: _text(13, weight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _menuRow(_MenuItem item) {
@@ -271,50 +324,32 @@ class RiderSideMenu extends StatelessWidget {
       label: item.title,
       onTap: item.onTap,
       child: ExcludeSemantics(
-        child: InkWell(
-          onTap: item.onTap,
-          splashColor: _ink.withValues(alpha: 0.05),
-          highlightColor: _ink.withValues(alpha: 0.04),
-          child: SizedBox(
-            height: 62,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _tile,
-                      borderRadius: BorderRadius.circular(13),
+        child: Material(
+          color: _card,
+          borderRadius: BorderRadius.circular(18),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: item.onTap,
+            splashColor: _ink.withValues(alpha: 0.05),
+            highlightColor: _ink.withValues(alpha: 0.04),
+            child: SizedBox(
+              height: 58,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Row(
+                  children: [
+                    _menuIcon(item),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _text(16, weight: FontWeight.w600),
+                      ),
                     ),
-                    alignment: Alignment.center,
-                    child: item.image != null
-                        ? Image.asset(
-                            excludeFromSemantics: true,
-                            item.image!,
-                            width: 22,
-                            height: 22,
-                            fit: BoxFit.contain,
-                            color: Colors.white,
-                          )
-                        : Icon(item.icon, size: 21, color: Colors.white),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _text(16, weight: FontWeight.w600),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 22,
-                    color: _chevron,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
