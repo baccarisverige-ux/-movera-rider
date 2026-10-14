@@ -1638,6 +1638,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         return RiderMenuPage.open(
           context,
           onStartBooking: () => unawaited(_openDestinationSheet()),
+          onSchedule: () => unawaited(_openSchedule()),
         );
       }),
     );
