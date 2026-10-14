@@ -57,6 +57,9 @@ void main() {
     await tester.tap(find.text('Completed'));
     await tester.pumpAndSettle();
 
+    // The list hands out cards on demand instead of holding all 100.
+    final list = tester.widget<ListView>(find.byType(ListView).last);
+    expect(list.childrenDelegate, isA<SliverChildBuilderDelegate>());
     final built = find.byType(ReservationHistoryCard).evaluate().length;
     expect(built, greaterThan(0));
     expect(built, lessThan(30));
