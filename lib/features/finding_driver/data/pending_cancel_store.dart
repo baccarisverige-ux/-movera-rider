@@ -7,9 +7,8 @@ import 'package:movera_rider/core/storage/preferences_store.dart';
 
 /// A ride cancellation the server never acknowledged.
 ///
-/// Finding commits to "cancelled" locally and tells the backend in the
-/// background; Waiting/in-trip asks the backend first. In both cases, when the
-/// backend call keeps failing (offline, a dropped connection) the request must
+/// Finding and Waiting/in-trip both write the intent here and ask the backend
+/// first. When the backend call keeps failing (offline, a dropped connection) the request must
 /// not just vanish when the process exits — a later session, or the next
 /// reconnect, needs to find it and try again.
 ///

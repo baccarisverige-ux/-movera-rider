@@ -4,25 +4,43 @@ import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.
 import 'package:movera_rider/features/ride_booking/application/sheet_coordinator.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
+/// Asks why the rider is cancelling.
+///
+/// With [committed] false (Waiting, reservations) this sheet is the last
+/// step before the cancel: Keep ride or dismissing keeps the ride.
+///
+/// With [committed] true (Finding, cancel-first) the cancel already
+/// happened and the reason is optional feedback: there is no Keep ride, and
+/// Skip, Send or dismissing all return a cancelled outcome (Send carries the
+/// chosen reason).
 Future<CancelOutcome> showCancelReasonSheet(
   BuildContext context, {
   required CancelPhase phase,
+  bool committed = false,
 }) async {
   SheetCoordinator.instance.open(RideSheet.cancelReason);
   final result = await MoveraSheet.show<CancelOutcome>(
     context: context,
-    builder: (_) => CancelReasonSheet(phase: phase),
+    builder: (_) => CancelReasonSheet(phase: phase, committed: committed),
   );
   SheetCoordinator.instance.close(RideSheet.cancelReason);
+  if (committed) return result ?? const CancelOutcome.cancel();
   // Dismissing/backing out never cancels a ride. Cancellation is only
   // committed by an explicit final action inside this sheet.
   return result ?? const CancelOutcome.keep();
 }
 
 class CancelReasonSheet extends StatefulWidget {
-  const CancelReasonSheet({super.key, required this.phase});
+  const CancelReasonSheet({
+    super.key,
+    required this.phase,
+    this.committed = false,
+  });
 
   final CancelPhase phase;
+
+  /// The cancel is already committed; the reason is optional feedback.
+  final bool committed;
 
   @override
   State<CancelReasonSheet> createState() => _CancelReasonSheetState();
@@ -71,7 +89,10 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              widget.phase == CancelPhase.reservation
+              widget.committed
+                  ? 'Your request is cancelled. Telling us why is optional '
+                        'and helps us improve matching.'
+                  : widget.phase == CancelPhase.reservation
                   ? 'Optional. This helps us improve scheduled rides.'
                   : widget.phase == CancelPhase.inTrip
                   ? 'Optional. This helps us understand active-trip cancellations.'
@@ -145,14 +166,16 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                       ),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFFF4F5F6),
-                  foregroundColor: const Color(0xFFB42318),
+                  foregroundColor: widget.committed
+                      ? const Color(0xFF1D252C)
+                      : const Color(0xFFB42318),
                   disabledForegroundColor: const Color(0xFFC5CCD1),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
                 child: Text(
-                  'Cancel ride',
+                  widget.committed ? 'Send' : 'Cancel ride',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
@@ -160,29 +183,31 @@ class _CancelReasonSheetState extends State<CancelReasonSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: FilledButton(
-                onPressed: () =>
-                    Navigator.pop(context, const CancelOutcome.keep()),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF11181D),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+            if (!widget.committed) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(context, const CancelOutcome.keep()),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF11181D),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                ),
-                child: Text(
-                  'Keep ride',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                    color: Colors.white,
+                  child: Text(
+                    'Keep ride',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

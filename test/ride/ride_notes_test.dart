@@ -70,8 +70,9 @@ void main() {
       onTick: (_) {},
       onMatched: () => matches += 1,
     );
-    controller.cancelSearch();
+    final cancelling = controller.cancelSearch();
     rt.emit(RideStatus.driverAssigned, sequence: 4);
+    await cancelling;
     await Future<void>.delayed(const Duration(milliseconds: 20));
     expect(matches, 0);
     controller.dispose();

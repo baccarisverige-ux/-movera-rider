@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
-import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
@@ -310,7 +309,7 @@ void main() {
     rt.dispose();
   });
 
-  test('commitCancelFirst archives when Finding UI is not mounted', () async {
+  test('Waiting cancel archives when Finding UI is not mounted', () async {
     final active = snapshot(rideId: 'ride-waiting-cancel');
     await RideSnapshotStore.save(active);
     AppScope.instance.ride
@@ -318,7 +317,7 @@ void main() {
       ..status = RideStatus.driverAssigned;
     FindingDriverController.active = null;
 
-    await commitCancelFirst(reasonId: 'changed-plans');
+    await ActiveRideController().markCancelled(reasonId: 'changed-plans');
 
     final history = await OnDemandRideHistoryStore.read();
     expect(history, hasLength(1));
@@ -329,7 +328,7 @@ void main() {
     expect(AppScope.instance.ride.status, RideStatus.cancelledByRider);
   });
 
-  test('Waiting cancel after commitCancelFirst does not duplicate History',
+  test('a repeated Waiting cancel does not duplicate History',
       () async {
     final active = snapshot(rideId: 'ride-waiting-archive-once');
     await RideSnapshotStore.save(active);
@@ -338,7 +337,7 @@ void main() {
       ..status = RideStatus.driverAssigned;
     FindingDriverController.active = null;
 
-    await commitCancelFirst();
+    await ActiveRideController().markCancelled();
     await ActiveRideController().markCancelled(reasonId: 'changed-plans');
 
     final history = await OnDemandRideHistoryStore.read();

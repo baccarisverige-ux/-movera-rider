@@ -18,6 +18,7 @@ import 'package:movera_rider/features/active_ride/presentation/route_change_flow
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
+import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_ride_sheet.dart';
 import 'package:movera_rider/features/finding_driver/presentation/price_bump_card.dart';
 import 'package:movera_rider/features/active_ride/presentation/ride_terminal_state_sheet.dart';
@@ -53,6 +54,7 @@ class FindingDrivers extends StatefulWidget {
     this.stops = const <RouteStop>[],
     this.realtime,
     this.etaMinutes,
+    @visibleForTesting this.controller,
   });
 
   /// Stops between the pickup and the destination, in order.
@@ -72,6 +74,10 @@ class FindingDrivers extends StatefulWidget {
   final RideNotes notes;
   final RideRealtime? realtime;
 
+  /// Test seam (for example a controller on a fake API); production builds
+  /// its own from [realtime].
+  final FindingDriverController? controller;
+
   @override
   State<FindingDrivers> createState() => _FindingDriversState();
 }
@@ -79,9 +85,8 @@ class FindingDrivers extends StatefulWidget {
 class _FindingDriversState extends State<FindingDrivers> {
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
-  late final FindingDriverController _match = FindingDriverController(
-    realtime: widget.realtime,
-  );
+  late final FindingDriverController _match =
+      widget.controller ?? FindingDriverController(realtime: widget.realtime);
   bool _mapParked = false;
   bool _mapReady = false;
   bool _leaving = false;
@@ -89,8 +94,12 @@ class _FindingDriversState extends State<FindingDrivers> {
   bool _pickupEditOpen = false;
   final bool _detailsSheetOpen = false;
   bool _matchedPending = false;
+
+  /// Tells an open "Cancel ride?" sheet that a driver accepted (RIDE-15).
+  final ValueNotifier<bool> _driverMatched = ValueNotifier<bool>(false);
   RideStatus? _terminalPending;
   bool _overlayOn = false;
+
   int _nearbyPaintKey = 0;
   final SheetController _sheetController = SheetController();
   /// Green pickup pin (the rider waits there).
@@ -152,6 +161,7 @@ class _FindingDriversState extends State<FindingDrivers> {
       onMatched: () {
         if (!mounted || _leaving) return;
         _matchedPending = true;
+        _driverMatched.value = true;
         _drainDeferredNavigation();
       },
       onTerminal: (status) {
@@ -205,6 +215,7 @@ class _FindingDriversState extends State<FindingDrivers> {
         _match.currentPrice > 0 ? _match.currentPrice : widget.price;
     _leaving = false;
     _cancelSheetOpen = false;
+    _driverMatched.value = false;
     _pickupEditOpen = false;
     _overlayOn = false;
     _nearbyPaintKey = 0;
@@ -373,32 +384,91 @@ class _FindingDriversState extends State<FindingDrivers> {
     _resumeFindingAfterDriverCancel();
   }
 
+  /// Cancel-first (CODE-3): Cancel request commits the cancel straight away
+  /// — server first, the outbox when offline, History archived, snapshot
+  /// cleared — and only then offers the optional why-sheet, whose reason is
+  /// sent as feedback. A reload while that sheet is open therefore lands on
+  /// Home. If the server says a driver already accepted (RIDE-4), nothing is
+  /// cancelled and the deferred match moves the rider on to Waiting.
   Future<void> _confirmCancel() async {
-    if (_leaving) return;
+    if (_leaving || _cancelSheetOpen) return;
+    if (_match.matchCount > 0) {
+      _drainDeferredNavigation();
+      return;
+    }
     _cancelSheetOpen = true;
-    final outcome = await showCancelRideSheet(
+    Future<SearchCancelResult>? request;
+    await showCancelSearchSheet(
       context,
       takingLonger: _match.isDelayed,
-      phase: CancelPhase.searching,
+      driverMatched: _driverMatched,
+      commit: () async {
+        final result = await (request ??= _match.cancelSearch());
+        return _isCommitted(result);
+      },
     );
+    // A system back can close the sheet while the request is still out;
+    // the server's answer decides, not the sheet.
+    final result = request == null ? null : await request;
     if (!mounted) {
       _cancelSheetOpen = false;
       return;
     }
+    if (result != null && _isCommitted(result)) {
+      await _finishCommittedCancel(queued: result == SearchCancelResult.queued);
+      return;
+    }
     _cancelSheetOpen = false;
-    if (_terminalPending != null) {
-      _drainDeferredNavigation();
-      return;
+    if (result == SearchCancelResult.driverAccepted) {
+      _showCancelNotice(
+        'A driver already accepted your ride, so it wasn’t cancelled.',
+      );
+    } else if (result == SearchCancelResult.rejected) {
+      _showCancelNotice('This ride can no longer be cancelled.');
+    } else if (_matchedPending || _match.matchCount > 0) {
+      _showCancelNotice('A driver accepted your ride.');
     }
-    if (!outcome.cancelled) {
-      _drainDeferredNavigation();
-      return;
-    }
+    _drainDeferredNavigation();
+  }
+
+  static bool _isCommitted(SearchCancelResult result) =>
+      result == SearchCancelResult.confirmed ||
+      result == SearchCancelResult.queued;
+
+  Future<void> _finishCommittedCancel({required bool queued}) async {
+    // The ride is over; nothing deferred may navigate from here on.
     _leaving = true;
+    _terminalPending = null;
+    _matchedPending = false;
     setState(() {});
-    await _match.cancelSearch(reasonId: outcome.reasonId);
+    final feedback = await showCancelReasonSheet(
+      context,
+      phase: CancelPhase.searching,
+      committed: true,
+    );
+    final reason = feedback.reasonId;
+    if (reason != null) unawaited(_match.sendCancelReason(reason));
     if (!mounted) return;
+    if (queued) {
+      _showCancelNotice(
+        'Your request is cancelled. We’ll confirm it with Movera as soon '
+        'as you’re back online.',
+      );
+    }
     RideNavigator.home(context);
+  }
+
+  void _showCancelNotice(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   /// Change the destination or the stops while searching: the new price is
@@ -489,6 +559,7 @@ class _FindingDriversState extends State<FindingDrivers> {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
     _sheetController.dispose();
+    _driverMatched.dispose();
     // Widget teardown is not a rider business action. Navigation, hot
     // reload, restoration, or parent replacement may dispose this surface
     // while the ride is still active; cancellation must happen only through

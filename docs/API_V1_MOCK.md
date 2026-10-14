@@ -52,7 +52,12 @@ Returns the ride or `404 NOT_FOUND`.
 ### `POST /api/v1/rides/:id/cancel`
 
 Sets `cancelledByRider`. Optional body `{ "reason": "…" }`.
-Idempotent if already cancelled. `404` if unknown id.
+Idempotent if already cancelled. `404` if unknown id. (Contract, not mocked:
+`409` when the server refuses because the ride moved on, for example a driver
+accepted it first; Finding then commits nothing and resyncs.)
+Finding cancels first and asks for the reason afterwards, so a second call on
+an already-cancelled ride with a `reason` records that reason (when none is
+stored yet) and changes nothing else.
 
 ### `GET /api/v1/rides/:id/nearby`
 
