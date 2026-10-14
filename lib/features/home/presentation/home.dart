@@ -1463,7 +1463,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _locationHeading = _locationCtl.heading;
         _updateLocationVisuals();
       }
-    } catch (_) {}
+    } catch (_) {
+      // No fix yet: the map keeps its current camera.
+    }
     if (target == null) return;
     await AppScope.instance.maps.animateCamera(
       GeoPoint(target.latitude, target.longitude),

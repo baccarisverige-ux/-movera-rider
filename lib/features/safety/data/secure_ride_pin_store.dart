@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 /// Keeps the ride-verification PIN digits out of the plaintext
 /// SharedPreferences safety cache.
@@ -94,7 +95,9 @@ class SecureRidePinStore {
       await const FlutterSecureStorage(
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
       ).delete(key: _key);
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning('safety.pin_delete_failed', extra: {'error': '$error'});
+    }
   }
 
   Future<void> write(String pin) async {
@@ -112,6 +115,8 @@ class SecureRidePinStore {
       await const FlutterSecureStorage(
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
       ).write(key: _key, value: pin);
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning('safety.pin_write_failed', extra: {'error': '$error'});
+    }
   }
 }

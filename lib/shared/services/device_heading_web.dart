@@ -34,5 +34,7 @@ double? currentHeading() {
 void stopHeadingTracking() {
   try {
     _stopHeading();
-  } catch (_) {}
+  } catch (_) {
+    // Web interop: nothing to stop when the JS bridge is absent.
+  }
 }

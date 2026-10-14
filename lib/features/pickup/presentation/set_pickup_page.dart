@@ -566,7 +566,9 @@ class _SetPickupPageState extends State<SetPickupPage>
     try {
       final zoom = await _map?.getZoomLevel();
       if (zoom != null) _zoom = zoom;
-    } catch (_) {}
+    } catch (_) {
+      // The map is not ready; the requested zoom stands in.
+    }
     if (!mounted) return;
     setState(() {
       _center = target;
@@ -597,7 +599,9 @@ class _SetPickupPageState extends State<SetPickupPage>
     }
     try {
       await _map?.animateCamera(CameraUpdate.newLatLng(_cameraFor(target)));
-    } catch (_) {}
+    } catch (_) {
+      // The map is gone or not ready; the pin still moved.
+    }
     if (address == null) unawaited(_resolveAddress());
     unawaited(_requote());
   }
