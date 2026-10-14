@@ -26,6 +26,7 @@ class RiderSideMenu extends StatelessWidget {
   static const Color _card = Color(0xFFF4F6F8);
   static const Color _line = Color(0xFFEDF0F3);
   static const Color _avatarTint = Color(0xFFE6EAEE);
+  static const Color _chevron = Color(0xFFC5CBD1);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -91,7 +92,7 @@ class RiderSideMenu extends StatelessWidget {
                       _profileHeader(),
                       const SizedBox(height: 26),
                       _shortcuts(groups.first),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 22),
                       ..._list(groups.skip(1).toList()),
                     ],
                   ),
@@ -143,23 +144,45 @@ class RiderSideMenu extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 14),
-        ClipOval(
-          child: SizedBox(
-            width: 56,
-            height: 56,
-            child: hasPhoto
-                ? Image.asset(
-                    excludeFromSemantics: true,
-                    profile.photoAsset,
-                    fit: BoxFit.cover,
-                  )
-                : const ColoredBox(
-                    color: _avatarTint,
-                    child: Icon(Icons.person_rounded, color: _muted, size: 30),
-                  ),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: _line, width: 1.5),
+          ),
+          child: ClipOval(
+            child: SizedBox(
+              width: 54,
+              height: 54,
+              child: hasPhoto
+                  ? Image.asset(
+                      excludeFromSemantics: true,
+                      profile.photoAsset,
+                      fit: BoxFit.cover,
+                    )
+                  : const ColoredBox(
+                      color: _avatarTint,
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: _muted,
+                        size: 30,
+                      ),
+                    ),
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  /// A round icon badge: white on the grey cards, grey on the white rows.
+  Widget _badge(IconData icon, {required Color fill}) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Icon(icon, size: 21, color: _ink),
     );
   }
 
@@ -180,10 +203,8 @@ class RiderSideMenu extends StatelessWidget {
         _MenuItem(
           icon: Icons.credit_card_outlined,
           title: 'Payments',
-          onTap: () => _pushPage(
-            context,
-            const WalletAndPaymentsScreen(initialTab: 1),
-          ),
+          onTap: () =>
+              _pushPage(context, const WalletAndPaymentsScreen(initialTab: 1)),
         ),
       ],
       [
@@ -254,19 +275,24 @@ class RiderSideMenu extends StatelessWidget {
             splashColor: _ink.withValues(alpha: 0.05),
             highlightColor: _ink.withValues(alpha: 0.04),
             child: SizedBox(
-              height: 104,
+              height: 112,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 14, 6, 12),
+                padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(item.icon, size: 24, color: _ink),
+                    _badge(item.icon, fill: Colors.white),
                     const Spacer(),
                     Text(
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: _text(13, weight: FontWeight.w600, height: 1.2, letterSpacing: -0.2),
+                      style: _text(
+                        13,
+                        weight: FontWeight.w600,
+                        height: 1.2,
+                        letterSpacing: -0.2,
+                      ),
                     ),
                     if (item.detail != null) ...[
                       const SizedBox(height: 2),
@@ -292,7 +318,7 @@ class RiderSideMenu extends StatelessWidget {
         return Text(
           'kr ${balance.toStringAsFixed(0)}',
           maxLines: 1,
-          style: _text(13, color: _muted),
+          style: _text(13, weight: FontWeight.w600, color: _muted),
         );
       },
     );
@@ -304,7 +330,7 @@ class RiderSideMenu extends StatelessWidget {
       for (var g = 0; g < groups.length; g++) ...[
         if (g > 0)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
+            padding: EdgeInsets.fromLTRB(56, 8, 4, 8),
             child: Divider(height: 1, thickness: 1, color: _line),
           ),
         for (final item in groups[g]) _menuRow(item),
@@ -326,13 +352,13 @@ class RiderSideMenu extends StatelessWidget {
             splashColor: _ink.withValues(alpha: 0.05),
             highlightColor: _ink.withValues(alpha: 0.04),
             child: SizedBox(
-              height: 56,
+              height: 60,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Row(
                   children: [
-                    Icon(item.icon, size: 24, color: _ink),
-                    const SizedBox(width: 18),
+                    _badge(item.icon, fill: _card),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Text(
                         item.title,
@@ -340,6 +366,11 @@ class RiderSideMenu extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: _text(16, weight: FontWeight.w500),
                       ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22,
+                      color: _chevron,
                     ),
                   ],
                 ),
