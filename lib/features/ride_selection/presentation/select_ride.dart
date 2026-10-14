@@ -611,7 +611,7 @@ class _SelectRideState extends State<SelectRide>
   double _minSheet(MediaQueryData media) =>
       (_headerHeight() + _rowHeight + 12 + _footerHeight(media)).clamp(
         240.0,
-        media.size.height * 0.62,
+        math.max(240.0, media.size.height * 0.62),
       );
 
   double _maxSheet(MediaQueryData media) =>
