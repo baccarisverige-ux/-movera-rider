@@ -290,24 +290,28 @@ class _MonthCard extends StatelessWidget {
                       ),
                       SizedBox(width: ResSize.w * 6),
                       Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextWidget(
-                              text:
-                                  '${stats.co2AvoidedKg.toStringAsFixed(1)} kg',
-                              color: _ink,
-                              fontSize: 14,
-                              fontWeight: fwBold,
-                            ),
-                            TextWidget(
-                              text: 'CO₂ avoided',
-                              color: _muted,
-                              fontSize: 9,
-                              fontWeight: fwNormal,
-                            ),
-                          ],
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextWidget(
+                                text:
+                                    '${stats.co2AvoidedKg.toStringAsFixed(1)} kg',
+                                color: _ink,
+                                fontSize: 14,
+                                fontWeight: fwBold,
+                              ),
+                              TextWidget(
+                                text: 'CO₂ avoided',
+                                color: _muted,
+                                fontSize: 9,
+                                fontWeight: fwNormal,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
