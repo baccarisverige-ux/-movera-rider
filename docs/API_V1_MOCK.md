@@ -1,88 +1,135 @@
 # Movera Rider API v1 — in-process mock contract
 
 This documents `InProcessMockClient` (`lib/core/api/in_process_mock_client.dart`)
-and the aligned Node mock in `backend/src/index.js`.
+and `SafetyMockApi` (`lib/core/api/safety_mock_api.dart`), the mock the app
+actually runs against in demo/dev/test builds. It is the only mock contract.
 
-No Postgres, Stripe, hosted API, or real auth. In-memory only.
-`AppEnv.current` stays on `https://api.dev.movera.invalid`.
+`backend/src/index.js` is **not** part of this contract: it is a frozen,
+unused Node mock that is not kept in parity (see `backend/README.md`); several
+of its routes disagree with the shapes below (no ride `version`/`updatedAt`,
+a client `price` on PATCH, payments that succeed without `/confirm`).
 
-## Headers
+No Postgres, Stripe, hosted API or real auth. In-memory only.
+`AppEnv.current` defaults to `https://api.demo.movera.invalid`
+(`MOVERA_API_BASE_URL` overrides it; staging/production refuse the default).
+
+Every shape here is what the Dart mock does today. Routes marked
+**PROPOSED** were added as frontend seams (PR-13) and still need agreement
+with Driver, Admin and backend; the full proposals are contracts C-0..C-12
+in the frontend audit report.
+
+## Conventions
 
 | Header | Required | Notes |
 |---|---|---|
-| `X-Request-Id` | yes (client always sends) | Echoed on responses |
-| `Idempotency-Key` | mutating POSTs | Same key returns cached 200 body |
+| `X-Request-Id` | yes (client always sends) | Echoed as `requestId` in bodies |
+| `Idempotency-Key` | mutating calls that send one | Same key returns the cached 2xx body |
 | `X-Api-Version` | yes | Always `v1` from `ApiClient` |
-| `Authorization` | optional | Bearer access token when present |
+| `Authorization` | optional | `Bearer <access>`; a 401 with a token triggers one refresh + retry |
 | `Content-Type` | JSON bodies | `application/json` |
+
+Responses are JSON `{code, requestId, ...}`; errors are `{code, message?}`
+with an HTTP status ≥ 400. Unknown paths answer `404 {code: NOT_FOUND}`.
+Times are RFC 3339 UTC. Money on new fields is integer minor units
+(`…Minor`, öre) with `currency: "SEK"`; `price` fields are legacy kronor.
 
 ## Routes
 
-### `GET /health`
+### Health
 
-```json
-{ "ok": true, "requestId": "…" }
-```
+- `GET /health` → `{ok: true}`
 
-### `POST /api/v1/quotes`
+### Auth
 
-Body: `{ rideType?, pickup?, destination?, … }`
+- `POST /api/v1/auth/otp/request` `{phone, linkToken?}` → `{sessionId, expiresAt, retryAfterSeconds}`; `400 INVALID_PHONE | INVALID_LINK`. The mock code is `1234`.
+- `POST /api/v1/auth/otp/verify` `{phone, sessionId, code}` → `{accessToken, refreshToken, isNewRider}`; `400 INVALID_OTP_SESSION`, `401 INVALID_OTP`, `410 OTP_EXPIRED`.
+- `POST /api/v1/auth/provider` `{provider}` → tokens, or `{code: PHONE_REQUIRED, linkToken}` the first time.
+- `POST /api/v1/auth/refresh` `{refreshToken}` → rotated `{accessToken, refreshToken}`; `401 INVALID_REFRESH`.
+- `POST /api/v1/auth/sign-out` → `{code: OK}`.
 
-Quote fields:
+### Account
 
-- `id` and `quoteId` are **identical**
-- `currency`: `SEK`
-- `expiresInSec`: `120` (also `expiresAt` ISO in Dart mock)
-- `totalMinor` / `amountMinor` from catalog prices
-- `breakdown`, `signedPayload: "mock-api"`
+- `GET /api/v1/account/security` → `{security}`.
+- `POST /api/v1/account/security/sessions/sign-out-others` → `{security}`; `403 REAUTH_REQUIRED` unless re-authenticated in the last 5 minutes.
+- `POST /api/v1/account/deletion` → `202 {status: scheduled}`.
+- `PATCH /api/v1/rider/profile` **PROPOSED** (FLOW-7) `{name, language, consents: {rideUpdates, emailUpdates, promotions}}` → `{profile}`; `422 INVALID_PROFILE` (name not a string or over 80 characters). Sent on every profile save; the device copy is a cache.
 
-Response: `{ "code": "OK", "quote": {…}, "requestId" }`
+### Push devices
 
-### `POST /api/v1/rides`
+- `POST /api/v1/push/devices` `{token, provider: "fcm", platform}` → `{status: registered}`; `400 INVALID_PUSH_DEVICE`.
+- `POST /api/v1/push/devices/unregister` `{token}` → `{status: unregistered}`.
 
-Creates an in-memory ride. Status `findingDriver`, or `bookingRequested` when
-`scheduledAt` is set.
+### Places and routes
 
-Response: `{ "code": "OK", "ride": { id, status, … }, "requestId" }`
+- `POST /api/v1/locations/reverse-geocode` `{latitude, longitude}` → `{data: {latitude, longitude, address}}`; `400 INVALID_COORDINATES`.
+- `POST /api/v1/locations/geocode` `{query}` → `{data: {address, latitude, longitude}}`; `400 INVALID_QUERY`.
+- `POST /api/v1/locations/autocomplete` `{query}` → `{suggestions: [...]}`.
+- `POST /api/v1/routes` `{from: {lat, lng}, to: {lat, lng}}` → `{points: [...], provider}`.
 
-### `GET /api/v1/rides/:id`
+### Catalog and promotions
 
-Returns the ride or `404 NOT_FOUND`.
+- `GET /api/v1/ride-types` → `{rideTypes: [{id, name, seats, etaMin, price, currency, description, badge, glyph, imageKey, order, enabled}]}` (`price` is the list price in kronor, display only).
+- `GET /api/v1/rider/promotions/active` → `{promotion}` (or `null`); display only, the discount is applied in the quote.
 
-### `POST /api/v1/rides/:id/cancel`
+### Quotes
 
-Sets `cancelledByRider`. Optional body `{ "reason": "…" }`.
-Idempotent if already cancelled. `404` if unknown id. (Contract, not mocked:
-`409` when the server refuses because the ride moved on, for example a driver
-accepted it first; Finding then commits nothing and resyncs.)
-Finding cancels first and asks for the reason afterwards, so a second call on
-an already-cancelled ride with a `reason` records that reason (when none is
-stored yet) and changes nothing else.
+- `POST /api/v1/quotes` `{rideType, pickup?, destination?, stops?, distanceMeters?, …}` → `{quote}` with `id` = `quoteId`, `rideType`, `totalMinor` = `amountMinor`, `currency`, `expiresAt` (2 minutes), `expiresInSec: 120`, `breakdown {baseMinor, distanceMinor, timeMinor, bookingFeeMinor, discountMinor}`, `signedPayload`.
 
-### `GET /api/v1/rides/:id/nearby`
+### Rides
 
-Returns mock vehicles near pickup lat/lng.
+- `POST /api/v1/rides` with `Idempotency-Key` `{categoryId, paymentMethodId, pickupAddress, pickupLat, pickupLng, destinationAddress, destinationLat, destinationLng, stops[], notes, price, quoteId, quoteSignedPayload, quoteExpiresAt, quoteTotalMinor, useWalletFirst?, walletAmountMinor?, scheduledAt?}` → `{ride}` with `id`, `status` (`findingDriver`, or `bookingRequested` with `scheduledAt`), `version: 1`, `updatedAt`, `searchStartedAt`, `maxOfferMinor`, … . `409 QUOTE_REQUIRED | QUOTE_NOT_FOUND | QUOTE_SIGNATURE_MISMATCH | QUOTE_EXPIRED | QUOTE_AMOUNT_MISMATCH | QUOTE_CATEGORY_MISMATCH`. A scheduled booking without a quote is still accepted by the mock (older contract), but the client no longer sends one (ARCH-16).
+- `GET /api/v1/rides/:id` → `{ride}` (the projection realtime polls); `404 NOT_FOUND`. A search past its expiry becomes `noDriverFound`.
+- `PATCH /api/v1/rides/:id` `{offerIncreaseKr}` while searching → `{ride}` with the server-priced fare (a client `price` is ignored, D-012); `409 RIDE_NOT_SEARCHING | OFFER_ABOVE_MAXIMUM`, `422 INVALID_OFFER`.
+- `PATCH /api/v1/rides/:id` `{routeChange: true, routeQuoteId, pickup…?, destination…, stops, paymentMethodId, refundTo?}` → `{ride, newPriceKr, differenceKr, stops}`; `409` with the denial code (pickup locked, finished, quote missing/expired/mismatched).
+- `POST /api/v1/rides/:id/route-quote` `{pickup…?, destination…, stops}` → `{routeQuoteId, expiresAt, newTotalMinor, differenceMinor, newPriceKr, differenceKr, …}`; `409` denial code; `404`.
+- `POST /api/v1/rides/:id/cancel` `{reason?}` → `{ride}` with `cancelledByRider`. Idempotent; a second call with a `reason` stores it when none is stored. `404` for an unknown id. (Contract, not mocked: `409` when the ride moved on first.)
+- `GET /api/v1/rides/:id/nearby` → `{vehicles: [{id, lat, lng, bearing}]}`.
+- `POST /api/v1/rides/:id/status` `{status, driver?, lat?, lng?}` → `{ride}`, bumping `version` (QA/realtime helper only; never called by app code).
+- `POST /api/v1/rides/:id/feedback` `{rating?, tipMinor?, currency}` → `{status: accepted}`; `409 RIDE_NOT_COMPLETE`, `400 INVALID_FEEDBACK`.
+- `POST /api/v1/rides/:id/disputes` `{reason, detail?}` → `{dispute}`; `400 INVALID_DISPUTE`.
 
-### `POST /api/v1/rides/:id/status`
+Realtime (`ApiRideRealtime`) polls `GET /api/v1/rides/:id` and reads, besides
+the projection, an optional envelope **PROPOSED** (C-6, ARCH-13):
+`eventId` (deduplicated), `serverTime` (server clock at answer time, used to
+judge location age), `etaSeconds`; ordering is by the projection's `version`.
+Three `404`s in a row end the ride as `cancelledBySystem`; failures back off.
 
-Updates status / driver / lat / lng (QA / realtime helper).
+### Trips (read models) — PROPOSED (ARCH-12, C-5)
 
-### `PATCH /api/v1/rides/:id`
+- `GET /api/v1/rider/trips/active` → `{trip}` (the live, non-scheduled ride projection) or `{trip: null}`. Release builds ask it on cold start and on a push tap when the device has no snapshot.
+- `GET /api/v1/rider/trips?cursor=` → `{trips: [projection + endedAt?], nextCursor}`; the mock returns one page of finished rides. Release History reads it.
 
-Price bump: `{ "price", "offerIncreaseKr?" }` → stays `findingDriver`.
+### Payments and wallet
 
-### `POST /api/v1/payments`
+- `POST /api/v1/payments` with `Idempotency-Key` `{amountMinor, currency: "SEK", purpose?, rideId?}` → `{intent: {id, status: "requires_confirmation", amountMinor, currency, purpose?, rideId?}}`; `400 INVALID_PAYMENT_INTENT`. `purpose` (`wallet_topup | ride | tip`) is **PROPOSED** (ARCH-6, C-10); wallet top-ups send `wallet_topup`.
+- `POST /api/v1/payments/:id/confirm` → `{status: "succeeded", intent}`; `404 PAYMENT_NOT_FOUND`.
+- `GET /api/v1/payments/:id` → `{status, intent}`; `404 PAYMENT_NOT_FOUND`.
+- `GET /api/v1/payment-methods` **PROPOSED** (ARCH-7, C-10) → `{methods: [{id, kind, label, detail?}], defaultMethodId}`.
+- `PATCH /api/v1/payment-methods/default` **PROPOSED** `{methodId}` → `{defaultMethodId}`; `422 INVALID_PAYMENT_METHOD`.
+- `POST /api/v1/wallet/topup` → `{status: succeeded, amountMinor}`. Present in the mock but **not called by the app**; a top-up is a payment intent with `purpose: wallet_topup`. A server wallet (`GET /api/v1/wallet`, C-10) does not exist yet, so release builds switch the wallet off.
 
-Mock payment intent `{ id, status: "succeeded", amountMinor }`.
+### Safety (`SafetyMockApi`)
 
-### `POST /api/v1/wallet/topup`
+- `GET/PATCH /api/v1/safety/preferences`
+- `GET /api/v1/safety/pin`, `POST /api/v1/safety/pin/rotate` (per-rider PIN; the ride-scoped `GET /rides/{id}/pin` in `docs/ride-pin-backend-contract.md` is still to come). PIN verification is a driver-app call and is not part of the rider mock (ARCH-22).
+- `GET/POST /api/v1/safety/contacts`, `PATCH/DELETE /api/v1/safety/contacts/:id`, `POST /api/v1/safety/contacts/:id/primary`
+- `POST/GET/PATCH/DELETE /api/v1/rides/:id/share`
+- `GET/PATCH /api/v1/safety/ridecheck/preferences`
+- `POST/GET /api/v1/rides/:id/safety-events`, `POST /api/v1/rides/:id/safety-events/:eventId/respond`
+- `POST /api/v1/rides/:id/safety-audio/init`, `POST /api/v1/rides/:id/safety-audio/:recordingId/complete`, `DELETE /api/v1/rides/:id/safety-audio/:recordingId`
 
-Mock top-up `{ status: "succeeded", amountMinor }`.
+### Telemetry (release builds only, not mocked)
 
-### Safety
+`HttpObservabilitySink` posts to `/api/v1/telemetry/logs`, `/analytics` and
+`/crashes`; demo/dev builds use no-op sinks, so the mock has no such routes.
 
-Unhandled `/api/v1/...` paths may be handled by `SafetyMockApi` /
-`backend/src/modules/safety.js` (share, contacts, ride-check, etc.).
+## Device-only data and release builds
+
+Release composition (`RepositoryComposition`, ARCH-7) only accepts
+server-backed repositories. Until the server side exists, staging/production
+switch off and fail closed: the wallet ledger, Book for later
+(reservations) and saved cards. Profile, payment methods, History and the
+active trip use the PROPOSED routes above.
 
 ## Intentional mocks
 

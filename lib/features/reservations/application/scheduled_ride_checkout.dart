@@ -36,7 +36,7 @@ class ScheduledRideCheckout {
       categoryName: ride.name,
       categoryImage: ride.image,
       passengerCount: ride.seats,
-      price: price ?? selection.priceFor(ride.id, ride.price),
+      price: price ?? ScheduledRideBooking.quotedPrice(selection, ride.id),
       paymentMethod: payment.name,
       note: note,
       parentReservationId: parentReservationId,

@@ -6,12 +6,10 @@ import 'package:movera_rider/app/config/env.dart';
 /// authoritative record of real money and must never be what a release
 /// build trusts.
 ///
-/// This is deliberately not wired into [AppScope]'s live composition yet:
-/// no server-backed [WalletBalanceSource] exists in this repo, so doing
-/// that today would make every production launch throw at startup instead
-/// of catching a real regression. It exists, and is tested, so that the
-/// day a real implementation lands, wiring this in is a one-line change
-/// with a guard already proven correct — see R-043 in the Batch 8 audit.
+/// Wired into `AppScope`'s composition (ARCH-6): release builds switch the
+/// wallet off (`FeatureFlags.release`) and compose a disabled ledger, so this
+/// passes; turning the flag on without a server-backed
+/// `WalletBalanceRepository` makes every release launch fail here.
 abstract final class WalletComposition {
   static void validate({
     required AppEnv environment,

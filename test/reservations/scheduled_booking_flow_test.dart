@@ -17,6 +17,8 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/scheduled_rides/application/stockholm_schedule.dart';
 import 'package:movera_rider/features/scheduled_rides/presentation/select_date_time.dart';
 
+import 'scheduled_quote_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -51,6 +53,7 @@ void main() {
     final ride = selection.rideById(rideId);
     selection.selectRide(ride.id, ride.price);
     selection.scheduleFor(when ?? DateTime(2026, 9, 23, 6, 55));
+    adoptScheduledQuote(selection, ride.id);
     return selection;
   }
 
@@ -280,6 +283,7 @@ void main() {
         origin.scheduledPickupAt.add(const Duration(hours: 3)),
       );
       returnSelection.selectRide('comfort', 339);
+      adoptScheduledQuote(returnSelection, 'comfort');
       expect(
         returnSelection.bookingMode.ctaLabel('Comfort'),
         'Schedule Comfort',

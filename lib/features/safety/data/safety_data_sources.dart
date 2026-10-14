@@ -211,11 +211,6 @@ abstract class SafetyRemoteDataSource {
   });
   Future<RidePin> getPin();
   Future<RidePin> rotatePin({String? idempotencyKey});
-  Future<PinVerifyResult> verifyPin({
-    required String rideId,
-    required String pin,
-    String? idempotencyKey,
-  });
   Future<List<EmergencyContact>> listContacts();
   Future<EmergencyContact> createContact(
     EmergencyContact contact, {
@@ -282,20 +277,6 @@ class ApiSafetyRemoteDataSource implements SafetyRemoteDataSource {
       idempotencyKey: idempotencyKey ?? newIdempotencyKey('safety-pin'),
     );
     return RidePin.fromJson(_map(json['pin'] ?? json));
-  }
-
-  @override
-  Future<PinVerifyResult> verifyPin({
-    required String rideId,
-    required String pin,
-    String? idempotencyKey,
-  }) async {
-    final json = await _api.post(
-      '/api/v1/rides/$rideId/pin/verify',
-      body: {'pin': pin},
-      idempotencyKey: idempotencyKey ?? newIdempotencyKey('safety-pin-verify'),
-    );
-    return PinVerifyResult.fromJson(json);
   }
 
   @override

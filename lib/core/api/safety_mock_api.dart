@@ -165,28 +165,8 @@ class SafetyMockApi {
       lastLoggedPin = null;
       return (status: 200, payload: {'code': 'OK', 'pin': pin});
     }
-    final verify = RegExp(r'^/api/v1/rides/([^/]+)/pin/verify$').firstMatch(path);
-    if (verify != null && method == 'POST') {
-      final rideId = verify.group(1)!;
-      final offered = '${body['pin'] ?? ''}';
-      final required = pin['required'] == true;
-      final valid = offered == pin['pin'];
-      if (required && !valid) {
-        return (
-          status: 409,
-          payload: {
-            'code': 'PIN_INVALID',
-            'valid': false,
-            'rideId': rideId,
-            'serverAuthoritative': false,
-          },
-        );
-      }
-      return (
-        status: 200,
-        payload: {'code': 'OK', 'valid': valid, 'rideId': rideId},
-      );
-    }
+    // ARCH-22: PIN verification is the driver app's call
+    // (docs/ride-pin-backend-contract.md section 3); the rider never verifies.
     if (path == '/api/v1/safety/contacts' && method == 'GET') {
       return (status: 200, payload: {'code': 'OK', 'contacts': contacts});
     }

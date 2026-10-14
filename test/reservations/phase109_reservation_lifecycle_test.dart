@@ -8,7 +8,10 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
+import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
@@ -78,11 +81,31 @@ void main() {
     );
   }
 
-  test('staging composition: zero behaviour change — never assigns, times '
-      'out into No driver found exactly as before', () async {
-    final scope = AppScope.composeForEnvironment(staging);
-    addTearDown(scope.disposeForTest);
-    final c = scope.reservations;
+  // ARCH-7: a staging/production composition has no server reservations
+  // yet, so Book for later is off there and nothing is booked on the device.
+  test(
+    'staging composition refuses to book for later on this device',
+    () async {
+      final scope = AppScope.composeForEnvironment(staging);
+      addTearDown(scope.disposeForTest);
+      await expectLater(
+        schedule(scope.reservations),
+        throwsA(isA<ReservationsUnavailableException>()),
+      );
+      expect(scope.reservations.all, isEmpty);
+    },
+  );
+
+  test('staging environment: never assigns, times out into No driver found '
+      'exactly as before', () async {
+    // The dispatch gate itself, with a repository that can store the ride:
+    // a non-mock environment ignores even an injected mock dispatcher.
+    final c = ReservationController(
+      store: LocalReservationRepository(storage: MemoryReservationStorage()),
+      environment: staging,
+      mockDispatch: MockReservationDispatch(),
+    );
+    addTearDown(c.dispose);
     final ride = await schedule(c);
     final id = ride.reservationId;
 

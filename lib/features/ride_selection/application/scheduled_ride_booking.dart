@@ -1,5 +1,6 @@
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
@@ -8,6 +9,24 @@ import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 class ScheduledRideBooking {
   static String ctaLabel(BookingMode mode, String categoryName) =>
       '${mode.ctaVerb} $categoryName';
+
+  /// ARCH-16: the price a scheduled ride is booked at is the server's
+  /// current quote for [categoryId], never the catalog list price. Throws
+  /// [ScheduledQuoteRequiredException] when the quote failed or expired, as
+  /// Book now refuses to book without one.
+  ///
+  /// A quote binding the price for the scheduled time (contract C-8) is
+  /// PROPOSED and needs backend agreement; until then the Book now quote
+  /// taken at booking time is the authoritative figure.
+  static double quotedPrice(
+    RideSelectionController selection,
+    String categoryId, {
+    DateTime? now,
+  }) {
+    final price = selection.authoritativePriceFor(categoryId, now: now);
+    if (price == null) throw ScheduledQuoteRequiredException(categoryId);
+    return price;
+  }
 
   static Future<Reservation> confirm({
     required ReservationController reservations,
@@ -32,7 +51,12 @@ class ScheduledRideBooking {
       throw StateError('scheduled booking needs an available payment method');
     }
     final dropoff = when.add(Duration(minutes: ride.etaMin));
-    final nextPrice = price ?? selection.priceFor(ride.id, ride.price);
+    final quoted = quotedPrice(selection, ride.id);
+    // A caller's price (the reviewed draft) must still be the quoted one.
+    if (price != null && (price * 100).round() != (quoted * 100).round()) {
+      throw ScheduledQuoteRequiredException(ride.id);
+    }
+    final nextPrice = quoted;
     if (editingReservationId != null) {
       return reservations.update(
         editingReservationId,

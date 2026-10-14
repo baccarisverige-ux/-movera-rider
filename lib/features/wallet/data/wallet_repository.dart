@@ -1,4 +1,8 @@
+import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_balance_repository.dart';
+
+export 'package:movera_rider/features/wallet/domain/wallet_balance_repository.dart';
 
 /// The wallet balance's source of truth.
 ///
@@ -119,4 +123,86 @@ class WalletStore implements WalletBalanceSource {
       await prefs.remove(key);
     }
   }
+}
+
+/// The device-local ledger behind [WalletStore] (demo/dev only). It is not
+/// `ServerBackedRepository`, so a release composition that exposes the
+/// wallet with it fails (ARCH-6).
+class LocalWalletRepository implements WalletBalanceRepository {
+  LocalWalletRepository([WalletBalanceSource? source])
+      : _source = source ?? WalletStore();
+
+  final WalletBalanceSource _source;
+
+  @override
+  bool get available => true;
+
+  @override
+  Future<double> loadBalance() => _source.loadBalance();
+
+  @override
+  Future<double> creditTopUp({
+    required String paymentIntentId,
+    required double previous,
+    required double amount,
+  }) async {
+    final next = previous + amount;
+    await _source.saveBalance(next);
+    return next;
+  }
+
+  @override
+  Future<double> debitRide({
+    String? rideId,
+    required double previous,
+    required double amount,
+  }) async {
+    final next = previous - amount;
+    await _source.saveBalance(next);
+    return next;
+  }
+
+  @override
+  Future<double> refund({
+    required double previous,
+    required double amount,
+  }) async {
+    final next = previous + amount;
+    await _source.saveBalance(next);
+    return next;
+  }
+}
+
+/// The wallet of a build where it is switched off: no balance, and every
+/// movement refused before any money moves. Release composes this until a
+/// server ledger exists.
+class DisabledWalletRepository
+    implements WalletBalanceRepository, FeatureOffRepository {
+  const DisabledWalletRepository();
+
+  @override
+  bool get available => false;
+
+  @override
+  Future<double> loadBalance() async => 0;
+
+  @override
+  Future<double> creditTopUp({
+    required String paymentIntentId,
+    required double previous,
+    required double amount,
+  }) => Future.error(const WalletUnavailableException());
+
+  @override
+  Future<double> debitRide({
+    String? rideId,
+    required double previous,
+    required double amount,
+  }) => Future.error(const WalletUnavailableException());
+
+  @override
+  Future<double> refund({
+    required double previous,
+    required double amount,
+  }) => Future.error(const WalletUnavailableException());
 }

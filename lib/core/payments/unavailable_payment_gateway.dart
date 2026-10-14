@@ -24,6 +24,8 @@ class UnavailablePaymentGateway implements PaymentGateway {
     required int amountMinor,
     required String currency,
     required String idempotencyKey,
+    PaymentPurpose? purpose,
+    String? rideId,
   }) async => _unavailable();
 
   @override

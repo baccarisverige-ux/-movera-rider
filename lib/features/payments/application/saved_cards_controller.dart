@@ -170,8 +170,11 @@ class SavedCardsController extends ChangeNotifier {
       expYear: expYear,
       holder: holder.trim(),
     );
-    _cards = [..._cards, card];
-    await _store.write(_cards);
+    // Stored first: a store that refuses (saved cards switched off in a
+    // release build, ARCH-7) must not leave the card listed in memory.
+    final next = [..._cards, card];
+    await _store.write(next);
+    _cards = next;
     notifyListeners();
     return card;
   }

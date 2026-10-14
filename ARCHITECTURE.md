@@ -65,6 +65,12 @@ These do **not** block local architecture completion:
 - Sentry / Crashlytics
 - separate Admin app
 
+Release builds also reject device-only rider repositories
+(`RepositoryComposition`): the wallet ledger, Book for later and saved cards
+are switched off in staging/production until their server side exists, and
+profile, payment methods, History and the active trip use the proposed
+server routes in `docs/API_V1_MOCK.md`.
+
 `InProcessMockClient` is the v1 mock contract. `backend/src/index.js` is a
 frozen, unused Node mock (see `backend/README.md`); only the phase74, phase78
 and phase80 CI workflows still boot it as a smoke target, so it is not a
