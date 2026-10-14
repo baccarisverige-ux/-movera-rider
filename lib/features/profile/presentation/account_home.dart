@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
@@ -15,11 +17,7 @@ import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class AccountHomePage extends StatefulWidget {
-  const AccountHomePage({
-    super.key,
-    this.controller,
-    this.securityController,
-  });
+  const AccountHomePage({super.key, this.controller, this.securityController});
 
   final ProfileController? controller;
   final AccountSecurityController? securityController;
@@ -69,10 +67,10 @@ class _AccountHomePageState extends State<AccountHomePage> {
     final email = security == null
         ? 'Server email unavailable'
         : security.email.trim().isEmpty
-            ? 'Email not added'
-            : security.emailVerified
-                ? '${security.email} · Verified'
-                : '${security.email} · Not verified';
+        ? 'Email not added'
+        : security.emailVerified
+        ? '${security.email} · Verified'
+        : '${security.email} · Not verified';
     final checkupComplete = security?.checkupComplete == true;
 
     return AccountScaffold(
@@ -95,10 +93,16 @@ class _AccountHomePageState extends State<AccountHomePage> {
                     CircleAvatar(
                       radius: 28,
                       backgroundColor: AppColor.liteBlue,
-                      backgroundImage: hasPhoto ? AssetImage(ride.photoAsset) : null,
+                      backgroundImage: hasPhoto
+                          ? AssetImage(ride.photoAsset)
+                          : null,
                       child: hasPhoto
                           ? null
-                          : const Icon(Icons.person_outline_rounded),
+                          : const AppIconAsset(
+                              AppAssets.solarUserRounded,
+                              size: 26,
+                              color: Color(0xFF2D5878),
+                            ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -126,7 +130,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountIcon(Icons.person_outline_rounded),
+                mark: const AccountIcon.asset(AppAssets.solarUserRounded),
                 title: 'Personal info',
                 body: 'Name, phone, email, language',
                 onTap: () => _open(
@@ -137,13 +141,13 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 ),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.verified_user_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarShieldCheck),
                 title: 'Security',
                 body: 'Passkeys, 2-step, devices',
                 onTap: () => _open(SecurityPage(securityController: _security)),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.lock_outline_rounded),
+                mark: const AccountIcon.asset(AppAssets.solarLock),
                 title: 'Privacy',
                 body: 'How Movera uses your data',
                 showDivider: false,
@@ -156,7 +160,7 @@ class _AccountHomePageState extends State<AccountHomePage> {
             AccountGroup(
               children: [
                 AccountTile(
-                  mark: const AccountIcon(Icons.task_alt_rounded),
+                  mark: const AccountIcon.asset(AppAssets.solarCheckCircle),
                   title: 'Finish your account',
                   body: security == null
                       ? 'Security status unavailable.'
@@ -176,25 +180,25 @@ class _AccountHomePageState extends State<AccountHomePage> {
           AccountGroup(
             children: [
               AccountTile(
-                mark: const AccountIcon(Icons.verified_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarShieldStar),
                 title: 'Safety',
                 body: 'Share a trip and reach help fast',
                 onTap: () => _open(const SafetyHub()),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.headset_mic_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarHeadphones),
                 title: 'Support',
                 body: 'Help with a ride or reservation',
                 onTap: () => _open(const SupportHome()),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.description_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarDocument),
                 title: 'Terms',
                 body: 'How Movera rides work',
                 onTap: () => _open(const AccountLegalPage(kind: 'terms')),
               ),
               AccountTile(
-                mark: const AccountIcon(Icons.privacy_tip_outlined),
+                mark: const AccountIcon.asset(AppAssets.solarInfoCircle),
                 title: 'Privacy notice',
                 body: 'What we keep and why',
                 showDivider: false,
@@ -202,7 +206,6 @@ class _AccountHomePageState extends State<AccountHomePage> {
               ),
             ],
           ),
-
         ],
       ),
     );

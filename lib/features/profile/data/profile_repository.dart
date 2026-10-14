@@ -38,9 +38,7 @@ class ProfileRepository {
         final loaded = RiderProfileData.fromJson(
           Map<String, dynamic>.from(decoded),
         );
-        final sanitized = _presentationOnly(
-          _sanitizeLegacyDemoProfile(loaded),
-        );
+        final sanitized = _presentationOnly(_sanitizeLegacyDemoProfile(loaded));
         _profile = sanitized;
         final persisted = _presentationJson(sanitized);
         if (!_sameProfile(loaded, sanitized) ||
@@ -49,7 +47,11 @@ class ProfileRepository {
         }
       }
     } catch (error, stackTrace) {
-      AppLog.error('profile.hydrate_failed', error: error, stackTrace: stackTrace);
+      AppLog.error(
+        'profile.hydrate_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -58,7 +60,10 @@ class ProfileRepository {
     _profile = sanitized;
     try {
       final prefs = await PreferencesStore.load();
-      await prefs.setString(storageKey, jsonEncode(_presentationJson(sanitized)));
+      await prefs.setString(
+        storageKey,
+        jsonEncode(_presentationJson(sanitized)),
+      );
     } catch (error, stackTrace) {
       AppLog.error('profile.save_failed', error: error, stackTrace: stackTrace);
       rethrow;
@@ -67,14 +72,14 @@ class ProfileRepository {
   }
 
   Map<String, dynamic> _presentationJson(RiderProfileData source) => {
-        'name': source.name,
-        'gender': source.gender,
-        'language': source.language,
-        'photoAsset': source.photoAsset,
-        'rideUpdates': source.rideUpdates,
-        'promotions': source.promotions,
-        'emailUpdates': source.emailUpdates,
-      };
+    'name': source.name,
+    'gender': source.gender,
+    'language': source.language,
+    'photoAsset': source.photoAsset,
+    'rideUpdates': source.rideUpdates,
+    'promotions': source.promotions,
+    'emailUpdates': source.emailUpdates,
+  };
 
   RiderProfileData _presentationOnly(RiderProfileData source) {
     return source.copyWith(
@@ -94,7 +99,8 @@ class ProfileRepository {
   RiderProfileData _sanitizeLegacyDemoProfile(RiderProfileData source) {
     final hasLegacyIdentitySeed =
         source.email == _legacyEmail && source.phone == _legacyPhone;
-    final hasLegacyLoginSeed = source.logins.length == 2 &&
+    final hasLegacyLoginSeed =
+        source.logins.length == 2 &&
         source.logins[0].device == 'This browser' &&
         source.logins[0].place == 'Stockholm, Sweden' &&
         source.logins[0].source == 'Movera Web' &&
@@ -109,7 +115,7 @@ class ProfileRepository {
       email: source.email == _legacyEmail ? '' : source.email,
       phone: source.phone == _legacyPhone ? '' : source.phone,
       gender: hasLegacyIdentitySeed && source.gender == 'Man'
-          ? 'Prefer not to say'
+          ? ''
           : source.gender,
       photoAsset: source.photoAsset == _legacyPhoto ? '' : source.photoAsset,
       passwordUpdatedAt: source.passwordUpdatedAt == DateTime(2025, 11, 4)

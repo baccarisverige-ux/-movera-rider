@@ -175,11 +175,10 @@ class RiderProfileData {
       name: '',
       email: '',
       phone: '',
-      gender: 'Prefer not to say',
+      gender: '',
       language: 'English',
       photoAsset: '',
       passwordUpdatedAt: DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
     );
   }
 }
-

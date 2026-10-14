@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -125,7 +127,7 @@ void main() {
     expect(c.profile.name, isEmpty);
     expect(c.profile.email, isEmpty);
     expect(c.profile.phone, isEmpty);
-    expect(c.profile.gender, 'Prefer not to say');
+    expect(c.profile.gender, '');
     expect(c.profile.photoAsset, isEmpty);
     expect(c.profile.appleConnected, isFalse);
     expect(c.profile.logins, isEmpty);
@@ -136,7 +138,7 @@ void main() {
     expect(persisted['name'], '');
     expect(persisted.containsKey('email'), isFalse);
     expect(persisted.containsKey('phone'), isFalse);
-    expect(persisted['gender'], 'Prefer not to say');
+    expect(persisted['gender'], '');
     expect(persisted['photoAsset'], '');
     expect(persisted.containsKey('appleConnected'), isFalse);
     expect(persisted.containsKey('logins'), isFalse);
@@ -176,7 +178,12 @@ void main() {
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline_rounded), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is AppIconAsset && w.asset == AppAssets.solarUserRounded,
+      ),
+      findsWidgets,
+    );
     expect(find.text('Add your name'), findsOneWidget);
     expect(find.text('rider@example.test · Verified'), findsOneWidget);
     expect(find.text('Name, phone, email, language'), findsOneWidget);

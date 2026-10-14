@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
 
@@ -64,16 +65,10 @@ class PremiumBottomNavItem extends StatelessWidget {
                   height: ResSize.h * 30,
                   width: ResSize.w * 30,
                   child: Center(
-                    child: Opacity(
-                      opacity: active ? 1 : 0.86,
-                      child: Image.asset(
-                        excludeFromSemantics: true,
-                        iconAsset,
-                        height: ResSize.h * 18.68,
-                        width: ResSize.w * 18.68,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                      ),
+                    child: AppIconAsset(
+                      iconAsset,
+                      size: ResSize.w * 22,
+                      color: color,
                     ),
                   ),
                 ),
@@ -85,9 +80,9 @@ class PremiumBottomNavItem extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    textScaler: MediaQuery.textScalerOf(context).clamp(
-                      maxScaleFactor: 1.2,
-                    ),
+                    textScaler: MediaQuery.textScalerOf(
+                      context,
+                    ).clamp(maxScaleFactor: 1.2),
                     style: TextStyle(
                       color: color,
                       fontSize: ResSize.setSp(9.5),

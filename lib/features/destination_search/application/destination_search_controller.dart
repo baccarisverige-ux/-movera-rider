@@ -29,8 +29,7 @@ class DestinationSearchController {
   Future<void> suggest(
     String query, {
     GeoPoint? near,
-    required void Function(String query, List<PlaceSuggestion> results)
-    onReady,
+    required void Function(String query, List<PlaceSuggestion> results) onReady,
   }) async {
     final generation = ++_suggestGeneration;
     final results = await _suggestions.suggest(query, near: near);

@@ -20,18 +20,26 @@ import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 /// picture tiles, six illustrated cards, then the account rows.
 /// Illustrations: unDraw (see assets/images/menu/README.md).
 class RiderMenuPage extends StatelessWidget {
-  const RiderMenuPage({super.key, this.onStartBooking});
+  const RiderMenuPage({super.key, this.onStartBooking, this.onSchedule});
 
-  /// Called when a menu page asks to go straight to booking (for example
-  /// Ride History's empty-state "Book a ride") instead of back to the menu.
+  /// Called when the rider wants to book from here (the Where to card, or
+  /// Ride History's empty-state "Book a ride"): the menu leaves first and
+  /// Home opens Where to.
   final VoidCallback? onStartBooking;
+
+  /// Called from the Later chip: the menu leaves and Home opens Book for
+  /// later.
+  final VoidCallback? onSchedule;
 
   static Future<void> open(
     BuildContext context, {
     VoidCallback? onStartBooking,
+    VoidCallback? onSchedule,
   }) {
     return Navigator.of(context).push(
-      RightToLeftTransition(RiderMenuPage(onStartBooking: onStartBooking)),
+      RightToLeftTransition(
+        RiderMenuPage(onStartBooking: onStartBooking, onSchedule: onSchedule),
+      ),
     );
   }
 
@@ -42,6 +50,7 @@ class RiderMenuPage extends StatelessWidget {
   static const Color _card = Color(0xFFF3F4F5);
   static const Color _avatarTint = Color(0xFFE6EAEE);
   static const Color _badge = Color(0xFFE8333B);
+  static const Color _line = Color(0xFFE7EBEE);
 
   static const String _art = 'assets/images/menu';
 
@@ -70,7 +79,9 @@ class RiderMenuPage extends StatelessWidget {
               _topBar(context),
               const SizedBox(height: 6),
               _profileHeader(),
-              const SizedBox(height: 22),
+              const SizedBox(height: 16),
+              _whereTo(context),
+              const SizedBox(height: 10),
               _walletCard(context),
               const SizedBox(height: 10),
               _tiles(context),
@@ -134,27 +145,29 @@ class RiderMenuPage extends StatelessWidget {
     final controller = AppScope.instance.profile;
     final profile = controller.profile;
     final hasPhoto = profile.photoAsset.trim().isNotEmpty;
+    final first = profile.name.trim().split(RegExp(r'\s+')).first;
+    final greeting = first.isEmpty ? controller.displayName() : 'Hi $first';
 
     return Row(
       children: [
         Expanded(
           child: Text(
-            controller.displayName(),
+            greeting,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: _text(
-              30,
+              26,
               weight: FontWeight.w700,
               height: 1.1,
-              letterSpacing: -0.8,
+              letterSpacing: -0.6,
             ),
           ),
         ),
         const SizedBox(width: 16),
         ClipOval(
           child: SizedBox(
-            width: 68,
-            height: 68,
+            width: 60,
+            height: 60,
             child: hasPhoto
                 ? Image.asset(
                     excludeFromSemantics: true,
@@ -163,11 +176,93 @@ class RiderMenuPage extends StatelessWidget {
                   )
                 : const ColoredBox(
                     color: _avatarTint,
-                    child: Icon(Icons.person_rounded, color: _muted, size: 34),
+                    child: Icon(Icons.person_rounded, color: _muted, size: 30),
                   ),
           ),
         ),
       ],
+    );
+  }
+
+  /// The Where to card: the search box (with the Later chip) and a picture.
+  /// Both leave the menu and continue on Home, like the Home sheet.
+  Widget _whereTo(BuildContext context) {
+    void go(VoidCallback? action) {
+      Navigator.of(context).pop();
+      action?.call();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              button: true,
+              label: 'Where to?',
+              child: Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => go(onStartBooking),
+                  child: Container(
+                    height: 52,
+                    padding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: _line),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search_rounded, size: 22, color: _ink),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Where to?',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _text(16, color: _muted),
+                          ),
+                        ),
+                        Semantics(
+                          button: true,
+                          label: 'Later',
+                          child: Material(
+                            color: _card,
+                            borderRadius: BorderRadius.circular(10),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: () => go(onSchedule),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  'Later',
+                                  style: _text(12, weight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _picture('navigation', width: 72, height: 56),
+        ],
+      ),
     );
   }
 
@@ -521,7 +616,7 @@ class RiderMenuPage extends StatelessWidget {
           const HelpArticle(
             title: 'About Movera',
             body:
-                'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
+                'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.',
           ),
         ),
       ),

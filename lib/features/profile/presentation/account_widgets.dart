@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -72,12 +73,20 @@ class AccountScaffold extends StatelessWidget {
 }
 
 class AccountIcon extends StatelessWidget {
-  const AccountIcon(this.icon, {super.key});
+  const AccountIcon(this.icon, {super.key}) : asset = null;
 
-  final IconData icon;
+  /// A Solar linear icon shipped as an SVG asset, same size and colour.
+  const AccountIcon.asset(this.asset, {super.key}) : icon = null;
+
+  final IconData? icon;
+  final String? asset;
 
   @override
   Widget build(BuildContext context) {
+    final asset = this.asset;
+    if (asset != null) {
+      return AppIconAsset(asset, size: 22, color: kAccountIcon);
+    }
     return Icon(icon, size: 22, color: kAccountIcon);
   }
 }

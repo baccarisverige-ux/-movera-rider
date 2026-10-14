@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -53,7 +54,7 @@ class SavedPlacesRow extends StatelessWidget {
       SizedBox(
         width: ResSize.w * 108,
         child: _QuickPlaceCard(
-          iconAsset: AppAssets.quickHome,
+          iconAsset: AppAssets.solarHome,
           title: 'Home',
           subtitle: homeAddress == null
               ? 'Set Home'
@@ -68,7 +69,7 @@ class SavedPlacesRow extends StatelessWidget {
       SizedBox(
         width: ResSize.w * 108,
         child: _QuickPlaceCard(
-          iconAsset: AppAssets.quickWork,
+          iconAsset: AppAssets.solarCase,
           title: 'Work',
           subtitle: workAddress == null
               ? 'Set Work'
@@ -83,7 +84,7 @@ class SavedPlacesRow extends StatelessWidget {
       SizedBox(
         width: ResSize.w * 108,
         child: _QuickPlaceCard(
-          iconAsset: AppAssets.quickAdd,
+          iconAsset: AppAssets.solarAdd,
           title: 'Add',
           subtitle: 'New place',
           onTap: onAddPlace,
@@ -128,6 +129,26 @@ class SavedPlacesRow extends StatelessWidget {
 
 /// Icon for a custom saved place, shared with every screen that lists one.
 IconData placeIconFor(String type) => _placeIcon(type);
+
+/// Solar linear icon for a saved-place type, matching the Home chips.
+String placeIconAssetFor(String type) {
+  switch (type) {
+    case 'gym':
+      return AppAssets.solarGym;
+    case 'mall':
+      return AppAssets.solarMall;
+    case 'school':
+      return AppAssets.solarSchool;
+    case 'airport':
+      return AppAssets.solarPlane;
+    case 'family':
+      return AppAssets.solarFamily;
+    case 'restaurant':
+      return AppAssets.solarRestaurant;
+    default:
+      return AppAssets.solarMapPoint;
+  }
+}
 
 /// Label for a custom saved place type ("gym" → "Gym").
 String placeLabelFor(String type) {
@@ -293,13 +314,10 @@ class _QuickPlaceCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Image.asset(
-                excludeFromSemantics: true,
+              AppIconAsset(
                 iconAsset,
-                height: ResSize.h * 12.3,
-                width: ResSize.w * 12.3,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
+                size: ResSize.w * 12.3,
+                color: const Color(0xFF1D252C),
               ),
               8.width,
               Expanded(

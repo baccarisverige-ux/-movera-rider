@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
@@ -118,13 +119,10 @@ class WhereToCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Image.asset(
-                            excludeFromSemantics: true,
-                            AppAssets.navSchedule,
-                            height: ResSize.h * 20.4,
-                            width: ResSize.w * 20.4,
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
+                          AppIconAsset(
+                            AppAssets.solarCalendar,
+                            size: ResSize.w * 18,
+                            color: _premiumInk,
                           ),
                           4.width,
                           TextWidget(

@@ -129,6 +129,19 @@ void main() {
     expect(find.text('Home body'), findsOneWidget);
   });
 
+  testWidgets('Where to and Later leave the menu and continue on Home', (
+    tester,
+  ) async {
+    var booked = 0;
+    await pumpHomeWithMenu(tester, onStartBooking: () => booked++);
+    expect(find.text('Where to?'), findsOneWidget);
+    await tester.tap(find.text('Where to?'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RiderMenuPage), findsNothing);
+    expect(find.text('Home body'), findsOneWidget);
+    expect(booked, 1);
+  });
+
   testWidgets('D-026: Ride History "Book a ride" asks to start a booking', (
     tester,
   ) async {
@@ -183,7 +196,7 @@ void main() {
     ).readAsStringSync();
     expect(
       home,
-      contains('onStartBooking: () => unawaited(_openDestinationSheet())'),
+      contains('onStartBooking: () => unawaited(_handleDestinationTap())'),
     );
   });
 

@@ -41,7 +41,9 @@ import 'package:movera_rider/shared/widgets/early_input_capture.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
-import 'package:movera_rider/features/home/presentation/widgets/comfort_ride_carousel.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.dart';
+import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_top_actions.dart';
@@ -165,8 +167,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     // set the shared notice; the web build's snapshot is gone before Flutter
     // starts, so it leaves a note in the session instead.
     final interrupted =
-        SearchInterruptedNotice.shared.take() |
-        takeWebSearchInterrupted();
+        SearchInterruptedNotice.shared.take() | takeWebSearchInterrupted();
     if (!interrupted) return;
     // Let the first frame settle so the messenger has a Scaffold to put this
     // in, and leave it up long enough to actually be read.
@@ -305,7 +306,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       setState(() {
         _pickupAddress = detected.address;
         _currentLatLng = target;
-          _locationCtl.clearOverlays();
+        _locationCtl.clearOverlays();
         _locationHeading = detected.heading;
       });
       await _prepareLocationPuckIcons();
@@ -503,10 +504,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         destinationPosition = destinationResult.point;
       } else {
         if (mounted) {
-          MoveraToast.show(
-            context,
-            'Choose a valid destination address.',
-          );
+          MoveraToast.show(context, 'Choose a valid destination address.');
         }
         return null;
       }
@@ -546,7 +544,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         _locationCtl.pauseLiveUpdates();
         AppScope.instance.mapLifecycle.park();
         AppScope.instance.maps.detach(owner: MapOwners.home);
-            // Let Flutter remove the platform map for one rendered frame before
+        // Let Flutter remove the platform map for one rendered frame before
         // the next map-heavy ride screen mounts.
         await WidgetsBinding.instance.endOfFrame;
         parkingWatch.stop();
@@ -679,7 +677,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }) async {
     // Book now always confirms pickup; GPS only prefills. The confirm step
     // is Set pickup, opened after Book on the categories screen.
-    final pickup = await _prefillPickup(selection.pickup, selection.pickupPoint);
+    final pickup = await _prefillPickup(
+      selection.pickup,
+      selection.pickupPoint,
+    );
     if (pickup == null || !mounted) return null;
     var destination = selection.destination;
     var destinationPoint = selection.destinationPoint;
@@ -845,9 +846,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Please choose a valid pickup and destination.',
-              ),
+              content: Text('Please choose a valid pickup and destination.'),
             ),
           );
         }
@@ -913,273 +912,273 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             disposables: [controller, focusNode],
             child: PointerInterceptor(
               child: StatefulBuilder(
-              builder: (context, setModalState) {
-                capture.onChanged = (value) {
-                  AppScope.instance.destinationSearch.type(value, (text) {
-                    if (!mounted) return;
-                    setModalState(() => query = text);
-                  });
-                };
-                final filteredRecent = _recentAddresses
-                    .where(
-                      (address) =>
-                          query.trim().isEmpty ||
-                          address.toLowerCase().contains(
-                            query.trim().toLowerCase(),
-                          ),
-                    )
-                    .take(6)
-                    .toList();
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                  ),
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.78,
+                builder: (context, setModalState) {
+                  capture.onChanged = (value) {
+                    AppScope.instance.destinationSearch.type(value, (text) {
+                      if (!mounted) return;
+                      setModalState(() => query = text);
+                    });
+                  };
+                  final filteredRecent = _recentAddresses
+                      .where(
+                        (address) =>
+                            query.trim().isEmpty ||
+                            address.toLowerCase().contains(
+                              query.trim().toLowerCase(),
+                            ),
+                      )
+                      .take(6)
+                      .toList();
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom,
                     ),
-                    padding: EdgeInsets.fromLTRB(
-                      ResSize.w * 18,
-                      ResSize.h * 11,
-                      ResSize.w * 18,
-                      ResSize.h * 20,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(30),
-                        topRight: Radius.circular(30),
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.78,
                       ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: ResSize.w * 42,
-                          height: ResSize.h * 4,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFCED4D8),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                      padding: EdgeInsets.fromLTRB(
+                        ResSize.w * 18,
+                        ResSize.h * 11,
+                        ResSize.w * 18,
+                        ResSize.h * 20,
+                      ),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(30),
+                          topRight: Radius.circular(30),
                         ),
-                        16.height,
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextWidget(
-                                text: _targetTitle(target, customType),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: ResSize.w * 42,
+                            height: ResSize.h * 4,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFCED4D8),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          16.height,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextWidget(
+                                  text: _targetTitle(target, customType),
+                                  color: _premiumInk,
+                                  fontSize: 18,
+                                  fontWeight: fwBold,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.pop(sheetContext),
+                                icon: const Icon(Icons.close_rounded),
                                 color: _premiumInk,
-                                fontSize: 18,
-                                fontWeight: fwBold,
+                                tooltip: 'Close',
+                              ),
+                            ],
+                          ),
+                          10.height,
+                          TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            autofocus: true,
+                            textInputAction: TextInputAction.search,
+                            onChanged: (value) {
+                              AppScope.instance.destinationSearch.type(value, (
+                                text,
+                              ) {
+                                if (!mounted) return;
+                                setModalState(() => query = text);
+                              });
+                            },
+                            onSubmitted: (value) {
+                              if (value.trim().isNotEmpty) {
+                                Navigator.pop(sheetContext, value.trim());
+                              }
+                            },
+                            style: TextStyle(
+                              color: _premiumInk,
+                              fontSize: ResSize.setSp(15),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search or enter an address',
+                              hintStyle: TextStyle(
+                                color: _premiumMuted.withValues(alpha: 0.72),
+                                fontSize: ResSize.setSp(14),
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search_rounded,
+                                color: _premiumInk.withValues(alpha: 0.72),
+                              ),
+                              suffixIcon: query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      onPressed: () {
+                                        controller.clear();
+                                        setModalState(() => query = '');
+                                      },
+                                      tooltip: 'Clear',
+                                      icon: const Icon(Icons.close_rounded),
+                                    ),
+                              filled: true,
+                              fillColor: const Color(0xFFF5F7F7),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: ResSize.w * 15,
+                                vertical: ResSize.h * 15,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(18),
+                                borderSide: BorderSide.none,
                               ),
                             ),
-                            IconButton(
-                              onPressed: () => Navigator.pop(sheetContext),
-                              icon: const Icon(Icons.close_rounded),
-                              color: _premiumInk,
-                              tooltip: 'Close',
+                          ),
+                          12.height,
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              // Save the real street address, never the
+                              // words "Current location".
+                              onTap: _placeOrNull(_pickupAddress) == null
+                                  ? null
+                                  : () => Navigator.pop(
+                                      sheetContext,
+                                      _placeOrNull(_pickupAddress),
+                                    ),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: ResSize.w * 13,
+                                  vertical: ResSize.h * 11,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _premiumAccentSoft.withValues(
+                                    alpha: 0.62,
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.my_location_rounded,
+                                      color: _premiumAccent,
+                                      size: ResSize.h * 20,
+                                    ),
+                                    11.width,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          TextWidget(
+                                            text: 'Use current location',
+                                            color: _premiumInk,
+                                            fontSize: 12.5,
+                                            fontWeight: fwSemiBold,
+                                          ),
+                                          2.height,
+                                          TextWidget(
+                                            text:
+                                                _placeOrNull(_pickupAddress) ==
+                                                    null
+                                                ? 'Finding your address…'
+                                                : _shortAddress(
+                                                    _pickupAddress,
+                                                    maxLength: 38,
+                                                  ),
+                                            color: _premiumMuted,
+                                            fontSize: 9,
+                                            fontWeight: fwNormal,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (filteredRecent.isNotEmpty) ...[
+                            16.height,
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextWidget(
+                                text: 'Recent addresses',
+                                color: _premiumMuted,
+                                fontSize: 10.5,
+                                fontWeight: fwSemiBold,
+                              ),
+                            ),
+                            6.height,
+                            Flexible(
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                physics: const BouncingScrollPhysics(),
+                                itemCount: filteredRecent.length,
+                                separatorBuilder: (_, __) => const Divider(
+                                  color: Color(0xFFE7EBEE),
+                                  height: 1,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final address = filteredRecent[index];
+                                  return ListTile(
+                                    dense: true,
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: ResSize.w * 4,
+                                    ),
+                                    leading: Icon(
+                                      Icons.history_rounded,
+                                      color: _premiumMuted,
+                                      size: ResSize.h * 20,
+                                    ),
+                                    title: TextWidget(
+                                      text: address,
+                                      color: _premiumInk,
+                                      fontSize: 11,
+                                      fontWeight: fwMedium,
+                                    ),
+                                    onTap: () =>
+                                        Navigator.pop(sheetContext, address),
+                                  );
+                                },
+                              ),
                             ),
                           ],
-                        ),
-                        10.height,
-                        TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          autofocus: true,
-                          textInputAction: TextInputAction.search,
-                          onChanged: (value) {
-                            AppScope.instance.destinationSearch.type(value, (
-                              text,
-                            ) {
-                              if (!mounted) return;
-                              setModalState(() => query = text);
-                            });
-                          },
-                          onSubmitted: (value) {
-                            if (value.trim().isNotEmpty) {
-                              Navigator.pop(sheetContext, value.trim());
-                            }
-                          },
-                          style: TextStyle(
-                            color: _premiumInk,
-                            fontSize: ResSize.setSp(15),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Search or enter an address',
-                            hintStyle: TextStyle(
-                              color: _premiumMuted.withValues(alpha: 0.72),
-                              fontSize: ResSize.setSp(14),
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: _premiumInk.withValues(alpha: 0.72),
-                            ),
-                            suffixIcon: query.isEmpty
-                                ? null
-                                : IconButton(
-                                    onPressed: () {
-                                      controller.clear();
-                                      setModalState(() => query = '');
-                                    },
-                                    tooltip: 'Clear',
-                                    icon: const Icon(Icons.close_rounded),
-                                  ),
-                            filled: true,
-                            fillColor: const Color(0xFFF5F7F7),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: ResSize.w * 15,
-                              vertical: ResSize.h * 15,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(18),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                        12.height,
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            // Save the real street address, never the
-                            // words "Current location".
-                            onTap: _placeOrNull(_pickupAddress) == null
-                                ? null
-                                : () => Navigator.pop(
-                                    sheetContext,
-                                    _placeOrNull(_pickupAddress),
-                                  ),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: ResSize.w * 13,
-                                vertical: ResSize.h * 11,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _premiumAccentSoft.withValues(
-                                  alpha: 0.62,
+                          if (query.trim().isNotEmpty) ...[
+                            14.height,
+                            Material(
+                              color: _premiumAccent,
+                              borderRadius: BorderRadius.circular(17),
+                              child: InkWell(
+                                onTap: () => Navigator.pop(
+                                  sheetContext,
+                                  controller.text.trim(),
                                 ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.my_location_rounded,
-                                    color: _premiumAccent,
-                                    size: ResSize.h * 20,
-                                  ),
-                                  11.width,
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        TextWidget(
-                                          text: 'Use current location',
-                                          color: _premiumInk,
-                                          fontSize: 12.5,
-                                          fontWeight: fwSemiBold,
-                                        ),
-                                        2.height,
-                                        TextWidget(
-                                          text:
-                                              _placeOrNull(_pickupAddress) ==
-                                                  null
-                                              ? 'Finding your address…'
-                                              : _shortAddress(
-                                                  _pickupAddress,
-                                                  maxLength: 38,
-                                                ),
-                                          color: _premiumMuted,
-                                          fontSize: 9,
-                                          fontWeight: fwNormal,
-                                        ),
-                                      ],
+                                borderRadius: BorderRadius.circular(17),
+                                child: SizedBox(
+                                  height: ResSize.h * 46,
+                                  width: double.infinity,
+                                  child: Center(
+                                    child: TextWidget(
+                                      text: 'Use this address',
+                                      color: Colors.white,
+                                      fontSize: 12.5,
+                                      fontWeight: fwSemiBold,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (filteredRecent.isNotEmpty) ...[
-                          16.height,
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextWidget(
-                              text: 'Recent addresses',
-                              color: _premiumMuted,
-                              fontSize: 10.5,
-                              fontWeight: fwSemiBold,
-                            ),
-                          ),
-                          6.height,
-                          Flexible(
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: filteredRecent.length,
-                              separatorBuilder: (_, __) => const Divider(
-                                color: Color(0xFFE7EBEE),
-                                height: 1,
-                              ),
-                              itemBuilder: (context, index) {
-                                final address = filteredRecent[index];
-                                return ListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: ResSize.w * 4,
-                                  ),
-                                  leading: Icon(
-                                    Icons.history_rounded,
-                                    color: _premiumMuted,
-                                    size: ResSize.h * 20,
-                                  ),
-                                  title: TextWidget(
-                                    text: address,
-                                    color: _premiumInk,
-                                    fontSize: 11,
-                                    fontWeight: fwMedium,
-                                  ),
-                                  onTap: () =>
-                                      Navigator.pop(sheetContext, address),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                        if (query.trim().isNotEmpty) ...[
-                          14.height,
-                          Material(
-                            color: _premiumAccent,
-                            borderRadius: BorderRadius.circular(17),
-                            child: InkWell(
-                              onTap: () => Navigator.pop(
-                                sheetContext,
-                                controller.text.trim(),
-                              ),
-                              borderRadius: BorderRadius.circular(17),
-                              child: SizedBox(
-                                height: ResSize.h * 46,
-                                width: double.infinity,
-                                child: Center(
-                                  child: TextWidget(
-                                    text: 'Use this address',
-                                    color: Colors.white,
-                                    fontSize: 12.5,
-                                    fontWeight: fwSemiBold,
-                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
             ),
           );
         },
@@ -1368,10 +1367,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       src,
       _webPuckCache.headingFor(bucket),
     );
-    if (icon != null && identical(
-      src,
-      expanded ? _puckExpandedImage : _puckCompactImage,
-    )) {
+    if (icon != null &&
+        identical(src, expanded ? _puckExpandedImage : _puckCompactImage)) {
       _webPuckCache.store(expanded: expanded, bucket: bucket, icon: icon);
     }
     return icon;
@@ -1612,9 +1609,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     _sheetCtl.close();
   }
 
-  void _toggleHomeSheet() => _sheetCtl.toggle(
-    expandedThreshold: ResSize.h * 8,
-  );
+  void _toggleHomeSheet() => _sheetCtl.toggle(expandedThreshold: ResSize.h * 8);
 
   /// Book for later: the same Where to as Book now, then the date and time,
   /// then the categories in scheduled mode (Set pickup comes after Schedule).
@@ -1622,12 +1617,35 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     await _showRouteAddressPicker(initialField: 'destination', scheduled: true);
   }
 
-  void _openPayment() {
-    unawaited(_withParkedHomeMap(() {
-      return Navigator.of(context).push(
-        RightToLeftTransition(const WalletAndPaymentsScreen(initialTab: 1)),
-      );
-    }));
+  void _openPayment() => _openTab(HomeTabs.payment);
+
+  /// Opens a bottom-bar tab over Home. A horizontal swipe on that page
+  /// hands back the neighbouring tab's index, so the rider can slide
+  /// Home → Payment → Schedule ride → Account and back without tapping.
+  void _openTab(int first) {
+    unawaited(
+      _withParkedHomeMap<void>(() async {
+        var current = HomeTabs.home;
+        int? next = first;
+        while (next != null && next != HomeTabs.home && mounted) {
+          final forward = next > current;
+          current = next;
+          if (next == HomeTabs.schedule) {
+            await _openSchedule();
+            return;
+          }
+          final page = HomeTabPage(
+            tab: next,
+            child: next == HomeTabs.payment
+                ? const WalletAndPaymentsScreen(initialTab: 1)
+                : const AccountHomePage(),
+          );
+          next = await Navigator.of(context).push<int>(
+            forward ? RightToLeftTransition(page) : LeftToRightTransition(page),
+          );
+        }
+      }),
+    );
   }
 
   /// The full-screen menu, with Home's map parked underneath like the
@@ -1637,21 +1655,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       _withParkedHomeMap(() {
         return RiderMenuPage.open(
           context,
-          onStartBooking: () => unawaited(_openDestinationSheet()),
+          onStartBooking: () => unawaited(_handleDestinationTap()),
+          onSchedule: () => unawaited(_openSchedule()),
         );
       }),
     );
   }
 
-  void _openAccount() {
-    unawaited(
-      _withParkedHomeMap(() {
-        return Navigator.of(
-          context,
-        ).push(RightToLeftTransition(const AccountHomePage()));
-      }),
-    );
-  }
+  void _openAccount() => _openTab(HomeTabs.account);
 
   @override
   Widget build(BuildContext context) {
@@ -1668,241 +1679,245 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         }
       },
       child: Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFEEF1E8),
-      extendBody: true,
-      body: FocusTraversalGroup(
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => _cancelSheetIdleTimer(),
-        onPointerUp: (_) => _scheduleSheetIdleClose(),
-        onPointerCancel: (_) => _scheduleSheetIdleClose(),
-        child: Stack(
-          children: [
-            SizedBox(
-              height: viewportHeight,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: RepaintBoundary(
-                      child: HomeMapLayer(
-                        location: _locationCtl,
-                        parked: _mapParked,
-                        padding: EdgeInsets.only(bottom: _sheetMinPixels),
-                        initialPosition: _initialPosition,
-                        mapStyle: homeMapStyle,
-                        onCameraMove: _handleMapCameraMove,
-                        onMapCreated: (GoogleMapController controller) {
-                          AppScope.instance.maps.attach(
-                            controller,
-                            owner: MapOwners.home,
-                          );
-                          AppScope.instance.mapLifecycle.created();
-                          final target = _currentLatLng ?? _cameraHint;
-                          if (target != null) {
-                            AppScope.instance.maps.animateCamera(
-                              GeoPoint(target.latitude, target.longitude),
-                              zoom: 15,
-                            );
-                          }
-                        },
+        key: _scaffoldKey,
+        backgroundColor: const Color(0xFFEEF1E8),
+        extendBody: true,
+        body: FocusTraversalGroup(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => _cancelSheetIdleTimer(),
+            onPointerUp: (_) => _scheduleSheetIdleClose(),
+            onPointerCancel: (_) => _scheduleSheetIdleClose(),
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: viewportHeight,
+                  width: double.infinity,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: RepaintBoundary(
+                          child: HomeMapLayer(
+                            location: _locationCtl,
+                            parked: _mapParked,
+                            padding: EdgeInsets.only(bottom: _sheetMinPixels),
+                            initialPosition: _initialPosition,
+                            mapStyle: homeMapStyle,
+                            onCameraMove: _handleMapCameraMove,
+                            onMapCreated: (GoogleMapController controller) {
+                              AppScope.instance.maps.attach(
+                                controller,
+                                owner: MapOwners.home,
+                              );
+                              AppScope.instance.mapLifecycle.created();
+                              final target = _currentLatLng ?? _cameraHint;
+                              if (target != null) {
+                                AppScope.instance.maps.animateCamera(
+                                  GeoPoint(target.latitude, target.longitude),
+                                  zoom: 15,
+                                );
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  if (_showRecenterButton && _currentLatLng != null)
-                    Positioned(
-                      right: ResSize.w * 18,
-                      bottom: _sheetMinPixels + ResSize.h * 14,
-                      child: PointerInterceptor(
-                        child: Tooltip(
-                          message: 'Recenter map on your location',
-                          child: Semantics(
-                            button: true,
-                            label: 'Recenter map on your location',
-                            child: Material(
-                              color: Colors.white,
-                              shape: const CircleBorder(),
-                              elevation: 8,
-                              shadowColor: Colors.black26,
-                              child: InkWell(
-                                onTap: _recenterOnUser,
-                                customBorder: const CircleBorder(),
-                                child: const SizedBox(
-                                  width: 48,
-                                  height: 48,
-                                  child: Icon(
-                                    Icons.near_me_outlined,
-                                    color: _premiumInk,
-                                    size: 22,
+                      if (_showRecenterButton && _currentLatLng != null)
+                        Positioned(
+                          right: ResSize.w * 18,
+                          bottom: _sheetMinPixels + ResSize.h * 14,
+                          child: PointerInterceptor(
+                            child: Tooltip(
+                              message: 'Recenter map on your location',
+                              child: Semantics(
+                                button: true,
+                                label: 'Recenter map on your location',
+                                child: Material(
+                                  color: Colors.white,
+                                  shape: const CircleBorder(),
+                                  elevation: 8,
+                                  shadowColor: Colors.black26,
+                                  child: InkWell(
+                                    onTap: _recenterOnUser,
+                                    customBorder: const CircleBorder(),
+                                    child: const SizedBox(
+                                      width: 48,
+                                      height: 48,
+                                      child: Icon(
+                                        Icons.near_me_outlined,
+                                        color: _premiumInk,
+                                        size: 22,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  if (_destinationSheetOpen)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
-                          child: Container(
-                            color: AppColor.white.withValues(alpha: 0.05),
+                      if (_destinationSheetOpen)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: 1.4,
+                                sigmaY: 1.4,
+                              ),
+                              child: Container(
+                                color: AppColor.white.withValues(alpha: 0.05),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  Positioned(
-                    left: screenHorizPadding,
-                    top: ResSize.h * 60,
-                    child: HomeReservationChrono(
-                      onRebook: () => unawaited(_openSchedule()),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        screenHorizPadding,
-                        ResSize.h * 50,
-                        screenHorizPadding,
-                        0,
-                      ),
-                      child: Align(
-                        alignment: Alignment.topRight,
-                        child: Builder(
-                          builder: (drawerContext) => PremiumTopActions(
-                            onMenuTap: _openMenu,
-                            onAccountTap: _openAccount,
-                          ),
+                      Positioned(
+                        left: screenHorizPadding,
+                        top: ResSize.h * 60,
+                        child: HomeReservationChrono(
+                          onRebook: () => unawaited(_openSchedule()),
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SheetViewport(
-              child: Builder(
-                builder: (context) {
-                  // These four pieces never depend on the drag animation
-                  // itself - only on state that changes via setState (the
-                  // destination/saved-places data, not the sheet offset).
-                  // Building them once per real rebuild, instead of inside
-                  // the AnimatedBuilder's per-frame builder below, avoids
-                  // reconstructing this subtree on every drag tick.
-                  final premiumToggleHandle = Semantics(
-                    button: true,
-                    label: 'Toggle home panel',
-                    child: Tooltip(
-                      message: 'Toggle home panel',
-                      child: InkWell(
-                        onTap: _toggleHomeSheet,
-                        borderRadius: BorderRadius.circular(14),
-                        child: SizedBox(
-                          width: 48,
-                          height: 32,
-                          child: Center(
-                            child: Container(
-                              width: ResSize.w * 42,
-                              height: ResSize.h * 4,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFCED4D8),
-                                borderRadius: BorderRadius.circular(11),
+                      Positioned.fill(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            screenHorizPadding,
+                            ResSize.h * 50,
+                            screenHorizPadding,
+                            0,
+                          ),
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: Builder(
+                              builder: (drawerContext) => PremiumTopActions(
+                                onMenuTap: _openMenu,
+                                onAccountTap: _openAccount,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                  final premiumWhereToCard = WhereToCard(
-                    destinationAddress: _destinationAddress,
-                    onDestinationTap: _handleDestinationTap,
-                    onOpenSchedule: _openSchedule,
-                  );
-                  Widget premiumSavedPlacesContent(double reveal) => Column(
-                    children: [
-                      15.height,
-                      SavedPlacesRow(
-                        homeAddress: _placeOrNull(_homeAddress),
-                        workAddress: _placeOrNull(_workAddress),
-                        savedPlaces: _savedPlaces,
-                        reveal: reveal,
-                        onUseSavedPlace: _useSavedPlaceAsDestination,
-                        onEditSavedPlace: _editSavedPlace,
-                        onAddPlace: _openAddPlacePicker,
-                      ),
                     ],
-                  );
-                  final premiumDetailContent = Column(
-                    children: [
-                      AdvanceBookingCard(onOpenSchedule: _openSchedule),
-                      14.height,
-                      ComfortRideCarousel(
+                  ),
+                ),
+                SheetViewport(
+                  child: Builder(
+                    builder: (context) {
+                      // These four pieces never depend on the drag animation
+                      // itself - only on state that changes via setState (the
+                      // destination/saved-places data, not the sheet offset).
+                      // Building them once per real rebuild, instead of inside
+                      // the AnimatedBuilder's per-frame builder below, avoids
+                      // reconstructing this subtree on every drag tick.
+                      final premiumToggleHandle = Semantics(
+                        button: true,
+                        label: 'Toggle home panel',
+                        child: Tooltip(
+                          message: 'Toggle home panel',
+                          child: InkWell(
+                            onTap: _toggleHomeSheet,
+                            borderRadius: BorderRadius.circular(14),
+                            child: SizedBox(
+                              width: 48,
+                              height: 32,
+                              child: Center(
+                                child: Container(
+                                  width: ResSize.w * 42,
+                                  height: ResSize.h * 4,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFCED4D8),
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                      final premiumWhereToCard = WhereToCard(
+                        destinationAddress: _destinationAddress,
                         onDestinationTap: _handleDestinationTap,
                         onOpenSchedule: _openSchedule,
-                      ),
-                    ],
-                  );
-                  return Sheet(
-                    controller: _homeSheetController,
-                    initialOffset: SheetOffset.absolute(_sheetMinPixels),
-                    physics: MoveraSheetMotion.physics,
-                    snapGrid: SheetSnapGrid(
-                      snaps: [
-                        SheetOffset.absolute(_sheetMinPixels),
-                        if (!_skipMiddleSnap)
-                          SheetOffset.absolute(_sheetMidPixels),
-                        const SheetOffset(1),
-                      ],
-                      minFlingSpeed: 520,
-                    ),
-                    scrollConfiguration: SheetScrollConfiguration.disabled,
-                    child: PointerInterceptor(
-                      child: SizedBox(
-                        height: fullSheetPixels,
-                        width: double.infinity,
-                        child: AnimatedBuilder(
-                          animation: _homeSheetController,
-                          builder: (context, child) {
-                            final sheetHeight = _homeSheetController.hasClient
-                                ? (_homeSheetController.metrics?.offset ??
-                                      _sheetMinPixels)
-                                : _sheetMinPixels;
-                            final sheetProgress =
-                                ((sheetHeight - _sheetMinPixels) /
-                                        (_sheetMidPixels - _sheetMinPixels))
-                                    .clamp(0.0, 1.0);
-                            final rawDetailProgress =
-                                ((sheetHeight - _sheetMidPixels) /
-                                        (fullSheetPixels - _sheetMidPixels))
-                                    .clamp(0.0, 1.0);
-                            final detailProgress = Curves.easeInCubic
-                                .transform(rawDetailProgress);
-                            return _premiumCollapsedSheet(
-                              sheetProgress,
-                              detailProgress,
-                              sheetHeight,
-                              toggleHandle: premiumToggleHandle,
-                              whereToCard: premiumWhereToCard,
-                              savedPlacesContent: premiumSavedPlacesContent,
-                              detailContent: premiumDetailContent,
-                            );
-                          },
+                      );
+                      Widget premiumSavedPlacesContent(double reveal) => Column(
+                        children: [
+                          15.height,
+                          SavedPlacesRow(
+                            homeAddress: _placeOrNull(_homeAddress),
+                            workAddress: _placeOrNull(_workAddress),
+                            savedPlaces: _savedPlaces,
+                            reveal: reveal,
+                            onUseSavedPlace: _useSavedPlaceAsDestination,
+                            onEditSavedPlace: _editSavedPlace,
+                            onAddPlace: _openAddPlacePicker,
+                          ),
+                        ],
+                      );
+                      final premiumDetailContent = Column(
+                        children: [
+                          AdvanceBookingCard(onOpenSchedule: _openSchedule),
+                          12.height,
+                          HomeJourneySection(
+                            onDestinationTap: _handleDestinationTap,
+                            onOpenSchedule: _openSchedule,
+                          ),
+                        ],
+                      );
+                      return Sheet(
+                        controller: _homeSheetController,
+                        initialOffset: SheetOffset.absolute(_sheetMinPixels),
+                        physics: MoveraSheetMotion.physics,
+                        snapGrid: SheetSnapGrid(
+                          snaps: [
+                            SheetOffset.absolute(_sheetMinPixels),
+                            if (!_skipMiddleSnap)
+                              SheetOffset.absolute(_sheetMidPixels),
+                            const SheetOffset(1),
+                          ],
+                          minFlingSpeed: 520,
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                        scrollConfiguration: SheetScrollConfiguration.disabled,
+                        child: PointerInterceptor(
+                          child: SizedBox(
+                            height: fullSheetPixels,
+                            width: double.infinity,
+                            child: AnimatedBuilder(
+                              animation: _homeSheetController,
+                              builder: (context, child) {
+                                final sheetHeight =
+                                    _homeSheetController.hasClient
+                                    ? (_homeSheetController.metrics?.offset ??
+                                          _sheetMinPixels)
+                                    : _sheetMinPixels;
+                                final sheetProgress =
+                                    ((sheetHeight - _sheetMinPixels) /
+                                            (_sheetMidPixels - _sheetMinPixels))
+                                        .clamp(0.0, 1.0);
+                                final rawDetailProgress =
+                                    ((sheetHeight - _sheetMidPixels) /
+                                            (fullSheetPixels - _sheetMidPixels))
+                                        .clamp(0.0, 1.0);
+                                final detailProgress = Curves.easeInCubic
+                                    .transform(rawDetailProgress);
+                                return _premiumCollapsedSheet(
+                                  sheetProgress,
+                                  detailProgress,
+                                  sheetHeight,
+                                  toggleHandle: premiumToggleHandle,
+                                  whereToCard: premiumWhereToCard,
+                                  savedPlacesContent: premiumSavedPlacesContent,
+                                  detailContent: premiumDetailContent,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
           ),
         ),
       ),
-    ),
     );
   }
 
@@ -1932,157 +1947,165 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           topRight: Radius.circular(34),
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                ResSize.w * 18,
-                ResSize.h * 11,
-                ResSize.w * 18,
-                ResSize.h * 7,
-              ),
-              child: Column(
-                children: [
-                  toggleHandle,
-                  12.height,
-                  if (promotion != null)
-                    IgnorePointer(
-                      ignoring: ticketVisible < 0.6,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        heightFactor: ticketVisible,
-                        child: Opacity(
-                          opacity: ticketVisible,
-                          child: Transform.translate(
-                            offset: Offset(0, -10 * (1 - ticketVisible)),
-                            child: Padding(
-                              padding: EdgeInsets.only(bottom: ResSize.h * 10),
-                              child: PromotionTicket(promotion: promotion),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  whereToCard,
-                  IgnorePointer(
-                    ignoring: sheetProgress < 0.92,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      heightFactor: sheetProgress,
-                      child: savedPlacesContent(placesReveal),
-                    ),
-                  ),
-                  IgnorePointer(
-                    ignoring: detailProgress < 0.92,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      heightFactor: detailProgress,
-                      child: Opacity(
-                        opacity: detailReveal,
-                        child: Transform.translate(
-                          offset: Offset(0, 12 * (1 - detailReveal)),
-                          child: Padding(
-                            padding: EdgeInsets.only(top: ResSize.h * 24),
-                            child: detailContent,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
-              right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
-              top: sheetHeight - ResSize.h * (63 + (30 * (1 - sheetProgress))),
-              child: Transform.scale(
-                scale: 0.84 + (0.16 * sheetProgress),
-                alignment: Alignment.bottomCenter,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: ResSize.w * (4 * (1 - sheetProgress)),
-                    vertical: ResSize.h * (5 * (1 - sheetProgress)),
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColor.white,
-                    borderRadius: BorderRadius.circular(
-                      32 * (1 - sheetProgress),
-                    ),
-                    border: Border.all(
-                      color: _premiumLine.withValues(alpha: 1 - sheetProgress),
-                      width: 0.8,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: 0.14 * (1 - sheetProgress),
-                        ),
-                        blurRadius: 28 * (1 - sheetProgress),
-                        offset: Offset(0, 10 * (1 - sheetProgress)),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Opacity(
-                        opacity: sheetProgress,
-                        child: const Divider(
-                          color: Color(0xFFE7EBEE),
-                          thickness: 0.8,
-                          height: 1,
-                        ),
-                      ),
-                      SizedBox(height: ResSize.h * (9 * sheetProgress)),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navMap,
-                              label: 'Map',
-                              active: true,
-                              floatingFraction: 1 - sheetProgress,
-                              onTap: () => _animateHomeSheetTo(
-                                SheetOffset.absolute(_sheetMinPixels),
+      child: HorizontalSwipe(
+        onSwipeLeft: _openPayment,
+        child: SafeArea(
+          top: false,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  ResSize.w * 18,
+                  ResSize.h * 11,
+                  ResSize.w * 18,
+                  ResSize.h * 7,
+                ),
+                child: Column(
+                  children: [
+                    toggleHandle,
+                    12.height,
+                    if (promotion != null)
+                      IgnorePointer(
+                        ignoring: ticketVisible < 0.6,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          heightFactor: ticketVisible,
+                          child: Opacity(
+                            opacity: ticketVisible,
+                            child: Transform.translate(
+                              offset: Offset(0, -10 * (1 - ticketVisible)),
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: ResSize.h * 10,
+                                ),
+                                child: PromotionTicket(promotion: promotion),
                               ),
                             ),
                           ),
-                          Expanded(
-                            child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navPayment,
-                              label: 'Payment',
-                              floatingFraction: 1 - sheetProgress,
-                              onTap: _openPayment,
-                            ),
-                          ),
-                          Expanded(
-                            child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navSchedule,
-                              label: 'Schedule ride',
-                              floatingFraction: 1 - sheetProgress,
-                              onTap: _openSchedule,
-                            ),
-                          ),
-                          Expanded(
-                            child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navAccount,
-                              label: 'Account',
-                              floatingFraction: 1 - sheetProgress,
-                              onTap: _openAccount,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ],
+                    whereToCard,
+                    IgnorePointer(
+                      ignoring: sheetProgress < 0.92,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        heightFactor: sheetProgress,
+                        child: savedPlacesContent(placesReveal),
+                      ),
+                    ),
+                    IgnorePointer(
+                      ignoring: detailProgress < 0.92,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        heightFactor: detailProgress,
+                        child: Opacity(
+                          opacity: detailReveal,
+                          child: Transform.translate(
+                            offset: Offset(0, 12 * (1 - detailReveal)),
+                            child: Padding(
+                              padding: EdgeInsets.only(top: ResSize.h * 24),
+                              child: detailContent,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
+                right: ResSize.w * (18 + (12 * (1 - sheetProgress))),
+                top:
+                    sheetHeight - ResSize.h * (63 + (30 * (1 - sheetProgress))),
+                child: Transform.scale(
+                  scale: 0.84 + (0.16 * sheetProgress),
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ResSize.w * (4 * (1 - sheetProgress)),
+                      vertical: ResSize.h * (5 * (1 - sheetProgress)),
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColor.white,
+                      borderRadius: BorderRadius.circular(
+                        32 * (1 - sheetProgress),
+                      ),
+                      border: Border.all(
+                        color: _premiumLine.withValues(
+                          alpha: 1 - sheetProgress,
+                        ),
+                        width: 0.8,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: 0.14 * (1 - sheetProgress),
+                          ),
+                          blurRadius: 28 * (1 - sheetProgress),
+                          offset: Offset(0, 10 * (1 - sheetProgress)),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Opacity(
+                          opacity: sheetProgress,
+                          child: const Divider(
+                            color: Color(0xFFE7EBEE),
+                            thickness: 0.8,
+                            height: 1,
+                          ),
+                        ),
+                        SizedBox(height: ResSize.h * (9 * sheetProgress)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: PremiumBottomNavItem(
+                                iconAsset: AppAssets.solarHome,
+                                label: 'Home',
+                                active: true,
+                                floatingFraction: 1 - sheetProgress,
+                                onTap: () => _animateHomeSheetTo(
+                                  SheetOffset.absolute(_sheetMinPixels),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: PremiumBottomNavItem(
+                                iconAsset: AppAssets.solarWallet,
+                                label: 'Payment',
+                                floatingFraction: 1 - sheetProgress,
+                                onTap: _openPayment,
+                              ),
+                            ),
+                            Expanded(
+                              child: PremiumBottomNavItem(
+                                iconAsset: AppAssets.solarCalendar,
+                                label: 'Schedule ride',
+                                floatingFraction: 1 - sheetProgress,
+                                onTap: _openSchedule,
+                              ),
+                            ),
+                            Expanded(
+                              child: PremiumBottomNavItem(
+                                iconAsset: AppAssets.solarUser,
+                                label: 'Account',
+                                floatingFraction: 1 - sheetProgress,
+                                onTap: _openAccount,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

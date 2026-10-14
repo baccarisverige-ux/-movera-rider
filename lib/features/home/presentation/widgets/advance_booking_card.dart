@@ -27,7 +27,7 @@ class AdvanceBookingCard extends StatelessWidget {
           ResSize.w * 12,
           ResSize.h * 12,
           ResSize.w * 12,
-          ResSize.h * 15,
+          ResSize.h * 12,
         ),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFA),
@@ -47,7 +47,7 @@ class AdvanceBookingCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               child: SizedBox(
                 width: double.infinity,
-                height: ResSize.h * 142,
+                height: ResSize.h * 88,
                 child: Image.asset(
                   excludeFromSemantics: true,
                   'assets/images/advance_booking_driver.webp',
@@ -58,28 +58,28 @@ class AdvanceBookingCard extends StatelessWidget {
                 ),
               ),
             ),
-            15.height,
+            8.height,
             TextWidget(
               text: 'Plan ahead. Ride on time.',
               color: _premiumInk,
-              fontSize: 17,
+              fontSize: 15.5,
               fontWeight: fwBold,
             ),
-            7.height,
+            4.height,
             Padding(
               padding: EdgeInsets.symmetric(horizontal: ResSize.w * 8),
               child: TextWidget(
                 text:
                     'Book your ride in advance and we’ll help arrange a driver for the time you choose.',
                 color: _premiumMuted,
-                fontSize: 11.5,
+                fontSize: 11,
                 fontWeight: fwNormal,
                 textAlign: TextAlign.center,
               ),
             ),
-            14.height,
+            8.height,
             Container(
-              height: ResSize.h * 42,
+              height: ResSize.h * 38,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: _premiumAccent,
