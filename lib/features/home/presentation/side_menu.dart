@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
@@ -657,6 +659,12 @@ class RiderMenuPage extends StatelessWidget {
                 'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.',
           ),
         ),
+      ),
+      (
+        AppAssets.solarArrowLeft,
+        'Sign out',
+        'Remove your data from this device',
+        () => unawaited(confirmAndSignOut(context)),
       ),
     ];
     return [for (final row in rows) _accountRow(row)];

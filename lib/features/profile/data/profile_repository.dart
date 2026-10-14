@@ -55,6 +55,13 @@ class ProfileRepository {
     }
   }
 
+  /// Forgets the signed-out rider's profile in memory (UserDataWipe removes
+  /// the stored copy). The next [hydrate] reads storage again.
+  void clearLocal() {
+    _profile = RiderProfileData.defaults();
+    _hydrated = false;
+  }
+
   Future<RiderProfileData> save(RiderProfileData next) async {
     final sanitized = _presentationOnly(next);
     _profile = sanitized;
