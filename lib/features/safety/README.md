@@ -47,4 +47,4 @@ DELETE     /api/v1/rides/{rideId}/safety-audio/{recordingId}
 
 Writes send `Idempotency-Key`. Mock PIN is cached locally so web refresh works; that cache is not production PIN storage.
 
-Hidden QA: `window.moveraSimulateRideCheck(type)`, `window.moveraSafetySnapshot()`.
+Hidden QA: `window.moveraSafetySnapshot()` (read-only, every build) and `window.moveraSimulateRideCheck(type)` (debug or `MOVERA_QA=true` builds only; installed from Dart, not `index.html`).
