@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -14,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Batch 9 Phase 97 — U1 (menu pages return to the menu), D-026 (Ride
 /// History "Book a ride" starts a booking), D-024 (profile empty copy).
+/// The menu is now a full-screen page pushed over Home.
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -23,7 +25,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Future<GlobalKey<ScaffoldState>> pumpHomeWithMenu(
+  /// Home with the menu page pushed over it, as the menu button does.
+  Future<void> pumpHomeWithMenu(
     WidgetTester tester, {
     VoidCallback? onStartBooking,
   }) async {
@@ -31,55 +34,99 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final key = GlobalKey<ScaffoldState>();
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
         builder: (_, __) => MaterialApp(
-          home: Scaffold(
-            key: key,
-            drawer: RiderSideMenu(onStartBooking: onStartBooking),
-            body: const Center(child: Text('Home body')),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => RiderMenuPage.open(
+                    context,
+                    onStartBooking: onStartBooking,
+                  ),
+                  child: const Text('Home body'),
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
-    key.currentState!.openDrawer();
+    await tester.tap(find.text('Home body'));
     await tester.pumpAndSettle();
-    return key;
+    expect(find.byType(RiderMenuPage), findsOneWidget);
   }
 
-  testWidgets('U1: Back from a menu page returns to the open menu', (
-    tester,
-  ) async {
-    final scaffold = await pumpHomeWithMenu(tester);
-    await tester.tap(find.text('About'));
-    await tester.pumpAndSettle();
-    expect(scaffold.currentState!.isDrawerOpen, isFalse);
-    expect(find.text('About Movera'), findsWidgets);
-
-    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
-    await tester.pumpAndSettle();
-    expect(scaffold.currentState!.isDrawerOpen, isTrue);
-    expect(find.text('About'), findsOneWidget);
-  });
-
-  testWidgets('U1: the menu does not reopen over a route pushed on top', (
-    tester,
-  ) async {
-    final scaffold = await pumpHomeWithMenu(tester);
-    await tester.tap(find.text('About'));
-    await tester.pumpAndSettle();
-    final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
-    // The page is replaced by something else: Home never becomes current.
-    nav.pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(body: Text('Elsewhere')),
-      ),
+  testWidgets('U1: Back from a menu page returns to the menu', (tester) async {
+    await pumpHomeWithMenu(tester);
+    await tester.scrollUntilVisible(
+      find.text('About Movera'),
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-    expect(find.text('Elsewhere'), findsOneWidget);
-    expect(scaffold.currentState!.isDrawerOpen, isFalse);
+    await tester.tap(find.text('About Movera'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HelpArticle), findsOneWidget);
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(RiderMenuPage), findsOneWidget);
+    expect(find.byType(HelpArticle), findsNothing);
+  });
+
+  testWidgets('the menu page carries every destination and a way back', (
+    tester,
+  ) async {
+    await pumpHomeWithMenu(tester);
+    for (final title in [
+      'Wallet',
+      'Ride History',
+      'Notifications',
+      'Saved Places',
+      'Support',
+      'Your promotions',
+      'Safety checkup',
+      'Movera Family',
+      'Invite friends',
+      'Movera Business',
+      'Greener rides',
+    ]) {
+      expect(find.text(title), findsOneWidget, reason: title);
+    }
+    // The account rows sit below the fold.
+    await tester.scrollUntilVisible(
+      find.text('About Movera'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    for (final title in [
+      'Personal info',
+      'Security',
+      'Privacy',
+      'Terms',
+      'Privacy notice',
+      'About Movera',
+    ]) {
+      expect(find.text(title), findsOneWidget, reason: title);
+    }
+    expect(
+      find.text('Movera Rider v${RiderMenuPage.appVersion}'),
+      findsOneWidget,
+    );
+    // The back arrow returns to Home.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.arrow_back_rounded),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(RiderMenuPage), findsNothing);
+    expect(find.text('Home body'), findsOneWidget);
   });
 
   testWidgets('D-026: Ride History "Book a ride" asks to start a booking', (
@@ -129,6 +176,8 @@ void main() {
     ).readAsStringSync();
     expect(menu, contains('result == RideHistory.startBookingResult'));
     expect(menu, contains('onStartBooking?.call();'));
+    // The menu page itself leaves first, so booking starts over Home.
+    expect(menu, contains('nav.pop();\n      onStartBooking?.call();'));
     final home = File(
       'lib/features/home/presentation/home.dart',
     ).readAsStringSync();

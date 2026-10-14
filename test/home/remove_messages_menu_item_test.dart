@@ -16,20 +16,12 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final key = GlobalKey<ScaffoldState>();
     await tester.pumpWidget(
       ScreenUtilInit(
         designSize: const Size(390, 844),
-        builder: (_, __) => MaterialApp(
-          home: Scaffold(
-            key: key,
-            drawer: const RiderSideMenu(),
-            body: const Center(child: Text('Home body')),
-          ),
-        ),
+        builder: (_, __) => const MaterialApp(home: RiderMenuPage()),
       ),
     );
-    key.currentState!.openDrawer();
     await tester.pumpAndSettle();
 
     expect(find.text('Messages'), findsNothing);
@@ -38,11 +30,10 @@ void main() {
     // The rest of the menu is untouched.
     expect(find.text('Wallet'), findsOneWidget);
     expect(find.text('Ride History'), findsOneWidget);
-    expect(find.text('Payments'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Saved Places'), findsOneWidget);
-    expect(find.text('Safety'), findsOneWidget);
+    expect(find.text('Safety checkup'), findsOneWidget);
     expect(find.text('Support'), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
+    expect(find.text('Your promotions'), findsOneWidget);
   });
 }

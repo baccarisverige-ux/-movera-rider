@@ -72,7 +72,6 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> with WidgetsBindingObserver {
   final SheetController _homeSheetController = SheetController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _drawerOpen = false;
   late final HomeSheetController _sheetCtl = HomeSheetController(
     controller: _homeSheetController,
     minPixels: () => _sheetMinPixels,
@@ -1335,15 +1334,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  void _setCoveredByMenuPage(bool covered) {
-    if (!mounted || _mapParked.value) return;
-    if (covered) {
-      _locationCtl.pauseLiveUpdates();
-    } else {
-      _locationCtl.resumeLiveUpdates();
-    }
-  }
-
   Future<BitmapDescriptor> _buildLocationPuckIcon(bool expanded) async {
     final visual = await MoveraRiderPuckMarker.createVisual(expanded: expanded);
     // The rotated bitmaps were drawn from the old source images.
@@ -1640,6 +1630,19 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }));
   }
 
+  /// The full-screen menu, with Home's map parked underneath like the
+  /// other full-screen pages.
+  void _openMenu() {
+    unawaited(
+      _withParkedHomeMap(() {
+        return RiderMenuPage.open(
+          context,
+          onStartBooking: () => unawaited(_openDestinationSheet()),
+        );
+      }),
+    );
+  }
+
   void _openAccount() {
     unawaited(
       _withParkedHomeMap(() {
@@ -1657,12 +1660,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     final fullSheetPixels = viewportHeight - topInset;
 
     return PopScope(
-      canPop: !_destinationSheetOpen && !_drawerOpen,
+      canPop: !_destinationSheetOpen,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (_drawerOpen) {
-          _scaffoldKey.currentState?.closeDrawer();
-        } else if (_destinationSheetOpen) {
+        if (_destinationSheetOpen) {
           _closeDestinationSheet();
         }
       },
@@ -1670,16 +1671,6 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFEEF1E8),
       extendBody: true,
-      drawer: RiderSideMenu(
-        onStartBooking: () => unawaited(_openDestinationSheet()),
-        // U7: menu pages cover Home without parking its map; stop the
-        // heading poll, pulse and puck repaint while they are on top.
-        onCoveredChanged: _setCoveredByMenuPage,
-      ),
-      onDrawerChanged: (open) {
-        if (mounted) setState(() => _drawerOpen = open);
-      },
-      drawerScrimColor: Colors.black.withValues(alpha: 0.38),
       body: FocusTraversalGroup(
         child: Listener(
           behavior: HitTestBehavior.translucent,
@@ -1782,9 +1773,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         alignment: Alignment.topRight,
                         child: Builder(
                           builder: (drawerContext) => PremiumTopActions(
-                            onMenuTap: () {
-                              Scaffold.of(drawerContext).openDrawer();
-                            },
+                            onMenuTap: _openMenu,
                             onAccountTap: _openAccount,
                           ),
                         ),
