@@ -27,19 +27,32 @@ class RouteChangeDecision {
 /// card, Apple Pay or wallet a second step confirms the payment update; a
 /// refund also asks where the money should go.
 class RouteChangeSheet extends StatefulWidget {
-  const RouteChangeSheet({super.key, required this.quote, required this.paymentMethod});
+  const RouteChangeSheet({
+    super.key,
+    required this.quote,
+    required this.paymentMethod,
+    this.paymentMethodId,
+  });
 
   final RouteChangeQuote quote;
   final String paymentMethod;
+
+  /// ARCH-9: the booked method's id; decides "Pay in car" when known.
+  final String? paymentMethodId;
 
   static Future<RouteChangeDecision> confirm(
     BuildContext context, {
     required RouteChangeQuote quote,
     required String paymentMethod,
+    String? paymentMethodId,
   }) async {
     final result = await MoveraSheet.show<RouteChangeDecision>(
       context: context,
-      builder: (_) => RouteChangeSheet(quote: quote, paymentMethod: paymentMethod),
+      builder: (_) => RouteChangeSheet(
+        quote: quote,
+        paymentMethod: paymentMethod,
+        paymentMethodId: paymentMethodId,
+      ),
     );
     return result ?? RouteChangeDecision.declined;
   }
@@ -58,7 +71,7 @@ class _RouteChangeSheetState extends State<RouteChangeSheet> {
 
   RouteChangeQuote get quote => widget.quote;
   String get paymentMethod => widget.paymentMethod;
-  bool get _cash => isCashPayment(paymentMethod);
+  bool get _cash => isCashPayment(widget.paymentMethodId ?? paymentMethod);
   double get _diff => quote.differenceKr;
 
   String _kr(double value) => '${value.round()} kr';

@@ -210,7 +210,13 @@ class WalletController {
     // wallet part booked with the ride is charged (never more than the
     // fare), and the method pays the rest.
     final double amount;
-    if (isWalletPayment(snapshot.paymentMethod)) {
+    // ARCH-9: the booked method id decides; the label only for snapshots
+    // saved before ids were kept.
+    final methodId = snapshot.paymentMethodId;
+    final paidByWallet = methodId != null
+        ? methodId == 'wallet'
+        : isWalletPayment(snapshot.paymentMethod);
+    if (paidByWallet) {
       amount = snapshot.price;
     } else if (snapshot.walletAmountMinor > 0) {
       final fareMinor = (snapshot.price * 100).round();

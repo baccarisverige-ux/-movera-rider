@@ -94,6 +94,7 @@ Future<RideSnapshot?> openRouteChange(
                 context,
                 quote: quote,
                 paymentMethod: ride.paymentMethod,
+                paymentMethodId: ride.paymentMethodId,
               );
               if (!decision.confirmed || !context.mounted) return null;
               final updated = await changes.apply(
@@ -201,6 +202,7 @@ Future<RideSnapshot?> removeRouteStop(
       context,
       quote: quote,
       paymentMethod: ride.paymentMethod,
+      paymentMethodId: ride.paymentMethodId,
     );
     if (!decision.confirmed || !context.mounted) return null;
     final updated = await changes.apply(
