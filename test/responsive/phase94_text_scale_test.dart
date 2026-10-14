@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/screen_scale.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -16,8 +16,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(ScreenUtilInit(
-        designSize: const Size(390, 844),
+      await tester.pumpWidget(MoveraScreenUtilInit(
         builder: (context, child) => MaterialApp(
           home: MediaQuery(
             data: MediaQueryData(
@@ -37,6 +36,8 @@ void main() {
           ),
         ),
       ));
+      // The production setup waits one frame for the real screen size.
+      await tester.pump();
       expect(tester.takeException(), isNull);
       expect(find.byType(Scrollable), findsOneWidget);
     });
@@ -46,8 +47,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(ScreenUtilInit(
-        designSize: const Size(390, 844),
+      await tester.pumpWidget(MoveraScreenUtilInit(
         builder: (context, child) => MaterialApp(
           home: MediaQuery(
             data: MediaQueryData(
@@ -69,6 +69,8 @@ void main() {
           ),
         ),
       ));
+      // The production setup waits one frame for the real screen size.
+      await tester.pump();
       expect(tester.takeException(), isNull);
     });
   }

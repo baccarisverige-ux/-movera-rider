@@ -8,7 +8,12 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 /// Finding. Keep a real slice of map visible above it (large text still gets
 /// the full height it needs).
 double selectRideMaxSheetHeight(MediaQueryData media) {
-  final minH = (348 + media.padding.bottom).clamp(300.0, media.size.height * 0.48);
+  // UI-1: the upper bound must never fall below the lower one, or clamp
+  // throws on screens shorter than 625 px.
+  final minH = (348 + media.padding.bottom).clamp(
+    300.0,
+    math.max(300.0, media.size.height * 0.48),
+  );
   final largeText = media.textScaler.scale(1) >= 1.6;
   final topClearance = largeText
       ? 0.0
