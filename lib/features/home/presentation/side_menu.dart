@@ -256,7 +256,7 @@ class RiderSideMenu extends StatelessWidget {
             child: SizedBox(
               height: 104,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 10, 12),
+                padding: const EdgeInsets.fromLTRB(12, 14, 6, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -266,7 +266,7 @@ class RiderSideMenu extends StatelessWidget {
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: _text(13.5, weight: FontWeight.w600, height: 1.2),
+                      style: _text(13, weight: FontWeight.w600, height: 1.2, letterSpacing: -0.2),
                     ),
                     if (item.detail != null) ...[
                       const SizedBox(height: 2),
