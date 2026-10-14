@@ -275,7 +275,7 @@ class RiderSideMenu extends StatelessWidget {
             splashColor: _ink.withValues(alpha: 0.05),
             highlightColor: _ink.withValues(alpha: 0.04),
             child: SizedBox(
-              height: 112,
+              height: 120,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
                 child: Column(
