@@ -23,6 +23,7 @@ import 'package:movera_rider/features/ride_selection/presentation/select_ride.da
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 
 /// Prices depend on the pin: a quote from a moved pin costs more. The first
 /// quote can be made short-lived to let it expire on Set pickup.
@@ -40,6 +41,9 @@ class _Quotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     calls++;
     first ??= distanceMeters;
@@ -70,6 +74,9 @@ class _SlowPinQuotes extends _Quotes {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     final answer = await super.quote(
       rideType: rideType,
@@ -383,6 +390,9 @@ class _ManualQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     final c = Completer<RideQuote>();
     answers.add(c);

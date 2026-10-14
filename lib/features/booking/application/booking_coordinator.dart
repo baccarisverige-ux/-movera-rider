@@ -4,8 +4,11 @@ import 'dart:math' as math;
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/analytics/analytics.dart';
 import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/mutation_attempt.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/booking/application/booking_attempt.dart';
+import 'package:movera_rider/features/fare/domain/fare_rules.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
@@ -90,10 +93,24 @@ class BookingCoordinator {
     return DateTime.tryParse(ride['updatedAt'] as String? ?? '');
   }
 
+  /// A booking for later. RIDE-22: the intent and the body carry the route
+  /// (pickup, destination, stops) and, when Select Ride priced it, the quote,
+  /// so two different scheduled rides at the same time never share a key.
   Future<String> requestBooking({
     required String rideType,
     required String paymentMethod,
     String? scheduledAt,
+    String? pickupAddress,
+    double? pickupLat,
+    double? pickupLng,
+    String? destinationAddress,
+    double? destinationLat,
+    double? destinationLng,
+    List<RouteStop> stops = const <RouteStop>[],
+    String? quoteId,
+    String? quoteSignedPayload,
+    DateTime? quoteExpiresAt,
+    int? quoteTotalMinor,
   }) {
     if (_inflight != null) return _inflight!;
     if (scheduledAt == null && _findingAlreadyActive) {
@@ -104,11 +121,40 @@ class BookingCoordinator {
       'rideType': rideType,
       'paymentMethod': paymentMethod,
       'scheduledAt': scheduledAt,
+      'pickupAddress': pickupAddress,
+      'pickup': _intentPoint(pickupLat, pickupLng),
+      'destinationAddress': destinationAddress,
+      'destination': _intentPoint(destinationLat, destinationLng),
+      'stops': [
+        for (final stop in stops) _intentPoint(stop.latitude, stop.longitude),
+      ],
     });
     final attempt = _attemptFor(intentKey);
     final started = _requestBooking(
-      rideType: rideType,
-      paymentMethod: paymentMethod,
+      body: {
+        'categoryId': rideType,
+        'paymentMethodId': paymentMethod,
+        'scheduledAt': scheduledAt,
+        if (pickupAddress != null) 'pickupAddress': pickupAddress,
+        if (pickupLat != null && pickupLng != null) ...{
+          'pickupLat': pickupLat,
+          'pickupLng': pickupLng,
+        },
+        if (destinationAddress != null)
+          'destinationAddress': destinationAddress,
+        if (destinationLat != null && destinationLng != null) ...{
+          'destinationLat': destinationLat,
+          'destinationLng': destinationLng,
+        },
+        if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
+        if (quoteId != null) ...{
+          'quoteId': quoteId,
+          'quoteSignedPayload': quoteSignedPayload,
+          'quoteExpiresAt': quoteExpiresAt?.toUtc().toIso8601String(),
+          'quoteTotalMinor': quoteTotalMinor,
+          if (quoteTotalMinor != null) 'price': quoteTotalMinor / 100,
+        },
+      },
       scheduledAt: scheduledAt,
       attempt: attempt,
     );
@@ -117,20 +163,22 @@ class BookingCoordinator {
     return started;
   }
 
+  /// A point in a booking intent, to about 11 m: the same trip confirmed
+  /// again from a pin that moved a step is still the same booking.
+  static List<int>? _intentPoint(double? lat, double? lng) {
+    if (lat == null || lng == null) return null;
+    return [(lat * 1e4).round(), (lng * 1e4).round()];
+  }
+
   Future<String> _requestBooking({
-    required String rideType,
-    required String paymentMethod,
+    required Map<String, dynamic> body,
     String? scheduledAt,
     required BookingAttempt attempt,
   }) async {
     final id = attempt.idempotencyKey;
     final json = await _client.post(
       '/api/v1/rides',
-      body: {
-        'categoryId': rideType,
-        'paymentMethodId': paymentMethod,
-        'scheduledAt': scheduledAt,
-      },
+      body: body,
       idempotencyKey: id,
     );
     final rideId = _requireRideId(json);
@@ -260,6 +308,7 @@ class BookingCoordinator {
       quoteSignedPayload: quoteSignedPayload,
       quoteExpiresAt: quoteExpiresAt,
       quoteTotalMinor: quoteTotalMinor,
+      stops: stops,
     );
     final effectivePrice = binding.totalMinor / 100;
     // "Use wallet balance first": the part the rider was shown, never more
@@ -268,15 +317,19 @@ class BookingCoordinator {
         ? walletAmountMinor.clamp(0, binding.totalMinor).toInt()
         : 0;
 
+    // RIDE-3: the key belongs to the rider's trip, not to the quote. A
+    // retry after a timeout gets a fresh quote (and Set pickup may nudge the
+    // pin), yet it is the same booking, so it reuses the key and the server
+    // can never create a second ride for it.
     final intentKey = jsonEncode(<String, Object?>{
       'operation': 'submitFinding',
-      'baseIntent': baseIntent,
-      'price': effectivePrice,
-      'quoteId': binding.id,
-      'quoteSignedPayload': binding.signedPayload,
-      'quoteExpiresAt': binding.expiresAt.toUtc().toIso8601String(),
-      'quoteTotalMinor': binding.totalMinor,
-      'walletAmountMinor': walletMinor,
+      'pickup': _intentPoint(pickupLat, pickupLng),
+      'destination': _intentPoint(destinationLat, destinationLng),
+      'categoryId': rideType,
+      'paymentMethodId': paymentMethod,
+      'stops': [
+        for (final stop in stops) _intentPoint(stop.latitude, stop.longitude),
+      ],
     });
     final attempt = _attemptFor(intentKey);
 
@@ -309,7 +362,16 @@ class BookingCoordinator {
         _autoQuoteBinding = null;
       }
       return id;
-    } catch (_) {
+    } on ApiError catch (error) {
+      // The server answered and refused (a 4xx such as an expired quote):
+      // no ride exists, so the next try is a new booking with a new key.
+      // A timeout, network error or 5xx keeps the key: the ride may exist.
+      final status = error.statusCode;
+      final refused = status != null &&
+          status >= 400 &&
+          status < 500 &&
+          !error.isRetryable;
+      if (refused && identical(_attempt, attempt)) _attempt = null;
       rethrow;
     }
   }
@@ -328,6 +390,7 @@ class BookingCoordinator {
     String? quoteSignedPayload,
     DateTime? quoteExpiresAt,
     int? quoteTotalMinor,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     final supplied = <Object?>[
       quoteId,
@@ -368,6 +431,9 @@ class BookingCoordinator {
       ),
       pickup: pickupAddress,
       destination: destinationAddress,
+      pickupPoint: GeoPoint(pickupLat, pickupLng),
+      destinationPoint: GeoPoint(destinationLat, destinationLng),
+      stops: stops,
     );
     final binding = _BookingQuoteBinding(
       id: quote.id,
@@ -475,9 +541,14 @@ class BookingCoordinator {
       version: version,
       updatedAt: serverUpdatedAt,
     );
+    // ARCH-20: the offer ceiling comes from the server when it says, else
+    // from the booked fare, once; a raised offer never moves it.
+    final maxOfferMinor =
+        _maxOfferMinorFrom(json) ?? (FareRules.maximum(price) * 100).round();
     session
       ..bookedCategoryId = rideType
-      ..bookedPaymentMethodId = paymentMethod;
+      ..bookedPaymentMethodId = paymentMethod
+      ..bookedMaxOfferMinor = maxOfferMinor;
     final now = DateTime.now();
     // ARCH-1 / RIDE-17: the first snapshot already carries the server's
     // ordering (version + updatedAt) and the stops, so a reload in the first
@@ -492,6 +563,7 @@ class BookingCoordinator {
         stops: stops,
         categoryId: rideType,
         paymentMethodId: paymentMethod,
+        maxOfferMinor: maxOfferMinor,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
@@ -514,6 +586,14 @@ class BookingCoordinator {
     if (collisionAfterCommit != null) return collisionAfterCommit;
 
     return id;
+  }
+
+  /// The offer ceiling the server set for the ride, when it says.
+  int? _maxOfferMinorFrom(Map<String, dynamic> json) {
+    final ride = json['ride'];
+    if (ride is! Map) return null;
+    final raw = ride['maxOfferMinor'];
+    return raw is num && raw > 0 ? raw.round() : null;
   }
 
   /// The wallet part the server accepted, when it says.

@@ -8,6 +8,8 @@ import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.da
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class _SlowThenFast implements QuoteRepository {
   _SlowThenFast(this.fast);
@@ -21,6 +23,9 @@ class _SlowThenFast implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     final call = ++calls;
     final delay = call == 1 ? const Duration(milliseconds: 40) : Duration.zero;

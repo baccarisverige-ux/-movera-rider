@@ -406,9 +406,15 @@ class _SelectRideState extends State<SelectRide>
         _pickupPosition,
         widget.destinationPosition,
       ),
+      pickupPoint: _geoPoint(_pickupPosition),
+      destinationPoint: _geoPoint(widget.destinationPosition),
     );
     if (mounted) setState(() {});
   }
+
+  /// ARCH-8: quotes carry the points, so the server prices the route itself.
+  static GeoPoint _geoPoint(LatLng point) =>
+      GeoPoint(point.latitude, point.longitude);
 
   /// The latest pin re-quote still in flight, so booking can wait for it.
   Future<RideQuote?>? _pinQuote;
@@ -425,6 +431,8 @@ class _SelectRideState extends State<SelectRide>
       distanceMeters: straightLineMeters(pin, widget.destinationPosition),
       pickup: coordinatePickupAddress(pin),
       destination: widget.destinationAddress,
+      pickupPoint: _geoPoint(pin),
+      destinationPoint: _geoPoint(widget.destinationPosition),
     );
     _pinQuote = pending;
     final quote = await pending;
@@ -486,6 +494,8 @@ class _SelectRideState extends State<SelectRide>
         ),
         pickup: _pickupAddress,
         destination: widget.destinationAddress,
+        pickupPoint: _geoPoint(_pickupPosition),
+        destinationPoint: _geoPoint(widget.destinationPosition),
       );
     } catch (_) {
       // Reported below.

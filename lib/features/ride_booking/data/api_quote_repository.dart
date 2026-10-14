@@ -1,7 +1,9 @@
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class ApiQuoteRepository implements QuoteRepository {
   ApiQuoteRepository({required this.api});
@@ -16,6 +18,9 @@ class ApiQuoteRepository implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     lastUsedFallback = false;
     try {
@@ -27,6 +32,18 @@ class ApiQuoteRepository implements QuoteRepository {
           'durationSeconds': durationSeconds,
           'pickup': pickup,
           'destination': destination,
+          // ARCH-8 / contract C-2: the points the server routes and prices.
+          // The fields above stay until the backend contract is agreed.
+          if (pickupPoint != null) ...{
+            'pickupLat': pickupPoint.latitude,
+            'pickupLng': pickupPoint.longitude,
+          },
+          if (destinationPoint != null) ...{
+            'destinationLat': destinationPoint.latitude,
+            'destinationLng': destinationPoint.longitude,
+          },
+          if (stops.isNotEmpty)
+            'stops': [for (final stop in stops) stop.toJson()],
           'apiVersion': 'v1',
         },
       );

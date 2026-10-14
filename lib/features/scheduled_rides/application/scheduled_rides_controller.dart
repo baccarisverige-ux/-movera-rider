@@ -58,6 +58,11 @@ class ScheduledRideSession {
               rideType: rideType,
               paymentMethod: paymentMethod,
               scheduledAt: scheduledAt?.toIso8601String(),
+              // RIDE-22: the route is part of the booking and its key.
+              pickupAddress: pickup,
+              pickupLat: pickupLat,
+              pickupLng: pickupLng,
+              destinationAddress: dropoff,
             ))();
     submissionStatus = 'confirmed';
     return bookingId!;

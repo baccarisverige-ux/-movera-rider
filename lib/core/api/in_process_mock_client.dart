@@ -24,6 +24,9 @@ class InProcessMockClient extends http.BaseClient {
   final Map<String, Map<String, dynamic>> idempotency = {};
   final Map<String, Map<String, dynamic>> rides = {};
   final Map<String, Map<String, dynamic>> quotes = {};
+
+  /// ARCH-14 / contract C-7: priced route changes, by route-quote id.
+  final Map<String, Map<String, dynamic>> routeQuotes = {};
   final Map<String, Map<String, dynamic>> otpSessions = {};
 
   /// Phones that have verified a code before: their riders are returning.
@@ -615,9 +618,29 @@ class InProcessMockClient extends http.BaseClient {
           status = 409;
           payload = {'code': denied, 'ride': ride, 'requestId': requestId};
         } else {
+          final pricing = _routeChangePricing(ride, body);
+          final quoteId = 'rq_${newRequestId()}';
+          final expiresAt = DateTime.now()
+              .add(const Duration(minutes: 5))
+              .toUtc()
+              .toIso8601String();
+          final newTotalMinor =
+              ((pricing['newPriceKr'] as double) * 100).round();
+          final differenceMinor =
+              ((pricing['differenceKr'] as double) * 100).round();
+          routeQuotes[quoteId] = {
+            'rideId': parts[4],
+            'route': _routeFingerprint(body),
+            'expiresAt': expiresAt,
+            'newTotalMinor': newTotalMinor,
+          };
           payload = {
             'code': 'OK',
-            ..._routeChangePricing(ride, body),
+            ...pricing,
+            'routeQuoteId': quoteId,
+            'expiresAt': expiresAt,
+            'newTotalMinor': newTotalMinor,
+            'differenceMinor': differenceMinor,
             'requestId': requestId,
           };
         }
@@ -633,7 +656,8 @@ class InProcessMockClient extends http.BaseClient {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
       } else if (routeChange) {
-        final denied = _routeChangeDenied(ride, body);
+        final denied =
+            _routeChangeDenied(ride, body) ?? _routeQuoteDenied(id, ride, body);
         if (denied != null) {
           status = 409;
           payload = {'code': denied, 'ride': ride, 'requestId': requestId};
@@ -649,6 +673,7 @@ class InProcessMockClient extends http.BaseClient {
           ride['destinationLng'] = body['destinationLng'];
           ride['stops'] = pricing['stops'];
           ride['price'] = pricing['newPriceKr'];
+          ride['maxOfferMinor'] = _maxOfferMinor(pricing['newPriceKr'] as num);
           ride['version'] = ((ride['version'] as num?)?.toInt() ?? 0) + 1;
           ride['updatedAt'] = DateTime.now().toUtc().toIso8601String();
           // The driver app is told on its next poll; the log is what admin
@@ -656,10 +681,14 @@ class InProcessMockClient extends http.BaseClient {
           ride['driverNotifiedAt'] = ride['updatedAt'];
           // Pay in car only shows the new price; any other method is
           // charged or refunded the difference right away.
-          final method = (body['paymentMethod'] ?? '').toString();
-          final cash =
-              method.toLowerCase() == 'cash' ||
-              method.toLowerCase().contains('pay in car');
+          // ARCH-9: the method id decides; the label is the old contract.
+          final methodId = body['paymentMethodId']?.toString();
+          final method =
+              (methodId ?? body['paymentMethod'] ?? '').toString();
+          final cash = methodId != null
+              ? methodId == 'cash'
+              : method.toLowerCase() == 'cash' ||
+                    method.toLowerCase().contains('pay in car');
           final difference = pricing['differenceKr'] as double;
           if (!cash && difference.abs() >= 0.5) {
             (ride['paymentAdjustments'] ??= <Map<String, dynamic>>[]).add({
@@ -706,11 +735,20 @@ class InProcessMockClient extends http.BaseClient {
             'message': 'Offer increase must be a positive whole amount',
             'requestId': requestId,
           };
+        } else if (_offerAboveMaximum(ride, body['offerIncreaseKr'])) {
+          // ARCH-20: the ceiling holds on the server, whatever the client
+          // computed after a reload.
+          status = 409;
+          payload = {
+            'code': 'OFFER_ABOVE_MAXIMUM',
+            'message': 'Offer is above the maximum for this ride',
+            'ride': ride,
+            'requestId': requestId,
+          };
         } else {
           // D-012: the server prices an offer bump itself from the rider's
           // intent (offerIncreaseKr). A client-sent `price` is never treated
-          // as authority and is ignored. (A real backend must also bound the
-          // bump; this in-process mock does not model fare limits.)
+          // as authority and is ignored. The ceiling is checked above.
           final increase = body['offerIncreaseKr'];
           if (increase is num) {
             ride['price'] = (ride['price'] as num) + increase;
@@ -973,6 +1011,63 @@ class InProcessMockClient extends http.BaseClient {
     return null;
   }
 
+  /// ARCH-20: true when [increase] would take the fare over the ceiling.
+  static bool _offerAboveMaximum(Map<String, dynamic> ride, Object? increase) {
+    final max = ride['maxOfferMinor'];
+    final price = ride['price'];
+    if (increase is! num || max is! num || price is! num) return false;
+    return ((price + increase) * 100).round() > max;
+  }
+
+  /// The highest fare a rider may offer for a ride priced [priceKr]: 1.8×.
+  static int _maxOfferMinor(num priceKr) =>
+      ((priceKr * 1.8).roundToDouble() * 100).round();
+
+  /// The route a route quote priced, to compare with the one applied.
+  static String _routeFingerprint(Map<String, dynamic> body) => jsonEncode([
+    body['pickupLat'],
+    body['pickupLng'],
+    body['destinationLat'],
+    body['destinationLng'],
+    [
+      if (body['stops'] is List)
+        for (final raw in body['stops'] as List)
+          if (raw is Map) [raw['lat'], raw['lng']],
+    ],
+  ]);
+
+  /// ARCH-14: an apply that names a route quote must match it: same ride,
+  /// same route, not expired, and the price the rider confirmed is still the
+  /// price. Without a route quote id the old contract still applies.
+  String? _routeQuoteDenied(
+    String rideId,
+    Map<String, dynamic> ride,
+    Map<String, dynamic> body,
+  ) {
+    final quoteId = body['routeQuoteId'];
+    if (quoteId == null) return null;
+    final quote = routeQuotes[quoteId];
+    if (quote == null || quote['rideId'] != rideId) {
+      return 'ROUTE_QUOTE_NOT_FOUND';
+    }
+    final expiresAt = DateTime.tryParse(quote['expiresAt'] as String? ?? '');
+    if (expiresAt == null || !expiresAt.isAfter(DateTime.now())) {
+      return 'ROUTE_QUOTE_EXPIRED';
+    }
+    if (quote['route'] != _routeFingerprint(body)) {
+      return 'ROUTE_QUOTE_MISMATCH';
+    }
+    final quoted = quote['newTotalMinor'] as int;
+    final expected = (body['expectedTotalMinor'] as num?)?.round();
+    final now =
+        ((_routeChangePricing(ride, body)['newPriceKr'] as double) * 100)
+            .round();
+    if ((expected != null && expected != quoted) || now != quoted) {
+      return 'ROUTE_QUOTE_PRICE_CHANGED';
+    }
+    return null;
+  }
+
   static double _km(num lat1, num lng1, num lat2, num lng2) {
     const r = 6371.0;
     final dLat = (lat2 - lat1) * math.pi / 180;
@@ -1049,10 +1144,39 @@ class InProcessMockClient extends http.BaseClient {
     return math.max((catalogKr * 0.6).round(), kr);
   }
 
+  /// Pickup → stops → destination in metres, or null without the points.
+  int? _routedMeters(Map<String, dynamic> body) {
+    final points = <List<num>>[];
+    void add(Object? lat, Object? lng) {
+      if (lat is num && lng is num) points.add([lat, lng]);
+    }
+
+    add(body['pickupLat'], body['pickupLng']);
+    if (points.isEmpty) return null;
+    if (body['stops'] is List) {
+      for (final raw in body['stops'] as List) {
+        if (raw is Map) add(raw['lat'], raw['lng']);
+      }
+    }
+    final before = points.length;
+    add(body['destinationLat'], body['destinationLng']);
+    if (points.length == before) return null;
+    var km = 0.0;
+    for (var i = 1; i < points.length; i++) {
+      km += _km(points[i - 1][0], points[i - 1][1], points[i][0], points[i][1]);
+    }
+    return math.max(1, (km * 1000).round());
+  }
+
   Map<String, dynamic> _quote(Map<String, dynamic> body) {
     final rideType = body['rideType'] as String? ?? 'movera';
+    // ARCH-8 / contract C-2: price the route from the points (through the
+    // stops) like a server would; the client's distance is only a hint for
+    // callers that send no points.
     final distanceMeters =
-        (body['distanceMeters'] as num?)?.round() ?? _catalogTripMeters;
+        _routedMeters(body) ??
+        (body['distanceMeters'] as num?)?.round() ??
+        _catalogTripMeters;
     final catalogMinor = _catalogPriceKr(rideType) * 100;
     final fullMinor = _fareKr(rideType, distanceMeters) * 100;
     // Demo promotion: discounts the ride types it names, capped per ride.
@@ -1091,8 +1215,9 @@ class InProcessMockClient extends http.BaseClient {
   }
 
   String? _validateQuoteBinding(Map<String, dynamic> body) {
-    // Scheduled test bookings do not yet use the on-demand quote path.
-    if (body['scheduledAt'] != null) return null;
+    // RIDE-22: a scheduled booking that carries a quote is held to it; one
+    // without (the older contract) is still accepted.
+    if (body['scheduledAt'] != null && body['quoteId'] == null) return null;
     if (body['pickupAddress'] == null) return null;
 
     final quoteId = body['quoteId'] as String?;
@@ -1168,6 +1293,8 @@ class InProcessMockClient extends http.BaseClient {
       'paymentMethod': paymentMethodId,
       'price': body['price'],
       'bookedPrice': body['price'],
+      // ARCH-20 / contract C-4: the server owns the offer ceiling.
+      if (body['price'] is num) 'maxOfferMinor': _maxOfferMinor(body['price']),
       'bookedKm':
           body['pickupLat'] is num &&
               body['pickupLng'] is num &&
