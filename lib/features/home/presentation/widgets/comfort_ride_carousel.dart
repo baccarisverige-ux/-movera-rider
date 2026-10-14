@@ -22,15 +22,13 @@ class ComfortRideCarousel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewportWidth = MediaQuery.of(context).size.width;
-    final cardWidth = (viewportWidth * 0.78).clamp(270.0, 330.0).toDouble();
-    final imageHeight = ResSize.h * 112;
-    // Text can wrap to two lines on compact/rescaled layouts. A purely scaled
-    // 64px band shrank below the content's intrinsic height and produced a
-    // RenderFlex overflow. Keep a compact but safe minimum content band.
-    final bandHeight = (ResSize.h * 68).clamp(78.0, 90.0).toDouble();
+    final cardWidth = (viewportWidth * 0.62).clamp(220.0, 270.0).toDouble();
+    // Text-only cards (the owner kept pictures for "Plan ahead" alone). Text
+    // can wrap to two lines on compact/rescaled layouts: keep a safe band.
+    final bandHeight = (ResSize.h * 78).clamp(88.0, 100.0).toDouble();
 
     return SizedBox(
-      height: imageHeight + bandHeight + ResSize.h * 2,
+      height: bandHeight + ResSize.h * 2,
       width: double.infinity,
       child: ListView(
         scrollDirection: Axis.horizontal,
@@ -39,9 +37,7 @@ class ComfortRideCarousel extends StatelessWidget {
         children: [
           _HomePromoCard(
             cardWidth: cardWidth,
-            imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_comfort_ride.webp',
             title: 'Movera Comfort',
             subtitle: 'Extra space. Elevated comfort. A smoother way to ride.',
             onTap: onDestinationTap,
@@ -49,9 +45,7 @@ class ComfortRideCarousel extends StatelessWidget {
           SizedBox(width: ResSize.w * 12),
           _HomePromoCard(
             cardWidth: cardWidth,
-            imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/pin_verification.webp',
             title: 'Safety Toolkit',
             subtitle: 'Essential safety tools, ready throughout every ride.',
             onTap: () {
@@ -61,9 +55,7 @@ class ComfortRideCarousel extends StatelessWidget {
           SizedBox(width: ResSize.w * 12),
           _HomePromoCard(
             cardWidth: cardWidth,
-            imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_airport_premium.webp',
             title: 'Fly with ease',
             subtitle:
                 'Reserve your airport ride ahead and travel with less stress.',
@@ -72,9 +64,7 @@ class ComfortRideCarousel extends StatelessWidget {
           SizedBox(width: ResSize.w * 12),
           _HomePromoCard(
             cardWidth: cardWidth,
-            imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_events_premium.webp',
             title: 'Reserve for events',
             subtitle:
                 'Plan your ride early and arrive exactly when you need to.',
@@ -83,9 +73,7 @@ class ComfortRideCarousel extends StatelessWidget {
           SizedBox(width: ResSize.w * 12),
           _HomePromoCard(
             cardWidth: cardWidth,
-            imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_business_premium.webp',
             title: 'Reserve work rides',
             subtitle:
                 'Reliable scheduled rides for meetings and important workdays.',
@@ -94,9 +82,7 @@ class ComfortRideCarousel extends StatelessWidget {
           SizedBox(width: ResSize.w * 12),
           _HomePromoCard(
             cardWidth: cardWidth,
-            imageHeight: imageHeight,
             bandHeight: bandHeight,
-            imageAsset: 'assets/images/movera_outings_premium.webp',
             title: 'Plan for outings',
             subtitle:
                 'Book ahead for dinners, appointments and plans around town.',
@@ -112,9 +98,7 @@ class ComfortRideCarousel extends StatelessWidget {
 class _HomePromoCard extends StatelessWidget {
   const _HomePromoCard({
     required this.cardWidth,
-    required this.imageHeight,
     required this.bandHeight,
-    required this.imageAsset,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -125,9 +109,7 @@ class _HomePromoCard extends StatelessWidget {
   static const Color _premiumLine = Color(0xFFE7EBEE);
 
   final double cardWidth;
-  final double imageHeight;
   final double bandHeight;
-  final String imageAsset;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
@@ -158,27 +140,15 @@ class _HomePromoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: imageHeight,
-                  child: Image.asset(
-                    excludeFromSemantics: true,
-                    imageAsset,
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    filterQuality: FilterQuality.high,
-                    cacheWidth: 660,
-                  ),
-                ),
                 Container(
                   width: double.infinity,
                   height: bandHeight,
                   color: AppColor.white,
                   padding: EdgeInsets.fromLTRB(
-                    ResSize.w * 13,
-                    ResSize.h * 8,
-                    ResSize.w * 13,
-                    ResSize.h * 7,
+                    ResSize.w * 14,
+                    ResSize.h * 10,
+                    ResSize.w * 14,
+                    ResSize.h * 10,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,7 +160,7 @@ class _HomePromoCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
                           color: _premiumInk,
-                          fontSize: ResSize.setSp(13.6),
+                          fontSize: ResSize.setSp(14),
                           fontWeight: fwBold,
                         ),
                       ),
@@ -201,7 +171,7 @@ class _HomePromoCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
                           color: _premiumMuted,
-                          fontSize: ResSize.setSp(9.2),
+                          fontSize: ResSize.setSp(10),
                           fontWeight: fwNormal,
                         ),
                       ),
