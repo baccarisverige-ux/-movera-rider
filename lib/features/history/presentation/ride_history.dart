@@ -107,8 +107,10 @@ class _RideHistoryState extends State<RideHistory> {
     Navigator.push(context, BottomToTopTransition(const ScheduleRide()));
   }
 
-  void _showHowItWorks() {
-    MoveraSheet.show<void>(
+  Future<void> _showHowItWorks() async {
+    // NAV-12: the sheet closes with a choice and Schedule opens only after
+    // its exit animation has finished (MoveraSheet.show waits for that).
+    final schedule = await MoveraSheet.show<bool>(
       context: context,
       builder: (context) {
         return Padding(
@@ -142,10 +144,7 @@ class _RideHistoryState extends State<RideHistory> {
                 width: double.infinity,
                 height: 52,
                 child: FilledButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _openSchedule();
-                  },
+                  onPressed: () => Navigator.pop(context, true),
                   style: FilledButton.styleFrom(
                     backgroundColor: _cta,
                     shape: RoundedRectangleBorder(
@@ -167,6 +166,7 @@ class _RideHistoryState extends State<RideHistory> {
         );
       },
     );
+    if (schedule == true && mounted) _openSchedule();
   }
 
   @override
