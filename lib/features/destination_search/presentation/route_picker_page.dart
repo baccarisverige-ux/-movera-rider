@@ -5,6 +5,10 @@ import 'package:movera_rider/features/home/application/home_places_controller.da
 import 'package:movera_rider/features/home/presentation/widgets/saved_places_row.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/destination_search/application/compact_address.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_route_location_badge.dart';
@@ -120,8 +124,25 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
   static const Color _destinationBlue = Color(0xFF1769E8);
   static const int _maxStops = 3;
 
+  /// Fields show the short "street, city" form; the full geocoder address
+  /// is what the booking receives when the rider leaves the text as is.
+  final Map<String, String> _fullAddress = {};
+
+  String _show(String address) {
+    final short = compactAddress(address);
+    if (short.isNotEmpty && short != address.trim()) {
+      _fullAddress[short] = address.trim();
+    }
+    return short;
+  }
+
+  String _expand(String text) {
+    final clean = text.trim();
+    return _fullAddress[clean] ?? clean;
+  }
+
   late final TextEditingController _pickup = TextEditingController(
-    text: widget.pickupAddress ?? '',
+    text: _show(widget.pickupAddress ?? ''),
   );
   late final TextEditingController _destination = TextEditingController(
     text: widget.destinationAddress,
@@ -190,7 +211,6 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     for (final node in [_pickupFocus, _destinationFocus]) {
       node.addListener(_onFocusChanged);
     }
-
   }
 
   @override
@@ -295,7 +315,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     if (_finishing) return;
     if (_active == 'pickup') {
       setState(() {
-        _pickup.text = address;
+        _pickup.text = _show(address);
         _pickupPoint = point;
       });
       if (_destination.text.trim().isEmpty) {
@@ -304,13 +324,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
         return;
       }
     } else if (_active == 'stop') {
-      setState(() => _activeController.text = address);
+      setState(() => _activeController.text = _show(address));
       _activate('destination');
       _destinationFocus.requestFocus();
       return;
     } else {
       setState(() {
-        _destination.text = address;
+        _destination.text = _show(address);
         _destinationPoint = point;
       });
     }
@@ -323,13 +343,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     setState(() => _finishing = true);
     final draft = await widget.onFinish(
       RoutePickerSelection(
-        pickup: _pickup.text.trim(),
+        pickup: _expand(_pickup.text),
         pickupPoint: _pickupPoint,
-        destination: _destination.text.trim(),
+        destination: _expand(_destination.text),
         destinationPoint: _destinationPoint,
         stops: [
           for (final c in _stops)
-            if (c.text.trim().isNotEmpty) c.text.trim(),
+            if (c.text.trim().isNotEmpty) _expand(c.text),
         ],
       ),
     );
@@ -425,7 +445,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               cursorColor: _accent,
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle: _t(16.5, weight: FontWeight.w400, color: const Color(0xFF9AA2A8)),
+                hintStyle: _t(
+                  16.5,
+                  weight: FontWeight.w400,
+                  color: const Color(0xFF9AA2A8),
+                ),
                 border: InputBorder.none,
                 isDense: true,
               ),
@@ -445,7 +469,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                     color: Color(0xFFC9CED2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close_rounded, size: 14, color: Colors.white),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -664,7 +692,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             ),
             if (trailing != null) ...[
               const SizedBox(width: 10),
-              Text(trailing, style: _t(14, weight: FontWeight.w400, color: _muted)),
+              Text(
+                trailing,
+                style: _t(14, weight: FontWeight.w400, color: _muted),
+              ),
             ],
           ],
         ),
@@ -689,7 +720,7 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             'My location',
             style: _t(16, weight: FontWeight.w600, color: _accent),
           ),
-          subtitle: widget.pickupAddress!,
+          subtitle: compactAddress(widget.pickupAddress),
           onTap: () => _choose(widget.pickupAddress!, point: widget.here),
         ),
       );
@@ -701,9 +732,12 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       final set = value != null && value.trim().isNotEmpty;
       rows.add(
         _row(
-          // Solid icons, in the same family as the custom places below.
-          icon: target == 'home' ? Icons.home_rounded : Icons.work_rounded,
-          iconColor: _ink,
+          // Same Solar linear icons as the Home sheet chips.
+          leading: AppIconAsset(
+            target == 'home' ? AppAssets.solarHome : AppAssets.solarCase,
+            size: 24,
+            color: _ink,
+          ),
           title: Text(
             set ? label : 'Set $label',
             style: _t(
@@ -712,7 +746,9 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
               color: set ? _ink : _accent,
             ),
           ),
-          subtitle: set ? value : 'Add your ${label.toLowerCase()} address',
+          subtitle: set
+              ? compactAddress(value)
+              : 'Add your ${label.toLowerCase()} address',
           onTap: set ? () => _choose(value) : () => _setFavourite(target),
         ),
       );
@@ -722,28 +758,52 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
       if (address.isEmpty) continue;
       rows.add(
         _row(
-          icon: placeIconFor(place.type),
-          iconColor: _ink,
+          leading: AppIconAsset(
+            placeIconAssetFor(place.type),
+            size: 24,
+            color: _ink,
+          ),
           title: Text(placeLabelFor(place.type), style: _t(16)),
-          subtitle: address,
+          subtitle: compactAddress(address),
           onTap: () => _choose(address),
         ),
       );
     }
-    final recent = widget.recent.take(5).toList();
+    // A short, clean list: three real places, no repeats of the same spot.
+    final recent = <String>[];
+    final seenRecent = <String>{};
+    for (final address in widget.recent) {
+      final short = compactAddress(address);
+      if (short.isEmpty || short == pickupLocationFallbackLabel) continue;
+      if (!seenRecent.add(short.toLowerCase())) continue;
+      recent.add(address);
+      if (recent.length == 3) break;
+    }
     if (recent.isNotEmpty) {
       rows.add(
         Padding(
           padding: const EdgeInsets.only(top: 18, bottom: 2),
-          child: Text('Recent', style: _t(13, weight: FontWeight.w600, color: _muted)),
+          child: Text(
+            'Recent',
+            style: _t(13, weight: FontWeight.w600, color: _muted),
+          ),
         ),
       );
       for (var i = 0; i < recent.length; i++) {
-        final (title, subtitle) = _split(recent[i]);
+        final (title, subtitle) = _split(compactAddress(recent[i]));
         rows.add(
           _row(
-            icon: Icons.schedule_rounded,
-            title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: _t(16)),
+            leading: const AppIconAsset(
+              AppAssets.solarClock,
+              size: 24,
+              color: _muted,
+            ),
+            title: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _t(16),
+            ),
             subtitle: subtitle,
             onTap: () => _choose(recent[i]),
             last: i == recent.length - 1,
@@ -763,9 +823,13 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
     final rows = <Widget>[
       for (final address in recentMatches)
         () {
-          final (title, subtitle) = _split(address);
+          final (title, subtitle) = _split(compactAddress(address));
           return _row(
-            icon: Icons.schedule_rounded,
+            leading: const AppIconAsset(
+              AppAssets.solarClock,
+              size: 24,
+              color: _muted,
+            ),
             title: _highlighted(title),
             subtitle: subtitle,
             onTap: () => _choose(address),
@@ -802,7 +866,10 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
             child: SizedBox(
               width: 22,
               height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.4, color: _accent),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: _accent,
+              ),
             ),
           ),
         ),
@@ -918,7 +985,11 @@ class _RoutePickerPageState extends State<RoutePickerPage> {
                     ),
                     child: Text(
                       widget.finishLabel!,
-                      style: _t(16, weight: FontWeight.w600, color: Colors.white),
+                      style: _t(
+                        16,
+                        weight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),

@@ -22,6 +22,14 @@ class AppAssets {
   static const String solarWallet = 'assets/icons/solar_wallet.svg';
   static const String solarCalendar = 'assets/icons/solar_calendar.svg';
   static const String solarUser = 'assets/icons/solar_user.svg';
+  static const String solarFamily = 'assets/icons/solar_family.svg';
+  static const String solarGym = 'assets/icons/solar_gym.svg';
+  static const String solarMall = 'assets/icons/solar_mall.svg';
+  static const String solarSchool = 'assets/icons/solar_school.svg';
+  static const String solarPlane = 'assets/icons/solar_plane.svg';
+  static const String solarRestaurant = 'assets/icons/solar_restaurant.svg';
+  static const String solarMapPoint = 'assets/icons/solar_map_point.svg';
+  static const String solarClock = 'assets/icons/solar_clock.svg';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';
