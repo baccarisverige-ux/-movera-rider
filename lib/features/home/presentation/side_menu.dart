@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -233,45 +235,61 @@ class RiderMenuPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: _line),
                     ),
-                    child: Row(
-                      children: [
-                        const AppIconAsset(
-                          AppAssets.solarSearch,
-                          size: 22,
-                          color: _ink,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Where to?',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _text(16, color: _muted),
+                    // UI-10: the Later chip may take what the label leaves
+                    // free, so large text shrinks it instead of overflowing.
+                    child: LayoutBuilder(
+                      builder: (context, box) => Row(
+                        children: [
+                          const AppIconAsset(
+                            AppAssets.solarSearch,
+                            size: 22,
+                            color: _ink,
                           ),
-                        ),
-                        Semantics(
-                          button: true,
-                          label: 'Later',
-                          child: Material(
-                            color: _card,
-                            borderRadius: BorderRadius.circular(10),
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              onTap: () => go(onSchedule),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                child: Text(
-                                  'Later',
-                                  style: _text(12, weight: FontWeight.w600),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Where to?',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _text(16, color: _muted),
+                            ),
+                          ),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: math.max(48.0, box.maxWidth - 88),
+                            ),
+                            child: Semantics(
+                              button: true,
+                              label: 'Later',
+                              child: Material(
+                                color: _card,
+                                borderRadius: BorderRadius.circular(10),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  onTap: () => go(onSchedule),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        'Later',
+                                        maxLines: 1,
+                                        style: _text(
+                                          12,
+                                          weight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -333,8 +351,9 @@ class RiderMenuPage extends StatelessWidget {
     return _tap(
       label: 'Wallet',
       onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
-      child: SizedBox(
-        height: 80,
+      // UI-10: a minimum height, so large text grows the card.
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 80),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 14, 0),
           child: Row(

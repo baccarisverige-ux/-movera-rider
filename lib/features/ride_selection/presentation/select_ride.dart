@@ -600,6 +600,19 @@ class _SelectRideState extends State<SelectRide>
 
   String _kr(double value) => formatKr(value);
 
+  /// UI-10: a price never takes more than 30% of the screen width; at large
+  /// text it shrinks to fit instead of pushing the ride row off screen.
+  Widget _fitPrice(BuildContext context, Widget price) => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxWidth: MediaQuery.sizeOf(context).width * 0.3,
+    ),
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: price,
+    ),
+  );
+
   static const double _rowHeight = 78;
 
   double _footerHeight(MediaQueryData media) => 134 + media.padding.bottom;
@@ -2051,9 +2064,12 @@ class _SelectRideState extends State<SelectRide>
                             ),
                             const SizedBox(width: 4),
                           ],
-                          Text(
-                            _kr(price),
-                            style: _text(16, weight: FontWeight.w600),
+                          _fitPrice(
+                            context,
+                            Text(
+                              _kr(price),
+                              style: _text(16, weight: FontWeight.w600),
+                            ),
                           ),
                         ],
                       ),
@@ -2068,12 +2084,15 @@ class _SelectRideState extends State<SelectRide>
                             ),
                           ),
                           if (discount > 0)
-                            Text(
-                              _kr(price + discount),
-                              style: _text(12, color: const Color(0xFF8A9399))
-                                  .copyWith(
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
+                            _fitPrice(
+                              context,
+                              Text(
+                                _kr(price + discount),
+                                style: _text(12, color: const Color(0xFF8A9399))
+                                    .copyWith(
+                                      decoration: TextDecoration.lineThrough,
+                                    ),
+                              ),
                             ),
                         ],
                       ),
