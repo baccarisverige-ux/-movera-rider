@@ -6,7 +6,6 @@ class AppEnv {
   const AppEnv({
     required this.flavor,
     required this.apiBaseUrl,
-    required this.mapsEnabled,
     bool? authRequired,
     this.firebaseApiKey = '',
     this.firebaseAppId = '',
@@ -18,7 +17,6 @@ class AppEnv {
 
   final AppFlavor flavor;
   final String apiBaseUrl;
-  final bool mapsEnabled;
   final bool authRequired;
   final String firebaseApiKey;
   final String firebaseAppId;
@@ -44,10 +42,6 @@ class AppEnv {
     apiBaseUrl: String.fromEnvironment(
       'MOVERA_API_BASE_URL',
       defaultValue: 'https://api.demo.movera.invalid',
-    ),
-    mapsEnabled: bool.fromEnvironment(
-      'MOVERA_MAPS_ENABLED',
-      defaultValue: true,
     ),
     authRequired: bool.fromEnvironment(
       'MOVERA_AUTH_REQUIRED',

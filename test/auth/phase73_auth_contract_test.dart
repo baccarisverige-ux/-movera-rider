@@ -22,7 +22,6 @@ void main() {
   const testEnv = AppEnv(
     flavor: AppFlavor.test,
     apiBaseUrl: 'https://api.test.movera.invalid',
-    mapsEnabled: true,
   );
 
   test('OTP request returns session, expiry, retry window and saves no tokens', () async {

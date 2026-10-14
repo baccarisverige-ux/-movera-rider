@@ -14,7 +14,6 @@ void main() {
       env: const AppEnv(
         flavor: AppFlavor.demo,
         apiBaseUrl: 'https://api.demo.movera.invalid',
-        mapsEnabled: true,
       ),
     );
     await expectLater(

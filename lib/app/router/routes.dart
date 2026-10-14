@@ -9,16 +9,10 @@ abstract final class AppRoutes {
   static const findingDriver = '/ride/finding';
   static const waitingForDriver = '/ride/waiting';
   static const rideCompleted = '/ride/completed';
-  static const wallet = '/wallet';
-  static const rideHistory = '/history';
-  static const support = '/support';
-  static const messages = '/messages';
   static const notifications = '/notifications';
-  static const schedule = '/schedule';
   static const reservationScheduled = '/reservation/scheduled';
   static const reservationUpcoming = '/reservation/upcoming';
   static const reservationLive = '/reservation/live';
-  static const profile = '/profile';
   static const safety = '/safety';
 
   /// Home is a destination contract, not a stack-position assumption.

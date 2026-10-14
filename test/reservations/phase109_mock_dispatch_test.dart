@@ -16,12 +16,10 @@ void main() {
   const demo = AppEnv(
     flavor: AppFlavor.demo,
     apiBaseUrl: 'https://api.demo.movera.invalid',
-    mapsEnabled: true,
   );
   const production = AppEnv(
     flavor: AppFlavor.production,
     apiBaseUrl: 'https://api.movera.example',
-    mapsEnabled: true,
   );
 
   ReservationController controller({

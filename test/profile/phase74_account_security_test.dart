@@ -20,7 +20,6 @@ void main() {
   const env = AppEnv(
     flavor: AppFlavor.test,
     apiBaseUrl: 'https://api.test.movera.invalid',
-    mapsEnabled: true,
   );
 
   InProcessMockClient seededSecurityClient({

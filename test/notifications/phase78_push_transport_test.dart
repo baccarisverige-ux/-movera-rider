@@ -60,7 +60,6 @@ class _FakeGateway implements FirebasePushGateway {
 const _production = AppEnv(
   flavor: AppFlavor.production,
   apiBaseUrl: 'https://api.movera.example',
-  mapsEnabled: true,
   firebaseApiKey: 'api-key',
   firebaseAppId: 'app-id',
   firebaseMessagingSenderId: 'sender-id',
@@ -122,7 +121,6 @@ void main() {
     const missing = AppEnv(
       flavor: AppFlavor.production,
       apiBaseUrl: 'https://api.movera.example',
-      mapsEnabled: true,
     );
     final gateway = _FakeGateway();
     addTearDown(gateway.dispose);

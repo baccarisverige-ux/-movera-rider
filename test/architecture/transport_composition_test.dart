@@ -14,22 +14,18 @@ void main() {
   const production = AppEnv(
     flavor: AppFlavor.production,
     apiBaseUrl: 'https://api.movera.example',
-    mapsEnabled: true,
   );
   const dev = AppEnv(
     flavor: AppFlavor.dev,
     apiBaseUrl: 'https://api.dev.movera.invalid',
-    mapsEnabled: true,
   );
   const testEnv = AppEnv(
     flavor: AppFlavor.test,
     apiBaseUrl: 'https://api.test.movera.invalid',
-    mapsEnabled: true,
   );
   const staging = AppEnv(
     flavor: AppFlavor.staging,
     apiBaseUrl: 'https://api.staging.movera.example',
-    mapsEnabled: true,
   );
 
   test('production ApiClient never silently chooses in-process mock', () {

@@ -8,7 +8,6 @@ void main() {
   const environment = AppEnv(
     flavor: AppFlavor.test,
     apiBaseUrl: 'https://api.test.movera.invalid',
-    mapsEnabled: true,
   );
 
   test('Phase 80 creates confirms and reads backend payment intent', () async {

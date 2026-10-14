@@ -465,6 +465,3 @@ class ApiSafetyRemoteDataSource implements SafetyRemoteDataSource {
         .toList();
   }
 }
-
-/// Alias used in docs / future swap: production implements this same contract.
-typedef MockSafetyRemoteDataSource = ApiSafetyRemoteDataSource;

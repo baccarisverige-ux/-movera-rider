@@ -29,7 +29,6 @@ void main() {
     const production = AppEnv(
       flavor: AppFlavor.production,
       apiBaseUrl: 'https://api.movera.example',
-      mapsEnabled: true,
     );
 
     final scope = AppScope.composeForEnvironment(production);
@@ -67,7 +66,6 @@ void main() {
     const demo = AppEnv(
       flavor: AppFlavor.demo,
       apiBaseUrl: 'https://api.demo.movera.invalid',
-      mapsEnabled: true,
     );
 
     final scope = AppScope.composeForEnvironment(demo);
