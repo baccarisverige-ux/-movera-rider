@@ -194,10 +194,12 @@ void main() {
     final home = File(
       'lib/features/home/presentation/home.dart',
     ).readAsStringSync();
+    // NAV-6: Home starts the booking after the menu's park scope ends.
     expect(
       home,
-      contains('onStartBooking: () => unawaited(_handleDestinationTap())'),
+      contains('onStartBooking: () => then = _handleDestinationTap'),
     );
+    expect(home, contains('await then?.call();'));
   });
 
   test('D-024: an empty profile never reads as a literal placeholder', () {

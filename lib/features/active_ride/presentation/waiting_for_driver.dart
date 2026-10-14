@@ -188,6 +188,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   bool _mapParked = false;
   bool _modalHandoffInProgress = false;
   bool _arrivedSheetShowing = false;
+  Route<Object?>? _arrivedSheetRoute;
   bool _cancelling = false;
   RideStatus? _pendingStageStatus;
   String _sheetSignature = '';
@@ -290,8 +291,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     // trip actually starts so the rider sees that phase instead of skipping it.
     if (_arrivedSheetShowing && DriverEta.isInTrip(status)) {
       _arrivedSheetShowing = false;
-      final nav = Navigator.of(context, rootNavigator: true);
-      if (nav.canPop()) nav.pop();
+      // NAV-9: close the arrived sheet itself, not whatever route is on top
+      // (a notification or Safety page pushed above it stays open).
+      final route = _arrivedSheetRoute;
+      _arrivedSheetRoute = null;
+      closeRouteByReference(route);
     }
 
     // A driver drop is a reversible dispatch event, not the end of the
@@ -358,7 +362,11 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         context,
         driver: _tracking.driver ?? widget.driver,
         onWay: _realtime.supportsRiderSignals ? _sendOnTheWay : null,
-      ).whenComplete(() => _arrivedSheetShowing = false),
+        onRoute: (route) => _arrivedSheetRoute = route,
+      ).whenComplete(() {
+        _arrivedSheetShowing = false;
+        _arrivedSheetRoute = null;
+      }),
     );
   }
 

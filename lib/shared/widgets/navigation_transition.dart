@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 
@@ -116,6 +118,13 @@ class LeftToRightTransition<T> extends PageRouteBuilder<T> {
         );
 }
 
+/// The forward page push for non-ride pages (menu, account, wallet, help).
+///
+/// NAV-13: on native iOS it uses the Cupertino page transition, which carries
+/// the interactive edge swipe-back. A page that must not be left that way
+/// opts out with a PopScope(canPop: false), which disables the gesture. The
+/// web build keeps the Movera transition; there the browser's own edge swipe
+/// is history back.
 class RightToLeftTransition<T> extends PageRouteBuilder<T> {
   RightToLeftTransition(Widget page, {super.settings})
       : super(
@@ -126,6 +135,33 @@ class RightToLeftTransition<T> extends PageRouteBuilder<T> {
             return _sideCover(context, animation, child, const Offset(0.06, 0));
           },
         );
+
+  bool _iosBackSwipe(BuildContext context) =>
+      !kIsWeb && Theme.of(context).platform == TargetPlatform.iOS;
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (_iosBackSwipe(context)) {
+      return const CupertinoPageTransitionsBuilder().buildTransitions<T>(
+        this,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    return super.buildTransitions(
+      context,
+      animation,
+      secondaryAnimation,
+      child,
+    );
+  }
 }
 
 Widget _sheetCover(BuildContext context, Animation<double> animation, Widget child) {
