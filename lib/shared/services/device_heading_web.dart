@@ -7,6 +7,9 @@ external JSPromise<JSBoolean> _startHeading();
 @JS('moveraStopHeading')
 external void _stopHeading();
 
+/// Whether this platform has a compass source at all.
+const bool headingTrackingSupported = true;
+
 Future<bool> startHeadingTracking() async {
   try {
     final ok = (await _startHeading().toDart).toDart;
