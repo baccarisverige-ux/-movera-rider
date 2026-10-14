@@ -68,6 +68,30 @@ bool isPlaceholderPickupLabel(String? label) {
       clean == locationOffPickupLabel.toLowerCase();
 }
 
+/// The result of a Home geocode. A stale call (a newer one superseded it)
+/// is not "not found": its flow should stop quietly, without an error.
+sealed class GeocodeOutcome<T> {
+  const GeocodeOutcome();
+
+  T? get valueOrNull => switch (this) {
+    GeocodeFound<T>(:final value) => value,
+    _ => null,
+  };
+}
+
+final class GeocodeFound<T> extends GeocodeOutcome<T> {
+  const GeocodeFound(this.value);
+  final T value;
+}
+
+final class GeocodeNotFound<T> extends GeocodeOutcome<T> {
+  const GeocodeNotFound();
+}
+
+final class GeocodeStale<T> extends GeocodeOutcome<T> {
+  const GeocodeStale();
+}
+
 /// Whether [text] is a raw "lat, lng" coordinate string (D-004).
 bool isRawCoordinateLabel(String? text) => RegExp(
   r'^\s*-?\d{1,3}(\.\d+)?\s*,\s*-?\d{1,3}(\.\d+)?\s*$',
@@ -198,23 +222,38 @@ class HomeLocationController extends ChangeNotifier {
         : clean;
   }
 
-  Future<LatLng?> geocodeLatLng(String address) async {
+  Future<LatLng?> geocodeLatLng(String address) async =>
+      (await resolveLatLng(address)).valueOrNull;
+
+  Future<({LatLng point, String address})?> geocodePlace(
+    String address,
+  ) async => (await resolvePlace(address)).valueOrNull;
+
+  /// [geocodeLatLng], but says whether a null meant "not found" or "a newer
+  /// call superseded this one" (RIDE-18).
+  Future<GeocodeOutcome<LatLng>> resolveLatLng(String address) async {
     final generation = _pointGuard.next();
     final result = await geocoding.forward(address);
-    if (!_pointGuard.isCurrent(generation) || result == null) return null;
-    return LatLng(result.point.latitude, result.point.longitude);
+    if (!_pointGuard.isCurrent(generation)) return const GeocodeStale();
+    if (result == null) return const GeocodeNotFound();
+    return GeocodeFound(LatLng(result.point.latitude, result.point.longitude));
   }
 
-  Future<({LatLng point, String address})?> geocodePlace(String address) async {
+  /// [geocodePlace], but says whether a null meant "not found" or "a newer
+  /// call superseded this one" (RIDE-18).
+  Future<GeocodeOutcome<({LatLng point, String address})>> resolvePlace(
+    String address,
+  ) async {
     final generation = _placeGuard.next();
     final result = await geocoding.forward(address);
-    if (!_placeGuard.isCurrent(generation) || result == null) return null;
-    return (
+    if (!_placeGuard.isCurrent(generation)) return const GeocodeStale();
+    if (result == null) return const GeocodeNotFound();
+    return GeocodeFound((
       point: LatLng(result.point.latitude, result.point.longitude),
       address: result.address.trim().isNotEmpty
           ? result.address.trim()
           : address,
-    );
+    ));
   }
 
   bool _permissionBlocked = false;

@@ -25,6 +25,7 @@ class HomeReservationChrono extends StatefulWidget {
     this.controller,
     this.now,
     this.onRebook,
+    this.openRoute,
   });
 
   final ReservationController? controller;
@@ -34,6 +35,11 @@ class HomeReservationChrono extends StatefulWidget {
   /// reservation timed out without a driver. When null, the "No driver
   /// found" sheet offers cancel only.
   final VoidCallback? onRebook;
+
+  /// Wraps every page the chrono opens over Home (NAV-3). Home passes its
+  /// park-the-map wrapper so its own Google Map is gone before the live
+  /// ride's map mounts; two maps at once crash the tab on Flutter web.
+  final Future<T?> Function<T>(Future<T?> Function() open)? openRoute;
 
   static const ink = Color(0xFF172127);
   static const confirmed = Color(0xFF1F9D5B);
@@ -141,10 +147,8 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
     final ride = _reservations.byId(snapshot.reservationId);
     if (ride == null || !ride.status.isUpcoming || !ride.revealsDriver) return;
     _openedLiveId = ride.reservationId;
-    await ReservationLiveRide.open(
-      context,
-      ride,
-      controller: _reservations,
+    await _open<void>(
+      () => ReservationLiveRide.open(context, ride, controller: _reservations),
     );
     if (!mounted || _openedLiveId != ride.reservationId) return;
     _openedLiveId = null;
@@ -161,15 +165,24 @@ class _HomeReservationChronoState extends State<HomeReservationChrono> {
       unawaited(_openLiveRide(ride));
       return;
     }
-    Navigator.of(context).push(
-      RightToLeftTransition(
-        UpcomingReservationPage(
-          reservationId: ride.reservationId,
-          controller: _reservations,
+    unawaited(
+      _open<void>(
+        () => Navigator.of(context).push(
+          RightToLeftTransition(
+            UpcomingReservationPage(
+              reservationId: ride.reservationId,
+              controller: _reservations,
+            ),
+            settings: const RouteSettings(name: AppRoutes.reservationUpcoming),
+          ),
         ),
-        settings: const RouteSettings(name: AppRoutes.reservationUpcoming),
       ),
     );
+  }
+
+  Future<T?> _open<T>(Future<T?> Function() open) {
+    final wrap = widget.openRoute;
+    return wrap == null ? open() : wrap<T>(open);
   }
 
   @override

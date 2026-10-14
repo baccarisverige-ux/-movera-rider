@@ -132,6 +132,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   final ValueNotifier<bool> _mapParked = ValueNotifier(false);
   final MapParkingGuard _mapParkingGuard = MapParkingGuard();
 
+  /// NAV-3: Home's own route, and whether an opaque page fully covers it.
+  /// The map stays parked while anything is above Home, not only for the
+  /// flows Home opens itself (a page can replace the parked one, or be
+  /// pushed by a widget that does not go through [_withParkedHomeMap]).
+  ModalRoute<Object?>? _homeRoute;
+  bool _homeHidden = false;
+  bool get _homeIsCurrent => _homeRoute?.isCurrent ?? true;
+
+  /// RIDE-9: one route flow (Where to, Schedule, a saved place, a tab) at a
+  /// time, so a double tap cannot open two pickers.
+  bool _routeFlowOpen = false;
+
   static const CameraPosition _initialPosition = CameraPosition(
     target: LatLng(59.3293, 18.0686),
     zoom: 13.0,
@@ -184,6 +196,44 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _homeRoute = ModalRoute.of(context);
+    final hidden = !TickerMode.valuesOf(context).enabled;
+    final changed = hidden != _homeHidden;
+    _homeHidden = hidden;
+    // Parked while covered: resume once Home is the current route again.
+    if (changed || (_mapParked.value && _homeIsCurrent)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncRouteParking());
+    }
+  }
+
+  void _syncRouteParking() {
+    if (!mounted || _mapParkingGuard.isParked) return;
+    if (_homeHidden && !_mapParked.value) {
+      _parkHomeMap();
+    } else if (_homeIsCurrent && _mapParked.value) {
+      _resumeHomeMap();
+    }
+  }
+
+  void _parkHomeMap() {
+    if (_mapParked.value) return;
+    setWebOverlayOpen(false);
+    _mapParked.value = true;
+    _locationCtl.pauseLiveUpdates();
+    AppScope.instance.mapLifecycle.park();
+    AppScope.instance.maps.detach(owner: MapOwners.home);
+  }
+
+  void _resumeHomeMap() {
+    if (!_mapParked.value) return;
+    AppScope.instance.mapLifecycle.resume();
+    _locationCtl.resumeLiveUpdates();
+    _mapParked.value = false;
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
@@ -192,6 +242,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       return;
     }
     if (state != AppLifecycleState.resumed) return;
+    // RIDE-14: a parked Home (a ride or another page above it) stays paused;
+    // it resumes when the map is unparked.
+    if (_mapParked.value) return;
     _locationCtl.resumeLiveUpdates();
     if (_locationCtl.state == HomeLocationState.temporarilyUnavailable) {
       _locationCtl.recoverLiveLocation(
@@ -200,6 +253,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _currentLatLng = latLng;
           _locationHeading = heading;
           _updateLocationVisuals();
+          _refreshPickupLabelIfMoved(latLng);
         },
       );
     } else if (_currentLatLng == null) {
@@ -307,6 +361,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       }
       setState(() {
         _pickupAddress = detected.address;
+        _pickupLabelAt = target;
         _currentLatLng = target;
         _locationCtl.clearOverlays();
         _locationHeading = detected.heading;
@@ -318,6 +373,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _currentLatLng = latLng;
           _locationHeading = heading;
           _updateLocationVisuals();
+          _refreshPickupLabelIfMoved(latLng);
         },
         onHeading: (heading) {
           _locationHeading = heading;
@@ -432,7 +488,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleDestinationTap() async {
+  Future<void> _handleDestinationTap() => _runRouteFlow(() async {
     // Capture from the tap itself: the sheet sequencing below takes long enough
     // that anything typed in the meantime would otherwise be lost.
     final capture = EarlyInputCapture()..start();
@@ -449,7 +505,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     } finally {
       capture.stop();
     }
-  }
+  });
 
   /// A saved place that only says "Current location" was never really set.
   String? _placeOrNull(String? address) {
@@ -466,7 +522,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     String? savedAddress, {
     required String target,
     String? customType,
-  }) async {
+  }) => _runRouteFlow(() async {
     final address = _placeOrNull(savedAddress) ?? '';
     if (address.isEmpty) {
       await _showAddressPicker(target: target, customType: customType);
@@ -500,15 +556,18 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       final confirmedPickupPosition = pickupPosition;
       var resolvedDestination = destination;
       LatLng? destinationPosition;
-      final destinationResult = await _locationCtl.geocodePlace(destination);
-      if (destinationResult != null) {
-        resolvedDestination = destinationResult.address;
-        destinationPosition = destinationResult.point;
-      } else {
-        if (mounted) {
-          MoveraToast.show(context, 'Choose a valid destination address.');
-        }
-        return null;
+      switch (await _locationCtl.resolvePlace(destination)) {
+        case GeocodeFound(:final value):
+          resolvedDestination = value.address;
+          destinationPosition = value.point;
+        case GeocodeStale():
+          // RIDE-18: a newer flow owns the geocode; stop without an error.
+          return null;
+        case GeocodeNotFound():
+          if (mounted) {
+            MoveraToast.show(context, 'Choose a valid destination address.');
+          }
+          return null;
       }
       final confirmedDestinationPosition = destinationPosition;
       if (!mounted) return null;
@@ -532,7 +591,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         ),
       );
     });
-  }
+  });
 
   Future<T?> _withParkedHomeMap<T>(Future<T?> Function() action) async {
     final parkedNow = _mapParkingGuard.enter();
@@ -541,11 +600,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     try {
       if (parkedNow) {
         final parkingWatch = Stopwatch()..start();
-        setWebOverlayOpen(false);
-        _mapParked.value = true;
-        _locationCtl.pauseLiveUpdates();
-        AppScope.instance.mapLifecycle.park();
-        AppScope.instance.maps.detach(owner: MapOwners.home);
+        _parkHomeMap();
         // Let Flutter remove the platform map for one rendered frame before
         // the next map-heavy ride screen mounts.
         await WidgetsBinding.instance.endOfFrame;
@@ -570,12 +625,89 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           _destinationAddress = null;
           _routeStops = const <String>[];
         }
-        AppScope.instance.mapLifecycle.resume();
         _closeDestinationSheet();
-        _locationCtl.resumeLiveUpdates();
-        _mapParked.value = false;
+        // NAV-3: the flow's page can be replaced by another one (Book for
+        // later -> Ride scheduled). Stay parked until Home is on top again.
+        if (_homeIsCurrent) _resumeHomeMap();
       }
     }
+  }
+
+  /// RIDE-10: the next booking starts from the rider's current location,
+  /// not from the last flow's pickup street.
+  int _pickupLabelGeneration = 0;
+  LatLng? _pickupLabelAt;
+
+  void _resetPickupLabel() {
+    final here = _currentLatLng;
+    final generation = ++_pickupLabelGeneration;
+    _pickupLabelAt = here;
+    setState(() {
+      // U6: the label and the point go together; neither outlives the flow.
+      _tripPickupLatLng = null;
+      _pickupAddress = here == null
+          ? locationOffPickupLabel
+          : 'Current location';
+    });
+    if (here == null) return;
+    unawaited(() async {
+      String? address;
+      try {
+        address = await AppScope.instance.geocoding.reverse(
+          GeoPoint(here.latitude, here.longitude),
+        );
+      } catch (_) {
+        return;
+      }
+      final clean = address?.trim() ?? '';
+      if (!mounted ||
+          generation != _pickupLabelGeneration ||
+          clean.isEmpty ||
+          isRawCoordinateLabel(clean) ||
+          _routeFlowOpen ||
+          _mapParkingGuard.isParked ||
+          !isPlaceholderPickupLabel(_pickupAddress)) {
+        return;
+      }
+      setState(() => _pickupAddress = clean);
+    }());
+  }
+
+  /// RIDE-9: runs one route flow at a time; a second tap while one is
+  /// opening or open does nothing. RIDE-10: when the flow ends, the pickup
+  /// label goes back to the rider's current location.
+  Future<void> _runRouteFlow(Future<void> Function() flow) async {
+    if (_routeFlowOpen) return;
+    _routeFlowOpen = true;
+    try {
+      await flow();
+    } finally {
+      _routeFlowOpen = false;
+      if (mounted) _resetPickupLabel();
+    }
+  }
+
+  /// RIDE-10: a live fix far from where the pickup label was resolved
+  /// makes that label wrong; derive it again from the new point.
+  void _refreshPickupLabelIfMoved(LatLng fix) {
+    final at = _pickupLabelAt;
+    if (at == null) {
+      _pickupLabelAt = fix;
+      return;
+    }
+    // Not during a flow, and never over a pickup the rider chose.
+    if (_routeFlowOpen ||
+        _mapParkingGuard.isParked ||
+        _tripPickupLatLng != null) {
+      return;
+    }
+    final moved = AppScope.instance.location.distanceBetween(
+      at.latitude,
+      at.longitude,
+      fix.latitude,
+      fix.longitude,
+    );
+    if (moved > 75) _resetPickupLabel();
   }
 
   Future<PickupMapResult?> _openPickupMapPicker(
@@ -647,9 +779,14 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         !isUnusablePickupLabel(clean) &&
         clean != (_pickupAddress?.trim() ?? '');
     if (typedByRider) {
-      final geocoded = await _locationCtl.geocodeLatLng(clean);
-      if (geocoded != null) {
-        return PickupMapResult(address: clean, position: geocoded);
+      switch (await _locationCtl.resolveLatLng(clean)) {
+        case GeocodeFound(:final value):
+          return PickupMapResult(address: clean, position: value);
+        case GeocodeStale():
+          // RIDE-18: superseded — never swap the typed pickup for GPS.
+          return null;
+        case GeocodeNotFound():
+          break;
       }
     }
     // No fix yet (Safari's permission prompt, a slow first fix): wait for it
@@ -687,9 +824,10 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     var destination = selection.destination;
     var destinationPoint = selection.destinationPoint;
     if (destinationPoint == null) {
-      final geocoded = await _locationCtl.geocodePlace(destination);
+      final outcome = await _locationCtl.resolvePlace(destination);
+      final geocoded = outcome.valueOrNull;
       if (geocoded == null) {
-        if (mounted) {
+        if (mounted && outcome is GeocodeNotFound) {
           MoveraToast.show(context, 'Choose a valid destination address.');
         }
         return null;
@@ -917,7 +1055,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                 builder: (context, setModalState) {
                   capture.onChanged = (value) {
                     AppScope.instance.destinationSearch.type(value, (text) {
-                      if (!mounted) return;
+                      // RIDE-20: the sheet's own context, not Home's — the
+                      // debounce can fire after the sheet has closed.
+                      if (!context.mounted) return;
                       setModalState(() => query = text);
                     });
                   };
@@ -992,7 +1132,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                               AppScope.instance.destinationSearch.type(value, (
                                 text,
                               ) {
-                                if (!mounted) return;
+                                if (!context.mounted) return;
                                 setModalState(() => query = text);
                               });
                             },
@@ -1615,27 +1755,24 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
 
   /// Book for later: the same Where to as Book now, then the date and time,
   /// then the categories in scheduled mode (Set pickup comes after Schedule).
-  Future<void> _openSchedule() async {
-    await _showRouteAddressPicker(initialField: 'destination', scheduled: true);
-  }
+  Future<void> _openSchedule() => _runRouteFlow(
+    () => _showRouteAddressPicker(initialField: 'destination', scheduled: true),
+  );
 
   void _openPayment() => _openTab(HomeTabs.payment);
 
   /// Opens a bottom-bar tab over Home. A horizontal swipe on that page
   /// hands back the neighbouring tab's index, so the rider can slide
-  /// Home → Payment → Schedule ride → Account and back without tapping.
+  /// Home → Payment → Account and back without tapping. Schedule ride is a
+  /// booking flow, not a page, so the swipe skips it (NAV-5).
   void _openTab(int first) {
     unawaited(
-      _withParkedHomeMap<void>(() async {
+      _runRouteFlow(() => _withParkedHomeMap<void>(() async {
         var current = HomeTabs.home;
         int? next = first;
         while (next != null && next != HomeTabs.home && mounted) {
           final forward = next > current;
           current = next;
-          if (next == HomeTabs.schedule) {
-            await _openSchedule();
-            return;
-          }
           final page = HomeTabPage(
             tab: next,
             child: next == HomeTabs.payment
@@ -1646,22 +1783,28 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             forward ? RightToLeftTransition(page) : LeftToRightTransition(page),
           );
         }
-      }),
+      })),
     );
   }
 
   /// The full-screen menu, with Home's map parked underneath like the
   /// other full-screen pages.
   void _openMenu() {
-    unawaited(
-      _withParkedHomeMap(() {
+    unawaited(() async {
+      // NAV-6: the menu's Where to / Later leave the menu first; Home runs
+      // the chosen flow only after the menu's park scope has finished, so
+      // its cleanup cannot close the sheet the flow just opened.
+      Future<void> Function()? then;
+      await _withParkedHomeMap(() {
         return RiderMenuPage.open(
           context,
-          onStartBooking: () => unawaited(_handleDestinationTap()),
-          onSchedule: () => unawaited(_openSchedule()),
+          onStartBooking: () => then = _handleDestinationTap,
+          onSchedule: () => then = _openSchedule,
         );
-      }),
-    );
+      });
+      if (!mounted) return;
+      await then?.call();
+    }());
   }
 
   void _openAccount() => _openTab(HomeTabs.account);
@@ -1776,6 +1919,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         top: ResSize.h * 60,
                         child: HomeReservationChrono(
                           onRebook: () => unawaited(_openSchedule()),
+                          openRoute: _withParkedHomeMap,
                         ),
                       ),
                       Positioned.fill(

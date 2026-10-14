@@ -13,18 +13,39 @@ const Color _accent = Color(0xFF2D5878);
 ///
 /// The rider may have the phone in a pocket, so this has to interrupt rather
 /// than quietly change a line of text on the map.
+///
+/// [onRoute] receives the sheet's own route so the caller can close exactly
+/// this sheet later, whatever has been pushed above it (NAV-9).
 Future<void> showDriverArrivedSheet(
   BuildContext context, {
   MatchedDriver? driver,
   Future<void> Function()? onWay,
+  ValueChanged<Route<Object?>>? onRoute,
 }) {
   return MoveraSheet.show<void>(
     context: context,
-    builder: (_) => DriverArrivedSheet(
-      driver: driver,
-      onWay: onWay,
-    ),
+    builder: (sheetContext) {
+      final route = ModalRoute.of(sheetContext);
+      if (route != null) onRoute?.call(route);
+      return DriverArrivedSheet(
+        driver: driver,
+        onWay: onWay,
+      );
+    },
   );
+}
+
+/// Closes [route] if it is still on its navigator: popped when it is on
+/// top, otherwise removed without touching the routes above it.
+void closeRouteByReference(Route<Object?>? route) {
+  if (route == null || !route.isActive) return;
+  final navigator = route.navigator;
+  if (navigator == null) return;
+  if (route.isCurrent) {
+    navigator.pop();
+  } else {
+    navigator.removeRoute(route);
+  }
 }
 
 class DriverArrivedSheet extends StatelessWidget {
