@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_sheet_bits.dart';
 
@@ -11,6 +12,7 @@ class RiderInTripPanel extends StatelessWidget {
     required this.destinationAddress,
     required this.rideType,
     required this.paymentMethod,
+    this.walletAmountMinor = 0,
     required this.price,
     required this.driver,
     required this.rideId,
@@ -25,6 +27,9 @@ class RiderInTripPanel extends StatelessWidget {
   final String destinationAddress;
   final String rideType;
   final String paymentMethod;
+
+  /// The part of [price] booked to the Movera Wallet, in öre.
+  final int walletAmountMinor;
   final double price;
   final MatchedDriver? driver;
   final String? rideId;
@@ -111,7 +116,11 @@ class RiderInTripPanel extends StatelessWidget {
           const SizedBox(height: 12),
           // One slim line: the destination is already the subtitle above.
           Text(
-            '$rideType · $paymentMethod · ${price.round()} kr',
+            '$rideType · ${bookedPaymentLine(
+              paymentMethod: paymentMethod,
+              priceKr: price,
+              walletMinor: walletAmountMinor,
+            )}',
             key: const ValueKey<String>('trip-summary-line'),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

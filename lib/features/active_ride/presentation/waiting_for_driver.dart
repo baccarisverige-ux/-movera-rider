@@ -121,6 +121,7 @@ class WaitingForDriver extends StatefulWidget {
     required this.rideType,
     required this.price,
     required this.paymentMethod,
+    this.walletAmountMinor = 0,
     this.notes = RideNotes.empty,
     this.stops = const <RouteStop>[],
     this.driver,
@@ -140,6 +141,9 @@ class WaitingForDriver extends StatefulWidget {
   final String rideType;
   final double price;
   final String paymentMethod;
+
+  /// The part of the fare booked to the Movera Wallet, in öre.
+  final int walletAmountMinor;
   final RideNotes notes;
 
   /// Stops between the pickup and the destination, in order.
@@ -537,6 +541,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       rideType: widget.rideType,
       price: _price,
       paymentMethod: widget.paymentMethod,
+      walletAmountMinor: widget.walletAmountMinor,
       notes: widget.notes,
       stops: _stops,
     );
@@ -789,6 +794,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       notes: widget.notes,
       stops: _stops,
       driver: _tracking.driver ?? widget.driver,
+      walletAmountMinor: widget.walletAmountMinor,
     );
   }
 
@@ -1463,6 +1469,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         destinationAddress: _destinationAddress,
         rideType: widget.rideType,
         paymentMethod: widget.paymentMethod,
+        walletAmountMinor: widget.walletAmountMinor,
         price: _price,
         driver: driver,
         rideId: _rideId,
@@ -1493,6 +1500,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
             destinationAddress: _destinationAddress,
             inTrip: _isInTrip,
             paymentMethod: widget.paymentMethod,
+            walletAmountMinor: widget.walletAmountMinor,
             price: _price,
             onMore: _openDetails,
           ),

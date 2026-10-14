@@ -31,6 +31,7 @@ class RideSnapshot {
     this.driver,
     this.cancellationReason,
     this.version,
+    this.walletAmountMinor = 0,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -59,6 +60,10 @@ class RideSnapshot {
   /// its own numbering over from zero) is recognized as older instead of
   /// silently accepted and regressing the restored ride.
   final int? version;
+
+  /// "Use wallet balance first": the part of [price] booked to the Movera
+  /// Wallet, in öre (0 = none). The rest goes to [paymentMethod].
+  final int walletAmountMinor;
 
   /// How long a saved ride may go untouched and still be worth restoring.
   ///
@@ -96,6 +101,7 @@ class RideSnapshot {
     MatchedDriver? driver,
     String? cancellationReason,
     int? version,
+    int? walletAmountMinor,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -116,6 +122,7 @@ class RideSnapshot {
       driver: driver ?? this.driver,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       version: version ?? this.version,
+      walletAmountMinor: walletAmountMinor ?? this.walletAmountMinor,
     );
   }
 
@@ -139,6 +146,7 @@ class RideSnapshot {
     if (driver != null) 'driver': driver!.toJson(),
     if (cancellationReason != null) 'cancellationReason': cancellationReason,
     if (version != null) 'version': version,
+    if (walletAmountMinor > 0) 'walletAmountMinor': walletAmountMinor,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -220,6 +228,7 @@ class RideSnapshot {
           : null,
       cancellationReason: json['cancellationReason'] as String?,
       version: (json['version'] as num?)?.toInt(),
+      walletAmountMinor: (json['walletAmountMinor'] as num?)?.round() ?? 0,
     );
   }
 }
