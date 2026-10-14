@@ -205,13 +205,6 @@ class SafetyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<PinVerifyResult> verifyPin({
-    required String rideId,
-    required String pin,
-  }) {
-    return _session.verifyPin(rideId: rideId, pin: pin);
-  }
-
   Future<void> addContact({
     required String name,
     required String phone,

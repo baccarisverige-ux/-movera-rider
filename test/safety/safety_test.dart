@@ -160,7 +160,9 @@ void main() {
     }
   });
 
-  test('PIN generate enable disable rotate persist and verify', () async {
+  // ARCH-22: verifying a PIN is the driver app's call, so the rider client
+  // has no verify method any more; see audit_fix_backend_seams_test.dart.
+  test('PIN generate enable disable rotate persist', () async {
     final ctl = buildController();
     await ctl.load();
     expect(ctl.preferences.pinRequired, isFalse);
@@ -171,9 +173,6 @@ void main() {
     await ctl.rotatePin();
     expect(ctl.pin.pin.length, 4);
     expect(ctl.pin.pin, isNot(first));
-    expect((await ctl.verifyPin(rideId: 'ride_1', pin: ctl.pin.pin)).valid, isTrue);
-    final other = ctl.pin.pin == '0000' ? '1111' : '0000';
-    expect((await ctl.verifyPin(rideId: 'ride_1', pin: other)).valid, isFalse);
     await ctl.setPinRequired(false);
     expect(ctl.preferences.pinRequired, isFalse);
   });

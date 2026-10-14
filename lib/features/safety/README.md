@@ -32,7 +32,7 @@ Server-authoritative fields:
 GET/PATCH  /api/v1/safety/preferences
 GET        /api/v1/safety/pin
 POST       /api/v1/safety/pin/rotate
-POST       /api/v1/rides/{rideId}/pin/verify
+(PIN verify is a driver-app call, not the rider's: docs/ride-pin-backend-contract.md section 3)
 GET/POST   /api/v1/safety/contacts
 PATCH/DELETE /api/v1/safety/contacts/{id}
 POST       /api/v1/safety/contacts/{id}/primary

@@ -334,11 +334,9 @@ void main() {
       await safety.setRideCheck(true);
       expect(safety.rideCheckPolicy.enabled, isTrue);
 
-      final verify = await safety.verifyPin(
-        rideId: 'uat-safety-ride',
-        pin: safety.pin.pin,
-      );
-      expect(verify.valid, isTrue);
+      // ARCH-22: the rider shows the PIN; verifying it is the driver app's
+      // call, so the rider client has none.
+      expect(RegExp(r'^\d{4}$').hasMatch(safety.pin.pin), isTrue);
     },
   );
 }
