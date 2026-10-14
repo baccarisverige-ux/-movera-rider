@@ -116,7 +116,7 @@
       var installed = navigator.standalone === true ||
         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
       if (!installed || location.hostname !== 'baccarisverige-ux.github.io' ||
-          !location.pathname.startsWith('/-movera-rider/')) return;
+          !location.pathname.startsWith('/movera-rider-app/')) return;
       var url = new URL(location.href);
       if (url.searchParams.has('auth_preview') || url.searchParams.has('qa_wait')) return;
       url.searchParams.set('auth_preview', '1');
