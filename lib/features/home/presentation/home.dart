@@ -2043,8 +2043,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                         children: [
                           Expanded(
                             child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navMap,
-                              label: 'Map',
+                              iconAsset: AppAssets.solarHome,
+                              label: 'Home',
                               active: true,
                               floatingFraction: 1 - sheetProgress,
                               onTap: () => _animateHomeSheetTo(
@@ -2054,7 +2054,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ),
                           Expanded(
                             child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navPayment,
+                              iconAsset: AppAssets.solarWallet,
                               label: 'Payment',
                               floatingFraction: 1 - sheetProgress,
                               onTap: _openPayment,
@@ -2062,7 +2062,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ),
                           Expanded(
                             child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navSchedule,
+                              iconAsset: AppAssets.solarCalendar,
                               label: 'Schedule ride',
                               floatingFraction: 1 - sheetProgress,
                               onTap: _openSchedule,
@@ -2070,7 +2070,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ),
                           Expanded(
                             child: PremiumBottomNavItem(
-                              iconAsset: AppAssets.navAccount,
+                              iconAsset: AppAssets.solarUser,
                               label: 'Account',
                               floatingFraction: 1 - sheetProgress,
                               onTap: _openAccount,

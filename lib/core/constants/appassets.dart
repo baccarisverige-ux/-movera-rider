@@ -15,6 +15,13 @@ class AppAssets {
   static const String safetyShield = 'assets/icons/safety_shield.png';
   static const String scheduleCalendar =
       'assets/icons/schedule_calendar_v3.webp';
+  // Solar Icons (Linear), CC BY 4.0 — see assets/icons/SOLAR_LICENSE.txt.
+  static const String solarHome = 'assets/icons/solar_home.svg';
+  static const String solarCase = 'assets/icons/solar_case.svg';
+  static const String solarAdd = 'assets/icons/solar_add.svg';
+  static const String solarWallet = 'assets/icons/solar_wallet.svg';
+  static const String solarCalendar = 'assets/icons/solar_calendar.svg';
+  static const String solarUser = 'assets/icons/solar_user.svg';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';

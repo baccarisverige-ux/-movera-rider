@@ -616,7 +616,7 @@ class RiderMenuPage extends StatelessWidget {
           const HelpArticle(
             title: 'About Movera',
             body:
-                'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
+                'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.\n\nIcons: Solar Icons by 480 Design (CC BY 4.0). Illustrations: unDraw.',
           ),
         ),
       ),
