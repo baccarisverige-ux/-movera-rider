@@ -18,7 +18,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 const env = AppEnv(
   flavor: AppFlavor.staging,
   apiBaseUrl: 'https://x.invalid',
-  mapsEnabled: false,
 );
 
 Future<(ApiClient, MemoryTokenStore, List<int>)> _client(

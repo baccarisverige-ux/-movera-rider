@@ -180,7 +180,6 @@ void main() {
     const env = AppEnv(
       flavor: AppFlavor.test,
       apiBaseUrl: 'https://api.test.movera.invalid',
-      mapsEnabled: true,
     );
     final security = AccountSecurityController(
       repository: AccountSecurityRepository(

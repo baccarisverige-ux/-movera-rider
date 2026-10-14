@@ -13,7 +13,6 @@ void main() {
   const env = AppEnv(
     flavor: AppFlavor.test,
     apiBaseUrl: 'https://api.test.movera.invalid',
-    mapsEnabled: true,
     authRequired: true,
   );
 
@@ -21,7 +20,6 @@ void main() {
     const production = AppEnv(
       flavor: AppFlavor.production,
       apiBaseUrl: 'https://api.movera.example',
-      mapsEnabled: true,
     );
     expect(production.authRequired, isTrue);
     expect(() => AuthComposition.validate(production), returnsNormally);
@@ -29,7 +27,6 @@ void main() {
       () => AuthComposition.validate(const AppEnv(
         flavor: AppFlavor.production,
         apiBaseUrl: 'https://api.movera.example',
-        mapsEnabled: true,
         authRequired: false,
       )),
       throwsStateError,

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/core/web/web_maps_available.dart';
@@ -149,74 +147,5 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
     // confirming the exact pickup before SelectRide opens).
     _mapController = null;
     super.dispose();
-  }
-}
-
-class MapHelper {
-  static Future<Marker> createCustomMarker({
-    required String markerId,
-    required LatLng position,
-    String? infoWindow,
-    BitmapDescriptor? icon,
-    VoidCallback? onTap,
-  }) async {
-    return Marker(
-      markerId: MarkerId(markerId),
-      position: position,
-      infoWindow: InfoWindow(title: infoWindow),
-      icon: icon ?? BitmapDescriptor.defaultMarker,
-      onTap: onTap,
-    );
-  }
-
-  static Polyline createRoute({
-    required String polylineId,
-    required List<LatLng> points,
-    Color color = Colors.blue,
-    double width = 5.0,
-  }) {
-    return Polyline(
-      polylineId: PolylineId(polylineId),
-      points: points,
-      color: color,
-      width: width.toInt(),
-    );
-  }
-
-  static Circle createCircle({
-    required String circleId,
-    required LatLng center,
-    required double radius,
-    Color fillColor = Colors.blue,
-    Color strokeColor = Colors.blue,
-    double strokeWidth = 2.0,
-  }) {
-    return Circle(
-      circleId: CircleId(circleId),
-      center: center,
-      radius: radius,
-      fillColor: fillColor.withValues(alpha: 0.3),
-      strokeColor: strokeColor,
-      strokeWidth: strokeWidth.toInt(),
-    );
-  }
-
-  static LatLngBounds boundsFromLatLngList(List<LatLng> list) {
-    double minLat = list.first.latitude;
-    double minLng = list.first.longitude;
-    double maxLat = list.first.latitude;
-    double maxLng = list.first.longitude;
-
-    for (LatLng point in list) {
-      minLat = math.min(minLat, point.latitude);
-      minLng = math.min(minLng, point.longitude);
-      maxLat = math.max(maxLat, point.latitude);
-      maxLng = math.max(maxLng, point.longitude);
-    }
-
-    return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
   }
 }

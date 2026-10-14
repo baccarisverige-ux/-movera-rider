@@ -83,7 +83,6 @@ class _Backend extends http.BaseClient {
 const _env = AppEnv(
   flavor: AppFlavor.staging,
   apiBaseUrl: 'https://x.invalid',
-  mapsEnabled: false,
 );
 
 void main() {

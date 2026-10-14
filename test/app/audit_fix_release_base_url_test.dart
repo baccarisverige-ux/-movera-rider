@@ -38,7 +38,7 @@ void main() {
   }
 
   AppEnv env(AppFlavor flavor, String url) =>
-      AppEnv(flavor: flavor, apiBaseUrl: url, mapsEnabled: true);
+      AppEnv(flavor: flavor, apiBaseUrl: url);
 
   test('ARCH-19 staging/production refuse the .invalid demo default', () {
     for (final flavor in [AppFlavor.staging, AppFlavor.production]) {

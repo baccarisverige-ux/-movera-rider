@@ -21,8 +21,7 @@ void main() {
 
   test('mock PIN issuance is rejected by release composition', () {
     for (final flavor in [AppFlavor.production, AppFlavor.staging]) {
-      final env = AppEnv(flavor: flavor, apiBaseUrl: 'https://example.test',
-          mapsEnabled: false);
+      final env = AppEnv(flavor: flavor, apiBaseUrl: 'https://example.test');
       expect(() => PinComposition.validate(
           environment: env, usesMockPinIssuance: true), throwsStateError);
       PinComposition.validate(environment: env, usesMockPinIssuance: false);

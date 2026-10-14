@@ -88,7 +88,6 @@ void main() {
             env: const AppEnv(
               flavor: AppFlavor.test,
               apiBaseUrl: 'https://api.test.movera.invalid',
-              mapsEnabled: true,
             ),
             client: InProcessMockClient(),
             tokens: tokens,

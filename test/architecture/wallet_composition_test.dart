@@ -7,17 +7,14 @@ void main() {
   const production = AppEnv(
     flavor: AppFlavor.production,
     apiBaseUrl: 'https://api.movera.example',
-    mapsEnabled: true,
   );
   const staging = AppEnv(
     flavor: AppFlavor.staging,
     apiBaseUrl: 'https://api.staging.movera.example',
-    mapsEnabled: true,
   );
   const demo = AppEnv(
     flavor: AppFlavor.demo,
     apiBaseUrl: 'https://api.demo.movera.invalid',
-    mapsEnabled: true,
   );
 
   test('WalletStore is the local, non-authoritative balance source', () {

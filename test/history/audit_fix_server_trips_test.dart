@@ -31,7 +31,6 @@ void main() {
   const demo = AppEnv(
     flavor: AppFlavor.demo,
     apiBaseUrl: 'https://api.demo.movera.invalid',
-    mapsEnabled: true,
   );
 
   setUp(() {

@@ -13,7 +13,6 @@ void main() {
   const env = AppEnv(
     flavor: AppFlavor.test,
     apiBaseUrl: 'https://api.movera.test',
-    mapsEnabled: true,
   );
 
   test('401 preserves server error metadata and clears invalid session', () async {

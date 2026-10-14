@@ -32,7 +32,6 @@ void main() {
       env: const AppEnv(
         flavor: AppFlavor.test,
         apiBaseUrl: 'https://api.movera.test',
-        mapsEnabled: true,
       ),
       tokens: _Tokens(),
     );

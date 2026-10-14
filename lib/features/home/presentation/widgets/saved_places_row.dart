@@ -128,9 +128,6 @@ class SavedPlacesRow extends StatelessWidget {
   }
 }
 
-/// Icon for a custom saved place, shared with every screen that lists one.
-IconData placeIconFor(String type) => _placeIcon(type);
-
 /// Solar linear icon for a saved-place type, matching the Home chips.
 String placeIconAssetFor(String type) {
   switch (type) {

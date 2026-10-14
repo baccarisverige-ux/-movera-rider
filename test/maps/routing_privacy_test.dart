@@ -12,7 +12,6 @@ void main() {
     const env = AppEnv(
       flavor: AppFlavor.test,
       apiBaseUrl: 'https://api.test.movera.invalid',
-      mapsEnabled: true,
     );
     final api = ApiClient(client: InProcessMockClient(), env: env);
     final routing = RoutingService(api: api);
