@@ -554,6 +554,10 @@ class InProcessMockClient extends http.BaseClient {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'requestId': requestId};
       } else if (ride['status'] == 'cancelledByRider') {
+        // Cancel-first: the rider's optional reason arrives after the cancel.
+        if (body['reason'] is String && ride['cancellationReason'] == null) {
+          ride['cancellationReason'] = body['reason'];
+        }
         payload = {'code': 'OK', 'ride': ride, 'requestId': requestId};
       } else {
         ride['status'] = 'cancelledByRider';

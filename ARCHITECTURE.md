@@ -10,8 +10,13 @@ Web snapshot key: `flutter.movera_active_ride` (`RideSnapshotStore.key`).
 
 Previous landmark SHA `a82b70b` / “108 tests” is **historical**, not current proof.
 Mocks remain intentional (in-process API, mock realtime, mock payments).
-**Cancel-first:** tapping Cancel request runs `cancelSearch` + `RideSnapshotStore.clear`
-before the optional why-sheet; Keep on the why-sheet must not restore Finding.
+**Cancel-first:** on Finding, tapping Cancel request runs `FindingDriverController.cancelSearch`
+at once: the cancel goes into the pending-cancel outbox (one idempotency key), the server is
+asked, and on its OK — or when it cannot be reached, leaving the outbox entry to retry — the ride
+is committed as `cancelledByRider`, archived to History and `RideSnapshotStore.clear`ed. Only then
+does the optional why-sheet open (Skip / Send, no Keep ride); its reason is sent as feedback, so a
+reload while it is open lands on Home. A 409 (driver already accepted) commits nothing and the
+rider moves on to Waiting with a short notice. Waiting/in-trip stay server-first after the sheet (D-013).
 QA `window.movera*` hooks are gated (`kDebugMode` or `--dart-define=MOVERA_QA=true`).
 See `docs/API_V1_MOCK.md`, `docs/UAT_CHECKLIST.md`, `docs/QA_HOOKS.md`.
 

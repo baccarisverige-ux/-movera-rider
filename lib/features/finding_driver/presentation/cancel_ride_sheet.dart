@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
@@ -42,18 +43,110 @@ Future<CancelOutcome> showCancelRideSheet(
   return outcome;
 }
 
-class CancelRideSheet extends StatelessWidget {
+/// Finding (cancel-first): "Cancel ride?" whose Cancel request commits the
+/// cancel at once by running [commit] while the sheet shows progress.
+///
+/// Returns true once [commit] reported the cancel as committed. Wait for
+/// driver, Close, or a driver match arriving before the rider confirmed
+/// ([driverMatched] turning true, RIDE-15) close the sheet with false, so the
+/// rider never cancels an accepted ride with "still searching" wording. The
+/// optional why-sheet is shown by the caller afterwards, as feedback only.
+Future<bool> showCancelSearchSheet(
+  BuildContext context, {
+  required bool takingLonger,
+  required Future<bool> Function() commit,
+  ValueListenable<bool>? driverMatched,
+}) async {
+  SheetCoordinator.instance.open(RideSheet.cancel);
+  final committed = await MoveraSheet.show<bool>(
+    context: context,
+    swipeDismissible: false,
+    barrierDismissible: false,
+    builder: (_) => CancelRideSheet(
+      takingLonger: takingLonger,
+      phase: CancelPhase.searching,
+      onConfirm: commit,
+      driverMatched: driverMatched,
+    ),
+  );
+  SheetCoordinator.instance.close(RideSheet.cancel);
+  return committed == true;
+}
+
+class CancelRideSheet extends StatefulWidget {
   const CancelRideSheet({
     super.key,
     required this.takingLonger,
     this.phase = CancelPhase.searching,
+    this.onConfirm,
+    this.driverMatched,
   });
 
   final bool takingLonger;
   final CancelPhase phase;
 
+  /// When set, Cancel request runs this (showing progress) and the sheet
+  /// closes with its result. Otherwise the sheet just closes with true.
+  final Future<bool> Function()? onConfirm;
+
+  /// Closes the sheet (with false) once it turns true, unless a confirmed
+  /// cancel is already being sent.
+  final ValueListenable<bool>? driverMatched;
+
+  @override
+  State<CancelRideSheet> createState() => _CancelRideSheetState();
+}
+
+class _CancelRideSheetState extends State<CancelRideSheet> {
+  bool _busy = false;
+  bool _closed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.driverMatched?.addListener(_onDriverMatched);
+    if (widget.driverMatched?.value == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onDriverMatched());
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.driverMatched?.removeListener(_onDriverMatched);
+    super.dispose();
+  }
+
+  void _onDriverMatched() {
+    if (widget.driverMatched?.value != true || _busy) return;
+    _close(false);
+  }
+
+  void _close(bool result) {
+    if (_closed || !mounted) return;
+    _closed = true;
+    Navigator.pop(context, result);
+  }
+
+  Future<void> _confirm() async {
+    final commit = widget.onConfirm;
+    if (commit == null) {
+      _close(true);
+      return;
+    }
+    if (_busy || _closed) return;
+    setState(() => _busy = true);
+    var committed = false;
+    try {
+      committed = await commit();
+    } finally {
+      if (mounted) _close(committed);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final takingLonger = widget.takingLonger;
+    final phase = widget.phase;
     final inset = MediaQuery.paddingOf(context).bottom;
     final matched = phase == CancelPhase.matched;
     final inTrip = phase == CancelPhase.inTrip;
@@ -85,7 +178,7 @@ class CancelRideSheet extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: _busy ? null : () => _close(false),
                 icon: const Icon(Icons.close_rounded),
                 tooltip: 'Close',
               ),
@@ -114,7 +207,7 @@ class CancelRideSheet extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: TextButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: _busy ? null : _confirm,
               style: TextButton.styleFrom(
                 backgroundColor: const Color(0xFFF4F5F6),
                 foregroundColor: const Color(0xFFB42318),
@@ -122,13 +215,36 @@ class CancelRideSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              child: Text(
-                inTrip ? 'Cancel ride' : 'Cancel request',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
+              child: _busy
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFFB42318),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Cancelling…',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            color: const Color(0xFFB42318),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      inTrip ? 'Cancel ride' : 'Cancel request',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 10),
@@ -136,7 +252,7 @@ class CancelRideSheet extends StatelessWidget {
             width: double.infinity,
             height: 54,
             child: FilledButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: _busy ? null : () => _close(false),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF11181D),
                 shape: RoundedRectangleBorder(
