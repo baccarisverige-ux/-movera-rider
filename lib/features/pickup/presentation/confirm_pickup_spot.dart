@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/location/location_access_notice.dart';
 import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -112,6 +113,9 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   bool _moving = false;
   bool _confirming = false;
   String? _pickupError;
+
+  /// "Open settings" for a blocked permission or Location Services off.
+  LocationSettingsOpener? _pickupSettings;
   bool _hasUsablePickupCoordinates = true;
   final ValueNotifier<double> _zoom = ValueNotifier<double>(16.4);
   final _search = TextEditingController();
@@ -229,7 +233,10 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
   }
 
   Future<void> _useCurrentLocation() async {
-    setState(() => _pickupError = null);
+    setState(() {
+      _pickupError = null;
+      _pickupSettings = null;
+    });
     final result = await _pickup.currentPosition();
     if (!mounted) return;
     final position = result.position;
@@ -245,6 +252,14 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
           PickupLocationFailure.unavailable =>
             'Current location is unavailable. Try again or choose the pickup on the map.',
           null => 'Current location is unavailable.',
+        };
+        _pickupSettings = switch (result.failure) {
+          PickupLocationFailure.servicesDisabled => locationSettingsOpenerFor(
+            LocationAccessIssue.servicesOff,
+          ),
+          PickupLocationFailure.permissionDeniedForever =>
+            locationSettingsOpenerFor(LocationAccessIssue.deniedForever),
+          _ => null,
         };
       });
       return;
@@ -472,6 +487,12 @@ class _ConfirmPickupSpotState extends State<ConfirmPickupSpot> {
                       ),
                     ),
                   ),
+                  if (_pickupSettings != null)
+                    TextButton(
+                      key: const ValueKey('pickup-open-settings'),
+                      onPressed: () => _pickupSettings!(),
+                      child: const Text('Open settings'),
+                    ),
                 ],
                 if (widget.positionIsFallback &&
                     !_hasUsablePickupCoordinates) ...[

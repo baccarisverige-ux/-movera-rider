@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
+import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -842,17 +843,19 @@ class _WalletScreenState extends State<WalletScreen> {
                               onRemove: () => _confirmRemoveCard(card),
                             ),
                           ],
-                          const Divider(
-                            height: 1,
-                            indent: 62,
-                            endIndent: 16,
-                            color: _line,
-                          ),
-                          _actionTile(
-                            icon: Icons.add_rounded,
-                            title: 'Add card',
-                            onTap: _openAddPaymentMethod,
-                          ),
+                          if (CardEntryPolicy.enabled) ...[
+                            const Divider(
+                              height: 1,
+                              indent: 62,
+                              endIndent: 16,
+                              color: _line,
+                            ),
+                            _actionTile(
+                              icon: Icons.add_rounded,
+                              title: 'Add card',
+                              onTap: _openAddPaymentMethod,
+                            ),
+                          ],
                         ],
                       ),
                     ),

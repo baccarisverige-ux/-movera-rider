@@ -42,6 +42,7 @@ import 'package:movera_rider/features/reservations/presentation/home_reservation
 import 'package:movera_rider/features/reservations/presentation/ride_scheduled.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_location_notice.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_sheet_scroll.dart';
 import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
@@ -1755,6 +1756,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
+                      HomeLocationNotice(location: _locationCtl, bottom: _sheetMinPixels, onRetry: _detectCurrentAddress),
                       if (_destinationSheetOpen)
                         Positioned.fill(
                           child: IgnorePointer(

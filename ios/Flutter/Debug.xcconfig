@@ -1,1 +1,4 @@
 #include "Generated.xcconfig"
+// Untracked, optional: GOOGLE_MAPS_API_KEY for the iOS Maps SDK.
+// Copy Secrets.xcconfig.example to Secrets.xcconfig, or let CI write it.
+#include? "Secrets.xcconfig"

@@ -121,7 +121,26 @@ void installMatchingQaHooks({
   );
 }
 
+/// Installs `window.moveraSimulateRideCheck(type)` for debug / MOVERA_QA
+/// builds only. It queues a RideCheck event that Safety posts on its next
+/// load, so a public release must never expose it.
+void installRideCheckQaHook() {
+  if (!moveraQaHooksEnabled) return;
+  globalContext.setProperty(
+    'moveraSimulateRideCheck'.toJS,
+    ((JSAny? type) {
+      final value = type == null || type.isUndefined || type.isNull
+          ? 'unexpectedStop'
+          : type.dartify().toString();
+      globalContext.setProperty('_moveraPendingRideCheck'.toJS, value.toJS);
+      return true.toJS;
+    }).toJS,
+  );
+}
+
 String? pendingRideCheckType() {
+  // A value set by page script in a public build is ignored.
+  if (!moveraQaHooksEnabled) return null;
   try {
     final value = globalContext.getProperty('_moveraPendingRideCheck'.toJS);
     if (value.isUndefined || value.isNull) return null;

@@ -44,7 +44,7 @@ class HttpObservabilitySink
       'level': level.name,
       'event': event,
       'extra': Observability.sanitize(extra),
-      if (error != null) 'error': error.toString(),
+      if (error != null) 'error': Observability.scrubText(error.toString()),
     });
   }
 
@@ -63,8 +63,8 @@ class HttpObservabilitySink
     Map<String, Object?> extra = const {},
   }) {
     _post('/api/v1/telemetry/crashes', {
-      'error': error.toString(),
-      'stack': stackTrace.toString(),
+      'error': Observability.scrubText(error.toString()),
+      'stack': Observability.scrubText(stackTrace.toString()),
       'extra': Observability.sanitize(extra),
     });
   }

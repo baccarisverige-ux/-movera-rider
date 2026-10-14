@@ -145,6 +145,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
+				4D0A1B2C3E4F5A6B7C8D9E01 /* Check Google Maps key */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -227,6 +228,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		4D0A1B2C3E4F5A6B7C8D9E01 /* Check Google Maps key */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Check Google Maps key";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -z \"${GOOGLE_MAPS_API_KEY}\" ]; then\n  if [ \"${CONFIGURATION}\" = \"Debug\" ] || [ \"${MOVERA_ALLOW_MISSING_MAPS_KEY}\" = \"YES\" ]; then\n    echo \"warning: GOOGLE_MAPS_API_KEY is not set. Maps are disabled in this build (the app shows its no-map fallback). See ios/Flutter/Secrets.xcconfig.example.\"\n  else\n    echo \"error: GOOGLE_MAPS_API_KEY is not set for this ${CONFIGURATION} build. Add it to ios/Flutter/Secrets.xcconfig (see Secrets.xcconfig.example) or pass it to xcodebuild. Set MOVERA_ALLOW_MISSING_MAPS_KEY=YES only for a smoke build without maps.\"\n    exit 1\n  fi\nfi\n";
+		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;

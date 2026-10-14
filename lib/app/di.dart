@@ -20,6 +20,7 @@ import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
@@ -124,7 +125,10 @@ class AppScope {
       repository: AccountSecurityRepository(api: api),
     );
 
-    geocoding = AppGeocoding(api: api);
+    geocoding = AppGeocoding(
+      api: api,
+      allowPublicReverseFallback: environment.allowsMockTransport,
+    );
     routing = RoutingService(api: api);
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = environment.allowsMockTransport
@@ -226,6 +230,12 @@ class AppScope {
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).
   late final SavedCardsController savedCards = SavedCardsController();
+
+  /// The in-app explanation in front of the OS notification prompt.
+  late final PushPermissionGate pushPermission = PushPermissionGate(
+    push: push,
+    enabled: !environment.allowsMockTransport,
+  );
   late final RiderPromotionController promotion = RiderPromotionController(
     api,
   );

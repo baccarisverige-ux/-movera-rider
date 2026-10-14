@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/realtime/mock_ride_realtime.dart';
 import 'package:movera_rider/features/active_ride/presentation/waiting_for_driver.dart';
-import 'package:movera_rider/features/finding_driver/application/cancel_first.dart';
+import 'package:movera_rider/features/active_ride/application/active_ride_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/data/finding_driver_repository.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
@@ -56,7 +56,7 @@ void main() {
   tearDown(_resetScope);
 
   test(
-    'finding: cancel-first then late assign stays Home (not Finding/Waiting)',
+    'finding: cancel then late assign stays Home (not Finding/Waiting)',
     () async {
       final rt = _rt;
       final ride = AppScope.instance.ride..rideId = 'r-find';
@@ -76,7 +76,7 @@ void main() {
 
       expect(ride.status, RideStatus.findingDriver);
 
-      await commitCancelFirst();
+      await controller.cancelSearch();
 
       expect(ride.status, RideStatus.cancelledByRider);
       expect(ride.suppressRestore, isTrue);
@@ -148,7 +148,8 @@ void main() {
       expect(restore.pageFor(waitingSnap), isA<WaitingForDriver>());
       restore.showing = RestoredSurface.waiting;
 
-      await commitCancelFirst();
+      // Waiting's cancel path (Finding has already been left).
+      await ActiveRideController().markCancelled();
 
       expect(ride.status, RideStatus.cancelledByRider);
       expect(ride.suppressRestore, isTrue);
@@ -209,7 +210,7 @@ void main() {
           driver: null,
         ),
       );
-      await commitCancelFirst();
+      await controller.cancelSearch();
       await pending;
 
       expect(ride.status, RideStatus.cancelledByRider);
