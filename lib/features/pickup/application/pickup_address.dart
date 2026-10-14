@@ -22,6 +22,26 @@ bool isUnusablePickupLabel(String? label) {
       _rawCoordinates.hasMatch(clean);
 }
 
+/// The booking label for a pin whose street could not be found in time
+/// (AUD-2): says plainly that it is a dropped pin and gives the point, so
+/// the rider and the driver see where it is rather than the neutral
+/// [pickupLocationFallbackLabel]. No comma, so short place labels keep it
+/// whole.
+String droppedPinPickupAddress(LatLng position) {
+  final lat = position.latitude;
+  final lng = position.longitude;
+  final ns = lat < 0 ? 'S' : 'N';
+  final ew = lng < 0 ? 'W' : 'E';
+  return 'Dropped pin · ${lat.abs().toStringAsFixed(5)}° $ns '
+      '${lng.abs().toStringAsFixed(5)}° $ew';
+}
+
+/// True when [label] does not name the pin's place for a booking: an
+/// unusable label or the neutral [pickupLocationFallbackLabel].
+bool needsDroppedPinLabel(String? label) =>
+    isUnusablePickupLabel(label) ||
+    label!.trim() == pickupLocationFallbackLabel;
+
 /// Confirmation must not wait on the network before closing the map picker.
 String confirmedPickupAddress(String label, LatLng position) {
   final clean = label.trim();
