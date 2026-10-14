@@ -43,6 +43,7 @@ import 'package:movera_rider/features/reservations/presentation/ride_scheduled.d
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_journey_section.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_tab_page.dart';
+import 'package:movera_rider/features/home/presentation/widgets/home_sheet_scroll.dart';
 import 'package:movera_rider/shared/widgets/horizontal_swipe.dart';
 import 'package:movera_rider/features/home/presentation/widgets/advance_booking_card.dart';
 import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
@@ -1873,7 +1874,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           ],
                           minFlingSpeed: 520,
                         ),
-                        scrollConfiguration: SheetScrollConfiguration.disabled,
+                        scrollConfiguration: const SheetScrollConfiguration(),
                         child: PointerInterceptor(
                           child: SizedBox(
                             height: fullSheetPixels,
@@ -1954,7 +1955,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Padding(
+              HomeSheetScroll(child: Padding(
                 padding: EdgeInsets.fromLTRB(
                   ResSize.w * 18,
                   ResSize.h * 11,
@@ -2013,7 +2014,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
-              ),
+              )),
               Positioned(
                 left: ResSize.w * (18 + (12 * (1 - sheetProgress))),
                 right: ResSize.w * (18 + (12 * (1 - sheetProgress))),

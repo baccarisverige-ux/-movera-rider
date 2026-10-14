@@ -111,8 +111,9 @@ class SavedPlacesRow extends StatelessWidget {
           ),
         );
     }
-    return SizedBox(
-      height: ResSize.h * 46,
+    // UI-2: a minimum, not a fixed height, so large text grows the row.
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: ResSize.h * 46),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -213,7 +214,7 @@ class _CustomPlaceCard extends StatelessWidget {
         onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          height: ResSize.h * 44,
+          constraints: BoxConstraints(minHeight: ResSize.h * 44),
           padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -289,7 +290,7 @@ class _QuickPlaceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          height: ResSize.h * 44,
+          constraints: BoxConstraints(minHeight: ResSize.h * 44),
           padding: EdgeInsets.symmetric(horizontal: ResSize.w * 9),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
