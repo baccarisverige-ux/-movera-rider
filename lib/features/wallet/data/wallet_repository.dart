@@ -19,16 +19,20 @@ class WalletPaymentSettings {
     required this.defaultMethod,
     required this.business,
     this.extraMethods = const [],
-    this.useWalletFirst = true,
-  });
+    bool? useWalletFirst,
+  }) : _useWalletFirst = useWalletFirst;
 
   final String defaultMethod;
   final bool business;
   final List<Map<String, String>> extraMethods;
 
+  /// Null when the caller did not set it: saving then keeps the stored
+  /// choice instead of turning it back on (FLOW-3).
+  final bool? _useWalletFirst;
+
   /// The wallet balance is taken off every fare first; the rest goes to
   /// the chosen method. On by default.
-  final bool useWalletFirst;
+  bool get useWalletFirst => _useWalletFirst ?? true;
 }
 
 class WalletStore implements WalletBalanceSource {
@@ -93,7 +97,10 @@ class WalletStore implements WalletBalanceSource {
           : method,
     );
     await prefs.setBool('movera_payment_business', settings.business);
-    await prefs.setBool(walletFirstKey, settings.useWalletFirst);
+    // Only an explicit choice is written; settings built without it (the
+    // Wallet screen saving a default method) keep the rider's opt-out.
+    final walletFirst = settings._useWalletFirst;
+    if (walletFirst != null) await prefs.setBool(walletFirstKey, walletFirst);
     await prefs.remove('movera_payment_methods');
   }
 
