@@ -1,4 +1,5 @@
 import 'package:movera_rider/core/api/rider_error_kind.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_errors.dart';
 
 /// What the rider was doing to a scheduled ride when it failed.
 enum ReservationAction { book, edit, cancel }
@@ -9,6 +10,16 @@ enum ReservationAction { book, edit, cancel }
 /// These failures used to be silent: the button stopped spinning and nothing
 /// told the rider whether the ride was booked, changed or still on.
 String reservationErrorMessage(Object error, ReservationAction action) {
+  if (error is ScheduledQuoteRequiredException) {
+    return action == ReservationAction.edit
+        ? "We couldn't get a price for this ride, so your changes weren't "
+              'saved. Try again in a moment.'
+        : "We couldn't get a price for this ride, so it wasn't booked. "
+              'Try again in a moment.';
+  }
+  if (error is ReservationsUnavailableException) {
+    return "Booking for later isn't available yet, so nothing was booked.";
+  }
   final kind = riderErrorKind(error);
   return switch (action) {
     ReservationAction.cancel => switch (kind) {
