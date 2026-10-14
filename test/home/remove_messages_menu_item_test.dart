@@ -30,11 +30,10 @@ void main() {
     // The rest of the menu is untouched.
     expect(find.text('Wallet'), findsOneWidget);
     expect(find.text('Ride History'), findsOneWidget);
-    expect(find.text('Payments'), findsOneWidget);
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('Saved Places'), findsOneWidget);
-    expect(find.text('Safety'), findsOneWidget);
+    expect(find.text('Safety checkup'), findsOneWidget);
     expect(find.text('Support'), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
+    expect(find.text('Your promotions'), findsOneWidget);
   });
 }

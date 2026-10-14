@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
 import 'package:movera_rider/features/profile/data/profile_repository.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -60,36 +61,69 @@ void main() {
 
   testWidgets('U1: Back from a menu page returns to the menu', (tester) async {
     await pumpHomeWithMenu(tester);
-    await tester.tap(find.text('About'));
+    await tester.scrollUntilVisible(
+      find.text('About Movera'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
-    expect(find.text('About Movera'), findsWidgets);
+    await tester.tap(find.text('About Movera'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HelpArticle), findsOneWidget);
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pumpAndSettle();
     expect(find.byType(RiderMenuPage), findsOneWidget);
-    expect(find.text('About'), findsOneWidget);
+    expect(find.byType(HelpArticle), findsNothing);
   });
 
-  testWidgets("the menu page carries every destination and Home's bar", (
+  testWidgets('the menu page carries every destination and a way back', (
     tester,
   ) async {
     await pumpHomeWithMenu(tester);
     for (final title in [
       'Wallet',
       'Ride History',
-      'Payments',
       'Notifications',
       'Saved Places',
-      'Safety',
       'Support',
-      'About',
+      'Your promotions',
+      'Safety checkup',
+      'Movera Family',
+      'Invite friends',
+      'Movera Business',
+      'Greener rides',
     ]) {
       expect(find.text(title), findsOneWidget, reason: title);
     }
-    for (final tab in ['Map', 'Payment', 'Schedule ride', 'Account']) {
-      expect(find.text(tab), findsOneWidget, reason: tab);
+    // The account rows sit below the fold.
+    await tester.scrollUntilVisible(
+      find.text('About Movera'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    for (final title in [
+      'Personal info',
+      'Security',
+      'Privacy',
+      'Terms',
+      'Privacy notice',
+      'About Movera',
+    ]) {
+      expect(find.text(title), findsOneWidget, reason: title);
     }
-    // Map returns to Home.
-    await tester.tap(find.text('Map'));
+    expect(
+      find.text('Movera Rider v${RiderMenuPage.appVersion}'),
+      findsOneWidget,
+    );
+    // The back arrow returns to Home.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.arrow_back_rounded),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
     await tester.pumpAndSettle();
     expect(find.byType(RiderMenuPage), findsNothing);
     expect(find.text('Home body'), findsOneWidget);

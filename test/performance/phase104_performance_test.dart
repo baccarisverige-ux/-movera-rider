@@ -14,6 +14,7 @@ import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
 import 'package:movera_rider/features/home/presentation/side_menu.dart';
+import 'package:movera_rider/features/support/presentation/support.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Batch 9 Phase 104 — U7 performance sweep (conservative subset).
@@ -75,10 +76,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('About'));
+      await tester.tap(find.text('Support'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 16));
-      expect(find.text('About Movera'), findsWidgets);
+      expect(find.byType(SupportHome), findsOneWidget);
       await tester.pumpAndSettle();
     });
   });

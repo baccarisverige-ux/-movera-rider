@@ -1,61 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/constants/appassets.dart';
-import 'package:movera_rider/features/home/presentation/widgets/premium_bottom_nav_item.dart';
-import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
+import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/personal_info.dart';
+import 'package:movera_rider/features/profile/presentation/privacy.dart';
+import 'package:movera_rider/features/profile/presentation/refer_and_earn.dart';
+import 'package:movera_rider/features/profile/presentation/security.dart';
+import 'package:movera_rider/features/promotions/presentation/promotion_details_sheet.dart';
+import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/saved_places/presentation/saved_places.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
-import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
+import 'package:movera_rider/features/wallet/presentation/wallet.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
-/// The rider's menu as a full-screen page: name and photo, Wallet as a wide
-/// card, the other destinations as a grid of soft tiles, About as the
-/// closing card, and Home's bottom bar underneath.
+/// The rider's menu as a full-screen page: name and photo, Wallet, four
+/// picture tiles, six illustrated cards, then the account rows.
+/// Illustrations: unDraw (see assets/images/menu/README.md).
 class RiderMenuPage extends StatelessWidget {
-  const RiderMenuPage({
-    super.key,
-    this.onStartBooking,
-    this.onPayment,
-    this.onSchedule,
-    this.onAccount,
-  });
+  const RiderMenuPage({super.key, this.onStartBooking});
 
   /// Called when a menu page asks to go straight to booking (for example
   /// Ride History's empty-state "Book a ride") instead of back to the menu.
   final VoidCallback? onStartBooking;
 
-  /// Home's bottom-bar actions, so the bar works here exactly as on Home.
-  final VoidCallback? onPayment;
-  final VoidCallback? onSchedule;
-  final VoidCallback? onAccount;
-
   static Future<void> open(
     BuildContext context, {
     VoidCallback? onStartBooking,
-    VoidCallback? onPayment,
-    VoidCallback? onSchedule,
-    VoidCallback? onAccount,
   }) {
     return Navigator.of(context).push(
-      RightToLeftTransition(
-        RiderMenuPage(
-          onStartBooking: onStartBooking,
-          onPayment: onPayment,
-          onSchedule: onSchedule,
-          onAccount: onAccount,
-        ),
-      ),
+      RightToLeftTransition(RiderMenuPage(onStartBooking: onStartBooking)),
     );
   }
+
+  static const String appVersion = '1.0.0';
 
   static const Color _ink = Color(0xFF1D252C);
   static const Color _muted = Color(0xFF6B757D);
   static const Color _card = Color(0xFFF3F4F5);
-  static const Color _line = Color(0xFFE7EBEE);
   static const Color _avatarTint = Color(0xFFE6EAEE);
+  static const Color _badge = Color(0xFFE8333B);
+
+  static const String _art = 'assets/images/menu';
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -70,38 +58,33 @@ class RiderMenuPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groups = _groups(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _profileHeader(),
-                    const SizedBox(height: 28),
-                    _wideCard(groups.first.first),
-                    const SizedBox(height: 10),
-                    _grid([
-                      ...groups.first.skip(1),
-                      ...groups[1],
-                      ...groups[2].take(2),
-                    ]),
-                    const SizedBox(height: 10),
-                    _wideCard(groups[2].last),
-                  ],
-                ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 6, 18, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _topBar(context),
+              const SizedBox(height: 6),
+              _profileHeader(),
+              const SizedBox(height: 22),
+              _walletCard(context),
+              const SizedBox(height: 10),
+              _tiles(context),
+              const SizedBox(height: 10),
+              ..._featureCards(context),
+              const SizedBox(height: 18),
+              ..._accountRows(context),
+              const SizedBox(height: 22),
+              Text(
+                'Movera Rider v$appVersion',
+                style: _text(13, color: const Color(0xFF8A939B)),
               ),
-            ),
-            _bottomBar(context),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -120,6 +103,29 @@ class RiderMenuPage extends StatelessWidget {
       color: color,
       height: height,
       letterSpacing: letterSpacing,
+    );
+  }
+
+  Widget _topBar(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Semantics(
+        button: true,
+        label: 'Back',
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => Navigator.of(context).maybePop(),
+            child: const SizedBox(
+              width: 40,
+              height: 40,
+              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 24),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -165,246 +171,427 @@ class RiderMenuPage extends StatelessWidget {
     );
   }
 
-  List<List<_MenuItem>> _groups(BuildContext context) {
-    return <List<_MenuItem>>[
-      [
-        _MenuItem(
-          icon: Icons.account_balance_wallet_outlined,
-          title: 'Wallet',
-          detail: _walletBalance(),
-          onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
-        ),
-        _MenuItem(
-          icon: Icons.history_rounded,
-          title: 'Ride History',
-          onTap: () => _pushPage(context, RideHistory()),
-        ),
-        _MenuItem(
-          icon: Icons.credit_card_outlined,
-          title: 'Payments',
-          onTap: () =>
-              _pushPage(context, const WalletAndPaymentsScreen(initialTab: 1)),
-        ),
-      ],
-      [
-        // Notifications and Saved places were both finished screens with no
-        // way in: nothing in the app built either of them.
-        _MenuItem(
-          icon: Icons.notifications_none_rounded,
-          title: 'Notifications',
-          onTap: () => _pushPage(context, const NotificationScreen()),
-        ),
-        _MenuItem(
-          icon: Icons.bookmark_border_rounded,
-          title: 'Saved Places',
-          onTap: () => _pushPage(context, SavedPlaces()),
-        ),
-      ],
-      [
-        _MenuItem(
-          icon: Icons.shield_outlined,
-          title: 'Safety',
-          onTap: () => _pushPage(context, const SafetyHub()),
-        ),
-        _MenuItem(
-          icon: Icons.headset_mic_outlined,
-          title: 'Support',
-          onTap: () => _pushPage(context, const SupportHome()),
-        ),
-        _MenuItem(
-          icon: Icons.info_outline_rounded,
-          title: 'About',
-          onTap: () => _pushPage(
-            context,
-            const HelpArticle(
-              title: 'About Movera',
-              body:
-                  'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
-            ),
-          ),
-        ),
-      ],
-    ];
+  Widget _picture(
+    String name, {
+    required double width,
+    required double height,
+  }) {
+    // The box is fixed so a wide drawing never pushes the label aside.
+    return SizedBox(
+      width: width,
+      height: height,
+      child: SvgPicture.asset(
+        '$_art/$name.svg',
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      ),
+    );
   }
 
-  /// A wide grey card: icon, bold title, the detail or a chevron on the right.
-  Widget _wideCard(_MenuItem item) {
-    return _tap(
-      item,
-      height: 80,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Row(
-          children: [
-            Icon(item.icon, size: 26, color: _ink),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _text(18, weight: FontWeight.w600),
-              ),
-            ),
-            item.detail ??
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 24,
-                  color: Color(0xFFB8C0C7),
-                ),
-          ],
+  Widget _tap({
+    required String label,
+    required VoidCallback onTap,
+    required Widget child,
+    double radius = 16,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      onTap: onTap,
+      child: ExcludeSemantics(
+        child: Material(
+          color: _card,
+          borderRadius: BorderRadius.circular(radius),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            splashColor: _ink.withValues(alpha: 0.05),
+            highlightColor: _ink.withValues(alpha: 0.04),
+            child: child,
+          ),
         ),
       ),
     );
   }
 
-  /// The wallet balance on the right of the Wallet card.
+  /// Wallet with the balance under its title and the wallet picture.
+  Widget _walletCard(BuildContext context) {
+    return _tap(
+      label: 'Wallet',
+      onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
+      child: SizedBox(
+        height: 80,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 14, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Wallet', style: _text(18, weight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    _walletBalance(),
+                  ],
+                ),
+              ),
+              _picture('wallet', width: 72, height: 56),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _walletBalance() {
     return FutureBuilder<double>(
       future: AppScope.instance.walletController.loadBalance(),
       builder: (context, snapshot) {
         final balance = snapshot.data;
-        if (balance == null) return const SizedBox.shrink();
+        if (balance == null) return const SizedBox(height: 18);
         return Text(
           'kr ${balance.toStringAsFixed(0)}',
           maxLines: 1,
-          style: _text(17, weight: FontWeight.w600),
+          style: _text(14, color: _muted),
         );
       },
     );
   }
 
-  /// Two columns of grey tiles, icon then bold label.
-  Widget _grid(List<_MenuItem> items) {
-    final rows = <Widget>[];
-    for (var i = 0; i < items.length; i += 2) {
-      rows.add(
-        Row(
-          children: [
-            Expanded(child: _tile(items[i])),
-            const SizedBox(width: 10),
-            Expanded(
-              child: i + 1 < items.length
-                  ? _tile(items[i + 1])
-                  : const SizedBox(),
+  /// Two columns of picture tiles.
+  Widget _tiles(BuildContext context) {
+    final items = <(String, String, VoidCallback)>[
+      ('Ride History', 'order_ride', () => _pushPage(context, RideHistory())),
+      (
+        'Notifications',
+        'notify',
+        () => _pushPage(context, const NotificationScreen()),
+      ),
+      (
+        'Saved Places',
+        'current_location',
+        () => _pushPage(context, SavedPlaces()),
+      ),
+      ('Support', 'questions', () => _pushPage(context, const SupportHome())),
+    ];
+    Widget tile((String, String, VoidCallback) item) {
+      return _tap(
+        label: item.$1,
+        onTap: item.$3,
+        child: SizedBox(
+          height: 76,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 8, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      item.$1,
+                      maxLines: 1,
+                      style: _text(14.5, weight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                _picture(item.$2, width: 56, height: 46),
+              ],
             ),
-          ],
+          ),
         ),
       );
-      if (i + 2 < items.length) rows.add(const SizedBox(height: 10));
     }
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: rows,
+      children: [
+        Row(
+          children: [
+            Expanded(child: tile(items[0])),
+            const SizedBox(width: 10),
+            Expanded(child: tile(items[1])),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: tile(items[2])),
+            const SizedBox(width: 10),
+            Expanded(child: tile(items[3])),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _tile(_MenuItem item) {
+  /// The six illustrated cards.
+  List<Widget> _featureCards(BuildContext context) {
+    final promotion = AppScope.instance.promotion.active;
+    final promoBody = promotion == null
+        ? 'Offers you can use are applied automatically to your ride.'
+        : '${promotion.percentOff}% off your next ${promotion.ridesTotal} rides'
+              ' · ${promotion.ridesLeft} left. We apply the offer that saves you'
+              ' the most.';
+    final cards = <_FeatureCard>[
+      _FeatureCard(
+        title: 'Your promotions',
+        body: promoBody,
+        picture: 'discount',
+        isNew: promotion != null,
+        onTap: () {
+          if (promotion != null) {
+            PromotionDetailsSheet.open(context, promotion);
+          } else {
+            _pushPage(context, const WalletAndPaymentsScreen());
+          }
+        },
+      ),
+      _FeatureCard(
+        title: 'Safety checkup',
+        body: 'Add a trusted contact and set your safety preferences.',
+        picture: 'protection_enabled',
+        pictureWidth: 84,
+        onTap: () => _pushPage(context, const SafetyHub()),
+      ),
+      _FeatureCard(
+        title: 'Movera Family',
+        body: 'Add family members and book rides for them from your account.',
+        picture: 'family',
+        onTap: () => _pushPage(
+          context,
+          const HelpArticle(
+            title: 'Movera Family',
+            body:
+                'Soon you will be able to add family members to your account and book rides for them, with the trip and the driver visible to you from start to finish. We will let you know the moment it is ready.',
+          ),
+        ),
+      ),
+      _FeatureCard(
+        title: 'Invite friends',
+        body: 'Give kr 50, get kr 50 when a friend takes their first ride.',
+        picture: 'referral',
+        onTap: () => _pushPage(context, const ReferAndEarn()),
+      ),
+      _FeatureCard(
+        title: 'Movera Business',
+        body: 'Keep work rides separate and expense them in one tap.',
+        picture: 'travel_mode',
+        pictureWidth: 96,
+        onTap: () => _pushPage(
+          context,
+          const HelpArticle(
+            title: 'Movera Business',
+            body:
+                'A business profile keeps your work rides apart from your personal ones, with monthly receipts ready for expensing. It is on its way; we will let you know when it opens.',
+          ),
+        ),
+      ),
+      _FeatureCard(
+        title: 'Greener rides',
+        body: 'Choose Electric and see the CO₂ you save on every trip.',
+        picture: 'nature',
+        onTap: () => _pushPage(
+          context,
+          const HelpArticle(
+            title: 'Greener rides',
+            body:
+                'Choose the Electric category to ride emission-free. Soon your receipts will show the CO₂ you saved on every trip and over the year.',
+          ),
+        ),
+      ),
+    ];
+    return [
+      for (var i = 0; i < cards.length; i++) ...[
+        if (i > 0) const SizedBox(height: 10),
+        _featureCard(cards[i]),
+      ],
+    ];
+  }
+
+  Widget _featureCard(_FeatureCard card) {
     return _tap(
-      item,
-      height: 76,
+      label: card.title,
+      onTap: card.onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.fromLTRB(20, 16, 14, 16),
         child: Row(
           children: [
-            Icon(item.icon, size: 24, color: _ink),
-            const SizedBox(width: 12),
             Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  item.title,
-                  maxLines: 1,
-                  style: _text(16, weight: FontWeight.w600),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          card.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _text(17, weight: FontWeight.w600),
+                        ),
+                      ),
+                      if (card.isNew) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _badge,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'NEW',
+                            style: _text(
+                              11,
+                              weight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    card.body,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(14, color: _muted, height: 1.35),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(width: 12),
+            _picture(card.picture, width: card.pictureWidth, height: 82),
           ],
         ),
       ),
     );
   }
 
-  Widget _tap(_MenuItem item, {required double height, required Widget child}) {
-    return Semantics(
-      button: true,
-      label: item.title,
-      onTap: item.onTap,
-      child: ExcludeSemantics(
-        child: Material(
-          color: _card,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: item.onTap,
-            splashColor: _ink.withValues(alpha: 0.05),
-            highlightColor: _ink.withValues(alpha: 0.04),
-            child: SizedBox(height: height, child: child),
+  /// Account rows: every one opens a screen that already exists.
+  List<Widget> _accountRows(BuildContext context) {
+    final profile = AppScope.instance.profile;
+    final security = AppScope.instance.accountSecurity;
+    final rows = <(IconData, String, String, VoidCallback)>[
+      (
+        Icons.person_outline_rounded,
+        'Personal info',
+        'Name, phone, email, language',
+        () => _pushPage(
+          context,
+          PersonalInfoPage(controller: profile, securityController: security),
+        ),
+      ),
+      (
+        Icons.verified_user_outlined,
+        'Security',
+        'Passkeys, 2-step, devices',
+        () => _pushPage(context, SecurityPage(securityController: security)),
+      ),
+      (
+        Icons.lock_outline_rounded,
+        'Privacy',
+        'How Movera uses your data',
+        () => _pushPage(context, PrivacyPage(controller: profile)),
+      ),
+      (
+        Icons.notes_rounded,
+        'Terms',
+        'How Movera rides work',
+        () => _pushPage(context, const AccountLegalPage(kind: 'terms')),
+      ),
+      (
+        Icons.privacy_tip_outlined,
+        'Privacy notice',
+        'What we keep and why',
+        () => _pushPage(context, const AccountLegalPage(kind: 'privacy')),
+      ),
+      (
+        Icons.info_outline_rounded,
+        'About Movera',
+        'Company information',
+        () => _pushPage(
+          context,
+          const HelpArticle(
+            title: 'About Movera',
+            body:
+                'Movera is a ride app for Sweden. Available booking and payment options are shown during your ride request.',
           ),
         ),
       ),
-    );
+    ];
+    return [for (final row in rows) _accountRow(row)];
   }
 
-  /// Home's bottom bar: Map goes back to the map, the rest open the same
-  /// screens they open from Home.
-  Widget _bottomBar(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + bottom),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _line, width: 0.8)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: PremiumBottomNavItem(
-              iconAsset: AppAssets.navMap,
-              label: 'Map',
-              onTap: () => Navigator.of(context).pop(),
+  Widget _accountRow((IconData, String, String, VoidCallback) row) {
+    return Semantics(
+      button: true,
+      label: row.$2,
+      onTap: row.$4,
+      child: ExcludeSemantics(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: row.$4,
+            borderRadius: BorderRadius.circular(12),
+            splashColor: _ink.withValues(alpha: 0.05),
+            highlightColor: _ink.withValues(alpha: 0.04),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+              child: Row(
+                children: [
+                  Icon(row.$1, size: 26, color: _ink),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          row.$2,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _text(17, weight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          row.$3,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _text(13.5, color: _muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          Expanded(
-            child: PremiumBottomNavItem(
-              iconAsset: AppAssets.navPayment,
-              label: 'Payment',
-              onTap: onPayment ?? () {},
-            ),
-          ),
-          Expanded(
-            child: PremiumBottomNavItem(
-              iconAsset: AppAssets.navSchedule,
-              label: 'Schedule ride',
-              onTap: onSchedule ?? () {},
-            ),
-          ),
-          Expanded(
-            child: PremiumBottomNavItem(
-              iconAsset: AppAssets.navAccount,
-              label: 'Account',
-              onTap: onAccount ?? () {},
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _MenuItem {
-  const _MenuItem({
-    required this.icon,
+class _FeatureCard {
+  const _FeatureCard({
     required this.title,
+    required this.body,
+    required this.picture,
     required this.onTap,
-    this.detail,
+    this.isNew = false,
+    this.pictureWidth = 100,
   });
 
-  final IconData icon;
   final String title;
+  final String body;
+  final String picture;
   final VoidCallback onTap;
-
-  /// Shown on the right of a wide card instead of the chevron.
-  final Widget? detail;
+  final bool isNew;
+  final double pictureWidth;
 }
