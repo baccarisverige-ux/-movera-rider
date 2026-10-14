@@ -37,6 +37,7 @@ class RideSnapshot {
     this.searchStartedAt,
     this.categoryId,
     this.paymentMethodId,
+    this.maxOfferMinor,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -93,6 +94,12 @@ class RideSnapshot {
   final String? categoryId;
   final String? paymentMethodId;
 
+  /// ARCH-20 / contract C-4: the highest fare the rider may offer while
+  /// searching, in öre. The server's value when it sends one, else set once
+  /// from the booked fare, so a raised offer and a reload never move the
+  /// ceiling up with it. Null for older snapshots.
+  final int? maxOfferMinor;
+
   DateTime get searchStart => searchStartedAt ?? createdAt;
 
   /// How long a saved ride may go untouched and still be worth restoring.
@@ -137,6 +144,7 @@ class RideSnapshot {
     DateTime? searchStartedAt,
     String? categoryId,
     String? paymentMethodId,
+    int? maxOfferMinor,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -163,6 +171,7 @@ class RideSnapshot {
       searchStartedAt: searchStartedAt ?? this.searchStartedAt,
       categoryId: categoryId ?? this.categoryId,
       paymentMethodId: paymentMethodId ?? this.paymentMethodId,
+      maxOfferMinor: maxOfferMinor ?? this.maxOfferMinor,
     );
   }
 
@@ -193,6 +202,7 @@ class RideSnapshot {
       'searchStartedAt': searchStartedAt!.toUtc().toIso8601String(),
     if (categoryId != null) 'categoryId': categoryId,
     if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+    if (maxOfferMinor != null) 'maxOfferMinor': maxOfferMinor,
   };
 
   static RideSnapshot? fromJson(Map<String, dynamic> json) {
@@ -279,12 +289,16 @@ class RideSnapshot {
       searchStartedAt: _utcOrNull(json['searchStartedAt']),
       categoryId: _nonEmpty(json['categoryId']),
       paymentMethodId: _nonEmpty(json['paymentMethodId']),
+      maxOfferMinor: _positiveMinor(json['maxOfferMinor']),
     );
   }
 }
 
 DateTime? _utcOrNull(Object? raw) =>
     raw is String ? DateTime.tryParse(raw)?.toUtc() : null;
+
+int? _positiveMinor(Object? raw) =>
+    raw is num && raw.isFinite && raw > 0 ? raw.round() : null;
 
 String? _nonEmpty(Object? raw) =>
     raw is String && raw.trim().isNotEmpty ? raw.trim() : null;

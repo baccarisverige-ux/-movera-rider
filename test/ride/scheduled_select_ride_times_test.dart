@@ -6,6 +6,8 @@ import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.da
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 /// A ride booked for later shows its chosen pickup time in the list, not the
 /// "N min" ETA of a ride right now.
@@ -17,6 +19,9 @@ class _ImmediateQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) => Future<RideQuote>.value(
     RideQuote(
       id: 'q-$rideType',

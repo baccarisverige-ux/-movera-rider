@@ -5,6 +5,7 @@ import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class _BudgetQuotes implements QuoteRepository {
   int active = 0;
@@ -17,6 +18,9 @@ class _BudgetQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     active += 1;
     if (active > maxActive) maxActive = active;

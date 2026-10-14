@@ -39,6 +39,8 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class _RecordingObserver extends NavigatorObserver {
   final List<Route<dynamic>> pushed = <Route<dynamic>>[];
@@ -68,6 +70,9 @@ class _NeverQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     calls += 1;
     return Completer<RideQuote>().future;

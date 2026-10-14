@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
 import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
@@ -272,6 +273,8 @@ class RideSelectionController {
     required String pickup,
     required String destination,
     int distanceMeters = 3000,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
     int parallelism = PerformanceBudgets.quoteParallelism,
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
@@ -292,6 +295,8 @@ class RideSelectionController {
             pickup: pickup,
             destination: destination,
             distanceMeters: distanceMeters,
+            pickupPoint: pickupPoint,
+            destinationPoint: destinationPoint,
             timeout: timeout,
           ),
         ),
@@ -305,6 +310,8 @@ class RideSelectionController {
     required String pickup,
     required String destination,
     required int distanceMeters,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
     required Duration timeout,
   }) async {
     if (generation != _quoteGeneration) return;
@@ -315,6 +322,8 @@ class RideSelectionController {
           distanceMeters: distanceMeters,
           pickup: pickup,
           destination: destination,
+          pickupPoint: pickupPoint,
+          destinationPoint: destinationPoint,
         ),
         timeout,
       );
@@ -342,6 +351,8 @@ class RideSelectionController {
     required int distanceMeters,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
     Duration timeout = PerformanceBudgets.quoteTimeout,
   }) async {
     if (_disposed) return null;
@@ -353,6 +364,8 @@ class RideSelectionController {
         distanceMeters: distanceMeters,
         pickup: pickup,
         destination: destination,
+        pickupPoint: pickupPoint,
+        destinationPoint: destinationPoint,
       ),
       timeout,
     );

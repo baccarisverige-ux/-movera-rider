@@ -10,6 +10,8 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class _Catalog extends RideSelectionRepository {
   _Catalog(this.items);
@@ -28,6 +30,9 @@ class _ImmediateQuoteRepository implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     return Future<RideQuote>.value(
       RideQuote(
