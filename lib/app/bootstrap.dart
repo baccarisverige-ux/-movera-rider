@@ -53,6 +53,9 @@ void _openNotificationsFromPush() {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Before anything can call the API: a 401 during start-up still has a
+  // Sign in screen to show.
+  registerSessionExpiredNavigation();
   // Before the first map builds: an iOS build without a Maps key must show
   // the no-map fallback instead of crashing inside the Maps SDK.
   await NativeMapsConfig.load();

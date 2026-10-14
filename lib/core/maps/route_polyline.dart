@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
@@ -22,7 +21,7 @@ Polyline routePolyline({
   int width = 4,
   RoutingService? routing,
 }) {
-  final service = routing ?? AppScope.instance.routing;
+  final service = routing ?? RoutingService.current;
   final points = service.line(
     from: GeoPoint(from.latitude, from.longitude),
     to: GeoPoint(to.latitude, to.longitude),
@@ -49,7 +48,7 @@ Future<Polyline> roadRoutePolyline({
   int width = 4,
   RoutingService? routing,
 }) async {
-  final service = routing ?? AppScope.instance.routing;
+  final service = routing ?? RoutingService.current;
   final points = await service.roadLine(
     from: GeoPoint(from.latitude, from.longitude),
     to: GeoPoint(to.latitude, to.longitude),

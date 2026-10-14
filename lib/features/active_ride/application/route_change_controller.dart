@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/api_error.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/fare/domain/fare_rules.dart';
@@ -144,7 +146,7 @@ class RouteChangeController {
     final response = await _send(
       () => _api.post('/api/v1/rides/$id/route-quote', body: draft.toRequest()),
     );
-    final price = response['newPriceKr'];
+    final price = _newPrice(response);
     final quoteId = response['routeQuoteId'];
     return RouteChangeQuote(
       pickupAddress: draft.pickupAddress,
@@ -153,12 +155,15 @@ class RouteChangeController {
       destinationPoint: draft.destinationPoint,
       stops: draft.stops,
       oldPriceKr: ride.price,
-      newPriceKr: price is num ? price.toDouble() : ride.price,
+      newPriceKr: price?.major ?? ride.price,
       routeQuoteId:
           quoteId is String && quoteId.trim().isNotEmpty ? quoteId.trim() : null,
-      expiresAt: DateTime.tryParse(response['expiresAt'] as String? ?? ''),
-      newTotalMinor: (response['newTotalMinor'] as num?)?.round(),
-      differenceMinor: (response['differenceMinor'] as num?)?.round(),
+      expiresAt: WireTime.tryParse(response['expiresAt']),
+      newTotalMinor: price?.amountMinor,
+      differenceMinor:
+          (Money.tryParse(response['difference']) ??
+                  Money.tryMinor(response['differenceMinor']))
+              ?.amountMinor,
     );
   }
 
@@ -195,8 +200,7 @@ class RouteChangeController {
     final response = await _send(
       () => _api.patch('/api/v1/rides/$id', body: body, idempotencyKey: key),
     );
-    final price = response['newPriceKr'];
-    final newPrice = price is num ? price.toDouble() : quote.newPriceKr;
+    final newPrice = _newPrice(response)?.major ?? quote.newPriceKr;
     final serverRide = response['ride'];
     final serverMax = serverRide is Map ? serverRide['maxOfferMinor'] : null;
     final updated = ride.copyWith(
@@ -219,6 +223,13 @@ class RouteChangeController {
     await RideSnapshotStore.save(updated);
     return updated;
   }
+
+  /// ARCH-11: the new total in minor units wins; the legacy whole-kronor
+  /// field is read only when the server sends nothing else.
+  static Money? _newPrice(Map<String, dynamic> response) =>
+      Money.tryParse(response['newTotal']) ??
+      Money.tryMinor(response['newTotalMinor']) ??
+      Money.tryLegacyMajor(response['newPriceKr']);
 
   Future<GeoPoint> _locate(String address) async {
     final PlaceResult? found;
