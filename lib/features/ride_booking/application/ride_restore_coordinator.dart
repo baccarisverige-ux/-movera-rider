@@ -60,8 +60,12 @@ class RideRestoreCoordinator {
   Future<bool> _shouldRequireSignIn(RideSnapshot? snapshot) async {
     if (!_authRequired()) return false;
     if (await _hasSession()) return false;
-    // No snapshot may be replayed after its owner has lost the session.
-    await RideSnapshotStore.clear();
+    // The snapshot is kept. A missing session is often not a sign-out: web
+    // reloads lose tokens that only lived in memory, and an expired refresh
+    // ends the session mid-ride. Sign-in is still required first, and
+    // [resumeIfNeeded] refuses to restore while signed out; after sign-in the
+    // ride is re-read from the server, which owns it. Wiping a previous
+    // rider's data on sign-out / account switch belongs to the sign-out flow.
     return true;
   }
 
@@ -72,6 +76,10 @@ class RideRestoreCoordinator {
   RestoredSurface showing = RestoredSurface.home;
   int restores = 0;
   void Function(Widget page)? onReplaceRoot;
+
+  /// True while the root gate shows Sign in or the new-rider name step.
+  /// Ride surfaces, notifications and Safety must not open over it.
+  bool authRootShowing = false;
 
   /// Reads the interrupted-search notice and clears it, so the rider is told
   /// once.
@@ -116,6 +124,9 @@ class RideRestoreCoordinator {
     if (replaceRoot) onReplaceRoot?.call(_gatedHome());
   }
 
+  /// Swaps the root gate's child. Returns false when no gate is mounted (the
+  /// gate clears [onReplaceRoot] when it is disposed), so callers can fall
+  /// back to the navigator instead of believing an invisible swap happened.
   bool replaceRootSurface(Widget page, RestoredSurface surface) {
     final replace = onReplaceRoot;
     if (replace == null) return false;
@@ -384,6 +395,10 @@ class RideRestoreCoordinator {
       }
       return null;
     }
+    // Never draw a ride over Sign in: the rider has to sign in first, and
+    // enterMoveraApp resumes the kept ride afterwards.
+    if (authRootShowing) return null;
+    if (_authRequired() && !await _hasSession()) return null;
     var snapshot = await _reader();
     final id = snapshot?.rideId;
     if (id != null) {

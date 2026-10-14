@@ -137,11 +137,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       if (!mounted) return;
       _ticker?.cancel();
       if (result.isNewRider) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute<void>(
-            builder: (_) => RiderNameScreen(initialName: challenge.link?.name),
-          ),
-          (_) => false,
+        // Keeps the root gate mounted (see enterMoveraApp).
+        showMoveraRoot(
+          RiderNameScreen(initialName: challenge.link?.name),
+          navigator: Navigator.of(context),
         );
       } else {
         enterMoveraApp(context);
