@@ -61,14 +61,18 @@ class PremiumBottomNavItem extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
-                  height: ResSize.h * 30,
-                  width: ResSize.w * 30,
-                  child: Center(
-                    child: AppIconAsset(
-                      iconAsset,
-                      size: ResSize.w * 22,
-                      color: color,
+                // UI-9: on short landscape or large text the icon box gives
+                // way instead of pushing the label out of the fixed height.
+                Flexible(
+                  child: SizedBox(
+                    height: ResSize.h * 30,
+                    width: ResSize.w * 30,
+                    child: Center(
+                      child: AppIconAsset(
+                        iconAsset,
+                        size: ResSize.w * 22,
+                        color: color,
+                      ),
                     ),
                   ),
                 ),
