@@ -55,7 +55,9 @@ class PushPermissionGate {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(storageKey, value.name);
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning('push.consent_store_failed', extra: {'error': '$error'});
+    }
   }
 
   /// Whether the explanation should be shown now.

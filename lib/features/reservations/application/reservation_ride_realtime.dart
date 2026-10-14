@@ -45,27 +45,17 @@ class ReservationRideRealtime implements RideRealtime {
     );
   }
 
+  // ARCH-10: one reservation -> ride map (ReservationStatusAsTripStatus in
+  // the reservation domain). A scheduled reservation is bookingRequested until
+  // dispatch starts, not findingDriver.
   RideStatus _mapStatus(ReservationStatus status) {
-    switch (status) {
-      case ReservationStatus.scheduled:
-      case ReservationStatus.driverAssignmentPending:
-        return RideStatus.findingDriver;
-      case ReservationStatus.driverAssigned:
-        return RideStatus.driverAssigned;
-      case ReservationStatus.driverEnRoute:
-        return RideStatus.driverArriving;
-      case ReservationStatus.driverArrived:
-        return RideStatus.driverWaiting;
-      case ReservationStatus.inProgress:
-        return RideStatus.tripInProgress;
-      case ReservationStatus.completed:
-        return RideStatus.tripCompleted;
-      case ReservationStatus.cancelled:
-        // The reservation record does not encode who cancelled it. A rider
-        // initiated cancel is handled synchronously by the screen callback;
-        // an unsolicited cancelled record is therefore treated as external.
-        return RideStatus.cancelledBySystem;
+    if (status == ReservationStatus.cancelled) {
+      // The reservation record does not encode who cancelled it. A rider
+      // initiated cancel is handled synchronously by the screen callback;
+      // an unsolicited cancelled record is therefore treated as external.
+      return RideStatus.cancelledBySystem;
     }
+    return status.asRideStatus;
   }
 
   RideRealtimeEvent? _eventForCurrent() {

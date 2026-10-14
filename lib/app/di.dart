@@ -1,6 +1,5 @@
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
 import 'package:movera_rider/app/lifecycle/app_lifecycle.dart';
-import 'package:movera_rider/features/auth/presentation/auth_navigation.dart';
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/app/config/pin_composition.dart';
 import 'package:movera_rider/app/config/transport_composition.dart';
@@ -36,7 +35,6 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/core/sockets/socket_client.dart';
 import 'package:movera_rider/features/auth/application/auth_controller.dart';
 import 'package:movera_rider/features/booking/application/booking_coordinator.dart';
-import 'package:movera_rider/features/auth/presentation/sign_in.dart';
 import 'package:movera_rider/features/destination/application/destination_controller.dart';
 import 'package:movera_rider/features/destination/application/destination_session.dart';
 import 'package:movera_rider/features/destination_search/application/destination_search_controller.dart';
@@ -102,8 +100,10 @@ class AppScope {
         // different one does, AuthController wipes it first
         // (UserDataWipe.enterSessionAs). Sign-out wipes everything.
         await LocationRepository.clearLastGoodFix();
-        // Sign in becomes the root gate's child so the gate survives.
-        showMoveraRoot(const SignIn());
+        // Sign in becomes the root gate's child so the gate survives. The
+        // screen is registered from app.dart so DI never imports
+        // presentation (ARCH-17).
+        AppScope.showSignInOnSessionExpired?.call();
       },
     );
     paymentGateway = environment.allowsMockTransport
@@ -132,6 +132,7 @@ class AppScope {
       allowPublicReverseFallback: environment.allowsMockTransport,
     );
     routing = RoutingService(api: api);
+    RoutingService.defaultProvider ??= () => AppScope.instance.routing;
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = environment.allowsMockTransport
         ? MockRideRealtime(api: api, connection: realtime)
@@ -166,6 +167,10 @@ class AppScope {
   }
 
   static final instance = AppScope._(AppEnv.current);
+
+  /// Navigation to Sign in after a forced sign-out, registered by the app
+  /// shell ([registerSessionExpiredNavigation] in app.dart).
+  static void Function()? showSignInOnSessionExpired;
 
   /// Uses the exact production composition root without replacing individual
   /// dependencies by hand. Phase 72 CI exercises this factory directly.

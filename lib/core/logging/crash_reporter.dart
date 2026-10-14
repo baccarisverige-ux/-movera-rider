@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:movera_rider/core/constants/app_version.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/observability/observability.dart';
 
@@ -20,7 +21,7 @@ class CrashReporter {
       'operation': operation,
       'requestId': requestId,
       'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
-      'appVersion': '1.0.0',
+      'appVersion': appVersion,
     });
     Observability.crashes.record(error, stack, extra: extra);
     AppLog.fatal(
