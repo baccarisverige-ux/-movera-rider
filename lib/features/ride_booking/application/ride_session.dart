@@ -31,6 +31,10 @@ class RideSession {
   String? bookedCategoryId;
   String? bookedPaymentMethodId;
 
+  /// ARCH-20: the offer ceiling of [rideId], in öre (see
+  /// RideSnapshot.maxOfferMinor). Set by booking and by restore.
+  int? bookedMaxOfferMinor;
+
   /// Strict client-side mutation path. Local/UI actions must obey the graph.
   RideStatus localTransition(RideStatus next) {
     status = transitionRide(status, next);
@@ -75,6 +79,7 @@ class RideSession {
       authoritativeUpdatedAt = null;
       bookedCategoryId = null;
       bookedPaymentMethodId = null;
+      bookedMaxOfferMinor = null;
     } else if (!_isFreshBackendProjection(
       backendStatus,
       version: version,

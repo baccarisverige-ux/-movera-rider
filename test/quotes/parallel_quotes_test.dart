@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class _TrackingQuotes implements QuoteRepository {
   _TrackingQuotes({this.failRideId, this.delay = const Duration(milliseconds: 20)});
@@ -18,6 +20,9 @@ class _TrackingQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) async {
     active += 1;
     if (active > maxActive) maxActive = active;

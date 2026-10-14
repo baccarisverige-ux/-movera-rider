@@ -167,8 +167,14 @@ class FindingDriverController {
       !_cancelled &&
       !_terminated;
   double get currentPrice => _snapshot?.price ?? 0;
-  double get maxOfferPrice =>
-      FareRules.maximum(_catalogPrice ?? currentPrice);
+  /// ARCH-20: the ceiling the booking carries (server or booked fare), so a
+  /// raised offer plus a reload does not lift it; the catalog rule only for
+  /// a snapshot without one.
+  double get maxOfferPrice {
+    final minor = _snapshot?.maxOfferMinor;
+    if (minor != null) return minor / 100;
+    return FareRules.maximum(_catalogPrice ?? currentPrice);
+  }
   String get pickupAddress => _snapshot?.pickupAddress ?? '';
   double? get pickupLat => _snapshot?.pickupLat;
   double? get pickupLng => _snapshot?.pickupLng;
@@ -219,6 +225,7 @@ class FindingDriverController {
             rideId == null ? null : session.authoritativeUpdatedAt?.toUtc(),
         categoryId: rideId == null ? null : session.bookedCategoryId,
         paymentMethodId: rideId == null ? null : session.bookedPaymentMethodId,
+        maxOfferMinor: rideId == null ? null : session.bookedMaxOfferMinor,
         pickupAddress: pickupAddress,
         destinationAddress: destinationAddress,
         pickupLat: pickupLat,
@@ -694,7 +701,11 @@ class FindingDriverController {
     if (snapshot == null || id == null) return false;
     final catalog = _catalogPrice ?? snapshot.price;
     final next = snapshot.price + kr;
-    if (!FareRules.allowsTotal(total: next, catalog: catalog)) return false;
+    if (next > maxOfferPrice ||
+        (snapshot.maxOfferMinor == null &&
+            !FareRules.allowsTotal(total: next, catalog: catalog))) {
+      return false;
+    }
     final editToken = _beginEdit();
     if (editToken == null) {
       editFeedback = _assigned || _assignmentPending
@@ -746,6 +757,7 @@ class FindingDriverController {
         status: ride.status,
         price: serverPrice,
         savedAt: DateTime.now(),
+        maxOfferMinor: _serverMaxOfferMinor(response),
       );
       await _store.save(_snapshot!);
       if (_editInvalid(editToken)) return false;
@@ -769,6 +781,13 @@ class FindingDriverController {
     } finally {
       _finishEdit(editToken);
     }
+  }
+
+  /// The offer ceiling the server says the ride has, when it says.
+  static int? _serverMaxOfferMinor(Map<String, dynamic> response) {
+    final ride = response['ride'];
+    final raw = ride is Map ? ride['maxOfferMinor'] : null;
+    return raw is num && raw > 0 ? raw.round() : null;
   }
 
   /// The fare the server says the ride now has, from a PATCH response's

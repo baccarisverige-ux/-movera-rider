@@ -9,6 +9,8 @@ import 'package:movera_rider/features/ride_booking/data/api_quote_repository.dar
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_selection/application/ride_selection_controller.dart';
+import 'package:movera_rider/core/maps/geo_point.dart';
+import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 
 class AlwaysFailQuotes implements QuoteRepository {
   @override
@@ -18,6 +20,9 @@ class AlwaysFailQuotes implements QuoteRepository {
     int durationSeconds = 600,
     String? pickup,
     String? destination,
+    GeoPoint? pickupPoint,
+    GeoPoint? destinationPoint,
+    List<RouteStop> stops = const <RouteStop>[],
   }) {
     return Future<RideQuote>.error(StateError('quote unavailable'));
   }
