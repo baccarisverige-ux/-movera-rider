@@ -11,6 +11,11 @@ import 'package:movera_rider/core/notifications/push_service.dart';
 
 enum PushAuthorizationStatus { authorized, provisional, denied }
 
+/// Web push service worker shipped in `web/`. It is only registered by
+/// [FlutterFirebasePushGateway.getToken], which runs only when Firebase is
+/// configured, so builds without Firebase never install it.
+const String moveraFirebaseMessagingServiceWorker = 'firebase-messaging-sw.js';
+
 FirebaseOptions _firebaseOptions(AppEnv environment) {
   return FirebaseOptions(
     apiKey: environment.firebaseApiKey,
@@ -104,8 +109,15 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
   }
 
   @override
-  Future<String?> getToken({String? vapidKey}) =>
-      _messaging.getToken(vapidKey: vapidKey);
+  Future<String?> getToken({String? vapidKey}) => _messaging.getToken(
+        vapidKey: vapidKey,
+        // Relative to the page's <base href>, so the worker also registers
+        // when the app is served from a sub-path such as /-movera-rider/.
+        // The Firebase default (/firebase-messaging-sw.js at the origin root)
+        // does not exist there.
+        serviceWorkerScriptPath:
+            kIsWeb ? moveraFirebaseMessagingServiceWorker : null,
+      );
 
   @override
   Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;

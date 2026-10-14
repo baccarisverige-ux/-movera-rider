@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/promotions/application/rider_promotion_controller.dart';
@@ -243,12 +244,13 @@ class _PayWithPageState extends State<PayWithPage> {
                 trailing: _radio(selectedBrand == method.brand),
                 onTap: () => Navigator.of(context).pop(method.brand),
               ),
-            _row(
-              key: const ValueKey('pay-with-add'),
-              leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
-              title: 'Add payment method',
-              onTap: _addCard,
-            ),
+            if (CardEntryPolicy.enabled)
+              _row(
+                key: const ValueKey('pay-with-add'),
+                leading: const Icon(Icons.add_rounded, color: _ink, size: 24),
+                title: 'Add payment method',
+                onTap: _addCard,
+              ),
             _section('Vouchers'),
             if (promo != null)
               _row(

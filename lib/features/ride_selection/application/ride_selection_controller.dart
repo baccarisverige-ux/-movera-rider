@@ -5,6 +5,7 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/performance/performance_budgets.dart';
 import 'package:movera_rider/features/fare/application/fare_controller.dart';
+import 'package:movera_rider/features/payments/application/card_entry_policy.dart';
 import 'package:movera_rider/features/payments/application/saved_cards_controller.dart';
 import 'package:movera_rider/features/payments/data/default_payment_store.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
@@ -177,7 +178,12 @@ class RideSelectionController {
     final cards = savedCardItems();
     return _store.payments().expand<RidePaymentItem>((item) {
       // The generic "Card" row becomes the saved cards once there are any.
-      if (item.brand == 'cards') return cards.isEmpty ? [item] : cards;
+      if (item.brand == 'cards') {
+        if (cards.isNotEmpty) return cards;
+        // Without Add card (staging/production until a payment partner
+        // holds cards) the generic row would lead nowhere.
+        return CardEntryPolicy.enabled ? [item] : const <RidePaymentItem>[];
+      }
       return [item];
     }).where((item) {
       if (item.brand == 'cash') return _flags.enableCash;

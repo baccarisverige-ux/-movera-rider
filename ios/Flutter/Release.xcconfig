@@ -1,1 +1,4 @@
 #include "Generated.xcconfig"
+// Untracked, required for Release/Profile: GOOGLE_MAPS_API_KEY for the iOS
+// Maps SDK. The "Check Google Maps key" build phase fails without it.
+#include? "Secrets.xcconfig"

@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/ride_booking/application/ride_restore_coordinator.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
+import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 
 /// Leaves the sign-in flow for the map, clearing it from the back stack.
 ///
@@ -23,6 +25,14 @@ void enterMoveraApp(BuildContext context) {
   if (shown) {
     unawaited(RideRestoreCoordinator.instance.resumeIfNeeded());
   }
+  // UI-17: explain ride updates before the OS notification prompt.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final home = moveraNavigatorKey.currentContext;
+    if (home == null) return;
+    unawaited(
+      maybeShowPushPrimer(home, gate: AppScope.instance.pushPermission),
+    );
+  });
 }
 
 /// Puts [page] at the app root and closes every route above it.
