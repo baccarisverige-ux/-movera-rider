@@ -27,7 +27,10 @@ import 'package:movera_rider/features/ride_selection/application/ride_selection_
 import 'package:movera_rider/features/booking/application/booking_controller.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
 import 'package:movera_rider/features/finding_driver/presentation/finding_drivers.dart';
+import 'package:movera_rider/features/pickup/application/pickup_address.dart';
 import 'package:movera_rider/features/pickup/presentation/set_pickup_page.dart';
+import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
@@ -407,25 +410,117 @@ class _SelectRideState extends State<SelectRide>
     if (mounted) setState(() {});
   }
 
+  /// The latest pin re-quote still in flight, so booking can wait for it.
+  Future<RideQuote?>? _pinQuote;
+
+  /// A pin quote was adopted for a point the rider has not confirmed yet.
+  bool _pinQuoteAdopted = false;
+
   /// Set location moved the pin: price [ride] again from that exact point
-  /// and adopt the quote, so Confirm books the price shown there.
+  /// and adopt the quote, so Confirm books the price shown there. Goes
+  /// through the selection, which keeps only the latest pin's answer.
   Future<SetPickupFare?> _requoteFromPin(_RideOption ride, LatLng pin) async {
-    final quote = await AppScope.instance.quotes.quote(
-      rideType: ride.id,
+    final pending = _selection.quoteFromPin(
+      rideId: ride.id,
       distanceMeters: straightLineMeters(pin, widget.destinationPosition),
-      pickup: widget.pickupAddress,
+      pickup: coordinatePickupAddress(pin),
       destination: widget.destinationAddress,
     );
-    if (!mounted) return null;
-    _selection.adoptQuote(ride.id, quote);
+    _pinQuote = pending;
+    final quote = await pending;
+    if (quote == null || !mounted) return null;
+    _pinQuoteAdopted = true;
+    return _fareFor(quote);
+  }
+
+  SetPickupFare _fareFor(RideQuote quote) {
     final total = quote.totalMinor / 100;
     final discount = quote.discountMinor / 100;
     return SetPickupFare(
       totalKr: total,
       discountKr: discount,
       promotionPercent: discount > 0 ? _promotion?.percentOff : null,
-      walletKr: _selection.walletAppliedKr(total),
+      walletKr: _selection.walletSplitFor(quote.totalMinor).walletMinor / 100,
     );
+  }
+
+  /// A quote that is still good for the next [_quoteMargin], or null.
+  static const _quoteMargin = Duration(seconds: 10);
+
+  ({RideQuote quote, double price})? _bookableQuote(String rideId) {
+    final soon = DateTime.now().add(_quoteMargin);
+    final price = _selection.authoritativePriceFor(rideId, now: soon);
+    final quote = _selection.authoritativeQuotes[rideId];
+    if (price == null || quote == null) return null;
+    return (quote: quote, price: price);
+  }
+
+  /// After the steps the rider controls (Add card, Set pickup): the quote
+  /// to book is the one the selection holds now, never the one captured
+  /// before them (RIDE-1). A quote that expired meanwhile is refreshed in
+  /// place from the confirmed pickup (RIDE-2). Returns null when no price
+  /// can be had.
+  Future<({RideQuote quote, double price})?> _quoteAfterPickup(
+    _RideOption ride,
+  ) async {
+    final pending = _pinQuote;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {
+        // A failed pin quote keeps the price shown.
+      }
+    }
+    if (!mounted) return null;
+    final current = _bookableQuote(ride.id);
+    if (current != null) return current;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Refreshing price…')),
+    );
+    try {
+      await _selection.quoteFromPin(
+        rideId: ride.id,
+        distanceMeters: straightLineMeters(
+          _pickupPosition,
+          widget.destinationPosition,
+        ),
+        pickup: _pickupAddress,
+        destination: widget.destinationAddress,
+      );
+    } catch (_) {
+      // Reported below.
+    }
+    if (!mounted) return null;
+    return _bookableQuote(ride.id);
+  }
+
+  /// The price to book differs from the one Set pickup showed: the rider
+  /// agrees to the new one first.
+  Future<bool> _acceptNewPrice(double shown, double next) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const ValueKey('select-ride-price-updated'),
+        title: Text('Price updated', style: _text(18, weight: FontWeight.w600)),
+        content: Text(
+          'The price for this pickup is now ${_kr(next)} '
+          '(was ${_kr(shown)}).',
+          style: _text(14.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            key: const ValueKey('select-ride-price-accept'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text('Book for ${_kr(next)}'),
+          ),
+        ],
+      ),
+    );
+    return accepted == true;
   }
 
   @override
@@ -1088,6 +1183,14 @@ class _SelectRideState extends State<SelectRide>
         return paymentLine();
       },
       onRequote: (pin) => _requoteFromPin(ride, pin),
+      fareAfterPaymentChange: (fare) => SetPickupFare(
+        totalKr: fare.totalKr,
+        discountKr: fare.discountKr,
+        promotionPercent: fare.promotionPercent,
+        walletKr:
+            _selection.walletSplitFor(krToMinor(fare.totalKr)).walletMinor /
+            100,
+      ),
       initialBagLevel: _notes.bagLevel,
       home: home,
       initialIsCurrentLocation:
@@ -1131,9 +1234,8 @@ class _SelectRideState extends State<SelectRide>
       return;
     }
     final quote = _selection.quoteForBooking(selected.id);
-    final authoritativePrice = _selection.authoritativePriceFor(selected.id);
     if (quote == null ||
-        authoritativePrice == null ||
+        _selection.authoritativePriceFor(selected.id) == null ||
         quote.signedPayload == null ||
         quote.signedPayload!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1179,8 +1281,15 @@ class _SelectRideState extends State<SelectRide>
           );
         }
         // Set pickup every time; the current location is preselected.
+        _pinQuote = null;
+        _pinQuoteAdopted = false;
         final spot = await _openSetPickup(selected);
-        if (spot == null || !mounted) return;
+        if (!mounted) return;
+        if (spot == null) {
+          // The pin's price belongs to a point the rider did not confirm.
+          if (_pinQuoteAdopted) unawaited(_loadQuotes());
+          return;
+        }
         _pickupAddress = spot.address;
         _pickupPosition = spot.position;
         _pickupConfirmed = true;
@@ -1193,6 +1302,31 @@ class _SelectRideState extends State<SelectRide>
             detail: chosen.detail,
           );
         }
+
+        // Book the price Set pickup showed, not the one from before it.
+        final bookable = await _quoteAfterPickup(selected);
+        if (!mounted) return;
+        if (bookable == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Price unavailable. Refreshing fare…'),
+            ),
+          );
+          unawaited(_loadQuotes());
+          return;
+        }
+        final quote = bookable.quote;
+        final authoritativePrice = bookable.price;
+        final shown = spot.fareTotalKr;
+        if (shown != null &&
+            krToMinor(shown) != quote.totalMinor &&
+            !await _acceptNewPrice(shown, authoritativePrice)) {
+          if (mounted) setState(() {});
+          return;
+        }
+        if (!mounted) return;
+        // The wallet part the rider was shown travels with the booking.
+        final walletSplit = _selection.walletSplitFor(quote.totalMinor);
 
         final stops = await _locateStops();
         if (!mounted) return;
@@ -1217,6 +1351,8 @@ class _SelectRideState extends State<SelectRide>
             rideTypeLabel: selected.name,
             paymentMethodLabel: payment.name,
             notes: _notes,
+            useWalletFirst: _selection.useWalletFirst,
+            walletAmountMinor: walletSplit.walletMinor,
           );
           if (rideId.trim().isEmpty) {
             throw StateError('Booking response did not contain a ride id.');
@@ -1277,6 +1413,7 @@ class _SelectRideState extends State<SelectRide>
                 rideType: selected.name,
                 price: authoritativePrice,
                 paymentMethod: payment.name,
+                walletAmountMinor: walletSplit.walletMinor,
                 notes: _notes,
                 stops: stops,
                 realtime: widget.realtime,
@@ -1940,7 +2077,8 @@ class _SelectRideState extends State<SelectRide>
                             ),
                         ],
                       ),
-                      if (selected && _selection.walletAppliedKr(price) > 0)
+                      if (selected &&
+                          _selection.walletSplitFor(krToMinor(price)).usesWallet)
                         _walletLine(price),
                       // Description and badge come in as the sheet opens fully.
                       ClipRect(
@@ -2006,8 +2144,7 @@ class _SelectRideState extends State<SelectRide>
   /// Under the selected ride: what the wallet covers and what is left to
   /// pay. The list price itself stays the real fare.
   Widget _walletLine(double price) {
-    final wallet = _selection.walletAppliedKr(price);
-    final rest = _selection.remainderKr(price);
+    final split = _selection.walletSplitFor(krToMinor(price));
     const green = Color(0xFF079A60);
     return Padding(
       key: const ValueKey('select-ride-wallet-line'),
@@ -2021,13 +2158,14 @@ class _SelectRideState extends State<SelectRide>
           ),
           const SizedBox(width: 4),
           Expanded(
-            child: rest <= 0
+            child: split.paidByWallet
                 ? Text(
                     'Paid by wallet',
                     style: _text(12, weight: FontWeight.w600, color: green),
                   )
                 : Text(
-                    'Wallet −${_kr(wallet)} · you pay ${_kr(rest)}',
+                    'Wallet −${formatKr(split.walletKr)} · '
+                    'you pay ${formatKr(split.remainderKr)}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: _text(12, weight: FontWeight.w500, color: green),

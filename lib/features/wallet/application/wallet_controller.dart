@@ -206,8 +206,21 @@ class WalletController {
     if (id.isEmpty || snapshot == null || snapshot.rideId?.trim() != id) {
       return null;
     }
-    if (!isWalletPayment(snapshot.paymentMethod)) return null;
-    final amount = snapshot.price;
+    // A wallet ride is charged in full; with "Use wallet balance first" the
+    // wallet part booked with the ride is charged (never more than the
+    // fare), and the method pays the rest.
+    final double amount;
+    if (isWalletPayment(snapshot.paymentMethod)) {
+      amount = snapshot.price;
+    } else if (snapshot.walletAmountMinor > 0) {
+      final fareMinor = (snapshot.price * 100).round();
+      final part = snapshot.walletAmountMinor < fareMinor
+          ? snapshot.walletAmountMinor
+          : fareMinor;
+      amount = part / 100;
+    } else {
+      return null;
+    }
     if (!amount.isFinite || amount <= 0) return null;
     if (!_chargesInFlight.add(id)) return null;
     try {

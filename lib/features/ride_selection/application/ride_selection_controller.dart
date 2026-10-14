@@ -13,6 +13,7 @@ import 'package:movera_rider/features/ride_selection/application/ride_catalog_co
 import 'package:movera_rider/features/ride_selection/data/ride_selection_repository.dart';
 import 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 import 'package:movera_rider/features/ride_selection/domain/ride_selection.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 
 class RideSelectionController {
   /// Categories come from [catalog] (the server's list, see
@@ -122,15 +123,27 @@ class RideSelectionController {
   /// The part of [priceKr] the wallet covers for the current payment
   /// choice, or 0. Paying the whole ride from the wallet is its own method
   /// and is not a split.
-  double walletAppliedKr(double priceKr) {
-    if (!useWalletFirst || !_flags.enableWallet) return 0;
-    if (walletBalance <= 0 || priceKr <= 0) return 0;
-    if (selectedPaymentItem()?.brand == 'wallet') return 0;
-    return walletBalance >= priceKr ? priceKr : walletBalance;
-  }
+  double walletAppliedKr(double priceKr) =>
+      walletSplitFor(krToMinor(priceKr)).walletMinor / 100;
 
   /// What the chosen method is charged after the wallet part.
-  double remainderKr(double priceKr) => priceKr - walletAppliedKr(priceKr);
+  double remainderKr(double priceKr) =>
+      walletSplitFor(krToMinor(priceKr)).remainderMinor / 100;
+
+  /// The wallet / method split of [totalMinor], worked out in öre so the
+  /// parts always add up to the total.
+  WalletSplit walletSplitFor(int totalMinor) {
+    if (!useWalletFirst || !_flags.enableWallet) {
+      return WalletSplit.none(totalMinor);
+    }
+    if (selectedPaymentItem()?.brand == 'wallet') {
+      return WalletSplit.none(totalMinor);
+    }
+    return WalletSplit.of(
+      totalMinor: totalMinor,
+      balanceMinor: krToMinor(walletBalance),
+    );
+  }
 
   /// Whether the rider has a saved card. Without one, the generic "Card"
   /// method opens Add card first.
@@ -309,6 +322,37 @@ class RideSelectionController {
       authoritativeQuotes.remove(rideId);
       unavailableQuoteIds.add(rideId);
     }
+  }
+
+  int _pinQuoteGeneration = 0;
+
+  /// Prices [rideId] again from a moved pickup pin. Only the latest call
+  /// wins: an older answer that arrives late returns null and is not
+  /// adopted, and list loads begun before this call are dropped so they
+  /// cannot put the old point's price back (RIDE-11). The adopted quote is
+  /// what booking then sends.
+  Future<RideQuote?> quoteFromPin({
+    required String rideId,
+    required int distanceMeters,
+    String? pickup,
+    String? destination,
+    Duration timeout = PerformanceBudgets.quoteTimeout,
+  }) async {
+    if (_disposed) return null;
+    final generation = ++_pinQuoteGeneration;
+    _quoteGeneration += 1;
+    final quote = await _withManagedTimeout(
+      _quotes.quote(
+        rideType: rideId,
+        distanceMeters: distanceMeters,
+        pickup: pickup,
+        destination: destination,
+      ),
+      timeout,
+    );
+    if (_disposed || generation != _pinQuoteGeneration) return null;
+    adoptQuote(rideId, quote);
+    return quote;
   }
 
   /// Takes [quote] as the authoritative price for [rideId], exactly as a
