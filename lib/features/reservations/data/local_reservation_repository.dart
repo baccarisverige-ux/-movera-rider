@@ -106,6 +106,12 @@ class LocalReservationRepository implements ReservationRepository {
     }
   }
 
+  @override
+  void clearLocal() {
+    _items.clear();
+    _hydrated = false;
+  }
+
   /// The change in flight, if any.
   Future<void>? _lastChange;
 

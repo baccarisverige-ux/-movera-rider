@@ -111,6 +111,13 @@ class SavedCardsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Forgets the signed-out rider's cards in memory.
+  void clearLocal() {
+    _cards = const [];
+    _loaded = false;
+    notifyListeners();
+  }
+
   List<SavedCard> list() => List.unmodifiable(_cards);
 
   bool get hasCards => _cards.isNotEmpty;

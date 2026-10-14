@@ -6,14 +6,35 @@ import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/location/web_reverse_geocode.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 
+/// A street-name lookup outside the Movera backend (the web demo's
+/// OpenStreetMap fallback).
+typedef PublicReverseGeocoder = Future<String?> Function(
+  GeoPoint point, {
+  Duration timeout,
+});
+
 class AppGeocoding implements GeocodingRepository {
   AppGeocoding({
     ApiClient? api,
     this.cacheTtl = const Duration(minutes: 10),
     this.requestTimeout = const Duration(seconds: 8),
-  }) : _api = api;
+    this.allowPublicReverseFallback = false,
+    PublicReverseGeocoder? publicReverse,
+    bool? isWeb,
+  })  : _api = api,
+        _publicReverse = publicReverse ?? openStreetMapReverse,
+        _isWeb = isWeb ?? kIsWeb;
 
   final ApiClient? _api;
+
+  /// Whether the browser may ask public OpenStreetMap Nominatim for a street
+  /// name when the backend has none. Only demo/dev/test builds turn this on
+  /// (`AppEnv.allowsMockTransport`): it sends the rider's exact coordinates
+  /// to a third party, so staging and production rely on the backend's
+  /// reverse geocoder alone.
+  final bool allowPublicReverseFallback;
+  final PublicReverseGeocoder _publicReverse;
+  final bool _isWeb;
   final Duration cacheTtl;
   final Duration requestTimeout;
   final Map<String, _CachedValue<PlaceResult?>> _forwardCache = {};
@@ -101,8 +122,10 @@ class AppGeocoding implements GeocodingRepository {
         : null;
     // The web demo's in-process transport knows no street names and answers
     // with a neutral label; the rider still wants to read where they are.
-    if (kIsWeb && (named == null || named == placeholderReverseLabel)) {
-      final street = await openStreetMapReverse(point, timeout: requestTimeout);
+    if (allowPublicReverseFallback &&
+        _isWeb &&
+        (named == null || named == placeholderReverseLabel)) {
+      final street = await _publicReverse(point, timeout: requestTimeout);
       if (street != null) return street;
     }
     return named;

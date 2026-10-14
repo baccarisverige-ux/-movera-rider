@@ -20,6 +20,7 @@ import 'package:movera_rider/core/maps/map_lifecycle.dart';
 import 'package:movera_rider/core/maps/marker_store.dart';
 import 'package:movera_rider/core/maps/routing_service.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
+import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_service.dart';
 import 'package:movera_rider/core/observability/http_observability.dart';
@@ -96,8 +97,10 @@ class AppScope {
       onSessionExpired: () async {
         // The live ride snapshot is deliberately kept: the ride goes on
         // server-side, and after the rider signs back in enterMoveraApp
-        // resumes it and the server re-validates it. Wiping another rider's
-        // data on sign-out / account switch is the sign-out flow's job.
+        // resumes it and the server re-validates it. The rider's other
+        // data stays too: the same rider usually signs back in, and when a
+        // different one does, AuthController wipes it first
+        // (UserDataWipe.enterSessionAs). Sign-out wipes everything.
         await LocationRepository.clearLastGoodFix();
         // Sign in becomes the root gate's child so the gate survives.
         showMoveraRoot(const SignIn());
@@ -124,7 +127,10 @@ class AppScope {
       repository: AccountSecurityRepository(api: api),
     );
 
-    geocoding = AppGeocoding(api: api);
+    geocoding = AppGeocoding(
+      api: api,
+      allowPublicReverseFallback: environment.allowsMockTransport,
+    );
     routing = RoutingService(api: api);
     quotes = ApiQuoteRepository(api: api);
     rideRealtime = environment.allowsMockTransport
@@ -226,6 +232,12 @@ class AppScope {
   /// Demo saved cards (stored on this device until the payment partner's
   /// vault takes over).
   late final SavedCardsController savedCards = SavedCardsController();
+
+  /// The in-app explanation in front of the OS notification prompt.
+  late final PushPermissionGate pushPermission = PushPermissionGate(
+    push: push,
+    enabled: !environment.allowsMockTransport,
+  );
   late final RiderPromotionController promotion = RiderPromotionController(
     api,
   );

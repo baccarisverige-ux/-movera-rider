@@ -21,6 +21,8 @@ void installMatchingQaHooks({
   required void Function(int seconds) advance,
 }) {}
 
+void installRideCheckQaHook() {}
+
 String? pendingRideCheckType() => null;
 
 void clearPendingRideCheck() {}

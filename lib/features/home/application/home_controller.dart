@@ -12,6 +12,7 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/motion/bearing.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/core/utils/stale_guard.dart';
+import 'package:movera_rider/core/location/location_access_issue.dart';
 import 'package:movera_rider/shared/services/device_heading.dart'
     as heading_service;
 
@@ -119,9 +120,13 @@ class HomeLocationController extends ChangeNotifier {
     Future<bool> Function()? startCompass,
     double? Function()? readCompass,
     void Function()? stopCompass,
+    bool? compassSupported,
   }) : _startCompass = startCompass ?? heading_service.startHeadingTracking,
        _readCompass = readCompass ?? heading_service.currentHeading,
-       _stopCompass = stopCompass ?? heading_service.stopHeadingTracking;
+       _stopCompass = stopCompass ?? heading_service.stopHeadingTracking,
+       _compassSupported =
+           compassSupported ??
+           (startCompass != null || heading_service.headingTrackingSupported);
 
   final LocationRepository location;
   final GeocodingRepository geocoding;
@@ -129,6 +134,10 @@ class HomeLocationController extends ChangeNotifier {
   final Future<bool> Function() _startCompass;
   final double? Function() _readCompass;
   final void Function() _stopCompass;
+
+  /// False on Android/iOS, which have no compass source (CODE-19): the puck
+  /// then turns only with the GPS course and no heading poller runs.
+  final bool _compassSupported;
 
   final StaleGuard _normaliseGuard = StaleGuard();
   final StaleGuard _pointGuard = StaleGuard();
@@ -208,6 +217,19 @@ class HomeLocationController extends ChangeNotifier {
     );
   }
 
+  bool _permissionBlocked = false;
+
+  /// What the location notice on Home should explain, or null while location
+  /// works (UI-16). Derived from [state] so it clears on the next good fix.
+  LocationAccessIssue? get accessIssue => switch (state) {
+    HomeLocationState.servicesDisabled => LocationAccessIssue.servicesOff,
+    HomeLocationState.permissionRequired =>
+      _permissionBlocked
+          ? LocationAccessIssue.deniedForever
+          : LocationAccessIssue.denied,
+    _ => null,
+  };
+
   void _setState(HomeLocationState next) {
     if (state == next) return;
     state = next;
@@ -265,6 +287,7 @@ class HomeLocationController extends ChangeNotifier {
         permission = await location.requestPermission();
       }
       if (permission == LocationPermission.deniedForever) {
+        _permissionBlocked = true;
         _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
@@ -274,6 +297,7 @@ class HomeLocationController extends ChangeNotifier {
         );
       }
       if (permission == LocationPermission.denied) {
+        _permissionBlocked = false;
         _setState(HomeLocationState.permissionRequired);
         return const DetectedLocation(
           target: null,
@@ -439,7 +463,8 @@ class HomeLocationController extends ChangeNotifier {
     _headingMounted = isMounted;
     _onHeading = onHeading;
     final granted = await _ensureCompassStarted();
-    _ensureHeadingPoller();
+    // Web keeps polling after a refusal: a later tap can still grant motion.
+    if (granted || _compassSupported) _ensureHeadingPoller();
     return granted;
   }
 

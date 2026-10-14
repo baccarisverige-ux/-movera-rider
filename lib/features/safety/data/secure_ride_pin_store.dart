@@ -81,6 +81,22 @@ class SecureRidePinStore {
     }
   }
 
+  /// Removes the PIN (end of a rider's session).
+  Future<void> clear() async {
+    _webMemory.remove(_key);
+    if (!_nativeSecure) return;
+    final fake = _fakeStorage;
+    if (fake != null) {
+      fake.remove(_key);
+      return;
+    }
+    try {
+      await const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      ).delete(key: _key);
+    } catch (_) {}
+  }
+
   Future<void> write(String pin) async {
     if (_webMemoryOnly) {
       _webMemory[_key] = pin;

@@ -5,10 +5,12 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
+import 'package:movera_rider/features/auth/presentation/sign_out_flow.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
 import 'package:movera_rider/features/profile/presentation/account_checkup.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/features/profile/presentation/delete_account.dart';
 import 'package:movera_rider/features/profile/presentation/personal_info.dart';
 import 'package:movera_rider/features/profile/presentation/privacy.dart';
 import 'package:movera_rider/features/profile/presentation/security.dart';
@@ -203,6 +205,25 @@ class _AccountHomePageState extends State<AccountHomePage> {
                 body: 'What we keep and why',
                 showDivider: false,
                 onTap: () => _open(const AccountLegalPage(kind: 'privacy')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          AccountGroup(
+            children: [
+              AccountTile(
+                mark: const AccountIcon.asset(AppAssets.solarArrowLeft),
+                title: 'Sign out',
+                body: 'Remove your data from this device',
+                onTap: () => unawaited(confirmAndSignOut(context)),
+              ),
+              AccountTile(
+                mark: const AccountIcon.asset(AppAssets.solarUser),
+                title: 'Delete account',
+                body: 'Ask Movera to delete your account',
+                danger: true,
+                showDivider: false,
+                onTap: () => _open(const DeleteAccountPage()),
               ),
             ],
           ),

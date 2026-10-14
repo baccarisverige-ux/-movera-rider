@@ -10,6 +10,26 @@ import 'package:movera_rider/core/observability/observability.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
 
 abstract final class TransportComposition {
+  /// Why [apiBaseUrl] cannot serve a staging/production build, or null.
+  ///
+  /// A release built without `--dart-define=MOVERA_API_BASE_URL` falls back to
+  /// the demo default `https://api.demo.movera.invalid`; every request would
+  /// then fail with a DNS error at runtime, so composition refuses it.
+  static String? releaseApiBaseUrlProblem(String apiBaseUrl) {
+    final value = apiBaseUrl.trim();
+    if (value.isEmpty) return 'it is empty';
+    final uri = Uri.tryParse(value);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return '"$value" is not an absolute URL';
+    }
+    if (uri.scheme != 'https') return '"$value" is not https';
+    final host = uri.host.toLowerCase();
+    if (host == 'invalid' || host.endsWith('.invalid')) {
+      return '"$value" uses the reserved .invalid placeholder host';
+    }
+    return null;
+  }
+
   static void validate({
     required AppEnv environment,
     required ApiClient api,
@@ -22,6 +42,14 @@ abstract final class TransportComposition {
     required CrashSink crashes,
   }) {
     if (environment.allowsMockTransport) return;
+
+    final baseUrlProblem = releaseApiBaseUrlProblem(environment.apiBaseUrl);
+    if (baseUrlProblem != null) {
+      throw StateError(
+        'MOVERA_API_BASE_URL is not usable for '
+        '${environment.flavor.name}: $baseUrlProblem',
+      );
+    }
 
     final mockSurfaces = <String>[
       if (api.usesMockTransport) 'api',

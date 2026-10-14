@@ -386,6 +386,11 @@ class InProcessMockClient extends http.BaseClient {
       }
     } else if (path == '/api/v1/auth/sign-out' && method == 'POST') {
       payload = {'code': 'OK', 'requestId': requestId};
+    } else if (path == '/api/v1/account/deletion' && method == 'POST') {
+      // Accepted, not done: the backend erases the account on its own
+      // schedule (retention rules, open payments), hence 202.
+      status = 202;
+      payload = {'code': 'OK', 'status': 'scheduled', 'requestId': requestId};
     } else if (path == '/api/v1/push/devices' && method == 'POST') {
       final token = body['token'];
       final provider = body['provider'];

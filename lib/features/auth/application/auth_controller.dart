@@ -1,13 +1,17 @@
 import 'package:movera_rider/app/di.dart';
-import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/features/auth/application/user_data_wipe.dart';
+import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 
 class AuthController {
-  AuthController({AuthRepository? auth}) : _auth = auth ?? AuthRepository();
+  AuthController({AuthRepository? auth, PushPermissionGate? pushPermission})
+    : _auth = auth ?? AuthRepository(),
+      _pushPermission = pushPermission;
 
   final AuthRepository _auth;
+  final PushPermissionGate? _pushPermission;
   OtpChallenge? lastChallenge;
 
   String? get lastPhone => lastChallenge?.phone;
@@ -27,6 +31,7 @@ class AuthController {
   }) async {
     final result = await _auth.verifyOtp(challenge: challenge, code: code);
     lastChallenge = null;
+    await _enterSession(phone: challenge.phone);
     await _registerPushBestEffort();
     return result;
   }
@@ -35,24 +40,54 @@ class AuthController {
   /// a first-time provider rider is after the phone code.
   Future<ProviderSignInResult> signIn({required String provider}) async {
     final result = await _auth.signIn(provider: provider);
-    if (result is ProviderSignedIn) await _registerPushBestEffort();
+    if (result is ProviderSignedIn) {
+      await _enterSession(provider: provider);
+      await _registerPushBestEffort();
+    }
     return result;
   }
 
-  Future<bool> hasSession() => _auth.hasSession();
-
-  Future<void> _registerPushBestEffort() async {
+  /// A different rider than the one whose session expired on this device:
+  /// wipe the previous rider's data before the app opens (FLOW-1).
+  Future<void> _enterSession({String? phone, String? provider}) async {
     try {
-      await AppScope.instance.push.register();
-    } catch (error) {
-      AppLog.warning(
-        'auth.push_registration_deferred',
-        extra: {'error': error.toString()},
+      final riderId = UserDataWipe.riderIdFor(
+        accessToken: await _auth.readAccessToken(),
+        phone: phone,
+        provider: provider,
+      );
+      if (riderId != null) await UserDataWipe.enterSessionAs(riderId);
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'auth.enter_session_failed',
+        error: error,
+        stackTrace: stackTrace,
       );
     }
   }
 
+  Future<bool> hasSession() => _auth.hasSession();
+
+  /// Registers push only for a rider who already accepted the in-app
+  /// explanation (UI-17); a first sign-in sees the explanation on Home
+  /// instead of a cold OS prompt.
+  Future<void> _registerPushBestEffort() async {
+    try {
+      await (_pushPermission ?? AppScope.instance.pushPermission)
+          .registerIfConsented(logEvent: 'auth.push_registration_deferred');
+    } catch (error) {
+      AppLog.warning(
+        'auth.push_registration_deferred',
+        extra: {'error': error.runtimeType.toString()},
+      );
+    }
+  }
+
+  /// Ends the session and removes everything the rider left on this device
+  /// (UserDataWipe), even when the backend cannot be reached.
   Future<void> signOut() async {
+    // Queued cancels still go out with this rider's own session.
+    await UserDataWipe.flushPendingCancels();
     // Unregister while the access token is still available. Even when the
     // backend is unreachable, FirebasePushService deletes the local token so a
     // signed-out Rider cannot keep receiving notifications for that session.
@@ -69,7 +104,18 @@ class AuthController {
     } finally {
       // Local wipe even when the backend sign-out fails (tokens are cleared
       // the same way in AuthRepository.signOut).
-      await LocationRepository.clearLastGoodFix();
+      await UserDataWipe.run();
+    }
+  }
+
+  /// Ends the session on this device without calling the backend, which has
+  /// already ended it (an accepted account deletion revokes the rider's
+  /// sessions and push devices). Same local wipe as [signOut].
+  Future<void> signOutLocally() async {
+    try {
+      await _auth.clearLocalSession();
+    } finally {
+      await UserDataWipe.run();
     }
   }
 }

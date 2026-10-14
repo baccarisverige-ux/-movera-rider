@@ -21,6 +21,10 @@ class MessagesRepository {
     );
   }
 
+  /// Drops every ride conversation held in this process (end of a rider's
+  /// session).
+  static void clearAllSessions() => _rideSessions.clear();
+
   final List<ChatMessage> _messages;
 
   List<ChatMessage> get messages =>

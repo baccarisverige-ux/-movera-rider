@@ -9,6 +9,7 @@ import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/maps/native_maps_config.dart';
 import 'package:movera_rider/core/web/web_ride_pagehide.dart';
 import 'package:movera_rider/core/web/web_splash.dart';
 import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
@@ -30,7 +31,10 @@ Future<void> _registerExistingPushSession() async {
   final refresh = await AppScope.instance.tokens.readRefresh();
   if (access?.isNotEmpty != true || refresh?.isNotEmpty != true) return;
   try {
-    await AppScope.instance.push.register();
+    // Only a rider who accepted the in-app explanation; no cold OS prompt.
+    await AppScope.instance.pushPermission.registerIfConsented(
+      logEvent: 'push.session_restore_deferred',
+    );
   } catch (error) {
     AppLog.warning(
       'push.session_restore_deferred',
@@ -49,6 +53,9 @@ void _openNotificationsFromPush() {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Before the first map builds: an iOS build without a Maps key must show
+  // the no-map fallback instead of crashing inside the Maps SDK.
+  await NativeMapsConfig.load();
   await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -64,6 +71,7 @@ Future<void> bootstrap() async {
   // from public release builds.
   if (moveraQaHooksEnabled) {
     registerWebQaHooks();
+    installRideCheckQaHook();
   }
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
 
