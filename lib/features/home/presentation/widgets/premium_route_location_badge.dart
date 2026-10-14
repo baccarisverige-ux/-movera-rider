@@ -160,7 +160,15 @@ class PremiumRouteLocationBadge extends StatelessWidget {
 
 /// Result of the map-based pickup/destination picker opened from Home.
 class PickupMapResult {
-  const PickupMapResult({required this.address, required this.position});
+  const PickupMapResult({
+    required this.address,
+    required this.position,
+    this.isFallback = false,
+  });
   final String address;
   final LatLng position;
+
+  /// True when [position] is a default map point, not the rider's location
+  /// or a place they chose: Set location must not confirm it as is.
+  final bool isFallback;
 }
