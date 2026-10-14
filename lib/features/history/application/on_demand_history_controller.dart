@@ -10,6 +10,9 @@ class OnDemandHistoryController {
 
   Future<List<Reservation>> load() => OnDemandRideHistoryStore.read();
 
+  /// Fires whenever the on-demand history is written (FLOW-13).
+  Stream<void> get changes => OnDemandRideHistoryStore.changes;
+
   List<Reservation> combine(
     List<Reservation> reservations,
     List<Reservation> onDemand, {

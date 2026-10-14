@@ -64,6 +64,8 @@ class RiderMenuPage extends StatelessWidget {
     final nav = Navigator.of(context);
     final result = await nav.push<Object?>(RightToLeftTransition(page));
     if (!nav.mounted) return;
+    // FLOW-17: name, wallet balance and promotion may have changed there.
+    if (context.mounted) _MenuRefresh.refresh(context);
     // D-026: Ride History's "Book a ride" goes to booking, not back here.
     if (result == RideHistory.startBookingResult) {
       nav.pop();
@@ -72,7 +74,9 @@ class RiderMenuPage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _MenuRefresh(builder: _buildMenu);
+
+  Widget _buildMenu(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -492,7 +496,7 @@ class RiderMenuPage extends StatelessWidget {
       ),
       _FeatureCard(
         title: 'Movera Family',
-        body: 'Add family members and book rides for them from your account.',
+        body: 'Coming soon: book and follow rides for your family.',
         picture: 'family',
         onTap: () => _pushPage(
           context,
@@ -505,13 +509,14 @@ class RiderMenuPage extends StatelessWidget {
       ),
       _FeatureCard(
         title: 'Invite friends',
-        body: 'Give kr 50, get kr 50 when a friend takes their first ride.',
+        // FLOW-16: no reward exists yet, so the card promises none.
+        body: 'Coming soon: invite friends to Movera.',
         picture: 'referral',
         onTap: () => _pushPage(context, const ReferAndEarn()),
       ),
       _FeatureCard(
         title: 'Movera Business',
-        body: 'Keep work rides separate and expense them in one tap.',
+        body: 'Coming soon: keep work rides and receipts separate.',
         picture: 'travel_mode',
         pictureWidth: 96,
         onTap: () => _pushPage(
@@ -525,7 +530,7 @@ class RiderMenuPage extends StatelessWidget {
       ),
       _FeatureCard(
         title: 'Greener rides',
-        body: 'Choose Electric and see the CO₂ you save on every trip.',
+        body: 'Choose Electric for fossil-free rides.',
         picture: 'nature',
         onTap: () => _pushPage(
           context,
@@ -735,4 +740,45 @@ class _FeatureCard {
   final VoidCallback onTap;
   final bool isNew;
   final double pictureWidth;
+}
+
+/// Rebuilds the menu when the rider's profile or promotion changes, and
+/// after any page opened from it closes (FLOW-17): the header, the wallet
+/// balance and the promotion card used to keep what they first read.
+class _MenuRefresh extends StatefulWidget {
+  const _MenuRefresh({required this.builder});
+
+  final WidgetBuilder builder;
+
+  static void refresh(BuildContext context) =>
+      context.findAncestorStateOfType<_MenuRefreshState>()?.refresh();
+
+  @override
+  State<_MenuRefresh> createState() => _MenuRefreshState();
+}
+
+class _MenuRefreshState extends State<_MenuRefresh> {
+  late final Listenable _sources = Listenable.merge([
+    AppScope.instance.profile,
+    AppScope.instance.promotion,
+  ]);
+
+  @override
+  void initState() {
+    super.initState();
+    _sources.addListener(refresh);
+  }
+
+  @override
+  void dispose() {
+    _sources.removeListener(refresh);
+    super.dispose();
+  }
+
+  void refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) => Builder(builder: widget.builder);
 }

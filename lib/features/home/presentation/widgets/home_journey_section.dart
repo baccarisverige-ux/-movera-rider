@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class MonthRideStats {
     required this.spentMinorless,
     required this.ridesPerWeek,
     required this.currency,
+    this.electricRides = 0,
   });
 
   final DateTime month;
@@ -37,12 +39,16 @@ class MonthRideStats {
   final List<int> ridesPerWeek;
   final String currency;
 
-  /// Rough tailpipe estimate avoided versus a solo petrol trip, per ride.
-  /// Replaced by server figures once the backend reports distance and
-  /// vehicle class per ride.
+  /// Completed Electric rides this month: the only ones that avoid
+  /// tailpipe CO₂ (FLOW-13; petrol rides used to count too).
+  final int electricRides;
+
+  /// Rough tailpipe estimate avoided versus a solo petrol trip, per Electric
+  /// ride. Shown as an estimate; replaced by server figures once the backend
+  /// reports distance and vehicle class per ride.
   static const double co2PerRideKg = 0.4;
 
-  double get co2AvoidedKg => rides * co2PerRideKg;
+  double get co2AvoidedKg => electricRides * co2PerRideKg;
 
   static const _names = [
     'January',
@@ -69,6 +75,7 @@ class MonthRideStats {
   static MonthRideStats fromRides(Iterable<Reservation> rides, DateTime now) {
     final weeks = List<int>.filled(weeksIn(now), 0);
     var count = 0;
+    var electric = 0;
     var spent = 0.0;
     var currency = 'SEK';
     for (final ride in rides) {
@@ -76,6 +83,7 @@ class MonthRideStats {
       final at = ride.scheduledPickupAt;
       if (at.year != now.year || at.month != now.month) continue;
       count++;
+      if (ride.categoryId == 'electric') electric++;
       spent += ride.price;
       currency = ride.currency;
       weeks[(at.day - 1) ~/ 7]++;
@@ -86,6 +94,7 @@ class MonthRideStats {
       spentMinorless: spent,
       ridesPerWeek: weeks,
       currency: currency,
+      electricRides: electric,
     );
   }
 
@@ -103,14 +112,25 @@ class HomeJourneySection extends StatefulWidget {
     super.key,
     required this.onDestinationTap,
     required this.onOpenSchedule,
+    this.onRideTypeTap,
     this.ridesLoader,
     this.clock,
+    this.changes,
   });
 
   final VoidCallback onDestinationTap;
   final VoidCallback onOpenSchedule;
+
+  /// Books with a ride category already chosen (NAV-11): "Comfort car" opens
+  /// Comfort, "Highly rated chauffeur" Premium (top-rated drivers). Without
+  /// it the cards fall back to [onDestinationTap].
+  final void Function(String rideId)? onRideTypeTap;
   final Future<List<Reservation>> Function()? ridesLoader;
   final DateTime Function()? clock;
+
+  /// When to re-read the month (FLOW-13); defaults to ride history and
+  /// reservation changes.
+  final Stream<void>? changes;
 
   static Future<List<Reservation>> defaultRides() async {
     final onDemand = await OnDemandHistoryController().load();
@@ -124,6 +144,8 @@ class HomeJourneySection extends StatefulWidget {
 
 class _HomeJourneySectionState extends State<HomeJourneySection> {
   late MonthRideStats _stats;
+  StreamSubscription<void>? _changes;
+  Listenable? _reservations;
 
   DateTime get _now => (widget.clock ?? DateTime.now)();
 
@@ -131,7 +153,25 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
   void initState() {
     super.initState();
     _stats = MonthRideStats.fromRides(const [], _now);
+    // FLOW-13: Home stays mounted under the ride flow, so a ride finished
+    // since the first read must refresh the card, not wait for a rebuild.
+    final changes = widget.changes;
+    if (changes != null) {
+      _changes = changes.listen((_) => _load());
+    } else {
+      _changes = const OnDemandHistoryController().changes.listen(
+        (_) => _load(),
+      );
+      _reservations = AppScope.instance.reservations..addListener(_load);
+    }
     _load();
+  }
+
+  @override
+  void dispose() {
+    _changes?.cancel();
+    _reservations?.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -143,6 +183,12 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
     } catch (_) {
       // Keep the empty month; the card is informational only.
     }
+  }
+
+  VoidCallback _rideType(String rideId) {
+    final open = widget.onRideTypeTap;
+    if (open == null) return widget.onDestinationTap;
+    return () => open(rideId);
   }
 
   @override
@@ -176,7 +222,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
               child: _JourneyCard(
                 title: 'Comfort car',
                 picture: 'by_the_road',
-                onTap: widget.onDestinationTap,
+                onTap: _rideType('comfort'),
               ),
             ),
             SizedBox(width: ResSize.w * 8),
@@ -184,7 +230,7 @@ class _HomeJourneySectionState extends State<HomeJourneySection> {
               child: _JourneyCard(
                 title: 'Highly rated chauffeur',
                 picture: 'well_done',
-                onTap: widget.onDestinationTap,
+                onTap: _rideType('premium'),
               ),
             ),
           ],
@@ -316,7 +362,7 @@ class _MonthCard extends StatelessWidget {
                                 fontWeight: fwBold,
                               ),
                               TextWidget(
-                                text: 'CO₂ avoided',
+                                text: 'est. CO₂ avoided',
                                 color: _muted,
                                 fontSize: 9,
                                 fontWeight: fwNormal,

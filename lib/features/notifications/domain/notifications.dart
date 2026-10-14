@@ -8,6 +8,7 @@ class AppNotification {
     this.messageId,
     this.rideId,
     this.deepLink,
+    this.at,
   });
 
   final String kind;
@@ -19,6 +20,9 @@ class AppNotification {
   final String? rideId;
   final String? deepLink;
 
+  /// When it was sent, local time (FLOW-18); [time] is its label.
+  final DateTime? at;
+
   AppNotification copyWith({bool? read}) {
     return AppNotification(
       kind: kind,
@@ -29,6 +33,7 @@ class AppNotification {
       messageId: messageId,
       rideId: rideId,
       deepLink: deepLink,
+      at: at,
     );
   }
 }

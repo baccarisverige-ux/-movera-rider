@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
@@ -11,6 +12,7 @@ import 'package:movera_rider/features/auth/presentation/widgets/auth_controls.da
 import 'package:movera_rider/features/auth/presentation/widgets/auth_scaffold.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/auth_style.dart';
 import 'package:movera_rider/features/auth/presentation/widgets/balloon_brand_intro.dart';
+import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 /// Step 1 for everyone: one phone field for new and returning riders, with
@@ -50,6 +52,19 @@ class _SignInState extends State<SignIn>
   late final AuthController _auth;
   final _phone = TextEditingController();
   final _phoneFocus = FocusNode();
+
+  /// FLOW-16: the consent line names the Terms and the Privacy Policy, so
+  /// both open them.
+  late final _termsTap = TapGestureRecognizer()
+    ..onTap = () => _openLegal('terms');
+  late final _privacyTap = TapGestureRecognizer()
+    ..onTap = () => _openLegal('privacy');
+
+  void _openLegal(String kind) {
+    Navigator.of(context).push(
+      RightToLeftTransition(AccountLegalPage(kind: kind)),
+    );
+  }
   _Busy? _busy;
   String? _phoneError;
   String? _providerError;
@@ -63,6 +78,8 @@ class _SignInState extends State<SignIn>
 
   @override
   void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
     _story.dispose();
     _phone.dispose();
     _phoneFocus.dispose();
@@ -197,6 +214,7 @@ class _SignInState extends State<SignIn>
               children: [
                 TextSpan(
                   text: 'Terms',
+                  recognizer: _termsTap,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     color: AuthColors.ink,
@@ -205,6 +223,7 @@ class _SignInState extends State<SignIn>
                 const TextSpan(text: ' and '),
                 TextSpan(
                   text: 'Privacy Policy',
+                  recognizer: _privacyTap,
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     color: AuthColors.ink,

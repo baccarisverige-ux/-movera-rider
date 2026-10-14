@@ -414,6 +414,16 @@ class AccountLegalPage extends StatelessWidget {
                 : 'Movera stores the name, phone, email, and places you save so we can run your trips. You can change communication preferences any time. Location is used for pickup, tracking, and safety tools while a ride is active.',
             style: accountText(15, color: kAccountMuted, height: 1.5),
           ),
+          const SizedBox(height: 16),
+          // FLOW-16: these paragraphs are a summary, not the legal text.
+          Text(
+            terms
+                ? 'This is a short summary. The full Movera terms will be '
+                      'published here before the service launches.'
+                : 'This is a short summary. The full Movera privacy notice '
+                      'will be published here before the service launches.',
+            style: accountText(13, color: kAccountMuted, height: 1.5),
+          ),
         ],
       ),
     );

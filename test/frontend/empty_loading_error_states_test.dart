@@ -627,7 +627,7 @@ void main() {
     (
       'Support',
       'No rides to review',
-      'Completed or cancelled rides will appear here when real ride history is available.',
+      'Your completed and cancelled rides will appear here.',
       'Support messaging',
     ),
     (

@@ -86,6 +86,7 @@ void main() {
           calls += 1;
           return gate.future;
         },
+        openHistory: (_) {},
       ),
     );
 

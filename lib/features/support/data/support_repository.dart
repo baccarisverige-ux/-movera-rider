@@ -15,8 +15,6 @@ class SupportChatScript {
 }
 
 class SupportRepository {
-  List<SupportRide> rides() => const [];
-
   SupportChatScript chat({SupportRide? ride}) {
     return const SupportChatScript(
       welcome:

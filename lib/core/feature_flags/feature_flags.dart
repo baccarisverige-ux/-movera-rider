@@ -10,6 +10,7 @@ class FeatureFlags {
     this.enableRidePin = false,
     this.enableSafetyShareTrip = true,
     this.enableBookingLater = true,
+    this.enableBusinessProfile = false,
   });
 
   final bool enableCash;
@@ -23,10 +24,15 @@ class FeatureFlags {
   final bool enableSafetyShareTrip;
   final bool enableBookingLater;
 
+  /// FLOW-11: Personal/Business only becomes a choice once booking, history
+  /// and receipts use it; until then the toggle is hidden.
+  final bool enableBusinessProfile;
+
   bool get wallet => enableWallet;
   bool get scheduledRides => enableScheduledRide;
   bool get safetyShareTrip => enableSafetyShareTrip;
   bool get bookingLater => enableBookingLater;
+  bool get businessProfile => enableBusinessProfile;
 
   static const current = FeatureFlags();
 }
