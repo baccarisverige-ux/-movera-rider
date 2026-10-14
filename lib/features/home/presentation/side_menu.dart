@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/presentation/notifications.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
@@ -130,9 +132,16 @@ class RiderMenuPage extends StatelessWidget {
           child: InkWell(
             onTap: () => Navigator.of(context).maybePop(),
             child: const SizedBox(
+              key: ValueKey('menu-back'),
               width: 40,
               height: 40,
-              child: Icon(Icons.arrow_back_rounded, color: _ink, size: 24),
+              child: Center(
+                child: AppIconAsset(
+                  AppAssets.solarArrowLeft,
+                  size: 24,
+                  color: _ink,
+                ),
+              ),
             ),
           ),
         ),
@@ -176,7 +185,13 @@ class RiderMenuPage extends StatelessWidget {
                   )
                 : const ColoredBox(
                     color: _avatarTint,
-                    child: Icon(Icons.person_rounded, color: _muted, size: 30),
+                    child: Center(
+                      child: AppIconAsset(
+                        AppAssets.solarUserRounded,
+                        size: 30,
+                        color: _muted,
+                      ),
+                    ),
                   ),
           ),
         ),
@@ -220,7 +235,11 @@ class RiderMenuPage extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.search_rounded, size: 22, color: _ink),
+                        const AppIconAsset(
+                          AppAssets.solarSearch,
+                          size: 22,
+                          color: _ink,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -573,9 +592,9 @@ class RiderMenuPage extends StatelessWidget {
   List<Widget> _accountRows(BuildContext context) {
     final profile = AppScope.instance.profile;
     final security = AppScope.instance.accountSecurity;
-    final rows = <(IconData, String, String, VoidCallback)>[
+    final rows = <(String, String, String, VoidCallback)>[
       (
-        Icons.person_outline_rounded,
+        AppAssets.solarUserRounded,
         'Personal info',
         'Name, phone, email, language',
         () => _pushPage(
@@ -584,31 +603,31 @@ class RiderMenuPage extends StatelessWidget {
         ),
       ),
       (
-        Icons.verified_user_outlined,
+        AppAssets.solarShieldCheck,
         'Security',
         'Passkeys, 2-step, devices',
         () => _pushPage(context, SecurityPage(securityController: security)),
       ),
       (
-        Icons.lock_outline_rounded,
+        AppAssets.solarLock,
         'Privacy',
         'How Movera uses your data',
         () => _pushPage(context, PrivacyPage(controller: profile)),
       ),
       (
-        Icons.notes_rounded,
+        AppAssets.solarDocument,
         'Terms',
         'How Movera rides work',
         () => _pushPage(context, const AccountLegalPage(kind: 'terms')),
       ),
       (
-        Icons.privacy_tip_outlined,
+        AppAssets.solarInfoCircle,
         'Privacy notice',
         'What we keep and why',
         () => _pushPage(context, const AccountLegalPage(kind: 'privacy')),
       ),
       (
-        Icons.info_outline_rounded,
+        AppAssets.solarBuildings,
         'About Movera',
         'Company information',
         () => _pushPage(
@@ -624,7 +643,7 @@ class RiderMenuPage extends StatelessWidget {
     return [for (final row in rows) _accountRow(row)];
   }
 
-  Widget _accountRow((IconData, String, String, VoidCallback) row) {
+  Widget _accountRow((String, String, String, VoidCallback) row) {
     return Semantics(
       button: true,
       label: row.$2,
@@ -641,7 +660,7 @@ class RiderMenuPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
               child: Row(
                 children: [
-                  Icon(row.$1, size: 26, color: _ink),
+                  AppIconAsset(row.$1, size: 26, color: _ink),
                   const SizedBox(width: 18),
                   Expanded(
                     child: Column(
