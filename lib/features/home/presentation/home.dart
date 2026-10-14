@@ -250,7 +250,47 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     await maps.moveCamera(GeoPoint(hint.latitude, hint.longitude), zoom: 15);
   }
 
-  Future<void> _detectCurrentAddress() async {
+  Future<void>? _detectInFlight;
+
+  /// Detects the rider's location once; a second call while one is running
+  /// joins it, so the booking flow can wait for the fix Home already asked
+  /// for instead of asking again.
+  Future<void> _detectCurrentAddress() {
+    return _detectInFlight ??= _runDetectCurrentAddress().whenComplete(() {
+      _detectInFlight = null;
+    });
+  }
+
+  /// Waits briefly for a location fix when none has landed yet (first fix
+  /// still coming, permission prompt open). Null when there is still none.
+  Future<LatLng?> _awaitCurrentFix() async {
+    final known = _tripPickupLatLng ?? _currentLatLng;
+    if (known != null) return known;
+    final hint = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) MoveraToast.show(context, 'Finding your location…');
+    });
+    final deadline = DateTime.now().add(const Duration(seconds: 8));
+    try {
+      // Two tries: the first may only join Home's own request, which can be
+      // about to time out (the prompt kept it waiting); the second starts
+      // fresh once permission is granted.
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final left = deadline.difference(DateTime.now());
+        if (left <= Duration.zero) break;
+        await _detectCurrentAddress().timeout(left, onTimeout: () {});
+        if (!mounted) return null;
+        final fix = _tripPickupLatLng ?? _currentLatLng;
+        if (fix != null) return fix;
+      }
+    } catch (_) {
+      // No fix: the caller falls back to a placeholder point.
+    } finally {
+      hint.cancel();
+    }
+    return _tripPickupLatLng ?? _currentLatLng;
+  }
+
+  Future<void> _runDetectCurrentAddress() async {
     if (mounted) setState(() {});
     try {
       final detected = await _locationCtl.detectCurrent();
@@ -446,10 +486,9 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       );
       if (pickupResult == null || !mounted) return null;
       final pickupPosition = pickupResult.position;
-      final bookingAddress = await _bookingPickup(
-        pickupResult.address,
-        pickupPosition,
-      );
+      final bookingAddress = pickupResult.isFallback
+          ? pickupResult.address
+          : await _bookingPickup(pickupResult.address, pickupPosition);
       if (!mounted) return null;
       setState(() {
         _pickupAddress = bookingAddress;
@@ -480,6 +519,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
             pickupAddress: bookingAddress,
             destinationAddress: resolvedDestination,
             pickupPosition: confirmedPickupPosition,
+            pickupIsFallback: pickupResult.isFallback,
             destinationPosition: confirmedDestinationPosition,
             stops: List<String>.from(_routeStops),
             bookingMode: BookingMode.now,
@@ -613,15 +653,24 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
         return PickupMapResult(address: clean, position: geocoded);
       }
     }
-    final here = _tripPickupLatLng ?? _currentLatLng;
+    // No fix yet (Safari's permission prompt, a slow first fix): wait for it
+    // rather than sending the rider to the old map picker.
+    final here = await _awaitCurrentFix();
+    if (!mounted) return null;
     if (here != null) {
       return PickupMapResult(
         address: typedByRider ? 'Current location' : clean,
         position: here,
       );
     }
-    if (!mounted) return null;
-    return _openPickupMapPicker(clean);
+    // Still nothing: the categories screen opens as usual and Set location
+    // starts on a placeholder point the rider has to move (or allow
+    // location) before it can be confirmed.
+    return PickupMapResult(
+      address: locationOffPickupLabel,
+      position: _initialPosition.target,
+      isFallback: true,
+    );
   }
 
   /// The step after the rider taps a real destination.
@@ -666,6 +715,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       'pickup': pickup.address,
       'pickupLat': pickup.position.latitude,
       'pickupLng': pickup.position.longitude,
+      'pickupIsFallback': pickup.isFallback,
       'destination': destination,
       'destinationLat': destinationPoint.latitude,
       'destinationLng': destinationPoint.longitude,
@@ -759,6 +809,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     if (!mounted) return;
     final pickupLat = draft['pickupLat'] as double?;
     final pickupLng = draft['pickupLng'] as double?;
+    final pickupIsFallback = draft['pickupIsFallback'] == true;
     final exactPickupPosition = pickupLat != null && pickupLng != null
         ? LatLng(pickupLat, pickupLng)
         : (_tripPickupLatLng ?? _currentLatLng);
@@ -817,6 +868,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   : (_pickupAddress ?? 'Current location'),
               destinationAddress: destination,
               pickupPosition: pickupPosition,
+              pickupIsFallback: pickupIsFallback,
               destinationPosition: destinationPosition,
               stops: List<String>.from(stops),
               bookingMode: scheduledAt == null

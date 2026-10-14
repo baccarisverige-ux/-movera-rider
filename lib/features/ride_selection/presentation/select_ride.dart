@@ -76,6 +76,7 @@ class SelectRide extends StatefulWidget {
     this.booking,
     this.realtime,
     this.pickupAlreadyConfirmed = false,
+    this.pickupIsFallback = false,
   });
 
   /// Return-ride entry: same category cards, scheduled mode, reverse route.
@@ -142,6 +143,11 @@ class SelectRide extends StatefulWidget {
   final BookingController? booking;
   final RideRealtime? realtime;
   final bool pickupAlreadyConfirmed;
+
+  /// True when [pickupPosition] is only a default map point because the app
+  /// had no location fix: Set location opens with its button disabled until
+  /// the rider moves the pin or their location arrives.
+  final bool pickupIsFallback;
 
   @override
   State<SelectRide> createState() => _SelectRideState();
@@ -1084,7 +1090,10 @@ class _SelectRideState extends State<SelectRide>
       onRequote: (pin) => _requoteFromPin(ride, pin),
       initialBagLevel: _notes.bagLevel,
       home: home,
-      initialIsCurrentLocation: !_pickupConfirmed,
+      initialIsCurrentLocation:
+          !_pickupConfirmed && !widget.pickupIsFallback,
+      positionIsFallback:
+          widget.pickupIsFallback && !_pickupConfirmed,
       confirmLabel: confirmLabel,
       scheduledPickup: scheduledPickup,
     );
