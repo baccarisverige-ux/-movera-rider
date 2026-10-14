@@ -30,6 +30,14 @@ class AppAssets {
   static const String solarRestaurant = 'assets/icons/solar_restaurant.svg';
   static const String solarMapPoint = 'assets/icons/solar_map_point.svg';
   static const String solarClock = 'assets/icons/solar_clock.svg';
+  static const String solarUserRounded = 'assets/icons/solar_user_rounded.svg';
+  static const String solarShieldCheck = 'assets/icons/solar_shield_check.svg';
+  static const String solarLock = 'assets/icons/solar_lock.svg';
+  static const String solarCheckCircle = 'assets/icons/solar_check_circle.svg';
+  static const String solarShieldStar = 'assets/icons/solar_shield_star.svg';
+  static const String solarHeadphones = 'assets/icons/solar_headphones.svg';
+  static const String solarDocument = 'assets/icons/solar_document.svg';
+  static const String solarInfoCircle = 'assets/icons/solar_info_circle.svg';
   static const String navMap = 'assets/images/nav_map.png';
   static const String navPayment = 'assets/images/nav_payment.png';
   static const String navSchedule = 'assets/images/nav_schedule.png';

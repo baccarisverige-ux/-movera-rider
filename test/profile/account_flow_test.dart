@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/shared/widgets/app_icon_asset.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/config/env.dart';
@@ -176,7 +178,12 @@ void main() {
     expect(find.text('Personal info'), findsOneWidget);
     expect(find.text('Security'), findsOneWidget);
     expect(find.text('Privacy'), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline_rounded), findsWidgets);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is AppIconAsset && w.asset == AppAssets.solarUserRounded,
+      ),
+      findsWidgets,
+    );
     expect(find.text('Add your name'), findsOneWidget);
     expect(find.text('rider@example.test · Verified'), findsOneWidget);
     expect(find.text('Name, phone, email, language'), findsOneWidget);
