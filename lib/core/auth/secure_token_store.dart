@@ -2,15 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/core/auth/web_session_token_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 
 /// iOS Keychain / Android Keystore via flutter_secure_storage.
-/// Web, tests, and Linux CI: memory only — not equivalent to Keychain/Keystore.
+/// Web: this tab's sessionStorage (see [webSessionTokenStore]) so a reload
+/// keeps the session; not equivalent to Keychain/Keystore.
+/// Tests and Linux CI: memory only.
 class SecureTokenStore implements TokenStore {
   SecureTokenStore({TokenStore? override}) : _override = override;
 
   final TokenStore? _override;
   final MemoryTokenStore _memory = MemoryTokenStore();
+  late final TokenStore? _web = kIsWeb ? webSessionTokenStore() : null;
   static const accessKey = 'movera_access_token';
   static const refreshKey = 'movera_refresh_token';
 
@@ -28,6 +32,8 @@ class SecureTokenStore implements TokenStore {
   TokenStore get _active {
     final override = _override;
     if (override != null) return override;
+    final web = _web;
+    if (web != null) return web;
     if (!_nativeSecure) return _memory;
     return _NativeSecureStore(
       const FlutterSecureStorage(
