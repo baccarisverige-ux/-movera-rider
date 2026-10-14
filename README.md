@@ -17,7 +17,7 @@ Generated Flutter/Gradle files, temporary upload ZIPs, and build output are inte
 
 ## Google Maps configuration
 
-Never commit Maps API keys. Android reads `MAPS_API_KEY` from a Gradle property or environment variable. iOS reads `GOOGLE_MAPS_API_KEY` from the Xcode build setting exposed through `Info.plist`.
+Never commit Maps API keys. Android reads `MAPS_API_KEY` from a Gradle property or environment variable; release builds fail without it (debug builds use a placeholder and show grey tiles). iOS reads `GOOGLE_MAPS_API_KEY` from the untracked `ios/Flutter/Secrets.xcconfig` (copy `Secrets.xcconfig.example`), exposed to the Maps SDK as `GMSApiKey` in `Info.plist`; Release/Profile builds fail without it, and a Debug build without it shows the no-map fallback instead of creating a map.
 
 ## Web deployment
 

@@ -36,8 +36,13 @@ jobs:
           MOVERA_RELEASE_STORE_PASSWORD: ${{ secrets.MOVERA_RELEASE_STORE_PASSWORD }}
           MOVERA_RELEASE_KEY_ALIAS: ${{ secrets.MOVERA_RELEASE_KEY_ALIAS }}
           MOVERA_RELEASE_KEY_PASSWORD: ${{ secrets.MOVERA_RELEASE_KEY_PASSWORD }}
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY || secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           set -euo pipefail
+          if [ -z "${MAPS_API_KEY:-}" ]; then
+            echo '::error::Missing Google Maps key. Add the MAPS_API_KEY repository secret; a release APK without it shows a blank map (Gradle refuses to build it).'
+            exit 1
+          fi
           flutter pub get
           # D-027: sign the production composition (PinComposition and the
           # transport guards are only enforced there), not the demo app.

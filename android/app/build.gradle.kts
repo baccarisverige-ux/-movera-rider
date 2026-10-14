@@ -18,6 +18,15 @@ val hasReleaseSigning = listOf(
     releaseKeyPassword,
 ).all { !it.isNullOrBlank() }
 
+// Maps key: Gradle property or environment variable. Debug builds keep the
+// placeholder so local work runs without one (the map tiles stay grey), but a
+// release must never ship it: Google Maps would show a blank grey map.
+val providedMapsApiKey = ((project.findProperty("MAPS_API_KEY") as String?)
+    ?: System.getenv("MAPS_API_KEY"))
+    ?.trim()
+val hasMapsApiKey = !providedMapsApiKey.isNullOrBlank()
+val mapsApiKey = if (hasMapsApiKey) providedMapsApiKey!! else "MISSING_MAPS_API_KEY"
+
 gradle.taskGraph.whenReady {
     val packagesRelease = allTasks.any { task ->
         task.project.path == ":app" &&
@@ -26,11 +35,13 @@ gradle.taskGraph.whenReady {
     if (packagesRelease && !hasReleaseSigning) {
         throw GradleException("Release signing requires all four MOVERA_RELEASE_* environment variables")
     }
+    if (packagesRelease && !hasMapsApiKey) {
+        throw GradleException(
+            "Release builds require a Google Maps key: set MAPS_API_KEY as a Gradle property " +
+                "(-PMAPS_API_KEY=...) or environment variable. Without it the map ships blank.",
+        )
+    }
 }
-
-val mapsApiKey = (project.findProperty("MAPS_API_KEY") as String?)
-    ?: System.getenv("MAPS_API_KEY")
-    ?: "MISSING_MAPS_API_KEY"
 
 android {
     namespace = "com.movera.rider"
