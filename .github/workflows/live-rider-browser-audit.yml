@@ -33,7 +33,7 @@ jobs:
           import { chromium } from 'playwright';
           import fs from 'fs';
 
-          const baseUrl = 'https://baccarisverige-ux.github.io/-movera-rider/';
+          const baseUrl = 'https://baccarisverige-ux.github.io/movera-rider-app/';
           const browser = await chromium.launch({headless:true});
           const context = await browser.newContext({
             viewport: {width:390, height:844},

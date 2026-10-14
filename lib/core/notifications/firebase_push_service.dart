@@ -112,7 +112,7 @@ class FlutterFirebasePushGateway implements FirebasePushGateway {
   Future<String?> getToken({String? vapidKey}) => _messaging.getToken(
         vapidKey: vapidKey,
         // Relative to the page's <base href>, so the worker also registers
-        // when the app is served from a sub-path such as /-movera-rider/.
+        // when the app is served from a sub-path such as /movera-rider-app/.
         // The Firebase default (/firebase-messaging-sw.js at the origin root)
         // does not exist there.
         serviceWorkerScriptPath:

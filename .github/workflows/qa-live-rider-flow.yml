@@ -28,9 +28,9 @@ jobs:
         run: |
           SHORT="${GITHUB_SHA::8}"
           for i in $(seq 1 48); do
-            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/?qa_wait=$RANDOM" || true)
+            HTML=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/?qa_wait=$RANDOM" || true)
             if printf '%s' "$HTML" | grep -q "flutter_bootstrap.${SHORT}.js"; then
-              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/-movera-rider/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
+              BOOT=$(curl -fsSL -H 'Cache-Control: no-cache' "https://baccarisverige-ux.github.io/movera-rider-app/flutter_bootstrap.${SHORT}.js?qa_wait=$RANDOM" || true)
               if printf '%s' "$BOOT" | grep -q "main.${SHORT}.dart.js"; then
                 echo "LIVE_BUILD=main.${SHORT}.dart.js" >> "$GITHUB_ENV"
                 echo "Exact live build found: main.${SHORT}.dart.js"
@@ -48,7 +48,7 @@ jobs:
           import { chromium } from 'playwright';
           import fs from 'fs';
 
-          const base='https://baccarisverige-ux.github.io/-movera-rider/';
+          const base='https://baccarisverige-ux.github.io/movera-rider-app/';
           const browser=await chromium.launch({headless:true});
           // Phase 47: rider addresses and coordinates never go to a public
           // geocoder from the browser; Flutter geocodes via the Movera API.

@@ -107,7 +107,7 @@ jobs:
           from pathlib import Path
           p = Path('/tmp/movera-pages/index.html')
           s = p.read_text()
-          s = s.replace('<base href="/">', '<base href="/-movera-rider/">')
+          s = s.replace('<base href="/">', '<base href="/movera-rider-app/">')
           p.write_text(s)
           PY
 
@@ -131,7 +131,7 @@ jobs:
           from pathlib import Path
           p = Path('build/web/index.html')
           s = p.read_text()
-          s = s.replace('<base href="/">', '<base href="https://cdn.jsdelivr.net/gh/baccarisverige-ux/-movera-rider@web-live/">')
+          s = s.replace('<base href="/">', '<base href="https://cdn.jsdelivr.net/gh/baccarisverige-ux/movera-rider-app@web-live/">')
           p.write_text(s)
           PY
 
