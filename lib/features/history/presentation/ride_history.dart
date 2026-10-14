@@ -262,11 +262,14 @@ class _RideHistoryState extends State<RideHistory> {
   Widget _upcoming() {
     final upcoming = _reservations.upcoming();
     if (upcoming.isEmpty) return _emptyUpcoming();
-    return ListView(
+    // UI-19: cards are built lazily; the last item is the Schedule button.
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-      children: [
-        for (final ride in upcoming)
-          ReservationHistoryCard(
+      itemCount: upcoming.length + 1,
+      itemBuilder: (context, index) {
+        if (index < upcoming.length) {
+          final ride = upcoming[index];
+          return ReservationHistoryCard(
             ride: ride,
             onTap: () {
               Navigator.push(
@@ -279,7 +282,16 @@ class _RideHistoryState extends State<RideHistory> {
                 ),
               );
             },
-          ),
+          );
+        }
+        return _scheduleButton();
+      },
+    );
+  }
+
+  Widget _scheduleButton() {
+    return Column(
+      children: [
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
@@ -432,15 +444,17 @@ class _RideHistoryState extends State<RideHistory> {
         ),
       );
     }
-    return ListView(
+    // UI-19: cards are built lazily.
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-      children: [
-        for (final ride in reservations)
-          ReservationHistoryCard(
-            ride: ride,
-            onTap: () => _openHistoryRide(ride),
-          ),
-      ],
+      itemCount: reservations.length,
+      itemBuilder: (context, index) {
+        final ride = reservations[index];
+        return ReservationHistoryCard(
+          ride: ride,
+          onTap: () => _openHistoryRide(ride),
+        );
+      },
     );
   }
 
