@@ -17,7 +17,9 @@ bool webIsInstalledApp() {
     if (web.window.matchMedia('(display-mode: standalone)').matches) {
       return true;
     }
-  } catch (_) {}
+  } catch (_) {
+    // Web interop: matchMedia may be missing; not standalone then.
+  }
   try {
     return _iosStandalone?.toDart ?? false;
   } catch (_) {

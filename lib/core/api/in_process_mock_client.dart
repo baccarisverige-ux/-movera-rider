@@ -5,7 +5,8 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/utils/request_id.dart';
-import 'package:movera_rider/features/ride_booking/data/catalog_quote_repository.dart';
+import 'package:movera_rider/core/api/mock_catalog_fares.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 
 /// In-process `/api/v1` used on GitHub Pages and tests.
 /// Swap [ApiClient] transport to a live HTTP client later — same paths.
@@ -171,7 +172,7 @@ class InProcessMockClient extends http.BaseClient {
         if (price is num) return price.round();
       }
     }
-    return CatalogQuoteRepository.pricesKr[rideType] ?? 259;
+    return mockCatalogPricesKr[rideType] ?? 259;
   }
 
   @override
@@ -1199,7 +1200,8 @@ class InProcessMockClient extends http.BaseClient {
       'totalMinor': minor,
       'amountMinor': minor,
       'currency': currency,
-      'expiresAt': DateTime.now().add(const Duration(minutes: 2)).toIso8601String(),
+      // ARCH-11: RFC 3339 UTC with offset, like a real server.
+      'expiresAt': WireTime.format(DateTime.now().add(const Duration(minutes: 2))),
       'expiresInSec': 120,
       'breakdown': {
         'baseMinor': math.min(fullMinor, catalogMinor),

@@ -174,11 +174,80 @@ void main() {
     }
   });
 
-  test('presentation does not import feature data repositories', () {
+  // ARCH-17 / CODE-16: every layering rule that needs the import graph lives
+  // in this one source-reading case, so the journey-integrity budget does not
+  // grow with each rule.
+  test('layer imports respect boundaries and no catch is silently empty', () {
     final banned = RegExp(r'package:movera_rider/features/[^/]+/data/');
     for (final file in presentation()) {
       final src = file.readAsStringSync();
       expect(banned.hasMatch(src), isFalse, reason: file.path);
+    }
+
+    final directive = RegExp(
+      r"^\s*(?:import|export)\s+'([^']+)'",
+      multiLine: true,
+    );
+    List<String> importsOf(String src) =>
+        [for (final m in directive.allMatches(src)) m.group(1)!];
+    String norm(String path) => path.replaceAll(r'\', '/');
+
+    // core is feature-agnostic and never reaches back into the DI container.
+    for (final file in dartUnder('lib/core')) {
+      for (final uri in importsOf(file.readAsStringSync())) {
+        expect(
+          uri.startsWith('package:movera_rider/features/') ||
+              uri == 'package:movera_rider/app/di.dart',
+          isFalse,
+          reason: '${norm(file.path)} imports $uri (core -> features/di)',
+        );
+      }
+    }
+
+    // DI knows concrete services, not screens.
+    for (final uri in importsOf(File('lib/app/di.dart').readAsStringSync())) {
+      expect(
+        uri.contains('/presentation/'),
+        isFalse,
+        reason: 'lib/app/di.dart imports $uri (di -> presentation)',
+      );
+    }
+
+    // Application services do not import screens. These navigation
+    // coordinators predate the rule; the list may only shrink, so a file
+    // that no longer needs its exemption fails here until it is removed.
+    const legacyApplicationToPresentation = {
+      'lib/features/notifications/application/notification_navigation.dart',
+      'lib/features/reservations/application/scheduled_ride_checkout.dart',
+      'lib/features/ride_booking/application/ride_restore_coordinator.dart',
+    };
+    final offenders = <String>{};
+    for (final file in dartUnder('lib/features')) {
+      final path = norm(file.path);
+      if (!path.contains('/application/')) continue;
+      final hits = importsOf(file.readAsStringSync())
+          .where((uri) => uri.contains('/presentation/'));
+      if (hits.isNotEmpty) offenders.add(path);
+    }
+    expect(
+      offenders.difference(legacyApplicationToPresentation),
+      isEmpty,
+      reason: 'application -> presentation import',
+    );
+    expect(
+      legacyApplicationToPresentation.difference(offenders),
+      isEmpty,
+      reason: 'exemption no longer needed; remove it from the list',
+    );
+
+    // An ignored error either logs or says why it is safe to ignore.
+    final emptyCatch = RegExp(r'catch\s*\([^)]*\)\s*\{\s*\}');
+    for (final file in dartUnder('lib')) {
+      expect(
+        emptyCatch.hasMatch(file.readAsStringSync()),
+        isFalse,
+        reason: '${norm(file.path)} has an empty catch',
+      );
     }
   });
 

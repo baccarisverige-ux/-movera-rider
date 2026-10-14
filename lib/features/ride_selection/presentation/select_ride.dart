@@ -54,6 +54,7 @@ import 'package:movera_rider/shared/widgets/custom_google_map.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/styles/route_style.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 export 'package:movera_rider/features/ride_selection/domain/booking_mode.dart';
 
@@ -347,7 +348,12 @@ class _SelectRideState extends State<SelectRide>
       } else {
         await _selection.restoreDefaultPayment();
       }
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning(
+        'select_ride.payment_load_failed',
+        extra: {'error': '$error'},
+      );
+    }
     if (mounted) setState(() {});
   }
 
@@ -824,7 +830,9 @@ class _SelectRideState extends State<SelectRide>
         fit.northeast,
         padding: fit.padding,
       );
-    } catch (_) {}
+    } catch (_) {
+      // The map may be gone or not laid out yet; the camera stays put.
+    }
   }
 
   Future<void> _withParkedMap(Future<void> Function() action) async {
@@ -969,13 +977,21 @@ class _SelectRideState extends State<SelectRide>
         _selection.useWalletFirst = walletFirst;
         _selection.setWalletBalance(balance);
       });
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning(
+        'select_ride.wallet_load_failed',
+        extra: {'error': '$error'},
+      );
+    }
   }
 
   Future<void> _saveWalletFirst(bool value) async {
-    try {
-      await AppScope.instance.walletController.saveUseWalletFirst(value);
-    } catch (_) {}
+    final saved =
+        await AppScope.instance.walletController.saveUseWalletFirst(value);
+    // CODE-16: a toggle that was not saved must not keep showing the change.
+    if (!saved && mounted && _selection.useWalletFirst == value) {
+      setState(() => _selection.useWalletFirst = !value);
+    }
   }
 
   /// Phase 114/136: a return ride arrives with a prefilled pickup

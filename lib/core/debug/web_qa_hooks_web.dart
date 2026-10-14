@@ -36,7 +36,9 @@ void reportPuckHeading(double heading, {required bool compass}) {
     object.setProperty('dartHeading'.toJS, heading.toJS);
     object.setProperty('dartCompassActive'.toJS, compass.toJS);
     object.setProperty('puckHeading'.toJS, heading.toJS);
-  } catch (_) {}
+  } catch (_) {
+    // Debug-only QA bridge; a missing JS object is not an error.
+  }
 }
 
 bool get debugHomeBuilt => _homeBuilt;

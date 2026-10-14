@@ -14,6 +14,14 @@ class RoutingService {
     if (api != null) _routeApis[this] = api;
   }
 
+  /// Composition hook: app/di registers the app's routing service here so
+  /// core helpers can default to it without importing the DI container
+  /// (ARCH-17). Unregistered, the direct-line service is used.
+  static RoutingService Function()? defaultProvider;
+
+  static RoutingService get current =>
+      defaultProvider?.call() ?? RoutingService();
+
   List<GeoPoint> line({required GeoPoint from, required GeoPoint to}) => [
     from,
     to,

@@ -53,6 +53,9 @@ void _openNotificationsFromPush() {
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Before anything can call the API: a 401 during start-up still has a
+  // Sign in screen to show.
+  registerSessionExpiredNavigation();
   // Before the first map builds: an iOS build without a Maps key must show
   // the no-map fallback instead of crashing inside the Maps SDK.
   await NativeMapsConfig.load();
@@ -77,16 +80,12 @@ Future<void> bootstrap() async {
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
+    // CODE-20: record() already logs it as a fatal `crash`; logging it a
+    // second time counted every framework error twice.
     AppScope.instance.crashes.record(
       details.exception,
       details.stack ?? StackTrace.empty,
       screen: details.library,
-    );
-    AppLog.fatal(
-      'flutter.error',
-      error: details.exception,
-      stackTrace: details.stack,
-      extra: {'library': details.library ?? ''},
     );
   };
 

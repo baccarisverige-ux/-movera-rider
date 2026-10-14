@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/trip_status.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
 
 class Ride {
@@ -7,11 +8,7 @@ class Ride {
   final String riderId;
 
   factory Ride.fromDto(Map<String, dynamic> dto) {
-    final name = dto['status'] as String? ?? 'idle';
-    final status = RideStatus.values.firstWhere(
-      (value) => value.name == name,
-      orElse: () => RideStatus.idle,
-    );
+    final status = RideStatusWire.parse(dto['status']) ?? RideStatus.idle;
     return Ride(
       id: dto['id'] as String? ?? '',
       status: status,
