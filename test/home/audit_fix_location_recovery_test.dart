@@ -1,15 +1,41 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/app/navigator_key.dart';
 import 'package:movera_rider/core/location/app_geocoding.dart';
 import 'package:movera_rider/core/location/location_access_notice.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/motion/motion_engine.dart';
 import 'package:movera_rider/features/home/application/home_controller.dart';
+import 'package:movera_rider/features/finding_driver/application/finding_driver_controller.dart';
+import 'package:movera_rider/features/home/presentation/home.dart';
 import 'package:movera_rider/features/home/presentation/widgets/home_location_notice.dart';
+import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// The platform side Home's real LocationRepository talks to: services on,
+/// permission blocked (iOS after any refusal, Android "Don't ask again").
+class _BlockedGeolocator extends GeolocatorPlatform {
+  @override
+  Future<bool> isLocationServiceEnabled() async => true;
+
+  @override
+  Future<LocationPermission> checkPermission() async =>
+      LocationPermission.deniedForever;
+
+  @override
+  Future<LocationPermission> requestPermission() async =>
+      LocationPermission.deniedForever;
+
+  @override
+  Future<Position?> getLastKnownPosition({
+    bool forceLocationManager = false,
+  }) async => null;
+}
 
 class _Location extends LocationRepository {
   _Location({required this.permission});
@@ -160,11 +186,43 @@ void main() {
       expect(retries, 2);
     });
 
-    test('Home mounts the notice', () {
-      final home = File(
-        'lib/features/home/presentation/home.dart',
-      ).readAsStringSync();
-      expect(home, contains('HomeLocationNotice('));
+    testWidgets('Home shows the notice when location is blocked', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      final previous = GeolocatorPlatform.instance;
+      GeolocatorPlatform.instance = _BlockedGeolocator();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      FindingDriverController.active = null;
+      AppScope.instance.ride
+        ..rideId = null
+        ..status = RideStatus.idle;
+
+      await tester.pumpWidget(
+        ScreenUtilInit(
+          designSize: const Size(390, 844),
+          minTextAdapt: true,
+          splitScreenMode: true,
+          builder: (_, __) =>
+              MaterialApp(navigatorKey: moveraNavigatorKey, home: const Home()),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.byType(HomeLocationNotice), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('location-access-notice')),
+        findsOneWidget,
+      );
+      expect(find.text('Location access is off'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 10));
+      GeolocatorPlatform.instance = previous;
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 

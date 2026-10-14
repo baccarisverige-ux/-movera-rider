@@ -1,8 +1,12 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/api/api_client.dart';
+import 'package:movera_rider/core/api/in_process_mock_client.dart';
+import 'package:movera_rider/core/auth/token_store.dart';
+import 'package:movera_rider/features/auth/application/auth_controller.dart';
+import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/core/notifications/firebase_push_service.dart';
 import 'package:movera_rider/core/notifications/push_payload.dart';
 import 'package:movera_rider/core/notifications/push_permission_gate.dart';
@@ -73,19 +77,40 @@ void main() {
     expect(push.registers, 1);
   });
 
-  test('auth and bootstrap go through the gate', () {
-    for (final path in [
-      'lib/features/auth/application/auth_controller.dart',
-      'lib/app/bootstrap.dart',
-    ]) {
-      final source = File(path).readAsStringSync();
-      expect(
-        source,
-        contains('pushPermission.registerIfConsented('),
-        reason: path,
+  test('signing in never shows the OS prompt before the explanation', () async {
+    final push = _Push();
+    final gate = PushPermissionGate(push: push, enabled: true);
+    AuthController signIn() {
+      final tokens = MemoryTokenStore();
+      return AuthController(
+        auth: AuthRepository(
+          api: ApiClient(
+            env: const AppEnv(
+              flavor: AppFlavor.test,
+              apiBaseUrl: 'https://api.test.movera.invalid',
+              mapsEnabled: true,
+            ),
+            client: InProcessMockClient(),
+            tokens: tokens,
+          ),
+          tokens: tokens,
+        ),
+        pushPermission: gate,
       );
-      expect(source, isNot(contains('push.register()')), reason: path);
     }
+
+    final first = signIn();
+    final challenge = await first.requestOtp(phone: '+46701234567');
+    await first.verifyOtp(challenge: challenge, code: '1234');
+    expect(push.registers, 0, reason: 'no explanation accepted yet');
+
+    // After "Turn on notifications", the next sign-in registers directly.
+    await gate.accept();
+    expect(push.registers, 1);
+    final second = signIn();
+    final again = await second.requestOtp(phone: '+46701234567');
+    await second.verifyOtp(challenge: again, code: '1234');
+    expect(push.registers, 2);
   });
 
   testWidgets('the explanation leads to the OS prompt, then to Settings', (

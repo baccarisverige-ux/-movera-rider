@@ -1,13 +1,17 @@
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
+import 'package:movera_rider/core/notifications/push_permission_gate.dart';
 import 'package:movera_rider/features/auth/data/auth_repository.dart';
 import 'package:movera_rider/features/auth/domain/otp_challenge.dart';
 
 class AuthController {
-  AuthController({AuthRepository? auth}) : _auth = auth ?? AuthRepository();
+  AuthController({AuthRepository? auth, PushPermissionGate? pushPermission})
+    : _auth = auth ?? AuthRepository(),
+      _pushPermission = pushPermission;
 
   final AuthRepository _auth;
+  final PushPermissionGate? _pushPermission;
   OtpChallenge? lastChallenge;
 
   String? get lastPhone => lastChallenge?.phone;
@@ -46,9 +50,8 @@ class AuthController {
   /// instead of a cold OS prompt.
   Future<void> _registerPushBestEffort() async {
     try {
-      await AppScope.instance.pushPermission.registerIfConsented(
-        logEvent: 'auth.push_registration_deferred',
-      );
+      await (_pushPermission ?? AppScope.instance.pushPermission)
+          .registerIfConsented(logEvent: 'auth.push_registration_deferred');
     } catch (error) {
       AppLog.warning(
         'auth.push_registration_deferred',

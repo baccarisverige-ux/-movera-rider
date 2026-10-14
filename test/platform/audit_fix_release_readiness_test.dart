@@ -178,10 +178,7 @@ void main() {
         .where((f) => f.path.endsWith('MainActivity.kt'))
         .toList();
     expect(activities, hasLength(1));
-    expect(
-      activities.single.readAsStringSync(),
-      contains('package com.movera.rider'),
-    );
+    expect(_read(activities.single.path), contains('package com.movera.rider'));
   });
 
   group('CODE-7 web push service worker', () {
