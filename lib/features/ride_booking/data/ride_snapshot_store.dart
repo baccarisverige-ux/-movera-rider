@@ -31,6 +31,7 @@ class RideSnapshot {
     this.driver,
     this.cancellationReason,
     this.version,
+    this.readEpoch,
   }) : createdAt = createdAt ?? savedAt;
 
   final RideStatus status;
@@ -59,6 +60,13 @@ class RideSnapshot {
   /// its own numbering over from zero) is recognized as older instead of
   /// silently accepted and regressing the restored ride.
   final int? version;
+
+  /// RIDE-6: the [RideSnapshotStore.epoch] at the moment this snapshot was
+  /// read back from the store (null for a snapshot built in memory). It is
+  /// never persisted and survives [copyWith], so a read -> modify -> save
+  /// whose read happened before a [RideSnapshotStore.clear] is recognised as
+  /// stale by [RideSnapshotStore.save] and can never bring the ride back.
+  final int? readEpoch;
 
   /// How long a saved ride may go untouched and still be worth restoring.
   ///
@@ -96,6 +104,7 @@ class RideSnapshot {
     MatchedDriver? driver,
     String? cancellationReason,
     int? version,
+    int? readEpoch,
   }) {
     return RideSnapshot(
       status: status ?? this.status,
@@ -116,6 +125,7 @@ class RideSnapshot {
       driver: driver ?? this.driver,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       version: version ?? this.version,
+      readEpoch: readEpoch ?? this.readEpoch,
     );
   }
 
@@ -260,6 +270,18 @@ class RideSnapshotStore {
   static int _writeSerial = 0;
 
   static Future<void> save(RideSnapshot snapshot) async {
+    // RIDE-6: a snapshot read before a clear belongs to a ride that has since
+    // been cancelled or closed. Writing it back would resurrect that ride on
+    // the next cold start, so the write generation it was read at must still
+    // be current.
+    final readEpoch = snapshot.readEpoch;
+    if (readEpoch != null && readEpoch != epoch) {
+      AppLog.info(
+        'ride_snapshot.stale_save_dropped',
+        extra: {'rideId': snapshot.rideId, 'status': snapshot.status.name},
+      );
+      return;
+    }
     _intentSerial += 1;
 
     if (snapshot.status.isTerminal) {
@@ -275,7 +297,7 @@ class RideSnapshotStore {
     // reopens instead of dumping the rider on Home.
     markSearchLive();
 
-    final token = epoch;
+    final token = readEpoch ?? epoch;
     final writeId = ++_writeSerial;
     final payload = <String, dynamic>{
       ...snapshot.toJson(),
@@ -382,13 +404,18 @@ class RideSnapshotStore {
   static Future<RideSnapshot?> readForArchive() => _readStored();
 
   static Future<RideSnapshot?> _readStored() async {
+    // Captured before the await: a clear that lands while prefs load must
+    // still make this read stale.
+    final token = epoch;
     final prefs = await PreferencesStore.load();
     final raw = prefs.getString(key);
     if (raw == null || raw.isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return null;
-      return RideSnapshot.fromJson(decoded);
+      final snapshot = RideSnapshot.fromJson(decoded);
+      if (snapshot == null) return null;
+      return snapshot.copyWith(readEpoch: token);
     } catch (error, stackTrace) {
       AppLog.error(
         'ride_snapshot.read_failed',
