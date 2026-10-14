@@ -160,7 +160,14 @@ class SafetyStore {
       () => _remote.createContact(contact, idempotencyKey: idempotencyKey),
       contact,
       (value) {
-        final next = [..._cache.contacts.where((c) => c.id != value.id), value];
+        // FLOW-20: the confirmed row replaces the optimistic one even when
+        // the server assigns its own id.
+        final next = [
+          ..._cache.contacts.where(
+            (c) => c.id != value.id && c.id != contact.id,
+          ),
+          value,
+        ];
         if (value.isPrimary) {
           _cache.contacts = [
             for (final item in next)

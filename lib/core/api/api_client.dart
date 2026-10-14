@@ -22,7 +22,9 @@ class ApiClient {
         _onSessionExpired = onSessionExpired;
 
   static http.Client _defaultClient(AppEnv env) {
-    return env.allowsMockTransport ? InProcessMockClient() : http.Client();
+    return env.allowsMockTransport
+        ? InProcessMockClient(persistSafety: true)
+        : http.Client();
   }
 
   bool get usesMockTransport => _client is InProcessMockClient;

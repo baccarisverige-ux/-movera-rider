@@ -6,6 +6,7 @@ import 'package:movera_rider/features/payments/presentation/add_card_page.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/feature_flags/feature_flags.dart';
 import 'package:movera_rider/core/api/idempotency.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/wallet/application/top_up_message.dart';
@@ -86,6 +87,10 @@ class WalletAndPaymentsScreen extends StatefulWidget {
 class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
   late int _tab = widget.initialTab;
 
+  /// FLOW-17: bumped each time Payments is shown, so it re-reads the
+  /// balance a top-up on the Wallet tab just changed.
+  int _paymentsVisits = 0;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,7 +129,10 @@ class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 3),
                         child: OutlinedButton(
-                          onPressed: () => setState(() => _tab = index),
+                          onPressed: () => setState(() {
+                            if (index == 1 && _tab != 1) _paymentsVisits++;
+                            _tab = index;
+                          }),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: _tab == index ? const Color(0xFF11181D) : Colors.white,
                             foregroundColor: _tab == index ? Colors.white : const Color(0xFF11181D),
@@ -139,9 +147,9 @@ class _WalletAndPaymentsScreenState extends State<WalletAndPaymentsScreen> {
             Expanded(
               child: IndexedStack(
                 index: _tab,
-                children: const [
-                  WalletHome(embedded: true),
-                  WalletScreen(embedded: true),
+                children: [
+                  const WalletHome(embedded: true),
+                  WalletScreen(embedded: true, refreshToken: _paymentsVisits),
                 ],
               ),
             ),
@@ -546,9 +554,18 @@ class _WalletHomeState extends State<WalletHome> {
 }
 
 class WalletScreen extends StatefulWidget {
-  const WalletScreen({super.key, this.embedded = false});
+  const WalletScreen({
+    super.key,
+    this.embedded = false,
+    this.refreshToken = 0,
+    this.flags = FeatureFlags.current,
+  });
 
   final bool embedded;
+
+  /// A new value re-reads the wallet balance (FLOW-17).
+  final int refreshToken;
+  final FeatureFlags flags;
 
   @override
   State<WalletScreen> createState() => _WalletScreenState();
@@ -577,6 +594,17 @@ class _WalletScreenState extends State<WalletScreen> {
     _cards.addListener(_cardsChanged);
     _restorePaymentSettings();
     _loadCards();
+  }
+
+  @override
+  void didUpdateWidget(covariant WalletScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) _reloadBalance();
+  }
+
+  Future<void> _reloadBalance() async {
+    final balance = await _wallet.loadBalance();
+    if (mounted) setState(() => _balance = balance);
   }
 
   @override
@@ -754,8 +782,12 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    _profileSelector(),
-                    const SizedBox(height: 25),
+                    // FLOW-11: hidden until Business does something.
+                    if (widget.flags.businessProfile) ...[
+                      _profileSelector(),
+                      const SizedBox(height: 25),
+                    ] else
+                      const SizedBox(height: 3),
                     _sectionLabel('PAYMENT METHODS'),
                     const SizedBox(height: 10),
                     Container(

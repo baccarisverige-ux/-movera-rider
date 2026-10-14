@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -26,6 +27,13 @@ abstract final class OnDemandRideHistoryStore {
   /// How many times a write re-reads and retries before giving up on proving
   /// its own record survived a concurrent archive.
   static const _maxWriteAttempts = 6;
+
+  static final StreamController<void> _changes =
+      StreamController<void>.broadcast();
+
+  /// Fires after every write, so screens that show history figures (Home's
+  /// month card, FLOW-13) can refresh instead of keeping what they read once.
+  static Stream<void> get changes => _changes.stream;
 
   static Future<List<Reservation>> read() async {
     final prefs = await PreferencesStore.load();
@@ -140,6 +148,7 @@ abstract final class OnDemandRideHistoryStore {
         key,
         jsonEncode(retained.map((ride) => ride.toJson()).toList()),
       );
+      _changes.add(null);
 
       // A record trimmed by maxRecords or already past retention was never
       // meant to be readable, so only verify the writes that claim a slot.
@@ -214,6 +223,7 @@ abstract final class OnDemandRideHistoryStore {
   static Future<void> clear() async {
     final prefs = await PreferencesStore.load();
     await prefs.remove(key);
+    _changes.add(null);
   }
 
   static ReservationStatus? _reservationStatus(RideStatus status) {

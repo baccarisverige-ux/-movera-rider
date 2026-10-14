@@ -487,7 +487,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleDestinationTap() => _runRouteFlow(() async {
+  Future<void> _handleDestinationTap({String? initialRideId}) =>
+      _runRouteFlow(() async {
     // Capture from the tap itself: the sheet sequencing below takes long enough
     // that anything typed in the meantime would otherwise be lost.
     final capture = EarlyInputCapture()..start();
@@ -500,6 +501,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
       await _showRouteAddressPicker(
         initialField: 'destination',
         capture: capture,
+        initialRideId: initialRideId,
       );
     } finally {
       capture.stop();
@@ -867,6 +869,7 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
     required String initialField,
     EarlyInputCapture? capture,
     bool scheduled = false,
+    String? initialRideId,
   }) async {
     // Either the capture the caller started at tap time, or a fresh one for
     // entry points that open the picker directly.
@@ -1013,6 +1016,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                   : BookingMode.scheduled,
               lockBookingMode: scheduledAt != null,
               initialScheduledFor: scheduledAt,
+              // NAV-11: a Home card asked for this category.
+              initialRideId: initialRideId,
               onScheduled: (context, id) => RideScheduledPage.open(
                 context,
                 reservationId: id,
@@ -2006,6 +2011,8 @@ class _HomeState extends State<Home> with WidgetsBindingObserver {
                           HomeJourneySection(
                             onDestinationTap: _handleDestinationTap,
                             onOpenSchedule: _openSchedule,
+                            onRideTypeTap: (rideId) =>
+                                _handleDestinationTap(initialRideId: rideId),
                           ),
                         ],
                       );

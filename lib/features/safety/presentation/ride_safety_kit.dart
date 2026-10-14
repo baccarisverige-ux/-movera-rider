@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
@@ -150,6 +152,9 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
   @override
   void dispose() {
     _ctl.removeListener(_onChange);
+    // FLOW-6: Stop audio lives only in this sheet, so closing the sheet
+    // stops and saves the recording instead of leaving the mic open.
+    unawaited(_ctl.audio.stopIfRecording(reason: 'sheet_closed'));
     super.dispose();
   }
 
@@ -214,7 +219,8 @@ class _RideSafetyKitSheetState extends State<RideSafetyKitSheet> {
         if (!mounted) return;
         setState(
           () => _audioNote =
-              'Recording. Tap Stop audio to save it on this device.',
+              'Recording. It stops and is saved on this device when you tap '
+              'Stop audio or close the Safety Kit.',
         );
       }
     } on SafetyAudioException catch (error) {

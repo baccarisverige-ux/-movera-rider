@@ -12,6 +12,7 @@ class FeatureFlags {
     this.enableRidePin = false,
     this.enableSafetyShareTrip = true,
     this.enableBookingLater = true,
+    this.enableBusinessProfile = false,
     this.enableSavedCards = true,
   });
 
@@ -26,6 +27,10 @@ class FeatureFlags {
   final bool enableSafetyShareTrip;
   final bool enableBookingLater;
 
+  /// FLOW-11: Personal/Business only becomes a choice once booking, history
+  /// and receipts use it; until then the toggle is hidden.
+  final bool enableBusinessProfile;
+
   /// Cards saved on the rider's account. Off in release until card entry
   /// runs through the payment provider's hosted fields (ARCH-7, PCI scope).
   final bool enableSavedCards;
@@ -34,6 +39,7 @@ class FeatureFlags {
   bool get scheduledRides => enableScheduledRide;
   bool get safetyShareTrip => enableSafetyShareTrip;
   bool get bookingLater => enableBookingLater;
+  bool get businessProfile => enableBusinessProfile;
   bool get savedCards => enableSavedCards;
 
   static const current = FeatureFlags();

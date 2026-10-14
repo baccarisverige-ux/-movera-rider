@@ -3,9 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/saved_places/application/current_address.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/pickup_location.dart';
+import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -17,11 +19,15 @@ class AddPlace extends StatefulWidget {
     this.controller,
     this.initial,
     this.kind,
+    this.currentAddress,
   });
 
   final SavedPlacesController? controller;
   final PlaceShortcut? initial;
   final String? kind;
+
+  /// Passed to the location picker's "Current location" button.
+  final CurrentAddressResolver? currentAddress;
 
   @override
   State<AddPlace> createState() => _AddPlaceState();
@@ -54,7 +60,11 @@ class _AddPlaceState extends State<AddPlace> {
     final selected = await Navigator.push<String>(
       context,
       BottomToTopTransition(
-        const RiderSearchPickupLocation(allowCreateShortcut: false),
+        RiderSearchPickupLocation(
+          allowCreateShortcut: false,
+          places: _places,
+          currentAddress: widget.currentAddress,
+        ),
       ),
     );
     if (!mounted || selected == null || selected.trim().isEmpty) return;
@@ -73,19 +83,45 @@ class _AddPlaceState extends State<AddPlace> {
       return;
     }
 
-    final place = PlaceShortcut(
-      title: name,
-      subtitle: location,
-      kind: _kindFor(name),
-    );
+    final kind = _kindFor(name);
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      await _places.save(place);
+      // FLOW-5: a new place named "Home" or "Work" goes into that slot, so
+      // ask before it replaces the address already saved there.
+      if (_isNewPlace && (kind == 'home' || kind == 'office')) {
+        await _places.hydrate();
+        final label = kind == 'home' ? 'Home' : 'Work';
+        final taken = _places.shortcuts().any((p) => p.kind == kind);
+        if (taken) {
+          if (!mounted) return;
+          final replace = await confirmMoveraAction(
+            context,
+            title: 'Replace your saved $label?',
+            message:
+                'Your $label address will change to $location. To keep it, '
+                'give this place another name.',
+            confirmLabel: 'Replace $label',
+          );
+          if (!mounted) return;
+          if (!replace) {
+            setState(() => _saving = false);
+            return;
+          }
+        }
+      }
+      final saved = await _places.save(
+        PlaceShortcut(
+          title: name,
+          subtitle: location,
+          kind: kind,
+          id: widget.initial?.id,
+        ),
+      );
       if (!mounted) return;
-      Navigator.pop(context, place);
+      Navigator.pop(context, saved);
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -94,6 +130,9 @@ class _AddPlaceState extends State<AddPlace> {
       });
     }
   }
+
+  bool get _isNewPlace =>
+      widget.initial == null && (widget.kind?.trim().isEmpty ?? true);
 
   String _kindFor(String name) {
     final existing = widget.initial?.kind.trim();

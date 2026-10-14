@@ -36,7 +36,12 @@ void main() {
                 onPressed: () async {
                   returned = await Navigator.push<PlaceShortcut>(
                     context,
-                    MaterialPageRoute(builder: (_) => const AddPlace()),
+                    MaterialPageRoute(
+                      builder: (_) => AddPlace(
+                        // FLOW-4: the button resolves a real address.
+                        currentAddress: () async => 'Sveavägen 1, Stockholm',
+                      ),
+                    ),
                   );
                 },
                 child: const Text('Open AddPlace'),
@@ -59,13 +64,13 @@ void main() {
 
     expect(returned, isNotNull);
     expect(returned!.title, 'Gym');
-    expect(returned!.subtitle, 'Current location');
+    expect(returned!.subtitle, 'Sveavägen 1, Stockholm');
 
     final restarted = SavedPlacesController();
     await restarted.hydrate();
     expect(restarted.shortcuts(), hasLength(1));
     expect(restarted.shortcuts().single.title, 'Gym');
-    expect(restarted.shortcuts().single.subtitle, 'Current location');
+    expect(restarted.shortcuts().single.subtitle, 'Sveavägen 1, Stockholm');
   });
 
   test('edit and delete are visible from Saved Places and Home immediately',
@@ -87,11 +92,14 @@ void main() {
     expect(home.savedPlaces.single.title, 'Gym');
     expect(home.savedPlaces.single.address, 'Old address');
 
+    // Editing passes the place's id (FLOW-5: without one it is a new place).
+    await places.hydrate();
     await places.save(
-      const PlaceShortcut(
+      PlaceShortcut(
         title: 'Training',
         subtitle: 'New address',
         kind: 'gym',
+        id: places.shortcuts().single.id,
       ),
     );
     await home.load();
@@ -101,7 +109,7 @@ void main() {
     expect(home.savedPlaces.single.title, 'Training');
     expect(home.savedPlaces.single.address, 'New address');
 
-    await places.removeKind('gym');
+    await places.remove(places.shortcuts().single);
     await home.load();
     await places.hydrate();
     expect(places.shortcuts(), isEmpty);

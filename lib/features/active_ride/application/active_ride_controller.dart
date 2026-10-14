@@ -10,6 +10,7 @@ import 'package:movera_rider/features/history/data/on_demand_ride_history_store.
 import 'package:movera_rider/features/ride_complete/data/last_completed_ride.dart';
 import 'package:movera_rider/features/ride_booking/data/ride_snapshot_store.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/features/safety/application/safety_controller.dart';
 
 /// What the server said about a Waiting/in-trip cancel request (D-013).
 enum RideCancelOutcome {
@@ -160,6 +161,7 @@ class ActiveRideController {
       ride.localTransition(RideStatus.cancelledByRider);
     }
     AppScope.instance.rideRealtime.cancelRide();
+    _stopSafetyRecording();
     await _archive(
       snapshot,
       RideStatus.cancelledByRider,
@@ -203,6 +205,7 @@ class ActiveRideController {
     final ride = AppScope.instance.ride;
     final id = ride.rideId;
     ride.backendReconcile(status, id: id);
+    _stopSafetyRecording();
     if (status == RideStatus.cancelledByDriver ||
         status == RideStatus.cancelledBySystem) {
       await _archive(snapshot, status, expectedRideId: id);
@@ -217,6 +220,7 @@ class ActiveRideController {
     final snapshot = await _store.historyCandidate();
     final id = AppScope.instance.ride.rideId;
     AppScope.instance.ride.backendReconcile(status, id: id);
+    _stopSafetyRecording();
     if (snapshot == null) return;
 
     // Keep a restorable completion snapshot until the rider explicitly leaves
@@ -285,6 +289,7 @@ class ActiveRideController {
 
   void markClosed() {
     AppScope.instance.ride.localTransition(RideStatus.closed);
+    _stopSafetyRecording();
     unawaited(_store.clear());
   }
 
@@ -301,6 +306,14 @@ class ActiveRideController {
       );
     }
     AppScope.instance.ride.localTransition(RideStatus.closed);
+    _stopSafetyRecording();
     await _store.clear();
+  }
+
+  /// FLOW-6: a Safety Kit recording belongs to the ride; once the ride is
+  /// over the rider can no longer reach Stop audio, so it stops and is
+  /// saved here. Best effort, never blocks the ride flow.
+  void _stopSafetyRecording() {
+    unawaited(SafetyController.stopRecordingForRideEnd());
   }
 }

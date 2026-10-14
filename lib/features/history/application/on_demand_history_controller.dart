@@ -1,4 +1,5 @@
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/history/data/on_demand_ride_history_store.dart';
 import 'package:movera_rider/features/history/domain/ride_history_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 
@@ -15,6 +16,9 @@ class OnDemandHistoryController {
 
   Future<List<Reservation>> load() =>
       (_repository ?? AppScope.instance.rideHistory).loadOnDemand();
+
+  /// Fires whenever the on-demand history is written (FLOW-13).
+  Stream<void> get changes => OnDemandRideHistoryStore.changes;
 
   List<Reservation> combine(
     List<Reservation> reservations,

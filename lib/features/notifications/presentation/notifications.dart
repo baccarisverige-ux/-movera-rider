@@ -5,11 +5,13 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/history/presentation/ride_history.dart';
 import 'package:movera_rider/features/notifications/application/notification_navigation.dart';
 import 'package:movera_rider/features/notifications/application/notifications_controller.dart';
 import 'package:movera_rider/features/notifications/domain/notifications.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/push_permission_primer.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
 import 'package:movera_rider/shared/widgets/sizedbox_extention.dart';
@@ -19,10 +21,14 @@ class NotificationScreen extends StatelessWidget {
     super.key,
     this.controller,
     this.openRide,
+    this.openHistory,
   });
 
   final NotificationsController? controller;
   final NotificationRideOpener? openRide;
+
+  /// Where a tap on an ended ride goes (FLOW-18); defaults to Ride History.
+  final void Function(BuildContext context)? openHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -97,6 +103,9 @@ class NotificationScreen extends StatelessWidget {
                               context,
                               rideId,
                               open: openRide,
+                              onEnded: () => (openHistory ?? _openHistory)(
+                                context,
+                              ),
                             );
                           },
                           child: _buildNotificationCard(notification),
@@ -111,6 +120,10 @@ class NotificationScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  static void _openHistory(BuildContext context) {
+    Navigator.of(context).push(RightToLeftTransition(RideHistory()));
   }
 
   Widget _buildNotificationCard(AppNotification notification) {

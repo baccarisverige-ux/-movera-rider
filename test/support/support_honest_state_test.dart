@@ -4,18 +4,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/features/support/application/support_controller.dart';
 import 'package:movera_rider/features/support/data/support_repository.dart';
 import 'package:movera_rider/features/support/presentation/support.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('support repository contains no seeded rides or live-agent claim', () {
+  test('support repository contains no seeded rides or live-agent claim',
+      () async {
     final repository = SupportRepository();
-    final controller = SupportController(store: repository);
+    final controller = SupportController(
+      store: repository,
+      onDemand: () async => const [],
+      scheduled: () => const [],
+    );
     final script = controller.chat();
 
-    expect(controller.rides(), isEmpty);
+    // FLOW-8: rides come only from the rider's own history.
+    expect(await controller.loadRides(), isEmpty);
     expect(script.welcome, contains('isn’t connected'));
     expect(script.issueAck, contains('can’t be sent'));
     expect(script.followUp, contains('is connected'));
@@ -36,7 +44,7 @@ void main() {
     expect(find.text('No rides to review'), findsOneWidget);
     expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
     expect(
-      find.text('Completed or cancelled rides will appear here when real ride history is available.'),
+      find.text('Your completed and cancelled rides will appear here.'),
       findsOneWidget,
     );
     expect(find.text('Browse all help topics'), findsOneWidget);

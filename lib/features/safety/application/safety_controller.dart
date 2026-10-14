@@ -55,6 +55,17 @@ class SafetyController extends ChangeNotifier {
   static SafetyController get shared =>
       _shared ??= SafetyController._();
 
+  /// FLOW-6: the ride is over, so a recording the rider started in the
+  /// Safety Kit stops and is saved. Looks only at a controller that already
+  /// exists: no recording can run without one.
+  static Future<void> stopRecordingForRideEnd() async {
+    await _shared?.audio.stopIfRecording(reason: 'ride_ended');
+  }
+
+  @visibleForTesting
+  static set sharedForTest(SafetyController? controller) =>
+      _shared = controller;
+
   static void resetShared() {
     _shared?.dispose();
     _shared = null;
@@ -249,13 +260,24 @@ class SafetyController extends ChangeNotifier {
       await _session.deleteContact(id);
     } catch (_) {
       error = 'Could not delete that contact.';
+      rethrow;
+    } finally {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
+  /// FLOW-15: a failed change is reported through [error] (and rethrown so
+  /// the screen can say so) instead of escaping as an unhandled error.
   Future<void> makePrimary(String id) async {
-    await _session.setPrimary(id);
-    notifyListeners();
+    error = null;
+    try {
+      await _session.setPrimary(id);
+    } catch (_) {
+      error = 'Could not change the primary contact.';
+      rethrow;
+    } finally {
+      notifyListeners();
+    }
   }
 
   Future<void> setTripShare({

@@ -2,11 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/routes.dart';
+import 'package:movera_rider/features/support/application/support_contact.dart';
 import 'package:movera_rider/features/support/domain/support.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
+/// Loads the rides Support can be asked about.
+typedef SupportRidesLoader = Future<List<SupportRide>> Function();
+
 class SupportHome extends StatelessWidget {
-  const SupportHome({super.key});
+  const SupportHome({super.key, this.loadRides, this.contact});
+
+  /// Defaults to the rider's ride history (FLOW-8).
+  final SupportRidesLoader? loadRides;
+
+  /// Defaults to the support address this build was given, if any.
+  final SupportContact? contact;
 
   static const Color ink = Color(0xFF1D252C);
   static const Color muted = Color(0xFF5C656C);
@@ -32,11 +43,12 @@ class SupportHome extends StatelessWidget {
     );
   }
 
-  static List<SupportRide> get rides => AppScope.instance.support.rides();
+  static Future<List<SupportRide>> rides() =>
+      AppScope.instance.support.loadRides();
 
   @override
   Widget build(BuildContext context) {
-    final recent = rides.take(3).toList();
+    final support = contact ?? const SupportContact();
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -105,7 +117,9 @@ class SupportHome extends StatelessWidget {
                 GestureDetector(
                   onTap: () => guardedPush(
                     context,
-                    RightToLeftTransition(const SelectSupportRide()),
+                    RightToLeftTransition(
+                      SelectSupportRide(loadRides: loadRides),
+                    ),
                   ),
                   child: Text(
                     'View all',
@@ -115,22 +129,32 @@ class SupportHome extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            if (recent.isEmpty)
-              const _EmptyCard(
-                icon: Icons.inbox_outlined,
-                title: 'No rides to review',
-                subtitle:
-                    'Completed or cancelled rides will appear here when real ride history is available.',
-              )
-            else
-              for (final ride in recent)
-                _RideCard(
-                  ride: ride,
-                  onTap: () => guardedPush(
-                    context,
-                    RightToLeftTransition(SelectIssue(ride: ride)),
-                  ),
-                ),
+            _SupportRides(
+              load: loadRides ?? rides,
+              builder: (context, all) {
+                final recent = all.take(3).toList();
+                if (recent.isEmpty) {
+                  return const _EmptyCard(
+                    icon: Icons.inbox_outlined,
+                    title: 'No rides to review',
+                    subtitle:
+                        'Your completed and cancelled rides will appear here.',
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final ride in recent)
+                      _RideCard(
+                        ride: ride,
+                        onTap: () => guardedPush(
+                          context,
+                          RightToLeftTransition(SelectIssue(ride: ride)),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
             const SizedBox(height: 20),
             Text(
               'Browse all help topics',
@@ -145,7 +169,9 @@ class SupportHome extends StatelessWidget {
                   label: 'Rides',
                   onTap: () => guardedPush(
                     context,
-                    RightToLeftTransition(const SelectSupportRide()),
+                    RightToLeftTransition(
+                      SelectSupportRide(loadRides: loadRides),
+                    ),
                   ),
                 ),
                 _TopicChip(
@@ -196,6 +222,24 @@ class SupportHome extends StatelessWidget {
                 RightToLeftTransition(const HelpArticles()),
               ),
             ),
+            if (support.available) ...[
+              const SizedBox(height: 10),
+              _ActionCard(
+                title: 'Email support',
+                icon: Icons.mail_outline_rounded,
+                onTap: () async {
+                  final opened = await support.openEmail(
+                    subject: 'Movera support',
+                  );
+                  if (!opened && context.mounted) {
+                    MoveraToast.show(
+                      context,
+                      'No mail app opened. Write to ${support.email}.',
+                    );
+                  }
+                },
+              ),
+            ],
             const SizedBox(height: 10),
             _ActionCard(
               title: 'Cases',
@@ -245,46 +289,55 @@ class HowCanWeHelp extends StatelessWidget {
 }
 
 class SelectSupportRide extends StatelessWidget {
-  const SelectSupportRide({super.key});
+  const SelectSupportRide({super.key, this.loadRides});
+
+  /// Defaults to the rider's ride history (FLOW-8).
+  final SupportRidesLoader? loadRides;
 
   @override
   Widget build(BuildContext context) {
-    final grouped = <String, List<SupportRide>>{};
-    for (final ride in SupportHome.rides) {
-      grouped.putIfAbsent(ride.monthTitle, () => []).add(ride);
-    }
     return _SupportScaffold(
       title: 'Select ride',
       trailing: _exit(context),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          if (grouped.isEmpty)
-            const _EmptyCard(
-              icon: Icons.event_busy_outlined,
-              title: 'No rides yet',
-              subtitle:
-                  'Completed and cancelled rides will appear here when real ride history is available.',
-            )
-          else
-            for (final entry in grouped.entries) ...[
-              Text(
-                entry.key,
-                style: SupportHome.text(16, weight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              for (final ride in entry.value)
-                _RideRow(
-                  ride: ride,
-                  onTap: () => guardedPush(
-                    context,
-                    RightToLeftTransition(SelectIssue(ride: ride)),
-                  ),
-                ),
-              const SizedBox(height: 16),
-            ],
-        ],
+      child: _SupportRides(
+        load: loadRides ?? SupportHome.rides,
+        builder: (context, rides) => _list(context, rides),
       ),
+    );
+  }
+
+  Widget _list(BuildContext context, List<SupportRide> rides) {
+    final grouped = <String, List<SupportRide>>{};
+    for (final ride in rides) {
+      grouped.putIfAbsent(ride.monthTitle, () => []).add(ride);
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      children: [
+        if (grouped.isEmpty)
+          const _EmptyCard(
+            icon: Icons.event_busy_outlined,
+            title: 'No rides yet',
+            subtitle: 'Your completed and cancelled rides will appear here.',
+          )
+        else
+          for (final entry in grouped.entries) ...[
+            Text(
+              entry.key,
+              style: SupportHome.text(16, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            for (final ride in entry.value)
+              _RideRow(
+                ride: ride,
+                onTap: () => guardedPush(
+                  context,
+                  RightToLeftTransition(SelectIssue(ride: ride)),
+                ),
+              ),
+            const SizedBox(height: 16),
+          ],
+      ],
     );
   }
 }
@@ -1125,6 +1178,40 @@ class _MiraMark extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: const Icon(Icons.auto_awesome, color: Colors.white, size: 15),
+    );
+  }
+}
+
+/// Loads the rider's rides once and builds with them; a short spinner
+/// while loading, the empty state when the history cannot be read.
+class _SupportRides extends StatefulWidget {
+  const _SupportRides({required this.load, required this.builder});
+
+  final SupportRidesLoader load;
+  final Widget Function(BuildContext context, List<SupportRide> rides) builder;
+
+  @override
+  State<_SupportRides> createState() => _SupportRidesState();
+}
+
+class _SupportRidesState extends State<_SupportRides> {
+  late final Future<List<SupportRide>> _rides = widget.load().timeout(
+    const Duration(seconds: 8),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<SupportRide>>(
+      future: _rides,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        return widget.builder(context, snapshot.data ?? const []);
+      },
     );
   }
 }

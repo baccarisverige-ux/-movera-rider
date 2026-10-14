@@ -7,6 +7,7 @@ import 'package:movera_rider/core/location/geocoding_repository.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/features/saved_places/application/current_address.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
@@ -22,6 +23,7 @@ class RiderSearchPickupLocation extends StatefulWidget {
     this.places,
     this.allowCreateShortcut = true,
     this.geocode,
+    this.currentAddress,
   });
 
   final SavedPlacesController? places;
@@ -30,6 +32,10 @@ class RiderSearchPickupLocation extends StatefulWidget {
   /// Forward geocoder for the free-text field; defaults to the app's (the
   /// same call destination text uses).
   final Future<PlaceResult?> Function(String query)? geocode;
+
+  /// Resolves "Current location" to a real address; defaults to the device
+  /// position plus the app's reverse geocoder.
+  final CurrentAddressResolver? currentAddress;
 
   @override
   State<RiderSearchPickupLocation> createState() =>
@@ -40,6 +46,7 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
   late final SavedPlacesController _places;
   final TextEditingController _query = TextEditingController();
   bool _searching = false;
+  bool _locating = false;
   String? _searchError;
 
   @override
@@ -77,6 +84,31 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
     setState(() => _searching = false);
     final address = found.address.trim();
     Navigator.maybePop(context, address.isNotEmpty ? address : text);
+  }
+
+  /// FLOW-4: return the address of where the rider is, never the words
+  /// "Current location"; say why when it cannot be found.
+  Future<void> _useCurrentLocation() async {
+    if (_locating || _searching) return;
+    setState(() {
+      _locating = true;
+      _searchError = null;
+    });
+    String? address;
+    String? error;
+    try {
+      address = await (widget.currentAddress ?? resolveCurrentAddress)();
+    } on CurrentAddressException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'We couldn’t find where you are. Search for the address instead.';
+    }
+    if (!mounted) return;
+    setState(() {
+      _locating = false;
+      _searchError = error;
+    });
+    if (address != null) Navigator.maybePop(context, address);
   }
 
   @override
@@ -178,11 +210,10 @@ class _RiderSearchPickupLocationState extends State<RiderSearchPickupLocation> {
                                 : const Icon(Icons.search_rounded, size: 20),
                           ),
                           TextButton(
-                            // Did nothing at all. This screen returns a chosen
-                            // place by popping it, the way the Home and Work
-                            // shortcuts below already do.
-                            onPressed: () =>
-                                Navigator.maybePop(context, 'Current location'),
+                            // Returns the address of the device position.
+                            onPressed: _locating
+                                ? null
+                                : () => unawaited(_useCurrentLocation()),
                             child: SizedBox(
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.end,

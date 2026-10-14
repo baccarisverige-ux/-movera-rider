@@ -9,7 +9,11 @@ class SupportRide {
     this.cancelled = false,
     this.failed = false,
     this.extra,
+    this.id,
   });
+
+  /// The reservation or on-demand ride id this row is about.
+  final String? id;
 
   final String title;
   final DateTime when;

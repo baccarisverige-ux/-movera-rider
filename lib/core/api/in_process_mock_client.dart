@@ -16,9 +16,14 @@ class InProcessMockClient extends http.BaseClient {
   InProcessMockClient({
     this.latency = Duration.zero,
     this.searchExpiresAfter = const Duration(minutes: 3),
+    this.persistSafety = false,
   });
 
   final Duration latency;
+
+  /// FLOW-9: keep the Safety mock's state across launches (the app's own
+  /// demo transport). Off for tests that build a mock of their own.
+  final bool persistSafety;
 
   /// ARCH-3: like a real backend, the mock ends a search nobody accepted.
   /// A ride still searching this long after it was created reads back as
@@ -97,7 +102,9 @@ class InProcessMockClient extends http.BaseClient {
       },
     ],
   };
-  final SafetyMockApi safety = safetyMockForProcess();
+  /// The process-wide Safety mock, looked up on each use so a sign-out
+  /// reset (UserDataWipe) reaches every client.
+  SafetyMockApi get safety => safetyMockForProcess();
   bool failNext = false;
   Duration? timeoutNext;
 
@@ -956,6 +963,7 @@ class InProcessMockClient extends http.BaseClient {
     } else if (path == '/health' && method == 'GET') {
       payload = {'ok': true, 'requestId': requestId};
     } else {
+      if (persistSafety) await safety.restoreOnce();
       final safetyHit = safety.handle(
         method: method,
         path: path,
@@ -965,6 +973,9 @@ class InProcessMockClient extends http.BaseClient {
       if (safetyHit != null) {
         status = safetyHit.status;
         payload = safetyHit.payload;
+        if (persistSafety && method != 'GET' && status < 400) {
+          await safety.persist();
+        }
       } else {
         status = 404;
         payload = {'code': 'NOT_FOUND', 'path': path, 'requestId': requestId};

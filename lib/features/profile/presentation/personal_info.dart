@@ -7,7 +7,9 @@ import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/features/profile/application/account_security_controller.dart';
 import 'package:movera_rider/features/profile/application/profile_controller.dart';
+import 'package:movera_rider/features/profile/domain/profile.dart';
 import 'package:movera_rider/features/profile/presentation/account_widgets.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 
 class PersonalInfoPage extends StatefulWidget {
   const PersonalInfoPage({super.key, this.controller, this.securityController});
@@ -44,6 +46,17 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
 
   void _refresh() {
     if (mounted) setState(() {});
+  }
+
+  /// FLOW-15: a failed save used to escape the tap as an unhandled error.
+  Future<void> _save(RiderProfileData next) async {
+    try {
+      await _profile.update(next);
+    } catch (_) {
+      if (mounted) {
+        MoveraToast.show(context, 'Couldn’t save that change. Try again.');
+      }
+    }
   }
 
   String _valueOrNotAdded(String value) {
@@ -106,7 +119,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     value: ride.name,
                   );
                   if (next != null && next.isNotEmpty) {
-                    await _profile.update(ride.copyWith(name: next));
+                    await _save(ride.copyWith(name: next));
                   }
                 },
               ),
@@ -132,7 +145,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     selected: ride.gender,
                   );
                   if (next != null) {
-                    await _profile.update(ride.copyWith(gender: next));
+                    await _save(ride.copyWith(gender: next));
                   }
                 },
               ),
@@ -167,7 +180,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                     selected: ride.language,
                   );
                   if (next != null) {
-                    await _profile.update(ride.copyWith(language: next));
+                    await _save(ride.copyWith(language: next));
                   }
                 },
               ),

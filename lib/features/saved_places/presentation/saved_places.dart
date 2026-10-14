@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/core/constants/appcolors.dart';
 import 'package:movera_rider/core/constants/appfontweight.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/saved_places/application/saved_places_controller.dart';
 import 'package:movera_rider/features/saved_places/domain/saved_place.dart';
 import 'package:movera_rider/features/saved_places/presentation/add_place.dart';
+import 'package:movera_rider/shared/design_system/movera_confirm_sheet.dart';
+import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/widgets/custom_text_widget.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 import 'package:movera_rider/shared/widgets/responsive_size.dart';
@@ -22,6 +25,7 @@ class SavedPlaces extends StatefulWidget {
 class _SavedPlacesState extends State<SavedPlaces> {
   late final SavedPlacesController _places;
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -30,9 +34,22 @@ class _SavedPlacesState extends State<SavedPlaces> {
     _reload();
   }
 
+  /// FLOW-15: a failed read used to leave the spinner up forever.
   Future<void> _reload() async {
-    await _places.hydrate();
-    if (mounted) setState(() => _loading = false);
+    String? error;
+    try {
+      await _places.hydrate();
+    } catch (e) {
+      AppLog.warning('saved_places.load_failed', extra: {'error': '$e'});
+      error = 'Couldn’t load your saved places. Try again.';
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadError = error;
+        });
+      }
+    }
   }
 
   Future<void> _openEditor({PlaceShortcut? place, String? kind}) async {
@@ -49,8 +66,23 @@ class _SavedPlacesState extends State<SavedPlaces> {
     if (result != null) await _reload();
   }
 
+  /// FLOW-15: asks first, removes only this place, and says so if it fails.
   Future<void> _delete(PlaceShortcut place) async {
-    await _places.removeKind(place.kind);
+    final confirmed = await confirmMoveraAction(
+      context,
+      title: 'Remove ${place.title}?',
+      message: place.subtitle,
+      confirmLabel: 'Remove',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _places.remove(place);
+    } catch (e) {
+      AppLog.warning('saved_places.remove_failed', extra: {'error': '$e'});
+      if (mounted) {
+        MoveraToast.show(context, 'Couldn’t remove ${place.title}. Try again.');
+      }
+    }
     await _reload();
   }
 
@@ -105,7 +137,16 @@ class _SavedPlacesState extends State<SavedPlaces> {
             24.height,
             if (_loading)
               const Center(child: CircularProgressIndicator())
-            else ...[
+            else if (_loadError != null) ...[
+              Text(_loadError!, style: TextStyle(color: AppColor.subtitle)),
+              TextButton(
+                onPressed: () {
+                  setState(() => _loading = true);
+                  _reload();
+                },
+                child: const Text('Try again'),
+              ),
+            ] else ...[
               for (final place in shortcuts) _savedRow(place),
               if (!shortcuts.any((item) => item.kind == 'home'))
                 _addRow('Add Home', 'home', Icons.house_rounded),

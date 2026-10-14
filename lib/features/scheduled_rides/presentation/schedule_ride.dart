@@ -27,6 +27,11 @@ class ScheduleRide extends StatefulWidget {
 
   final Reservation? editing;
 
+  /// What the Schedule map draws on top of the rider's blue location dot:
+  /// nothing. CODE-4: a template marker labelled "Your location" sat at
+  /// Stockholm Centralen for every rider.
+  static const Set<Marker> mapMarkers = <Marker>{};
+
   @override
   State<ScheduleRide> createState() => _ScheduleRideState();
 }
@@ -54,7 +59,6 @@ class _ScheduleRideState extends State<ScheduleRide> {
 
   // ignore: unused_field
   GoogleMapController? _mapController;
-  final Set<Marker> _markers = {};
   final ScheduledRideSession _session = ScheduledRideSession();
 
   // Default location
@@ -77,7 +81,6 @@ class _ScheduleRideState extends State<ScheduleRide> {
       _session.capturePayment(editing.paymentMethod);
       if (editing.hasPreferences) _session.captureNote(editing.note!.trim());
     }
-    _loadMarkers();
     setWebOverlayOpen(true);
     _pickupController.addListener(_syncRouteToSession);
     _dropoffController.addListener(_syncRouteToSession);
@@ -98,19 +101,6 @@ class _ScheduleRideState extends State<ScheduleRide> {
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.schedule);
     super.dispose();
-  }
-
-  void _loadMarkers() {
-    // Add any initial markers if needed
-    // Example: driver location marker
-    _markers.add(
-      Marker(
-        markerId: MarkerId('driver_location'),
-        position: LatLng(59.3293, 18.0686),
-        infoWindow: InfoWindow(title: 'Your location'),
-        icon: BitmapDescriptor.defaultMarker,
-      ),
-    );
   }
 
   int currentStep = 0;
@@ -176,7 +166,10 @@ class _ScheduleRideState extends State<ScheduleRide> {
   }
 
   Future<void> _confirmPickupThenCalendar() async {
-    final start = await resolveScheduledPoint(_pickupController.text);
+    // Only the camera start for the pin screen: the rider confirms the real
+    // spot there (CODE-5), so a missing fix just opens the default view.
+    final start = await resolveScheduledPoint(_pickupController.text) ??
+        _initialPosition.target;
     if (!mounted) return;
     final spot = await ConfirmPickupSpot.open(
       context,
@@ -626,7 +619,7 @@ class _ScheduleRideState extends State<ScheduleRide> {
               ? const ColoredBox(color: Color(0xFFF5F6F6))
               : CustomGoogleMap(
             initialPosition: _initialPosition,
-            markers: _markers,
+            markers: ScheduleRide.mapMarkers,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,

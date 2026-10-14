@@ -137,10 +137,14 @@ bool _openReservation(String id) {
 
 /// A notification row tap: one open at a time, and a short note when the
 /// ride can no longer be opened instead of an inert row.
+///
+/// FLOW-18: an ended ride then opens where it is kept ([onEnded], the
+/// Ride History page from the Notifications screen) instead of nothing.
 Future<void> openNotificationRide(
   BuildContext context,
   String rideId, {
   NotificationRideOpener? open,
+  VoidCallback? onEnded,
 }) async {
   if (_rowTapBusy) return;
   _rowTapBusy = true;
@@ -148,6 +152,7 @@ Future<void> openNotificationRide(
     final opened = await (open ?? openRideFromNotification)(rideId);
     if (!opened && context.mounted) {
       MoveraToast.show(context, 'This ride has ended.');
+      onEnded?.call();
     }
   } finally {
     _rowTapBusy = false;

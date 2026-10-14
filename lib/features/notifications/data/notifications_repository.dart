@@ -50,6 +50,7 @@ class NotificationsRepository {
         title: title?.isNotEmpty == true ? title! : 'Movera',
         subtitle: body?.isNotEmpty == true ? body! : payload.type,
         time: _formatTime(at),
+        at: at,
         read: read,
         messageId: messageId,
         rideId: payload.rideId,
@@ -81,9 +82,25 @@ class NotificationsRepository {
     _changes.add(all());
   }
 
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  /// FLOW-18: only today's items show just the time; older ones say which
+  /// day ("Yesterday 14:05", "3 Oct 14:05", "3 Oct 2025 14:05").
   String _formatTime(DateTime time) {
     final hour = time.hour.toString().padLeft(2, '0');
     final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+    final clock = '$hour:$minute';
+    final now = _now().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(time.year, time.month, time.day);
+    final daysAgo = today.difference(day).inDays;
+    if (daysAgo <= 0) return clock;
+    if (daysAgo == 1) return 'Yesterday $clock';
+    final date = '${time.day} ${_months[time.month - 1]}';
+    if (time.year != now.year) return '$date ${time.year} $clock';
+    return '$date $clock';
   }
 }

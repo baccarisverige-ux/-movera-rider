@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/core/location/location_repository.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
@@ -38,7 +39,9 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 ///   `movera_voucher_expires`, `movera_used_vouchers`).
 /// - `movera_reservations_v1`, `movera_on_demand_ride_history_v1`,
 ///   `movera_active_ride` (the live ride snapshot, via [RideSnapshotStore]).
-/// - `movera_safety_cache_v1` (trusted contacts, PIN placeholder, ride check)
+/// - `movera_safety_cache_v1` (trusted contacts, PIN placeholder, ride check),
+///   `movera_safety_demo_v1` (the demo Safety mock's saved state; its
+///   in-memory copy is reset too)
 ///   and the `movera_ride_pin` secure-storage entry.
 /// - `movera_pending_cancels`: flushed first while the rider's own session is
 ///   still valid (sign-out only), then dropped. Once the tokens are gone no
@@ -127,6 +130,10 @@ abstract final class UserDataWipe {
     scope.accountSecurity.clearLocal();
     scope.promotion.value = null;
     SafetyController.resetShared();
+    // The demo transport's Safety "server" lives in memory and saves itself
+    // to `movera_safety_demo_v1`; without this it wrote the previous rider's
+    // PIN and contacts back after the wipe (PR-9 follow-up to FLOW-9).
+    safetyMockForProcess().reset();
     NotificationsRepository.shared.clear();
     MessagesRepository.clearAllSessions();
     LastCompletedRide.clear();
