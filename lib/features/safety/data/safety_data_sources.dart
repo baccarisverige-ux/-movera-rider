@@ -10,6 +10,7 @@ import 'package:movera_rider/features/safety/domain/ride_check.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 class SafetyCache {
   SafetyCache({
@@ -179,7 +180,9 @@ class PreferencesSafetyLocalDataSource implements SafetyLocalDataSource {
     }
     try {
       await _persist(cache);
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning('safety.persist_failed', extra: {'error': '$error'});
+    }
   }
 
   Future<void> _persist(

@@ -7,9 +7,9 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/realtime/mock_driver_pool.dart';
 import 'package:movera_rider/core/realtime/realtime_connection.dart';
 import 'package:movera_rider/core/realtime/ride_realtime.dart';
-import 'package:movera_rider/features/finding_driver/domain/driver_eta.dart';
-import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/maps/geo_distance.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
 
 /// Mock matching transport. Assignment is an event, not a widget timer.
 class MockRideRealtime implements RideRealtime {
@@ -332,7 +332,7 @@ class MockRideRealtime implements RideRealtime {
       lastLng = lastLng! + (pickupLng - lastLng!) * 0.18;
       lastLocationAt = DateTime.now();
       var status = RideStatus.driverArriving;
-      final distance = DriverEta.metersBetween(
+      final distance = GeoDistance.metersBetween(
         lastLat!,
         lastLng!,
         pickupLat,
@@ -555,8 +555,8 @@ class MockRideRealtime implements RideRealtime {
     if (lat == null || lng == null || pickupLat == null || pickupLng == null) {
       return null;
     }
-    return DriverEta.secondsForDistance(
-      DriverEta.metersBetween(lat, lng, pickupLat, pickupLng),
+    return GeoDistance.urbanSecondsForDistance(
+      GeoDistance.metersBetween(lat, lng, pickupLat, pickupLng),
     );
   }
 
@@ -572,7 +572,9 @@ class MockRideRealtime implements RideRealtime {
           final lng = (ride['pickupLng'] as num?)?.toDouble();
           if (lat != null && lng != null) return (lat, lng);
         }
-      } catch (_) {}
+      } catch (_) {
+        // Mock transport: fall back to the default pickup below.
+      }
     }
     return (59.3293, 18.0686);
   }
@@ -590,7 +592,9 @@ class MockRideRealtime implements RideRealtime {
           'lng': lastLng,
         },
       );
-    } catch (_) {}
+    } catch (_) {
+      // Mock transport: a lost location post is replaced by the next tick.
+    }
   }
 
   Future<void> _persistCompletion(String rideId) async {
@@ -601,7 +605,9 @@ class MockRideRealtime implements RideRealtime {
         '/api/v1/rides/$rideId/status',
         body: {'status': RideStatus.tripCompleted.name},
       );
-    } catch (_) {}
+    } catch (_) {
+      // Mock transport: completion is retried by the next status poll.
+    }
   }
 
   @override
@@ -644,7 +650,9 @@ class MockRideRealtime implements RideRealtime {
               ) ??
               lastDriver;
         }
-      } catch (_) {}
+      } catch (_) {
+        // Mock transport: keep the last driver.
+      }
     }
     // Deliver the authoritative resync status before committing it to
     // lastStatus. emit() guards against events after a terminal status; writing

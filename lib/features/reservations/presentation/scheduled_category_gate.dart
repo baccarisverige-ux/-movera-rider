@@ -79,7 +79,9 @@ Future<LatLng?> findScheduledPoint(String label) async {
     if (result != null) {
       return LatLng(result.point.latitude, result.point.longitude);
     }
-  } catch (_) {}
+  } catch (_) {
+    // Best-effort geocode: the caller treats null as "no point".
+  }
   return null;
 }
 
@@ -104,6 +106,8 @@ Future<LatLng> resolveScheduledPoint(String label) async {
     if (result != null) {
       return LatLng(result.point.latitude, result.point.longitude);
     }
-  } catch (_) {}
+  } catch (_) {
+    // Best-effort geocode: the fallback point below is used.
+  }
   return kScheduledFallbackPoint;
 }

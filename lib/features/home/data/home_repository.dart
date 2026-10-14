@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:movera_rider/core/storage/preferences_store.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 class HomeAddressSnapshot {
   HomeAddressSnapshot({
@@ -37,7 +38,12 @@ class HomeAddressRepository {
             if ((map['address'] ?? '').trim().isNotEmpty) places.add(map);
           }
         }
-      } catch (_) {}
+      } catch (error) {
+        AppLog.warning(
+          'home.saved_places_parse_failed',
+          extra: {'error': '$error'},
+        );
+      }
     }
     return HomeAddressSnapshot(
       home: prefs.getString('movera_home_address'),

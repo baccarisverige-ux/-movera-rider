@@ -14,6 +14,7 @@ import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 import 'package:movera_rider/shared/design_system/movera_toast.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 
 Future<void> showVoucherUnavailableSheet(BuildContext context) async {
   const ink = Color(0xFF11181D);
@@ -590,7 +591,9 @@ class _WalletScreenState extends State<WalletScreen> {
   Future<void> _loadCards() async {
     try {
       await _cards.load();
-    } catch (_) {}
+    } catch (error) {
+      AppLog.warning('wallet.cards_load_failed', extra: {'error': '$error'});
+    }
   }
 
   TextStyle _style(

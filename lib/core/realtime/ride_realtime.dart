@@ -1,5 +1,6 @@
-import 'package:movera_rider/features/ride_booking/domain/entities/matched_driver.dart';
-import 'package:movera_rider/features/ride_booking/domain/ride_status.dart';
+import 'package:movera_rider/core/contracts/matched_driver.dart';
+import 'package:movera_rider/core/contracts/ride_status.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 
 enum RideRealtimeSignal {
   driverArrived,
@@ -26,7 +27,8 @@ class RideRealtimeEvent {
     this.signal,
     this.message,
   })  : rideId = (tripId ?? rideId)!,
-        at = occurredAt ?? at ?? DateTime.now(),
+        // ARCH-11: client-side stamps are UTC like server ones.
+        at = occurredAt ?? at ?? WireTime.now(),
         eventId =
             eventId ??
             '${tripId ?? rideId}:$sequence:${status.name}';

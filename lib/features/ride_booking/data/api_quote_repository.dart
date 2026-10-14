@@ -4,6 +4,8 @@ import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/features/ride_booking/data/mock_quote_repository.dart';
 import 'package:movera_rider/features/ride_booking/domain/entities/quote.dart';
 import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/contracts/wire_time.dart';
 
 class ApiQuoteRepository implements QuoteRepository {
   ApiQuoteRepository({required this.api});
@@ -52,7 +54,14 @@ class ApiQuoteRepository implements QuoteRepository {
         throw const FormatException('malformed quote');
       }
       final map = Map<String, dynamic>.from(raw);
-      final total = (map['totalMinor'] ?? map['amountMinor']) as num?;
+      // ARCH-11 / contract C-0: integer minor units and an ISO-4217 code,
+      // either as a `total` Money object or as `totalMinor` + `currency`.
+      final total =
+          Money.tryParse(map['total']) ??
+          Money.tryMinor(
+            map['totalMinor'] ?? map['amountMinor'],
+            map['currency'] ?? Money.defaultCurrency,
+          );
       if (total == null) throw const FormatException('malformed quote');
       final rawId = map['quoteId'] ?? map['id'];
       if (rawId is! String || rawId.trim().isEmpty) {
@@ -62,20 +71,20 @@ class ApiQuoteRepository implements QuoteRepository {
       if (signedPayload is! String || signedPayload.trim().isEmpty) {
         throw const FormatException('quote signature missing');
       }
-      final expires = DateTime.tryParse(map['expiresAt'] as String? ?? '');
+      final expires = WireTime.tryParse(map['expiresAt']);
       if (expires == null) throw const FormatException('quote expiry missing');
       final quote = RideQuote(
         id: rawId.trim(),
         rideType: (map['rideType'] ?? rideType).toString(),
-        totalMinor: total.round(),
-        currency: (map['currency'] ?? 'SEK').toString(),
+        totalMinor: total.amountMinor,
+        currency: total.currency,
         expiresAt: expires,
         baseMinor:
             (map['breakdown'] is Map
                     ? (map['breakdown']['baseMinor'] as num?)
                     : null)
                 ?.round() ??
-            total.round(),
+            total.amountMinor,
         distanceMinor:
             (map['breakdown'] is Map
                     ? (map['breakdown']['distanceMinor'] as num?)

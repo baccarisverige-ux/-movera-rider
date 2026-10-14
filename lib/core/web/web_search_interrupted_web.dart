@@ -17,14 +17,18 @@ web.Storage? get _storage {
 void webMarkSearchLive() {
   try {
     _storage?.setItem(_key, '1');
-  } catch (_) {}
+  } catch (_) {
+    // Storage blocked (private mode): the notice is best-effort.
+  }
 }
 
 /// The ride ended on purpose; there is nothing to apologise for next time.
 void webClearSearchLive() {
   try {
     _storage?.removeItem(_key);
-  } catch (_) {}
+  } catch (_) {
+    // Storage blocked (private mode): the notice is best-effort.
+  }
 }
 
 /// True once if a ride was still live when the previous document ended.

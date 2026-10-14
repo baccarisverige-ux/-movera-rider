@@ -165,7 +165,12 @@ class RideRestoreCoordinator {
     unawaited(() async {
       try {
         await RideSnapshotStore.clear();
-      } catch (_) {}
+      } catch (error) {
+        AppLog.warning(
+          'restore.snapshot_clear_failed',
+          extra: {'error': '$error'},
+        );
+      }
     }());
     // Normal pushed ride flows already reveal the existing Home when the
     // navigator pops to root. Rebuilding the root Home again causes a visible
@@ -192,7 +197,12 @@ class RideRestoreCoordinator {
     unawaited(() async {
       try {
         await RideSnapshotStore.touchCurrent();
-      } catch (_) {}
+      } catch (error) {
+        AppLog.warning(
+          'restore.snapshot_touch_failed',
+          extra: {'error': '$error'},
+        );
+      }
     }());
   }
 
@@ -341,7 +351,12 @@ class RideRestoreCoordinator {
       try {
         snapshot = await _reader();
         _noteDropped(surfaceFor(snapshot));
-      } catch (_) {}
+      } catch (error) {
+        AppLog.warning(
+          'restore.snapshot_read_failed',
+          extra: {'error': '$error'},
+        );
+      }
       showing = RestoredSurface.home;
       reportRestoreSurface(RestoredSurface.home.name);
       unawaited(RideSnapshotStore.clear());
@@ -493,10 +508,17 @@ class RideRestoreCoordinator {
     if (id != null) {
       try {
         await _resync(id);
-      } catch (_) {}
+      } catch (error) {
+        AppLog.warning('restore.resync_failed', extra: {'error': '$error'});
+      }
       try {
         snapshot = await _reader();
-      } catch (_) {}
+      } catch (error) {
+        AppLog.warning(
+          'restore.snapshot_read_failed',
+          extra: {'error': '$error'},
+        );
+      }
     }
     snapshot = await _dropIfCancelQueued(snapshot);
     if (!atRoot) return null;
