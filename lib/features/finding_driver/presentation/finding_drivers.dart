@@ -815,8 +815,14 @@ class _FindingDriversState extends State<FindingDrivers> {
                         label: 'Collapse',
                       ),
                     ],
-                    const Spacer(),
-                    SafetyKitMapButton(rideId: _match.ride.rideId),
+                    // UI-10: the Safety Kit button gets the rest of the row
+                    // (right-aligned) and never pushes past the screen edge.
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SafetyKitMapButton(rideId: _match.ride.rideId),
+                      ),
+                    ),
                   ],
                 ),
               ),
