@@ -42,11 +42,16 @@ class PickupMapController {
   final LocationRepository location;
   final AppGeocoding geocoding;
   final StaleGuard _stale = StaleGuard();
-  bool resolving = false;
+  int _inFlight = 0;
 
+  /// A lookup is running.
+  bool get resolving => _inFlight > 0;
+
+  /// The address at [position]. A newer call supersedes an older one: the
+  /// older returns null. A call made while another runs is not dropped, so
+  /// the pin's latest point always gets its own lookup (RIDE-12).
   Future<String?> reverse(LatLng position) async {
-    if (resolving) return null;
-    resolving = true;
+    _inFlight += 1;
     final generation = _stale.next();
     try {
       final address = await geocoding.reverseGeocodeAddress(
@@ -64,7 +69,7 @@ class PickupMapController {
     } catch (_) {
       return null;
     } finally {
-      resolving = false;
+      _inFlight -= 1;
     }
   }
 

@@ -10,6 +10,7 @@ import 'package:movera_rider/features/messages/application/messages_controller.d
 import 'package:movera_rider/features/messages/presentation/chat.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
+import 'package:movera_rider/features/wallet/domain/wallet_split.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 String shortPickupPlace(String value) {
@@ -99,6 +100,7 @@ class WaitingRideDetailsCard extends StatelessWidget {
     this.destinationAddress,
     this.inTrip = false,
     required this.paymentMethod,
+    this.walletAmountMinor = 0,
     required this.price,
     required this.onMore,
   });
@@ -108,6 +110,9 @@ class WaitingRideDetailsCard extends StatelessWidget {
   final String? destinationAddress;
   final bool inTrip;
   final String paymentMethod;
+
+  /// The part of [price] booked to the Movera Wallet, in öre.
+  final int walletAmountMinor;
   final double price;
   final VoidCallback onMore;
 
@@ -147,7 +152,11 @@ class WaitingRideDetailsCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$paymentMethod · ${price.round()} kr',
+                  bookedPaymentLine(
+                    paymentMethod: paymentMethod,
+                    priceKr: price,
+                    walletMinor: walletAmountMinor,
+                  ),
                   style: waitingText(
                     12,
                     weight: FontWeight.w500,

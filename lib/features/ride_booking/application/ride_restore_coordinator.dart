@@ -222,6 +222,7 @@ class RideRestoreCoordinator {
           rideType: snapshot.rideType,
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
+          walletAmountMinor: snapshot.walletAmountMinor,
           notes: snapshot.notes,
           stops: snapshot.stops,
         );
@@ -234,6 +235,7 @@ class RideRestoreCoordinator {
           rideType: snapshot.rideType,
           price: snapshot.price,
           paymentMethod: snapshot.paymentMethod,
+          walletAmountMinor: snapshot.walletAmountMinor,
           notes: snapshot.notes,
           stops: snapshot.stops,
           driver: snapshot.driver,
@@ -346,6 +348,7 @@ class RideRestoreCoordinator {
       rideType: snapshot.rideType,
       price: snapshot.price,
       paymentMethod: snapshot.paymentMethod,
+      walletAmountMinor: snapshot.walletAmountMinor,
       notes: snapshot.notes,
       realtime: realtime,
     );

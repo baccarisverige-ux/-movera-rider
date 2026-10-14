@@ -170,6 +170,8 @@ class BookingCoordinator {
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
     List<RouteStop> stops = const <RouteStop>[],
+    bool useWalletFirst = false,
+    int walletAmountMinor = 0,
   }) {
     if (_inflight != null) return _inflight!;
     if (_findingAlreadyActive) {
@@ -194,6 +196,8 @@ class BookingCoordinator {
       paymentMethodLabel: paymentMethodLabel,
       notes: notes,
       stops: stops,
+      useWalletFirst: useWalletFirst,
+      walletAmountMinor: walletAmountMinor,
     );
     _inflight = started;
     started.then<void>(
@@ -225,6 +229,8 @@ class BookingCoordinator {
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
     List<RouteStop> stops = const <RouteStop>[],
+    bool useWalletFirst = false,
+    int walletAmountMinor = 0,
   }) async {
     final baseIntent = jsonEncode(<String, Object?>{
       'pickupAddress': pickupAddress,
@@ -237,6 +243,7 @@ class BookingCoordinator {
       'paymentMethodId': paymentMethod,
       'notes': notes.toJson(),
       'stops': [for (final stop in stops) stop.toJson()],
+      'useWalletFirst': useWalletFirst,
     });
 
     final binding = await _resolveQuoteBinding(
@@ -255,6 +262,11 @@ class BookingCoordinator {
       quoteTotalMinor: quoteTotalMinor,
     );
     final effectivePrice = binding.totalMinor / 100;
+    // "Use wallet balance first": the part the rider was shown, never more
+    // than the fare, and nothing when the rider switched it off.
+    final walletMinor = useWalletFirst
+        ? walletAmountMinor.clamp(0, binding.totalMinor).toInt()
+        : 0;
 
     final intentKey = jsonEncode(<String, Object?>{
       'operation': 'submitFinding',
@@ -264,6 +276,7 @@ class BookingCoordinator {
       'quoteSignedPayload': binding.signedPayload,
       'quoteExpiresAt': binding.expiresAt.toUtc().toIso8601String(),
       'quoteTotalMinor': binding.totalMinor,
+      'walletAmountMinor': walletMinor,
     });
     final attempt = _attemptFor(intentKey);
 
@@ -286,6 +299,8 @@ class BookingCoordinator {
         paymentMethodLabel: paymentMethodLabel,
         notes: notes,
         stops: stops,
+        useWalletFirst: useWalletFirst,
+        walletAmountMinor: walletMinor,
         attempt: attempt,
       );
       if (identical(_attempt, attempt)) _attempt = null;
@@ -404,6 +419,8 @@ class BookingCoordinator {
     String? paymentMethodLabel,
     RideNotes notes = RideNotes.empty,
     List<RouteStop> stops = const <RouteStop>[],
+    bool useWalletFirst = false,
+    int walletAmountMinor = 0,
     required BookingAttempt attempt,
   }) async {
     if (quoteId.trim().isEmpty ||
@@ -436,6 +453,10 @@ class BookingCoordinator {
         // with the booking rather than stopping at the selection screen.
         'notes': notes.toJson(),
         if (stops.isNotEmpty) 'stops': [for (final stop in stops) stop.toJson()],
+        // ARCH-5 / contract C-3: the wallet split the rider was shown is a
+        // booking intent the server applies, not presentation state.
+        'useWalletFirst': useWalletFirst,
+        'walletAmountMinor': walletAmountMinor,
       },
       idempotencyKey: key,
     );
@@ -466,6 +487,7 @@ class BookingCoordinator {
         paymentMethod: paymentMethodLabel ?? paymentMethod,
         rideId: id,
         notes: notes,
+        walletAmountMinor: _walletMinorFrom(json) ?? walletAmountMinor,
       ),
     );
 
@@ -476,6 +498,13 @@ class BookingCoordinator {
     if (collisionAfterCommit != null) return collisionAfterCommit;
 
     return id;
+  }
+
+  /// The wallet part the server accepted, when it says.
+  int? _walletMinorFrom(Map<String, dynamic> json) {
+    final ride = json['ride'];
+    if (ride is! Map) return null;
+    return (ride['walletAmountMinor'] as num?)?.round();
   }
 
   Future<String?> _standDownIfFindingOwned({
