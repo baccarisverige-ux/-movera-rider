@@ -186,7 +186,8 @@ class _PriceBumpCardState extends State<PriceBumpCard> {
             hintStyle: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF9AA3A9),
+              // UI-6: was 0xFF9AA3A9 (2.41:1 on the 0xFFF6F8FA fill).
+              color: MoveraTokens.subtleOnFill,
             ),
             suffixText: 'kr',
             suffixStyle: GoogleFonts.poppins(

@@ -11,6 +11,13 @@ abstract final class MoveraTokens {
 
   /// Body-text muted grey. 0xFF5C656C is ≥ 4.5:1 on white and on 0xFFF1F5F7.
   static const Color muted = Color(0xFF5C656C);
+
+  /// UI-6: the lightest grey for text on white (≥ 4.5:1 on 0xFFFFFFFF only).
+  static const Color subtle = Color(0xFF6E777F);
+
+  /// UI-6: the lightest grey for text on the soft fills 0xFFF3F4F5 and
+  /// 0xFFF6F8FA (≥ 4.5:1 on both, and on white).
+  static const Color subtleOnFill = Color(0xFF687179);
   static const double radiusSheet = 28;
   static const double buttonHeight = 56;
   static const Duration motion = Duration(milliseconds: 260);
