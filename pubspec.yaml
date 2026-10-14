@@ -35,7 +35,6 @@ dependencies:
   web: ^1.1.1
 
   flutter_screenutil: ^5.9.3
-  get: ^4.7.2
   google_fonts: ^8.2.1
   flutter_svg: ^2.2.1
   pinput: ^5.0.1
@@ -46,7 +45,6 @@ dependencies:
   google_maps_flutter: ^2.13.1
   pointer_interceptor: ^0.10.1+2
   geolocator: ^14.0.2
-  geocoding: ^5.0.0
   shared_preferences: ^2.5.3
   http: ^1.4.0
   flutter_secure_storage: ^9.2.4
