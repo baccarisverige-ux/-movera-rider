@@ -25,7 +25,6 @@ class RiderSideMenu extends StatelessWidget {
   static const Color _muted = Color(0xFF6B757D);
   static const Color _card = Color(0xFFF3F4F5);
   static const Color _avatarTint = Color(0xFFE6EAEE);
-  static const Color _chevron = Color(0xFFC5CBD1);
 
   Future<void> _pushPage(BuildContext context, Widget page) async {
     final nav = Navigator.of(context);
@@ -176,27 +175,37 @@ class RiderSideMenu extends StatelessWidget {
   Widget _wideCard(_MenuItem item) {
     return _tap(
       item,
-      height: 76,
+      height: 96,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.fromLTRB(20, 0, 16, 0),
         child: Row(
           children: [
-            Icon(item.icon, size: 26, color: _ink),
-            const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _text(18, weight: FontWeight.w600),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _text(18, weight: FontWeight.w600),
+                  ),
+                  if (item.detail != null) ...[
+                    const SizedBox(height: 2),
+                    item.detail!,
+                  ],
+                ],
               ),
             ),
-            item.detail ??
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 24,
-                  color: _chevron,
-                ),
+            const SizedBox(width: 12),
+            Image.asset(
+              excludeFromSemantics: true,
+              item.image,
+              width: 64,
+              height: 64,
+              fit: BoxFit.contain,
+            ),
           ],
         ),
       ),
@@ -231,12 +240,18 @@ class RiderSideMenu extends StatelessWidget {
   Widget _tile(_MenuItem item) {
     return _tap(
       item,
-      height: 72,
+      height: 76,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
-            Icon(item.icon, size: 22, color: _ink),
+            Image.asset(
+              excludeFromSemantics: true,
+              item.image,
+              width: 34,
+              height: 34,
+              fit: BoxFit.contain,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: FittedBox(
@@ -282,17 +297,20 @@ class RiderSideMenu extends StatelessWidget {
         _MenuItem(
           icon: Icons.account_balance_wallet_outlined,
           title: 'Wallet',
+          image: 'assets/images/menu/wallet.png',
           detail: _walletBalance(),
           onTap: () => _pushPage(context, const WalletAndPaymentsScreen()),
         ),
         _MenuItem(
           icon: Icons.history_rounded,
           title: 'Ride History',
+          image: 'assets/images/menu/ride_history.png',
           onTap: () => _pushPage(context, RideHistory()),
         ),
         _MenuItem(
           icon: Icons.credit_card_outlined,
           title: 'Payments',
+          image: 'assets/images/menu/payments.png',
           onTap: () =>
               _pushPage(context, const WalletAndPaymentsScreen(initialTab: 1)),
         ),
@@ -303,11 +321,13 @@ class RiderSideMenu extends StatelessWidget {
         _MenuItem(
           icon: Icons.notifications_none_rounded,
           title: 'Notifications',
+          image: 'assets/images/menu/notifications.png',
           onTap: () => _pushPage(context, const NotificationScreen()),
         ),
         _MenuItem(
           icon: Icons.bookmark_border_rounded,
           title: 'Saved Places',
+          image: 'assets/images/menu/saved_places.png',
           onTap: () => _pushPage(context, SavedPlaces()),
         ),
       ],
@@ -315,16 +335,19 @@ class RiderSideMenu extends StatelessWidget {
         _MenuItem(
           icon: Icons.verified_user_outlined,
           title: 'Safety',
+          image: 'assets/images/menu/safety.png',
           onTap: () => _pushPage(context, const SafetyHub()),
         ),
         _MenuItem(
           icon: Icons.headset_mic_outlined,
           title: 'Support',
+          image: 'assets/images/menu/support.png',
           onTap: () => _pushPage(context, const SupportHome()),
         ),
         _MenuItem(
           icon: Icons.info_outline_rounded,
           title: 'About',
+          image: 'assets/images/menu/about.png',
           onTap: () => _pushPage(
             context,
             const HelpArticle(
@@ -348,7 +371,7 @@ class RiderSideMenu extends StatelessWidget {
         return Text(
           'kr ${balance.toStringAsFixed(0)}',
           maxLines: 1,
-          style: _text(18, weight: FontWeight.w700),
+          style: _text(15, color: _muted),
         );
       },
     );
@@ -383,12 +406,16 @@ class RiderSideMenu extends StatelessWidget {
 class _MenuItem {
   const _MenuItem({
     required this.icon,
+    required this.image,
     required this.title,
     required this.onTap,
     this.detail,
   });
 
   final IconData icon;
+
+  /// The 3D illustration shown on the card (Fluent UI Emoji, MIT).
+  final String image;
   final String title;
   final VoidCallback onTap;
 
