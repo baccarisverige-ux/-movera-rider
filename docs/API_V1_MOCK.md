@@ -114,9 +114,10 @@ Three `404`s in a row end the ride as `cancelledBySystem`; failures back off.
 - `GET /api/v1/safety/pin`, `POST /api/v1/safety/pin/rotate` (per-rider PIN; the ride-scoped `GET /rides/{id}/pin` in `docs/ride-pin-backend-contract.md` is still to come). PIN verification is a driver-app call and is not part of the rider mock (ARCH-22).
 - `GET/POST /api/v1/safety/contacts`, `PATCH/DELETE /api/v1/safety/contacts/:id`, `POST /api/v1/safety/contacts/:id/primary`
 - `POST/GET/PATCH/DELETE /api/v1/rides/:id/share`
-- `GET/PATCH /api/v1/safety/ridecheck/preferences`
-- `POST/GET /api/v1/rides/:id/safety-events`, `POST /api/v1/rides/:id/safety-events/:eventId/respond`
-- `POST /api/v1/rides/:id/safety-audio/init`, `POST /api/v1/rides/:id/safety-audio/:recordingId/complete`, `DELETE /api/v1/rides/:id/safety-audio/:recordingId`
+- `GET/PATCH /api/v1/safety/ridecheck/preferences` → `{policy: {enabled, triggers}}`. `enabled` is the rider's switch (default on). `triggers` is set by admin (Dispatch › Safety, RC6) and read-only for the rider: `{droppedFar: {enabled, meters: 500}, longStop: {enabled, minutes: 4}, offRoute: {enabled, km: 2, longerPercent: 50}, possibleCrash: {enabled}}`. A PATCH changes `enabled` only.
+- `POST /api/v1/safety/ridecheck/answers` **PROPOSED** (Ride check RC4) `{checkId, rideId, trigger: dropped_far|long_stop|off_route|possible_crash, shownAt, reason, answers: [{kind, id, label, value?, question?, at}], alert, alertId?, final, rider: {id, name?, phone?}, driver: {id?, name?, plate?, vehicle?}, trip: {rideId, pickup, destination, stops?, rideType?, status?, lastLocation?}}` → `{answer, alert?: {alertId, status: sent|updated, recipients: [admin, dispatch], ...}}`; `422 INVALID_RIDECHECK_ANSWER`. A red row (accident, someone hurt, unsafe) or Call 112 sends `alert: true` at once; a later Yes / Not sure for the same `checkId` updates that alert. Every answer (OK or not) is kept for admin's Ride check log. Audio is never part of it.
+- `POST/GET /api/v1/rides/:id/safety-events`, `POST /api/v1/rides/:id/safety-events/:eventId/respond`. A Ride check card posts its event with `payload: {kind: ridecheck, trigger, reason}`; types `unexpectedStop`, `routeDeviation`, `possibleCrash` and `droppedFar`.
+- `POST /api/v1/rides/:id/safety-audio/init`, `POST /api/v1/rides/:id/safety-audio/:recordingId/complete`, `DELETE /api/v1/rides/:id/safety-audio/:recordingId` (Safety Kit recordings). A Ride check recording calls none of these: it stays on the phone (RC5).
 
 ### Telemetry (release builds only, not mocked)
 

@@ -22,7 +22,7 @@ class HowMoveraProtectsPage extends StatelessWidget {
       ),
       (
         'RideCheck',
-        'Movera can look for unexpected stops or large route changes once the live safety service is connected.',
+        'If a trip stops for long, goes off the route or ends far from your drop-off, Movera asks if everything is OK.',
       ),
       (
         'Masked calls',

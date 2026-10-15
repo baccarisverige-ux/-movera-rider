@@ -31,6 +31,8 @@ class SafetyMockApi {
     rideCheck = _defaultRideCheck();
     events.clear();
     recordings.clear();
+    rideCheckAnswers.clear();
+    rideCheckAlerts.clear();
     lastLoggedPin = null;
   }
 
@@ -97,7 +99,7 @@ class SafetyMockApi {
     'tripShareEnabled': false,
     'tripShareMode': 'manual',
     'tripShareContactIds': <String>[],
-    'rideCheckEnabled': false,
+    'rideCheckEnabled': true,
     'version': 1,
   };
 
@@ -107,11 +109,36 @@ class SafetyMockApi {
   Map<String, dynamic> rideCheck = _defaultRideCheck();
 
   static Map<String, dynamic> _defaultRideCheck() => {
-    'enabled': false,
+    'enabled': true,
     'userId': 'rider-local',
+    'triggers': defaultRideCheckTriggers(),
   };
+
+  /// Ride check triggers as admin sets them in Dispatch › Safety (RC6), with
+  /// the app's defaults. The rider app reads them and cannot change them.
+  static Map<String, dynamic> defaultRideCheckTriggers() => {
+    'droppedFar': {'enabled': true, 'meters': 500},
+    'longStop': {'enabled': true, 'minutes': 4},
+    'offRoute': {'enabled': true, 'km': 2, 'longerPercent': 50},
+    'possibleCrash': {'enabled': true},
+  };
+
+  Map<String, dynamic> _rideCheckPolicy() => {
+    ...rideCheck,
+    'triggers': rideCheck['triggers'] is Map
+        ? rideCheck['triggers']
+        : defaultRideCheckTriggers(),
+  };
+
   final List<Map<String, dynamic>> events = [];
   final List<Map<String, dynamic>> recordings = [];
+
+  /// RC4: every Ride check answer received, latest per check, as admin's
+  /// Ride check log would keep them.
+  final List<Map<String, dynamic>> rideCheckAnswers = [];
+
+  /// RC4: alerts sent to admin and Dispatch, by alert id.
+  final Map<String, Map<String, dynamic>> rideCheckAlerts = {};
   String? lastLoggedPin;
 
   static Map<String, dynamic> _newPin({required bool required}) {
@@ -154,7 +181,7 @@ class SafetyMockApi {
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       });
       pin['required'] = preferences['pinRequired'] == true;
-      rideCheck['enabled'] = preferences['rideCheckEnabled'] == true;
+      rideCheck['enabled'] = preferences['rideCheckEnabled'] != false;
       return (status: 200, payload: {'code': 'OK', 'preferences': preferences});
     }
     if (path == '/api/v1/safety/pin' && method == 'GET') {
@@ -253,16 +280,20 @@ class SafetyMockApi {
       }
     }
     if (path == '/api/v1/safety/ridecheck/preferences' && method == 'GET') {
-      return (status: 200, payload: {'code': 'OK', 'policy': rideCheck});
+      return (status: 200, payload: {'code': 'OK', 'policy': _rideCheckPolicy()});
     }
     if (path == '/api/v1/safety/ridecheck/preferences' && method == 'PATCH') {
+      // The rider's switch only; the triggers are admin's.
       rideCheck = {
         ...rideCheck,
         'enabled': body['enabled'] == true,
         'updatedAt': DateTime.now().toUtc().toIso8601String(),
       };
       preferences['rideCheckEnabled'] = rideCheck['enabled'] == true;
-      return (status: 200, payload: {'code': 'OK', 'policy': rideCheck});
+      return (status: 200, payload: {'code': 'OK', 'policy': _rideCheckPolicy()});
+    }
+    if (path == '/api/v1/safety/ridecheck/answers' && method == 'POST') {
+      return _rideCheckAnswer(body, requestId);
     }
     final safetyEvents =
         RegExp(r'^/api/v1/rides/([^/]+)/safety-events$').firstMatch(path);
@@ -348,6 +379,89 @@ class SafetyMockApi {
       }
     }
     return null;
+  }
+}
+
+extension on SafetyMockApi {
+  /// RC4: stores the answers and, when they call for it, sends the alert to
+  /// admin and Dispatch with the rider, driver and trip details. A later
+  /// "Yes" or "Not sure" for the same check updates that alert.
+  ({int status, Map<String, dynamic> payload}) _rideCheckAnswer(
+    Map<String, dynamic> body,
+    String requestId,
+  ) {
+    final checkId = '${body['checkId'] ?? ''}'.trim();
+    final rideId = '${body['rideId'] ?? ''}'.trim();
+    if (checkId.isEmpty || rideId.isEmpty || body['answers'] is! List) {
+      return (
+        status: 422,
+        payload: {'code': 'INVALID_RIDECHECK_ANSWER', 'requestId': requestId},
+      );
+    }
+    final now = DateTime.now().toUtc().toIso8601String();
+    final record = <String, dynamic>{
+      'checkId': checkId,
+      'rideId': rideId,
+      'trigger': body['trigger'],
+      'shownAt': body['shownAt'],
+      'reason': body['reason'] ?? const {},
+      'answers': body['answers'],
+      'final': body['final'] == true,
+      'rider': body['rider'] ?? const {},
+      'driver': body['driver'] ?? const {},
+      'trip': body['trip'] ?? const {},
+      'receivedAt': now,
+    };
+    rideCheckAnswers
+      ..removeWhere((row) => row['checkId'] == checkId)
+      ..add(record);
+    // The ride's safety event carries the answers too.
+    final event = events.where((e) => e['eventId'] == checkId).firstOrNull;
+    if (event != null) {
+      event['payload'] = {
+        ...?(event['payload'] as Map?)?.cast<String, dynamic>(),
+        'answers': body['answers'],
+      };
+    }
+    Map<String, dynamic>? alert;
+    final existing = rideCheckAlerts.values.where(
+      (row) => row['checkId'] == checkId,
+    );
+    if (body['alert'] == true || existing.isNotEmpty) {
+      final current = existing.isEmpty ? null : existing.first;
+      final alertId = current?['alertId'] as String? ?? 'rca_$requestId';
+      alert = {
+        'alertId': alertId,
+        'checkId': checkId,
+        'rideId': rideId,
+        'status': current == null ? 'sent' : 'updated',
+        'recipients': const ['admin', 'dispatch'],
+        'sentAt': current?['sentAt'] ?? now,
+        'updatedAt': now,
+        'updates': ((current?['updates'] as int?) ?? -1) + 1,
+        'answers': body['answers'],
+        'rider': record['rider'],
+        'driver': record['driver'],
+        'trip': record['trip'],
+      };
+      rideCheckAlerts[alertId] = alert;
+      record['alertId'] = alertId;
+      if (event != null) {
+        event['payload'] = {
+          ...?(event['payload'] as Map?)?.cast<String, dynamic>(),
+          'alertId': alertId,
+        };
+      }
+    }
+    return (
+      status: 200,
+      payload: {
+        'code': 'OK',
+        'answer': record,
+        'alert': ?alert,
+        'requestId': requestId,
+      },
+    );
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:movera_rider/core/debug/movera_qa.dart';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -123,18 +125,38 @@ void installMatchingQaHooks({
   );
 }
 
-/// Installs `window.moveraSimulateRideCheck(type)` for debug / MOVERA_QA
-/// builds only. It queues a RideCheck event that Safety posts on its next
-/// load, so a public release must never expose it.
+void Function()? _rideCheckQaListener;
+
+/// Installs `window.moveraSimulateRideCheck(type, detail?)` for debug /
+/// MOVERA_QA builds only. `type` is a trigger (`droppedFar`, `longStop`,
+/// `offRoute`, `possibleCrash`; older event names still work) and `detail`
+/// an optional object for the reason line, e.g. `{place: 'Odenplan'}` or
+/// `{distanceMeters: 1200}`. It queues the check and tells the in-trip
+/// screen, which opens the card at once (or on its next start), so a public
+/// release must never expose it.
 void installRideCheckQaHook() {
   if (!moveraQaHooksEnabled) return;
   globalContext.setProperty(
     'moveraSimulateRideCheck'.toJS,
-    ((JSAny? type) {
+    ((JSAny? type, JSAny? detail) {
       final value = type == null || type.isUndefined || type.isNull
           ? 'unexpectedStop'
           : type.dartify().toString();
       globalContext.setProperty('_moveraPendingRideCheck'.toJS, value.toJS);
+      String? detailJson;
+      if (detail != null && !detail.isUndefined && !detail.isNull) {
+        try {
+          final raw = detail.dartify();
+          detailJson = raw is String ? raw : jsonEncode(raw);
+        } catch (_) {
+          detailJson = null;
+        }
+      }
+      globalContext.setProperty(
+        '_moveraPendingRideCheckDetail'.toJS,
+        detailJson?.toJS,
+      );
+      _rideCheckQaListener?.call();
       return true.toJS;
     }).toJS,
   );
@@ -152,6 +174,32 @@ String? pendingRideCheckType() {
   }
 }
 
+/// The optional `detail` passed with the queued check, as JSON.
+String? pendingRideCheckDetail() {
+  if (!moveraQaHooksEnabled) return null;
+  try {
+    final value = globalContext.getProperty(
+      '_moveraPendingRideCheckDetail'.toJS,
+    );
+    if (value.isUndefined || value.isNull) return null;
+    return (value as JSString).toDart;
+  } catch (_) {
+    return null;
+  }
+}
+
 void clearPendingRideCheck() {
   globalContext.setProperty('_moveraPendingRideCheck'.toJS, null);
+  globalContext.setProperty('_moveraPendingRideCheckDetail'.toJS, null);
+}
+
+/// Called whenever `moveraSimulateRideCheck` queues a check (QA builds).
+void listenForRideCheckQa(void Function()? listener) {
+  _rideCheckQaListener = listener;
+}
+
+/// Read-only Ride check state for QA scripts (`moveraRideCheckSnapshotJson`).
+void reportRideCheckSnapshot(String json) {
+  if (!moveraQaHooksEnabled) return;
+  globalContext.setProperty('moveraRideCheckSnapshotJson'.toJS, json.toJS);
 }

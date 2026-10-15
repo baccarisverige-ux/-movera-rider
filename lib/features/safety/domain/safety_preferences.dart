@@ -7,7 +7,7 @@ class SafetyPreferences {
     this.tripShareEnabled = false,
     this.tripShareMode = TripShareMode.manual,
     this.tripShareContactIds = const [],
-    this.rideCheckEnabled = false,
+    this.rideCheckEnabled = true,
     this.updatedAt,
     this.version = 1,
   });
@@ -66,7 +66,7 @@ class SafetyPreferences {
       tripShareContactIds: ids is List
           ? ids.map((item) => '$item').toList()
           : const [],
-      rideCheckEnabled: json['rideCheckEnabled'] == true,
+      rideCheckEnabled: json['rideCheckEnabled'] != false,
       updatedAt: DateTime.tryParse('${json['updatedAt'] ?? ''}'),
       version: json['version'] is int ? json['version'] as int : 1,
     );

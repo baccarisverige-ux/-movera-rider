@@ -25,4 +25,10 @@ void installRideCheckQaHook() {}
 
 String? pendingRideCheckType() => null;
 
+String? pendingRideCheckDetail() => null;
+
 void clearPendingRideCheck() {}
+
+void listenForRideCheckQa(void Function()? listener) {}
+
+void reportRideCheckSnapshot(String json) {}

@@ -7,6 +7,7 @@ import 'package:movera_rider/features/safety/data/secure_ride_pin_store.dart';
 import 'package:movera_rider/features/safety/domain/audio_recording.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
@@ -232,6 +233,12 @@ abstract class SafetyRemoteDataSource {
     required String eventId,
     required String action,
   });
+  /// RC4: the rider's Ride check answers, with rider, driver and trip
+  /// details. Alerts the Movera safety team when [submission] says so.
+  Future<RideCheckReceipt> postRideCheckAnswers(
+    RideCheckSubmission submission, {
+    String? idempotencyKey,
+  });
   Future<AudioRecording> initAudio({required String rideId, String? idempotencyKey});
   Future<AudioRecording> completeAudio({
     required String rideId,
@@ -416,6 +423,19 @@ class ApiSafetyRemoteDataSource implements SafetyRemoteDataSource {
       idempotencyKey: newIdempotencyKey('safety-respond'),
     );
     return RideCheckEvent.fromJson(_map(json['event'] ?? json));
+  }
+
+  @override
+  Future<RideCheckReceipt> postRideCheckAnswers(
+    RideCheckSubmission submission, {
+    String? idempotencyKey,
+  }) async {
+    final json = await _api.post(
+      '/api/v1/safety/ridecheck/answers',
+      body: submission.toJson(),
+      idempotencyKey: idempotencyKey ?? newIdempotencyKey('safety-ridecheck-answers'),
+    );
+    return RideCheckReceipt.fromJson(json);
   }
 
   @override

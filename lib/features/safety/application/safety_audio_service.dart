@@ -28,7 +28,13 @@ class SafetyAudioService {
   AudioRecording? get active => _active;
   bool get isRecording => _active?.isRecording == true;
 
-  Future<AudioRecording> start({String rideId = 'ride_local'}) async {
+  /// Starts the microphone. With [deviceOnly] (Ride check, RC5) the
+  /// recording is kept on this phone only: nothing about it is sent to
+  /// Movera, not even that it exists.
+  Future<AudioRecording> start({
+    String rideId = 'ride_local',
+    bool deviceOnly = false,
+  }) async {
     if (!supported || !_recorder.supported) {
       throw const SafetyAudioException(
         'UNSUPPORTED',
@@ -44,7 +50,9 @@ class SafetyAudioService {
         'Microphone permission is required to record.',
       );
     }
-    final recording = await _store.initAudio(rideId);
+    final recording = deviceOnly
+        ? await _store.initDeviceAudio(rideId)
+        : await _store.initAudio(rideId);
     try {
       await _recorder.start(recording.id);
     } catch (_) {
@@ -79,9 +87,14 @@ class SafetyAudioService {
     }
     AudioRecording next;
     try {
-      next = await _store.completeAudio(
-        current.copyWith(localPath: path, durationMs: duration, endedAt: ended),
+      final captured = current.copyWith(
+        localPath: path,
+        durationMs: duration,
+        endedAt: ended,
       );
+      next = current.deviceOnly
+          ? await _store.completeDeviceAudio(captured)
+          : await _store.completeAudio(captured);
     } catch (_) {
       throw const SafetyAudioException(
         'SAVE_FAILED',

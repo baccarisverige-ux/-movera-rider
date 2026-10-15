@@ -33,7 +33,12 @@ class _RideCheckPageState extends State<RideCheckPage> {
 
   @override
   Widget build(BuildContext context) {
-    final on = _ctl.rideCheckPolicy.enabled;
+    final policy = _ctl.rideCheckPolicy;
+    final on = policy.enabled;
+    final t = policy.triggers;
+    final km = t.offRouteKm == t.offRouteKm.roundToDouble()
+        ? t.offRouteKm.toStringAsFixed(0)
+        : t.offRouteKm.toStringAsFixed(1);
     return SafetyScaffold(
       title: 'RideCheck',
       child: ListView(
@@ -42,7 +47,8 @@ class _RideCheckPageState extends State<RideCheckPage> {
           const Center(child: SafetyMark(SafetyMarks.rideCheck, size: 96)),
           const SizedBox(height: 16),
           Text(
-            'Choose whether to receive RideCheck alerts when live monitoring becomes available.',
+            'When something on a trip looks wrong, Ride check asks if '
+            'everything is OK. You can call 112 from it at any time.',
             textAlign: TextAlign.center,
             style: SafetyUi.text(15, color: SafetyUi.muted, height: 1.45),
           ),
@@ -76,7 +82,7 @@ class _RideCheckPageState extends State<RideCheckPage> {
           const SizedBox(height: 18),
           Container(
             decoration: SafetyUi.cardDecoration(),
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -84,25 +90,108 @@ class _RideCheckPageState extends State<RideCheckPage> {
                   'What RideCheck looks for',
                   style: SafetyUi.text(15, weight: FontWeight.w600),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
                 Text(
-                  'Unexpected long stops, major route changes, a trip continuing well past the destination, or a sudden loss of movement.',
-                  style: SafetyUi.text(
-                    13.5,
-                    color: SafetyUi.muted,
-                    height: 1.45,
-                  ),
+                  'Set by Movera.',
+                  style: SafetyUi.text(12.5, color: SafetyUi.muted),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Live route monitoring is not active yet. Turning this on saves your preference; it does not monitor this ride or send automatic alerts today.',
-                  style: SafetyUi.text(
-                    13.5,
-                    color: SafetyUi.muted,
-                    height: 1.45,
-                  ),
+                const SizedBox(height: 6),
+                _TriggerLine(
+                  title: 'Dropped far away',
+                  body:
+                      'Your trip ends more than ${t.droppedFarMeters} m from '
+                      'your drop-off.',
+                  on: t.droppedFarEnabled,
+                ),
+                _TriggerLine(
+                  title: 'Long stop',
+                  body:
+                      'The car stops for ${t.longStopMinutes} min, not at a '
+                      'planned stop or in traffic.',
+                  on: t.longStopEnabled,
+                ),
+                _TriggerLine(
+                  title: 'Off the route',
+                  body:
+                      'More than $km km off the route, or the trip '
+                      '${t.longerThanExpectedPercent}% longer than expected.',
+                  on: t.offRouteEnabled,
+                ),
+                _TriggerLine(
+                  title: 'Possible crash',
+                  body: 'A very hard stop. The card opens at once.',
+                  on: t.possibleCrashEnabled,
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            decoration: SafetyUi.cardDecoration(),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'What happens',
+                  style: SafetyUi.text(15, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'The card stays until you answer. If you tap an accident, '
+                  'someone hurt or feeling unsafe, the Movera safety team is '
+                  'alerted with the trip, driver and rider details.',
+                  style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Movera never calls 112 for you: Call 112 opens your '
+                  'phone. Audio you record is saved only on this phone.',
+                  style: SafetyUi.text(13.5, color: SafetyUi.muted, height: 1.45),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TriggerLine extends StatelessWidget {
+  const _TriggerLine({required this.title, required this.body, required this.on});
+
+  final String title;
+  final String body;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: SafetyUi.text(14, weight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(
+                  body,
+                  style: SafetyUi.text(13, color: SafetyUi.muted, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            on ? 'On' : 'Off',
+            style: SafetyUi.text(
+              13,
+              weight: FontWeight.w600,
+              color: on ? SafetyUi.accent : SafetyUi.muted,
             ),
           ),
         ],

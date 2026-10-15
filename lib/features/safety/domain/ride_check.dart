@@ -1,3 +1,5 @@
+import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+
 enum RideCheckEventType {
   unexpectedStop,
   routeDeviation,
@@ -6,26 +8,41 @@ enum RideCheckEventType {
   possibleCrash,
   manualSafetyCheck,
   resolved,
+  droppedFar,
 }
 
 enum RideCheckStatus { idle, pending, acknowledged, resolved, stale }
 
 class RideCheckPolicy {
   const RideCheckPolicy({
-    this.enabled = false,
+    this.enabled = true,
     this.userId = 'rider-local',
     this.updatedAt,
+    this.triggers = const RideCheckTriggerSettings(),
   });
 
+  /// The rider's own switch. Ride check is on unless they turn it off.
   final bool enabled;
   final String userId;
   final DateTime? updatedAt;
 
-  RideCheckPolicy copyWith({bool? enabled, String? userId, DateTime? updatedAt}) {
+  /// Set by Movera (admin); the rider app only reads them.
+  final RideCheckTriggerSettings triggers;
+
+  /// Whether [trigger] may open the card for this rider.
+  bool allows(RideCheckTrigger trigger) => enabled && triggers.isOn(trigger);
+
+  RideCheckPolicy copyWith({
+    bool? enabled,
+    String? userId,
+    DateTime? updatedAt,
+    RideCheckTriggerSettings? triggers,
+  }) {
     return RideCheckPolicy(
       enabled: enabled ?? this.enabled,
       userId: userId ?? this.userId,
       updatedAt: updatedAt ?? this.updatedAt,
+      triggers: triggers ?? this.triggers,
     );
   }
 
@@ -33,14 +50,16 @@ class RideCheckPolicy {
         'enabled': enabled,
         'userId': userId,
         'updatedAt': updatedAt?.toIso8601String(),
+        'triggers': triggers.toJson(),
       };
 
   factory RideCheckPolicy.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const RideCheckPolicy();
     return RideCheckPolicy(
-      enabled: json['enabled'] == true,
+      enabled: json['enabled'] != false,
       userId: json['userId'] as String? ?? 'rider-local',
       updatedAt: DateTime.tryParse('${json['updatedAt'] ?? ''}'),
+      triggers: RideCheckTriggerSettings.fromJson(json['triggers']),
     );
   }
 }

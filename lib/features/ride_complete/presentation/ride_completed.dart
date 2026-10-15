@@ -14,6 +14,8 @@ import 'package:movera_rider/features/ride_complete/presentation/add_tip.dart';
 import 'package:movera_rider/features/ride_complete/presentation/driver_info.dart';
 import 'package:movera_rider/features/ride_complete/presentation/give_review.dart';
 import 'package:movera_rider/features/ride_complete/presentation/trip_detail.dart';
+import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
+import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/shared/design_system/tokens.dart';
 import 'package:movera_rider/shared/widgets/realtime_connection_banner.dart';
 
@@ -166,6 +168,8 @@ class _RideCompletedState extends State<RideCompleted> {
   /// selected there is nothing to lose, so leave immediately.
   Future<void> _handleBack() async {
     if (_leaving || !mounted) return;
+    // RC5: an open Ride check card has to be answered first.
+    if (RideCheckController.shared.blocks(widget.rideId)) return;
     if (_rating == null && _tipMinor == null) {
       await _leave(submitFeedback: false);
       return;
@@ -264,7 +268,7 @@ class _RideCompletedState extends State<RideCompleted> {
           await _handleBack();
         }
       },
-      child: Scaffold(
+      child: _withRideCheck(Scaffold(
         backgroundColor: const Color(0xFFF6F5F1),
         body: SafeArea(
           child: Column(
@@ -400,9 +404,17 @@ class _RideCompletedState extends State<RideCompleted> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
+
+  /// RC1: "dropped far away" opens as the trip ends, over the summary.
+  Widget _withRideCheck(Widget screen) => Stack(
+    children: [
+      screen,
+      Positioned.fill(child: RideCheckLayer(rideId: widget.rideId)),
+    ],
+  );
 }
 
 class _CompletionHero extends StatelessWidget {

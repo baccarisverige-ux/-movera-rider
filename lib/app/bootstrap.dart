@@ -21,6 +21,7 @@ import 'package:movera_rider/features/ride_booking/application/ride_restore_coor
 import 'package:movera_rider/app/config/env.dart';
 import 'package:movera_rider/features/wallet/data/wallet_repository.dart';
 import 'package:movera_rider/features/ride_booking/data/web_ride_seed.dart';
+import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 
 
@@ -80,6 +81,9 @@ Future<void> bootstrap() async {
     installRideCheckQaHook();
   }
   AppScope.instance.maps.onOwnerDebug = reportMapOwner;
+  // Ride check (RC1): the trip screen checks live positions against the
+  // admin's triggers. On in the app; widget tests turn it on themselves.
+  RideCheckController.tripMonitoring = true;
 
   FlutterError.onError = (details) {
     FlutterError.presentError(details);

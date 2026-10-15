@@ -7,6 +7,8 @@ import 'package:movera_rider/features/safety/domain/audio_recording.dart';
 import 'package:movera_rider/features/safety/domain/emergency_contact.dart';
 import 'package:movera_rider/features/safety/domain/phone_e164.dart';
 import 'package:movera_rider/features/safety/domain/ride_check.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
 import 'package:movera_rider/features/safety/domain/ride_pin.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
@@ -372,10 +374,114 @@ class SafetyStore {
       (value) {
         _cache.events = [
           for (final item in _cache.events)
-            if (item.eventId == value.eventId) value else item,
+            if (item.eventId == value.eventId)
+              // RC5: the answers saved on this device stay with the event
+              // even when the server's copy does not echo them.
+              value.copyWith(payload: {...item.payload, ...value.payload})
+            else
+              item,
         ];
       },
     );
+  }
+
+  /// The Ride check events saved on this device for [rideId], without a
+  /// network call. Trip details read this, and may open before Safety has
+  /// loaded.
+  Future<List<RideCheckEvent>> cachedRideCheckEvents(String rideId) async {
+    final id = rideId.trim();
+    if (id.isEmpty) return const [];
+    final source = _loaded ? _cache : await _local.load();
+    return [
+      for (final event in source.events)
+        if (event.rideId == id && isRideCheckEvent(event)) event,
+    ];
+  }
+
+  /// RC4/RC5: keeps [submission]'s answers on the trip's Ride check event
+  /// on this device first, so the trip's details have them even when the
+  /// server cannot be reached, then sends them with the rider, driver and
+  /// trip details. A send failure is rethrown; the saved answers stay.
+  Future<RideCheckReceipt> submitRideCheckAnswers(
+    RideCheckSubmission submission,
+  ) async {
+    await _ensure();
+    RideCheckEvent? current;
+    for (final event in _cache.events) {
+      if (event.eventId == submission.checkId) current = event;
+    }
+    final base = current ??
+        RideCheckEvent(
+          eventId: submission.checkId,
+          rideId: submission.context.rideId,
+          type: submission.trigger.eventType,
+          at: submission.shownAt,
+        );
+    RideCheckEvent withAnswers(String? alertId) => base.copyWith(
+          status: submission.isFinal
+              ? RideCheckStatus.resolved
+              : submission.answers.isEmpty
+                  ? base.status
+                  : RideCheckStatus.acknowledged,
+          payload: {
+            ...base.payload,
+            'kind': rideCheckEventKind,
+            'trigger': submission.trigger.wire,
+            'reason': submission.reason.toJson(),
+            'answers': [for (final a in submission.answers) a.toJson()],
+            'answeredAt': DateTime.now().toUtc().toIso8601String(),
+            if (alertId != null) 'alertId': alertId,
+          },
+        );
+    void keep(RideCheckEvent next) {
+      _cache.events = [
+        for (final event in _cache.events)
+          if (event.eventId != next.eventId) event,
+        next,
+      ];
+    }
+
+    final existingAlert = base.payload['alertId'];
+    keep(withAnswers(
+      submission.alertId ?? (existingAlert is String ? existingAlert : null),
+    ));
+    await _local.save(_cache);
+    final receipt = await _remote.postRideCheckAnswers(submission);
+    if (receipt.alertId != null) {
+      keep(withAnswers(receipt.alertId));
+      await _local.save(_cache);
+    }
+    return receipt;
+  }
+
+  /// RC5: a Ride check recording is kept on this device only. No server
+  /// call is made for it, not even its metadata.
+  Future<AudioRecording> initDeviceAudio(String rideId) async {
+    await _ensure();
+    final rec = AudioRecording(
+      id: 'aud_${newRequestId()}',
+      rideId: rideId,
+      createdAt: DateTime.now().toUtc(),
+      uploadStatus: AudioUploadStatus.localOnly,
+      deviceOnly: true,
+    );
+    _cache.recordings = [..._cache.recordings, rec];
+    await _local.save(_cache);
+    return rec;
+  }
+
+  Future<AudioRecording> completeDeviceAudio(AudioRecording recording) async {
+    await _ensure();
+    final next = recording.copyWith(
+      endedAt: recording.endedAt ?? DateTime.now().toUtc(),
+      uploadStatus: AudioUploadStatus.localOnly,
+    );
+    _cache.recordings = [
+      for (final item in _cache.recordings)
+        if (item.id == next.id) next else item,
+    ];
+    await _local.save(_cache);
+    return next;
   }
 
   Future<AudioRecording> initAudio(String rideId) {
@@ -429,7 +535,7 @@ class SafetyStore {
     await _ensure();
     _cache.recordings = _cache.recordings.where((r) => r.id != recording.id).toList();
     await _local.save(_cache);
-    if (recording.rideId != null) {
+    if (recording.rideId != null && !recording.deviceOnly) {
       await _remote.deleteAudio(rideId: recording.rideId!, recordingId: recording.id);
     }
   }

@@ -13,6 +13,7 @@ class AudioRecording {
     this.uploadStatus = AudioUploadStatus.localOnly,
     this.remoteId,
     this.encryptionState = AudioEncryptionState.local,
+    this.deviceOnly = false,
   });
 
   final String id;
@@ -24,6 +25,9 @@ class AudioRecording {
   final AudioUploadStatus uploadStatus;
   final String? remoteId;
   final AudioEncryptionState encryptionState;
+
+  /// Ride check recordings (RC5): never sent to or registered with Movera.
+  final bool deviceOnly;
 
   bool get isRecording => endedAt == null && createdAt != null;
 
@@ -37,6 +41,7 @@ class AudioRecording {
     AudioUploadStatus? uploadStatus,
     String? remoteId,
     AudioEncryptionState? encryptionState,
+    bool? deviceOnly,
   }) {
     return AudioRecording(
       id: id ?? this.id,
@@ -48,6 +53,7 @@ class AudioRecording {
       uploadStatus: uploadStatus ?? this.uploadStatus,
       remoteId: remoteId ?? this.remoteId,
       encryptionState: encryptionState ?? this.encryptionState,
+      deviceOnly: deviceOnly ?? this.deviceOnly,
     );
   }
 
@@ -61,6 +67,7 @@ class AudioRecording {
         'uploadStatus': uploadStatus.name,
         'remoteId': remoteId,
         'encryptionState': encryptionState.name,
+        if (deviceOnly) 'deviceOnly': true,
       };
 
   factory AudioRecording.fromJson(Map<String, dynamic> json) {
@@ -80,6 +87,7 @@ class AudioRecording {
         (value) => value.name == json['encryptionState'],
         orElse: () => AudioEncryptionState.local,
       ),
+      deviceOnly: json['deviceOnly'] == true,
     );
   }
 }

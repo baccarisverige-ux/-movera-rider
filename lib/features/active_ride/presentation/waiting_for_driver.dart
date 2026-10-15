@@ -12,6 +12,7 @@ import 'package:movera_rider/features/ride_booking/domain/route_stop.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/app/router/ride_navigator.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/core/maps/geo_point.dart';
 import 'package:movera_rider/core/maps/map_owners.dart';
 import 'package:movera_rider/core/maps/route_polyline.dart';
@@ -39,8 +40,12 @@ import 'package:movera_rider/core/realtime/ride_realtime.dart';
 import 'package:movera_rider/features/ride_complete/presentation/ride_completed.dart';
 import 'package:movera_rider/features/ride_booking/domain/ride_notes.dart';
 import 'package:movera_rider/features/ride_selection/presentation/select_ride_geometry.dart';
+import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_monitor.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_record.dart';
 import 'package:movera_rider/features/safety/domain/safety_event.dart';
+import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:movera_rider/shared/design_system/motion/movera_motion.dart';
 import 'package:movera_rider/shared/design_system/movera_empty_state.dart';
@@ -236,6 +241,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         initialStatus: _knownStatus(rideId),
         onChange: _onLiveTick,
       );
+      RideCheckController.shared.attachTrip(
+        _rideCheckTrip(rideId.trim()),
+        _rideCheckPlan(),
+      );
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -314,6 +323,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       _queueStageNavigation(status);
       return;
     }
+    _feedRideCheck(status);
     _maybeAnnounceArrival();
     _maybeOpenCompleted();
     _mapKey.currentState?.paintIfDue();
@@ -861,6 +871,111 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     }
   }
 
+  // ---- Ride check (RC1): live positions against the admin's triggers. ----
+
+  bool _rideCheckEnded = false;
+
+  /// "Solna centrum" from "Solna centrum, 171 45 Solna".
+  static String _placeName(String address) {
+    final first = address.split(',').first.trim();
+    return first.isEmpty ? address.trim() : first;
+  }
+
+  RideCheckPlan _rideCheckPlan() => RideCheckPlan(
+    pickup: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+    destination: GeoPoint(
+      _destinationPosition.latitude,
+      _destinationPosition.longitude,
+    ),
+    stops: [for (final stop in _stops) GeoPoint(stop.latitude, stop.longitude)],
+    destinationLabel: _placeName(_destinationAddress),
+  );
+
+  List<RideCheckPlace> _rideCheckStops() => [
+    for (final stop in _stops)
+      RideCheckPlace(
+        label: stop.address,
+        point: GeoPoint(stop.latitude, stop.longitude),
+      ),
+  ];
+
+  /// Rider, driver and trip details the safety team gets with an alert.
+  RideCheckTripContext _rideCheckTrip(String rideId) {
+    final driver = _tracking.driver ?? widget.driver;
+    String? riderName;
+    String? riderPhone;
+    try {
+      final profile = AppScope.instance.profile.profile;
+      riderName = profile.name.trim().isEmpty ? null : profile.name.trim();
+      riderPhone = profile.phone.trim().isEmpty ? null : profile.phone.trim();
+    } catch (error) {
+      // The alert still goes out with the trip and driver.
+      AppLog.warning(
+        'safety.ridecheck.profile_unavailable',
+        extra: {'error': '$error'},
+      );
+    }
+    return RideCheckTripContext(
+      rideId: rideId,
+      riderName: riderName,
+      riderPhone: riderPhone,
+      driverId: driver?.id,
+      driverName: driver?.hasFirstName == true ? driver!.displayFirstName : null,
+      driverPlate: driver?.plate,
+      driverVehicle: driver == null || driver.vehicleLabel.isEmpty
+          ? null
+          : driver.vehicleLabel,
+      pickup: RideCheckPlace(
+        label: _pickupAddress,
+        point: GeoPoint(_pickupPosition.latitude, _pickupPosition.longitude),
+      ),
+      destination: RideCheckPlace(
+        label: _placeName(_destinationAddress),
+        point: GeoPoint(
+          _destinationPosition.latitude,
+          _destinationPosition.longitude,
+        ),
+      ),
+      stops: _rideCheckStops(),
+      rideType: widget.rideType,
+      status: _tracking.status.name,
+    );
+  }
+
+  void _feedRideCheck(RideStatus status) {
+    final rideId = _rideId?.trim();
+    if (rideId == null || rideId.isEmpty) return;
+    final rideCheck = RideCheckController.shared;
+    final driver = _tracking.driver ?? widget.driver;
+    rideCheck.updateTrip(
+      rideId,
+      (trip) => trip.copyWith(
+        status: status.name,
+        driverId: driver?.id,
+        driverName: driver?.hasFirstName == true ? driver!.displayFirstName : null,
+        driverPlate: driver?.plate,
+        driverVehicle: driver == null || driver.vehicleLabel.isEmpty
+            ? null
+            : driver.vehicleLabel,
+      ),
+    );
+    final eta = _tracking.eta;
+    final lat = eta?.latitude;
+    final lng = eta?.longitude;
+    final at = eta?.locationAt;
+    if (lat == null || lng == null || at == null) return;
+    final point = GeoPoint(lat, lng);
+    if (DriverEta.isInTrip(status)) {
+      rideCheck.addSample(
+        rideId,
+        RideCheckSample(point: point, at: at, etaSeconds: eta?.seconds),
+      );
+    } else if (status.isCompletedSurface && !_rideCheckEnded) {
+      _rideCheckEnded = true;
+      unawaited(rideCheck.tripEnded(rideId, point));
+    }
+  }
+
   void _applyRouteChange(RideSnapshot updated) {
     _pickupAddress = updated.pickupAddress;
     _pickupPosition = LatLng(updated.pickupLat, updated.pickupLng);
@@ -878,6 +993,24 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       realtime.destinationLat = _destinationPosition.latitude;
       realtime.destinationLng = _destinationPosition.longitude;
     }
+    final rideId = _rideId?.trim();
+    if (rideId != null && rideId.isNotEmpty) {
+      RideCheckController.shared
+        ..replan(rideId, _rideCheckPlan())
+        ..updateTrip(
+          rideId,
+          (trip) => trip.copyWith(
+            destination: RideCheckPlace(
+              label: _placeName(_destinationAddress),
+              point: GeoPoint(
+                _destinationPosition.latitude,
+                _destinationPosition.longitude,
+              ),
+            ),
+            stops: _rideCheckStops(),
+          ),
+        );
+    }
     _sheetSignature = '';
   }
 
@@ -888,6 +1021,10 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     _settleTimer?.cancel();
     _sheetController.dispose();
     _tracking.dispose();
+    final rideId = _rideId?.trim();
+    if (rideId != null && rideId.isNotEmpty) {
+      RideCheckController.shared.detachTrip(rideId);
+    }
     setWebOverlayOpen(false);
     AppScope.instance.maps.detach(owner: MapOwners.waiting);
     super.dispose();
@@ -1063,6 +1200,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
       canPop: _leaving,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        // RC5: an open Ride check card has to be answered first.
+        if (RideCheckController.shared.blocks(_rideId)) return;
         if (_isInTrip) {
           await _openDetails();
         } else {
@@ -1090,6 +1229,14 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                       stops: _stops,
                       tracking: _tracking,
                       cameraBottomPadding: _cameraClearance(media),
+                      onTripRoute: (points) {
+                        final rideId = _rideId?.trim();
+                        if (rideId == null || rideId.isEmpty) return;
+                        RideCheckController.shared.setPlannedRoute(
+                          rideId,
+                          points,
+                        );
+                      },
                     ),
             ),
             Positioned(
@@ -1262,6 +1409,8 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
                   ),
                 ),
               ),
+            // RC3: the island grows into the Ride check card at the top.
+            Positioned.fill(child: RideCheckLayer(rideId: _rideId)),
           ],
         ),
       ),
@@ -1540,6 +1689,7 @@ class _WaitingRideMap extends StatefulWidget {
     this.stops = const <RouteStop>[],
     required this.tracking,
     this.cameraBottomPadding = 140,
+    this.onTripRoute,
   });
 
   final CameraPosition initialPosition;
@@ -1553,6 +1703,10 @@ class _WaitingRideMap extends StatefulWidget {
   /// Approximates the sheet's on-screen clearance so [fitBounds] doesn't
   /// frame the driver and target only to have the bottom sheet cover them.
   final double cameraBottomPadding;
+
+  /// The real road route of the trip, once the map has it (Ride check
+  /// measures "off the route" against it).
+  final ValueChanged<List<GeoPoint>>? onTripRoute;
 
   @override
   State<_WaitingRideMap> createState() => _WaitingRideMapState();
@@ -1978,6 +2132,12 @@ class _WaitingRideMapState extends State<_WaitingRideMap>
     // reasonable signal to tell the rider the line is approximate rather
     // than implying turn-by-turn accuracy that isn't there.
     final approximate = route.points.length <= 2;
+    if (_inTrip && !approximate) {
+      widget.onTripRoute?.call([
+        for (final point in route.points)
+          GeoPoint(point.latitude, point.longitude),
+      ]);
+    }
     setState(() {
       _polylines = styledRoute(route);
       _approximateRoute = approximate;

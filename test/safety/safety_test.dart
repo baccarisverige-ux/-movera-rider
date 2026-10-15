@@ -7,6 +7,7 @@ import 'package:movera_rider/core/api/api_client.dart';
 import 'package:movera_rider/core/api/in_process_mock_client.dart';
 import 'package:movera_rider/core/api/safety_mock_api.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/application/safety_recorder.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
@@ -21,6 +22,7 @@ import 'package:movera_rider/features/safety/domain/safety_event.dart';
 import 'package:movera_rider/features/safety/domain/safety_preferences.dart';
 import 'package:movera_rider/features/safety/domain/trip_share.dart';
 import 'package:movera_rider/features/safety/presentation/pin_verification_page.dart';
+import 'package:movera_rider/features/safety/presentation/ride_check_card.dart';
 import 'package:movera_rider/features/safety/presentation/safety_hub.dart';
 import 'package:movera_rider/features/safety/presentation/ride_safety_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -293,7 +295,7 @@ void main() {
     expect(live.status, RideCheckStatus.pending);
   });
 
-  testWidgets('Safety Kit shows a server RideCheck alert and sends resolution', (
+  testWidgets('a server RideCheck alert opens the Ride check card (not the Safety Kit) and sends resolution', (
     tester,
   ) async {
     final store = SafetyStore(
@@ -304,16 +306,33 @@ void main() {
     await ctl.load();
     final alert = await ctl.rideCheck.unexpectedStop(rideId: 'ride_alert');
 
+    // The Safety Kit no longer lists pending checks.
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(body: RideSafetyKitSheet(
         rideId: 'ride_alert', controller: ctl,
       )),
     ));
     await tester.pumpAndSettle();
-    expect(find.text('RideCheck alert'), findsOneWidget);
-    await tester.tap(find.text("I'm okay"));
-    await tester.pumpAndSettle();
     expect(find.text('RideCheck alert'), findsNothing);
+    expect(find.text("I'm okay"), findsNothing);
+
+    // The trip screen shows it as the Ride check card.
+    final rideCheck = RideCheckController.forSafety(ctl);
+    addTearDown(rideCheck.dispose);
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(body: RideCheckLayer(
+        rideId: 'ride_alert', controller: rideCheck,
+      )),
+    ));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+    expect(find.text('Is everything OK?'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey<String>('ride-check-ok')));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+    expect(find.text('Is everything OK?'), findsNothing);
 
     final confirmed = await ctl.rideCheck.refresh('ride_alert');
     expect(confirmed.single.eventId, alert.eventId);
