@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/app/router/home_history_observer.dart';
 import 'package:movera_rider/core/constants/appassets.dart';
+import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -362,6 +363,8 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     value: ReservationFormat.money(ride.cancellationFee!),
                   ),
                 ],
+                // RC5: a Ride check on this trip, with its answers.
+                RideCheckTripEntry(rideId: ride.reservationId, topSpacing: 14),
                 if (ride.status.canEdit) ...[
                   const SizedBox(height: 22),
                   ReservationEditButton(

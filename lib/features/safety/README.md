@@ -21,7 +21,8 @@ Replace only:
 Server-authoritative fields:
 
 - PIN verification and ride-start PIN status
-- RideCheck events and timestamps
+- RideCheck events and timestamps (the app detects triggers itself until the
+  server does)
 - TripShare access / `shareToken`
 - safety event status
 - future audio-upload authorization
@@ -38,6 +39,7 @@ PATCH/DELETE /api/v1/safety/contacts/{id}
 POST       /api/v1/safety/contacts/{id}/primary
 POST/GET/PATCH/DELETE /api/v1/rides/{rideId}/share
 GET/PATCH  /api/v1/safety/ridecheck/preferences
+POST       /api/v1/safety/ridecheck/answers
 POST/GET   /api/v1/rides/{rideId}/safety-events
 POST       /api/v1/rides/{rideId}/safety-events/{eventId}/respond
 POST       /api/v1/rides/{rideId}/safety-audio/init
@@ -47,4 +49,19 @@ DELETE     /api/v1/rides/{rideId}/safety-audio/{recordingId}
 
 Writes send `Idempotency-Key`. Mock PIN is cached locally so web refresh works; that cache is not production PIN storage.
 
-Hidden QA: `window.moveraSafetySnapshot()` (read-only, every build) and `window.moveraSimulateRideCheck(type)` (debug or `MOVERA_QA=true` builds only; installed from Dart, not `index.html`).
+## Ride check
+
+`RideCheckController` (application) watches the live trip with
+`RideCheckMonitor` (domain) against the admin's triggers in
+`RideCheckPolicy.triggers`: dropped far away (500 m), long stop (4 min),
+off the route (2 km or 50% longer) and possible crash. A hit opens
+`RideCheckLayer` (presentation): the dark-glass card at the top of the in-trip
+screen and the ride summary. It cannot be dismissed without an answer. Red
+rows and Call 112 alert the Movera safety team at once through
+`POST /api/v1/safety/ridecheck/answers`; a Yes or Not sure updates the alert.
+Answers are saved on the ride's safety event on this device first, so the
+trip details (`RideCheckTripEntry`) always have them. Call 112 opens the
+dialer (`tel:112`); Movera never calls. A Ride check recording uses
+`SafetyAudioService.start(deviceOnly: true)` and never reaches Movera.
+
+Hidden QA: `window.moveraSafetySnapshot()` (read-only, every build) and `window.moveraSimulateRideCheck(type, detail?)` (debug or `MOVERA_QA=true` builds only; installed from Dart, not `index.html`; see `docs/QA_HOOKS.md`).

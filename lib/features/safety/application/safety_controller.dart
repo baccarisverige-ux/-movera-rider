@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:movera_rider/core/debug/web_qa_hooks.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/safety/application/emergency_call_service.dart';
+import 'package:movera_rider/features/safety/application/ride_check_controller.dart';
 import 'package:movera_rider/features/safety/application/ride_check_service.dart';
 import 'package:movera_rider/features/safety/application/safety_audio_service.dart';
 import 'package:movera_rider/features/safety/data/safety_repository.dart';
@@ -67,6 +68,7 @@ class SafetyController extends ChangeNotifier {
       _shared = controller;
 
   static void resetShared() {
+    RideCheckController.resetShared();
     _shared?.dispose();
     _shared = null;
     SafetyStore.resetShared();
@@ -105,8 +107,7 @@ class SafetyController extends ChangeNotifier {
         : 'Manual';
   }
 
-  String rideCheckStatusLabel() =>
-      rideCheckPolicy.enabled ? 'Preference saved' : 'Off';
+  String rideCheckStatusLabel() => rideCheckPolicy.enabled ? 'On' : 'Off';
 
   List<RideCheckEvent> pendingRideCheckEvents(String rideId) =>
       rideCheck.events().where((event) =>
@@ -174,15 +175,8 @@ class SafetyController extends ChangeNotifier {
         'pinRequired': preferences.pinRequired,
       });
       _publishSnapshot();
-      final pending = pendingRideCheckType();
-      if (pending != null && pending.isNotEmpty) {
-        final type = RideCheckEventType.values.firstWhere(
-          (value) => value.name == pending,
-          orElse: () => RideCheckEventType.unexpectedStop,
-        );
-        await rideCheck.simulate(type: type);
-        clearPendingRideCheck();
-      }
+      // A check queued by `moveraSimulateRideCheck` opens on the ride's own
+      // screen (RideCheckController), not here.
     } catch (err) {
       error = 'Could not load Safety preferences.';
       AppLog.error('safety.load_failed');

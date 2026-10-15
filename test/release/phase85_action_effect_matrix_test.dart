@@ -88,6 +88,13 @@ const actions = <CertifiedAction>[
   CertifiedAction(surface: 'in_trip', control: 'ride_details', effects: {ActionEffect.navigationOnly}, evidence: 'test/ride/waiting_external_terminal_test.dart'),
   CertifiedAction(surface: 'in_trip', control: 'cancel_trip', effects: {ActionEffect.backendMutation, ActionEffect.navigationOnly}, evidence: 'test/journeys/rider_cancel_test.dart'),
   CertifiedAction(surface: 'in_trip', control: 'sheet_drag', effects: {ActionEffect.localUiOnly}, evidence: 'test/ride/waiting_external_terminal_test.dart', presentationOnly: true),
+  // Ride check card (RC2–RC5).
+  CertifiedAction(surface: 'in_trip', control: 'ride_check_call_112', effects: {ActionEffect.platformIntent, ActionEffect.backendMutation}, evidence: 'test/safety/ride_check_card_test.dart'),
+  CertifiedAction(surface: 'in_trip', control: 'ride_check_im_ok', effects: {ActionEffect.backendMutation, ActionEffect.durableLocalPersistence}, evidence: 'test/safety/ride_check_card_test.dart'),
+  CertifiedAction(surface: 'in_trip', control: 'ride_check_red_row', effects: {ActionEffect.backendMutation, ActionEffect.durableLocalPersistence}, evidence: 'test/safety/ride_check_card_test.dart'),
+  CertifiedAction(surface: 'in_trip', control: 'ride_check_follow_up_answer', effects: {ActionEffect.backendMutation, ActionEffect.durableLocalPersistence}, evidence: 'test/safety/ride_check_card_test.dart'),
+  CertifiedAction(surface: 'in_trip', control: 'ride_check_record_audio', effects: {ActionEffect.platformIntent, ActionEffect.durableLocalPersistence}, evidence: 'test/safety/ride_check_card_test.dart'),
+  CertifiedAction(surface: 'completion', control: 'ride_check_dropped_far', effects: {ActionEffect.backendMutation, ActionEffect.durableLocalPersistence}, evidence: 'test/safety/ride_check_trip_screen_test.dart'),
 
   // Completion.
   CertifiedAction(surface: 'completion', control: 'rating_star', effects: {ActionEffect.localUiOnly}, evidence: 'test/journeys/book_to_home_test.dart', presentationOnly: true),

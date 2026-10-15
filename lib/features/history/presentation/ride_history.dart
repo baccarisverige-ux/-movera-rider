@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/router/routes.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:movera_rider/app/di.dart';
+import 'package:movera_rider/features/safety/presentation/ride_check_trip_entry.dart';
 import 'package:movera_rider/features/history/application/on_demand_history_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -523,6 +524,11 @@ class _RideHistoryState extends State<RideHistory> {
                 style: _text(13.5, color: _muted),
               ),
             ],
+            // RC5: a Ride check on this trip, with its answers.
+            RideCheckTripEntry(
+              rideId: ride.reservationId.substring('ondemand-'.length),
+              topSpacing: 14,
+            ),
           ],
         ),
       ),
