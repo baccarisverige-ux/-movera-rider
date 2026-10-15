@@ -1,5 +1,7 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
 import 'package:movera_rider/shared/formatters/money.dart';
 import 'package:movera_rider/shared/formatters/place_format.dart';
 
@@ -161,5 +163,98 @@ abstract final class ReservationFormat {
 
   static String historyWhen(Reservation ride) {
     return '${cardDate(ride.scheduledPickupAt)} · ${time(ride.scheduledPickupAt)}';
+  }
+
+  /// "kr 50" for SEK; other currencies as "EUR 5".
+  static String money(Money amount) {
+    if (amount.currency == 'SEK') return formatSek(amount.amountMinor);
+    return '${amount.currency} ${amount.major.toStringAsFixed(0)}';
+  }
+
+  /// "1 h", "1 h 30 min", "45 min".
+  static String window(Duration window) {
+    final hours = window.inHours;
+    final minutes = window.inMinutes % 60;
+    if (hours == 0) return '$minutes min';
+    if (minutes == 0) return '$hours h';
+    return '$hours h $minutes min';
+  }
+
+  /// "06:55" today, else "Mon, 23 Sep, 06:55".
+  static String moment(DateTime when, {DateTime? now}) {
+    final today = now ?? DateTime.now();
+    final sameDay =
+        when.year == today.year &&
+        when.month == today.month &&
+        when.day == today.day;
+    return sameDay ? time(when) : '${weekdayDate(when)}, ${time(when)}';
+  }
+
+  /// Cancel sheet headline for [terms].
+  static String cancelTermsTitle(ReservationCancelTerms terms) {
+    final fee = terms.fee;
+    if (fee != null) return 'Cancellation fee: ${money(fee)}';
+    if (terms.freeForNow) {
+      return 'Free to cancel until ${moment(terms.freeUntil, now: terms.at)}';
+    }
+    return 'Free cancellation';
+  }
+
+  /// Cancel sheet detail for [terms].
+  static String cancelTermsBody(ReservationCancelTerms terms) {
+    final until = moment(terms.freeUntil, now: terms.at);
+    final before = window(terms.window);
+    final fee = terms.fee;
+    if (fee != null) {
+      return 'Free cancellation ended at $until, $before before pickup. '
+          'You pay ${money(fee)} if you cancel now.';
+    }
+    if (terms.freeForNow) {
+      return 'That is $before before pickup. After that, '
+          'cancelling costs ${money(terms.lateFee)}.';
+    }
+    return 'No fee to cancel this ride.';
+  }
+
+  /// "Things to know" cancellation line.
+  static String cancellationSummary(ReservationCancelTerms terms) {
+    if (!terms.lateFee.isPositive) return 'Free to cancel at any time.';
+    final before = window(terms.window);
+    final until = moment(terms.freeUntil, now: terms.at);
+    if (terms.fee != null) {
+      return 'Free cancellation ended at $until, $before before pickup. '
+          'Cancelling now costs ${money(terms.fee!)}.';
+    }
+    if (terms.freeForNow) {
+      return 'Free until $until ($before before pickup). '
+          'After that, cancelling costs ${money(terms.lateFee)}.';
+    }
+    return 'No fee to cancel this ride.';
+  }
+
+  /// The admin cancel rule in one line, for the terms page.
+  static String cancelRule(ScheduledRideRules rules) {
+    if (!rules.lateCancelFee.isPositive) {
+      return 'Cancelling a scheduled ride is free.';
+    }
+    return 'Cancelling is free until ${window(rules.freeCancelWindow)} '
+        'before pickup. After that, it costs ${money(rules.lateCancelFee)}.';
+  }
+
+  static const String driverChangedTitle = 'Your driver changed';
+
+  static String driverChangedBody(
+    ReservationDriver previous,
+    ReservationDriver current,
+  ) {
+    return '${previous.displayFirstName} can no longer drive you. '
+        '${current.displayFirstName} accepted your ride.';
+  }
+
+  static const String driverLeftTitle = 'Finding a new driver';
+
+  static String driverLeftBody(ReservationDriver previous) {
+    return "${previous.displayFirstName} can no longer drive you. "
+        "We're finding you a new driver.";
   }
 }

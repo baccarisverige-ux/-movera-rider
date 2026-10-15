@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/trips/domain/trip.dart';
 import 'package:movera_rider/shared/formatters/name_format.dart';
@@ -56,15 +57,21 @@ class ReservationPlace {
 class ReservationDriver {
   const ReservationDriver({
     required this.firstName,
+    this.id,
     this.rating,
     this.vehicle,
+    this.vehicleColor,
     this.plate,
     this.photoAsset,
   });
 
   final String firstName;
+
+  /// Dispatch's id for the driver, when it sends one.
+  final String? id;
   final double? rating;
   final String? vehicle;
+  final String? vehicleColor;
   final String? plate;
   final String? photoAsset;
 
@@ -77,10 +84,27 @@ class ReservationDriver {
 
   String get initial => initialFromName(normalizedFirstName);
 
+  /// "Black Volvo XC40", or null when dispatch sent no car.
+  String? get carLabel {
+    final car = vehicle?.trim() ?? '';
+    if (car.isEmpty) return null;
+    final color = vehicleColor?.trim() ?? '';
+    return color.isEmpty ? car : '$color $car';
+  }
+
+  /// Same person: by id when both have one, else by name and plate.
+  bool isSameAs(ReservationDriver other) {
+    if (id != null && other.id != null) return id == other.id;
+    return normalizedFirstName == other.normalizedFirstName &&
+        plate == other.plate;
+  }
+
   Map<String, dynamic> toJson() => {
     'firstName': firstName,
+    if (id != null) 'id': id,
     if (rating != null) 'rating': rating,
     if (vehicle != null) 'vehicle': vehicle,
+    if (vehicleColor != null) 'vehicleColor': vehicleColor,
     if (plate != null) 'plate': plate,
     if (photoAsset != null) 'photoAsset': photoAsset,
   };
@@ -92,8 +116,10 @@ class ReservationDriver {
     if (name.isEmpty) return null;
     return ReservationDriver(
       firstName: name,
+      id: map['id'] as String?,
       rating: (map['rating'] as num?)?.toDouble(),
       vehicle: map['vehicle'] as String?,
+      vehicleColor: map['vehicleColor'] as String?,
       plate: map['plate'] as String?,
       photoAsset: map['photoAsset'] as String?,
     );
@@ -166,6 +192,7 @@ class ReservationPatch {
     this.status,
     this.driver,
     this.clearDriver = false,
+    this.previousDriver,
   });
 
   final DateTime? scheduledPickupAt;
@@ -182,6 +209,9 @@ class ReservationPatch {
   final ReservationStatus? status;
   final ReservationDriver? driver;
   final bool clearDriver;
+
+  /// The driver who handed this ride over, when the driver changes.
+  final ReservationDriver? previousDriver;
 }
 
 class Reservation {
@@ -207,6 +237,8 @@ class Reservation {
     this.cancelledAt,
     this.policyVersion,
     this.parentReservationId,
+    this.previousDriver,
+    this.cancellationFee,
   });
 
   final String reservationId;
@@ -231,6 +263,13 @@ class Reservation {
   final String? policyVersion;
   final String? parentReservationId;
 
+  /// The driver who accepted this ride before the current one, or before
+  /// the search for a new one. Kept so the rider is told the driver changed.
+  final ReservationDriver? previousDriver;
+
+  /// The fee the rider agreed to when cancelling late, if any.
+  final Money? cancellationFee;
+
   bool get driverAssigned => status.hasDriver && driver != null;
 
   bool get isSearchingDriver => status.isSearchingDriver;
@@ -238,6 +277,13 @@ class Reservation {
   bool get revealsDriver => status.isDriverOnTheWay && driver != null;
 
   bool get hasPreferences => note != null && note!.trim().isNotEmpty;
+
+  /// A different driver now has the ride than the one who accepted first.
+  bool get driverChanged {
+    final current = driver;
+    final before = previousDriver;
+    return current != null && before != null && !current.isSameAs(before);
+  }
 
   Reservation copyWith({
     DateTime? scheduledPickupAt,
@@ -260,6 +306,8 @@ class Reservation {
     String? policyVersion,
     String? parentReservationId,
     bool clearDriver = false,
+    ReservationDriver? previousDriver,
+    Money? cancellationFee,
   }) {
     return Reservation(
       reservationId: reservationId,
@@ -283,6 +331,8 @@ class Reservation {
       cancelledAt: cancelledAt ?? this.cancelledAt,
       policyVersion: policyVersion ?? this.policyVersion,
       parentReservationId: parentReservationId ?? this.parentReservationId,
+      previousDriver: previousDriver ?? this.previousDriver,
+      cancellationFee: cancellationFee ?? this.cancellationFee,
     );
   }
 
@@ -309,6 +359,8 @@ class Reservation {
     if (cancelledAt != null) 'cancelledAt': cancelledAt!.toIso8601String(),
     if (policyVersion != null) 'policyVersion': policyVersion,
     if (parentReservationId != null) 'parentReservationId': parentReservationId,
+    if (previousDriver != null) 'previousDriver': previousDriver!.toJson(),
+    if (cancellationFee != null) 'cancellationFee': cancellationFee!.toJson(),
   };
 
   static Reservation? tryParse(dynamic raw) {
@@ -361,6 +413,8 @@ class Reservation {
         cancelledAt: DateTime.tryParse(map['cancelledAt'] as String? ?? ''),
         policyVersion: map['policyVersion'] as String?,
         parentReservationId: map['parentReservationId'] as String?,
+        previousDriver: ReservationDriver.tryParse(map['previousDriver']),
+        cancellationFee: Money.tryParse(map['cancellationFee']),
       );
     } catch (_) {
       return null;

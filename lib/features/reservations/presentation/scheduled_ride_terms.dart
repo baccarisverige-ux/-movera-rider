@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
+import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
@@ -25,6 +26,7 @@ class ScheduledRideTermsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final terms =
         policy ?? controller?.policy ?? AppScope.instance.reservations.policy;
+    final rules = (controller ?? AppScope.instance.reservations).rules;
     final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: Colors.white,
@@ -51,9 +53,9 @@ class ScheduledRideTermsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Confirmed scheduled-ride fees and time windows are not available '
-                  'yet. No fee or window is assumed unless it is shown before '
-                  'booking.',
+                  '${ReservationFormat.cancelRule(rules)} Other fees and time '
+                  'windows apply only when they are shown before booking.',
+                  key: const Key('scheduled-terms-cancel-rule'),
                   style: reservationText(
                     14,
                     color: kReservationMuted,

@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/contracts/repository_authority.dart';
 import 'package:movera_rider/features/reservations/data/reservation_policy_catalog.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
@@ -44,6 +45,7 @@ class DisabledReservationRepository
   Future<Reservation> cancelReservation(
     String reservationId, {
     String? reason,
+    Money? fee,
   }) => _refuse();
 
   @override

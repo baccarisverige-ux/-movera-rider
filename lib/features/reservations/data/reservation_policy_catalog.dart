@@ -10,7 +10,7 @@ class ReservationPolicyCatalog {
     waitingSummary:
         'No included waiting period is currently published.',
     cancellationSummary:
-        'No cancellation window or fee is currently published.',
+        'Cancelling is free until the time shown on your ride. After that, the fee shown before you confirm applies.',
     pricingSummary:
         'The reserved amount is for this category and route, and updates if the trip changes.',
     sections: [
@@ -32,12 +32,12 @@ class ReservationPolicyCatalog {
       ReservationPolicySection(
         title: 'Cancellation terms',
         body:
-            'You can cancel a reservation from Upcoming ride. No free-cancellation window is currently published.',
+            'You can cancel a reservation from Upcoming ride. Cancelling is free until the free-cancellation time shown on the ride.',
       ),
       ReservationPolicySection(
         title: 'Cancellation fees',
         body:
-            'No cancellation fee is currently published. A fee must not be assumed unless it is shown in confirmed booking terms.',
+            'After the free-cancellation time, a cancellation fee applies. The amount is shown before you confirm the cancel.',
       ),
       ReservationPolicySection(
         title: 'Changes to pickup, time, or destination',

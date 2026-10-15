@@ -71,6 +71,10 @@ Times are RFC 3339 UTC. Money on new fields is integer minor units
 - `GET /api/v1/ride-types` → `{rideTypes: [{id, name, seats, etaMin, price, currency, description, badge, glyph, imageKey, order, enabled}]}` (`price` is the list price in kronor, display only).
 - `GET /api/v1/rider/promotions/active` → `{promotion}` (or `null`); display only, the discount is applied in the quote.
 
+### Scheduled-ride rules — PROPOSED
+
+- `GET /api/v1/rider/scheduled-rides/rules` → `{rules: {freeCancelMinutesBeforePickup, lateCancelFeeMinor, currency, showDriverOnAccept}}`. Set by admin (Dispatch › Reservations). The mock answers the admin defaults: free cancel until `60` min before pickup, then a `5000` öre (kr 50) fee; the rider sees the driver as soon as one accepts (`true`). Read at app start (`ReservationController.refreshRules`); the rider app keeps the same defaults (`ScheduledRideRules.defaults`) when it cannot read them. Reservations themselves stay device-only (see below), so the late-cancel fee is recorded on the device copy of the ride and not charged anywhere yet.
+
 ### Quotes
 
 - `POST /api/v1/quotes` `{rideType, pickup?, destination?, stops?, distanceMeters?, …}` → `{quote}` with `id` = `quoteId`, `rideType`, `totalMinor` = `amountMinor`, `currency`, `expiresAt` (2 minutes), `expiresInSec: 120`, `breakdown {baseMinor, distanceMinor, timeMinor, bookingFeeMinor, discountMinor}`, `signedPayload`.
