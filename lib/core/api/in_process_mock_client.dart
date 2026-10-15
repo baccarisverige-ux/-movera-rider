@@ -69,6 +69,16 @@ class InProcessMockClient extends http.BaseClient {
       'Up to kr 50 off each ride.',
     ],
   };
+  /// Rider-side scheduled-ride rules as Admin › Dispatch › Reservations
+  /// publishes them (PROPOSED). Values are the admin defaults: free cancel
+  /// until 60 min before pickup, then a kr 50 fee; the driver shows as soon
+  /// as one accepts. Tests may edit this map.
+  final Map<String, dynamic> scheduledRideRules = {
+    'freeCancelMinutesBeforePickup': 60,
+    'lateCancelFeeMinor': 5000,
+    'currency': currency,
+    'showDriverOnAccept': true,
+  };
   final Map<String, dynamic> accountSecurity = {
     'phone': '',
     'email': '',
@@ -883,6 +893,15 @@ class InProcessMockClient extends http.BaseClient {
       payload = {
         'code': 'OK',
         'promotion': activePromotion,
+        'requestId': requestId,
+      };
+    } else if (path == '/api/v1/rider/scheduled-rides/rules' &&
+        method == 'GET') {
+      // PROPOSED: the admin-set free-cancel window, late-cancel fee and
+      // driver reveal for Book for later.
+      payload = {
+        'code': 'OK',
+        'rules': Map<String, dynamic>.from(scheduledRideRules),
         'requestId': requestId,
       };
     } else if (path == '/api/v1/rider/profile' && method == 'PATCH') {

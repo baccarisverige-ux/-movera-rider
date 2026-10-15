@@ -5,6 +5,7 @@ import 'package:movera_rider/features/reservations/application/reservation_contr
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
 import 'package:movera_rider/features/reservations/presentation/home_reservation_chrono.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_live_ride.dart';
@@ -240,10 +241,48 @@ void main() {
     expect(find.text('Klockarvägen 37'), findsWidgets);
   });
 
-  testWidgets('driver details stay hidden until the driver is on the way', (
+  testWidgets('driver details show as soon as a driver accepts', (
     tester,
   ) async {
+    // Round 3 Q12: the rider sees the driver right away, not near pickup.
     final c = await seeded();
+    await c.assignMockDriver('rsv_ui', driver: realDriver);
+    await pumpPhone(
+      tester,
+      UpcomingReservationPage(reservationId: 'rsv_ui', controller: c),
+    );
+    expect(find.byKey(const Key('reservation-driver-card')), findsOneWidget);
+    expect(find.text('Amina'), findsOneWidget);
+    expect(find.text('Volvo EX40'), findsOneWidget);
+    expect(find.text('ABC 123'), findsOneWidget);
+    expect(
+      find.text('Driver details appear when your driver is on the way.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('with the admin switch off, details wait for the way there', (
+    tester,
+  ) async {
+    final c = ReservationController(
+      store: LocalReservationRepository(
+        storage: MemoryReservationStorage(),
+        nextId: () => 'rsv_ui',
+      ),
+      rules: const ScheduledRideRules(showDriverOnAccept: false),
+    );
+    await c.create(
+      ReservationDraft(
+        scheduledPickupAt: DateTime(2026, 9, 23, 6, 55),
+        pickup: const ReservationPlace(label: 'Klockarvägen 37'),
+        destination: const ReservationPlace(label: 'Arlanda Express'),
+        categoryId: 'movera',
+        categoryName: 'Movera',
+        categoryImage: 'assets/images/rides/movera.webp',
+        price: 522,
+        paymentMethod: 'Cash',
+      ),
+    );
     await c.assignMockDriver('rsv_ui', driver: realDriver);
     await pumpPhone(
       tester,

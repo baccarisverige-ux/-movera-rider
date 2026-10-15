@@ -57,6 +57,7 @@ import 'package:movera_rider/features/profile/application/profile_controller.dar
 import 'package:movera_rider/features/profile/data/account_security_repository.dart';
 import 'package:movera_rider/features/profile/data/synced_profile_repository.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
+import 'package:movera_rider/features/reservations/data/api_scheduled_ride_rules_source.dart';
 import 'package:movera_rider/features/reservations/data/disabled_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/data/mock_reservation_dispatch.dart';
@@ -162,6 +163,11 @@ class AppScope {
       // Simulated scheduled-ride dispatch: mock-transport builds only.
       mockDispatch: environment.allowsMockTransport
           ? MockReservationDispatch()
+          : null,
+      // Admin-set cancel window, late fee and driver reveal. Only asked for
+      // where Book for later is on.
+      rulesSource: flags.scheduledRides || flags.bookingLater
+          ? ApiScheduledRideRulesSource(api)
           : null,
     );
     // FLOW-7: the name, language and consents go to the server; the device
