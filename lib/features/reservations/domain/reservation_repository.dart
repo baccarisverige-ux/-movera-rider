@@ -1,3 +1,4 @@
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
 
@@ -21,7 +22,13 @@ abstract class ReservationRepository {
     ReservationPatch patch,
   );
 
-  Future<Reservation> cancelReservation(String reservationId, {String? reason});
+  /// Cancels the ride for the rider. [fee] is the late-cancel fee the rider
+  /// was shown and agreed to; null when the cancel was free.
+  Future<Reservation> cancelReservation(
+    String reservationId, {
+    String? reason,
+    Money? fee,
+  });
 
   Future<Reservation?> getReservation(String reservationId);
 
@@ -29,6 +36,9 @@ abstract class ReservationRepository {
 
   Future<List<Reservation>> getRideHistory();
 
+  /// Gives the ride to [driver], or with null sends it back to waiting for
+  /// one. A driver who loses the ride is kept as `previousDriver`, so the
+  /// rider is told when the driver changes.
   Future<Reservation> assignDriver(
     String reservationId, {
     ReservationDriver? driver,

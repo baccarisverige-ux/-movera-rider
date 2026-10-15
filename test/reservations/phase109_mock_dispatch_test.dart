@@ -198,7 +198,13 @@ class _NobodyDispatch implements ReservationDispatch {
   Duration get assignmentLead => const Duration(minutes: 30);
 
   @override
+  Duration? get acceptAfterBooking => null;
+
+  @override
   ReservationDriver? driverFor(Reservation ride) => null;
+
+  @override
+  ReservationDriver? handoverFor(Reservation ride, DateTime now) => null;
 
   @override
   void driveTrip(

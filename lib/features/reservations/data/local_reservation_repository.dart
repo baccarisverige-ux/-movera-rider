@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:movera_rider/core/contracts/money.dart';
 import 'package:movera_rider/core/storage/preferences_store.dart';
 import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/data/reservation_policy_catalog.dart';
@@ -206,6 +207,7 @@ class LocalReservationRepository implements ReservationRepository {
         status: patch.status,
         driver: patch.driver,
         clearDriver: patch.clearDriver,
+        previousDriver: patch.previousDriver,
       );
       await _commit(_replacing(reservationId, next));
       return next;
@@ -216,6 +218,7 @@ class LocalReservationRepository implements ReservationRepository {
   Future<Reservation> cancelReservation(
     String reservationId, {
     String? reason,
+    Money? fee,
   }) {
     return _oneAtATime(() async {
       await hydrate();
@@ -225,6 +228,7 @@ class LocalReservationRepository implements ReservationRepository {
         cancellationReason: reason,
         cancellationActor: TripCancellationActor.rider,
         cancelledAt: _clock().toUtc(),
+        cancellationFee: fee != null && fee.isPositive ? fee : null,
       );
       await _commit(_replacing(reservationId, next));
       return next;
@@ -257,21 +261,29 @@ class LocalReservationRepository implements ReservationRepository {
     String reservationId, {
     ReservationDriver? driver,
   }) {
-    if (driver == null) {
-      return updateReservation(
-        reservationId,
-        const ReservationPatch(
-          status: ReservationStatus.driverAssignmentPending,
-          clearDriver: true,
-        ),
-      );
-    }
-    return updateReservation(
-      reservationId,
-      ReservationPatch(
-        status: ReservationStatus.driverAssigned,
-        driver: driver,
-      ),
-    );
+    return _oneAtATime(() async {
+      await hydrate();
+      final current = _require(reservationId);
+      final leaving = current.driver;
+      // The driver who had the ride and is now losing it, if any. A repeat
+      // of the same assignment changes nothing.
+      final replaced =
+          leaving != null && (driver == null || !driver.isSameAs(leaving))
+          ? leaving
+          : null;
+      final next = driver == null
+          ? current.copyWith(
+              status: ReservationStatus.driverAssignmentPending,
+              clearDriver: true,
+              previousDriver: replaced,
+            )
+          : current.copyWith(
+              status: ReservationStatus.driverAssigned,
+              driver: driver,
+              previousDriver: replaced,
+            );
+      await _commit(_replacing(reservationId, next));
+      return next;
+    });
   }
 }

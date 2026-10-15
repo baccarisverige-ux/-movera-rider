@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:movera_rider/features/finding_driver/domain/cancellation_reason.dart';
 import 'package:movera_rider/features/finding_driver/presentation/cancel_reason_sheet.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_widgets.dart';
 import 'package:movera_rider/shared/design_system/movera_sheet.dart';
 
+/// Asks the rider to confirm cancelling [ride], showing what it costs
+/// ([terms]) before they confirm.
 Future<CancelOutcome> showCancelReservationFlow(
   BuildContext context,
-  Reservation ride,
-) async {
+  Reservation ride, {
+  required ReservationCancelTerms terms,
+}) async {
   final confirmed = await MoveraSheet.show<bool>(
     context: context,
     builder: (sheetContext) {
@@ -44,6 +48,8 @@ Future<CancelOutcome> showCancelReservationFlow(
                 height: 1.45,
               ),
             ),
+            const SizedBox(height: 14),
+            ReservationCancelTermsNote(terms: terms),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -98,4 +104,67 @@ Future<CancelOutcome> showCancelReservationFlow(
     return const CancelOutcome.keep();
   }
   return showCancelReasonSheet(context, phase: CancelPhase.reservation);
+}
+
+/// Free-until or fee line shown before the rider confirms a cancel.
+class ReservationCancelTermsNote extends StatelessWidget {
+  const ReservationCancelTermsNote({super.key, required this.terms});
+
+  final ReservationCancelTerms terms;
+
+  static const _feeTone = Color(0xFFFFF4E5);
+  static const _feeInk = Color(0xFF8A4B00);
+  static const _freeTone = Color(0xFFEAF2F8);
+
+  @override
+  Widget build(BuildContext context) {
+    final free = terms.isFree;
+    return Container(
+      key: Key(free ? 'reservation-cancel-free' : 'reservation-cancel-fee'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: free ? _freeTone : _feeTone,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              free ? Icons.event_available_rounded : Icons.receipt_long_rounded,
+              size: 20,
+              color: free ? kReservationAccent : _feeInk,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  ReservationFormat.cancelTermsTitle(terms),
+                  style: reservationText(
+                    14.5,
+                    weight: FontWeight.w700,
+                    color: free ? kReservationInk : _feeInk,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  ReservationFormat.cancelTermsBody(terms),
+                  style: reservationText(
+                    13,
+                    color: kReservationMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

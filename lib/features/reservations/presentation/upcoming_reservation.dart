@@ -7,6 +7,7 @@ import 'package:movera_rider/core/constants/appassets.dart';
 import 'package:movera_rider/features/reservations/application/reservation_controller.dart';
 import 'package:movera_rider/features/reservations/application/reservation_error_message.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
+import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/presentation/plan_return_ride.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_edit_sheets.dart';
 import 'package:movera_rider/features/reservations/presentation/reservation_format.dart';
@@ -121,9 +122,20 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
     if (_actionBusy) return;
     setState(() => _actionBusy = true);
     try {
-      final outcome = await showCancelReservationFlow(context, ride);
+      // The rider confirms against these terms, so the fee they saw is the
+      // fee recorded, even if the free window closes while the sheet is open.
+      final terms = _reservations.cancelTermsFor(ride);
+      final outcome = await showCancelReservationFlow(
+        context,
+        ride,
+        terms: terms,
+      );
       if (!outcome.cancelled) return;
-      await _reservations.cancel(ride.reservationId, reason: outcome.reasonId);
+      await _reservations.cancel(
+        ride.reservationId,
+        reason: outcome.reasonId,
+        fee: terms.fee,
+      );
     } catch (error, stack) {
       AppScope.instance.crashes.record(
         error,
@@ -178,6 +190,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
         ),
       );
     }
+    // The driver shows as soon as one accepts, unless admin turned that off.
+    final showDriver = _reservations.showsDriverOf(ride);
+    final previousDriver = ride.previousDriver;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -269,7 +284,31 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   ),
                   positive: !ride.status.isCancelled,
                 ),
-                if (ride.revealsDriver && ride.driver != null) ...[
+                if (showDriver &&
+                    ride.driverChanged &&
+                    ride.status.isUpcoming) ...[
+                  const SizedBox(height: 10),
+                  ReservationStatusBanner(
+                    key: const Key('reservation-driver-changed'),
+                    title: ReservationFormat.driverChangedTitle,
+                    body: ReservationFormat.driverChangedBody(
+                      previousDriver!,
+                      ride.driver!,
+                    ),
+                  ),
+                ] else if (ride.driver == null &&
+                    previousDriver != null &&
+                    (ride.status == ReservationStatus.scheduled ||
+                        ride.isSearchingDriver)) ...[
+                  const SizedBox(height: 10),
+                  ReservationStatusBanner(
+                    key: const Key('reservation-driver-left'),
+                    title: ReservationFormat.driverLeftTitle,
+                    body: ReservationFormat.driverLeftBody(previousDriver),
+                    positive: false,
+                  ),
+                ],
+                if (showDriver) ...[
                   const SizedBox(height: 14),
                   ReservationDriverCard(driver: ride.driver!),
                 ] else if (ride.driverAssigned) ...[
@@ -312,6 +351,15 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                     asset: AppAssets.note,
                     label: 'Preferences',
                     value: ride.note!.trim(),
+                  ),
+                ],
+                if (ride.status.isCancelled &&
+                    ride.cancellationFee != null) ...[
+                  ReservationFact(
+                    key: const Key('reservation-cancellation-fee'),
+                    asset: AppAssets.payment,
+                    label: 'Cancellation fee',
+                    value: ReservationFormat.money(ride.cancellationFee!),
                   ),
                 ],
                 if (ride.status.canEdit) ...[
@@ -380,7 +428,9 @@ class _UpcomingReservationPageState extends State<UpcomingReservationPage> {
                   const SizedBox(height: 12),
                   _KnowCard(
                     waiting: policy.waitingSummary,
-                    cancellation: policy.cancellationSummary,
+                    cancellation: ReservationFormat.cancellationSummary(
+                      _reservations.cancelTermsFor(ride),
+                    ),
                     pricing: policy.pricingSummary,
                   ),
                   const SizedBox(height: 8),
@@ -438,64 +488,134 @@ class ReservationDriverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: kReservationLine),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: kReservationSoft,
-            backgroundImage: driver.photoAsset == null
-                ? null
-                : AssetImage(driver.photoAsset!),
-            child: driver.photoAsset == null
-                ? (driver.initial.isEmpty
-                      ? const Icon(
-                          Icons.person_outline_rounded,
-                          size: 20,
-                          color: kReservationMuted,
-                        )
-                      : Text(
-                          driver.initial,
-                          style: reservationText(
-                            18,
-                            weight: FontWeight.w700,
-                          ),
-                        ))
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final car = driver.carLabel;
+    return Semantics(
+      container: true,
+      label: [
+        'Your driver ${driver.displayFirstName}',
+        if (car != null) car,
+        if (driver.plate != null) 'plate ${driver.plate}',
+      ].join(', '),
+      child: Container(
+        key: const Key('reservation-driver-card'),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: kReservationLine),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'YOUR DRIVER',
+              style: reservationText(
+                10.5,
+                weight: FontWeight.w600,
+                color: kReservationMuted,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
               children: [
-                Text(
-                  driver.displayFirstName,
-                  style: reservationText(16, weight: FontWeight.w700),
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: kReservationSoft,
+                  backgroundImage: driver.photoAsset == null
+                      ? null
+                      : AssetImage(driver.photoAsset!),
+                  child: driver.photoAsset == null
+                      ? (driver.initial.isEmpty
+                            ? const Icon(
+                                Icons.person_outline_rounded,
+                                size: 20,
+                                color: kReservationMuted,
+                              )
+                            : Text(
+                                driver.initial,
+                                style: reservationText(
+                                  18,
+                                  weight: FontWeight.w700,
+                                ),
+                              ))
+                      : null,
                 ),
-                if (driver.vehicle != null)
-                  Text(
-                    driver.vehicle!,
-                    style: reservationText(13, color: kReservationMuted),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              driver.displayFirstName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: reservationText(
+                                16,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (driver.rating != null) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 16,
+                              color: Color(0xFFE0A100),
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              driver.rating!.toStringAsFixed(2),
+                              style: reservationText(
+                                13.5,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (car != null)
+                        Text(
+                          car,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: reservationText(
+                            13,
+                            color: kReservationMuted,
+                            height: 1.35,
+                          ),
+                        ),
+                    ],
                   ),
-                if (driver.plate != null)
-                  Text(
-                    driver.plate!,
-                    style: reservationText(13, color: kReservationMuted),
+                ),
+                if (driver.plate != null) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kReservationSoft,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: kReservationLine),
+                    ),
+                    child: Text(
+                      driver.plate!,
+                      style: reservationText(
+                        13,
+                        weight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
                   ),
+                ],
               ],
             ),
-          ),
-          if (driver.rating != null)
-            Text(
-              driver.rating!.toStringAsFixed(2),
-              style: reservationText(14, weight: FontWeight.w600),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

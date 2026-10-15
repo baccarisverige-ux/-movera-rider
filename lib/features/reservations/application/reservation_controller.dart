@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:movera_rider/app/config/env.dart';
+import 'package:movera_rider/core/contracts/money.dart';
+import 'package:movera_rider/core/logging/app_log.dart';
 import 'package:movera_rider/features/reservations/data/local_reservation_repository.dart';
 import 'package:movera_rider/features/reservations/domain/reservation.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_dispatch.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_policy.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_status.dart';
 import 'package:movera_rider/features/reservations/domain/reservation_repository.dart';
+import 'package:movera_rider/features/reservations/domain/scheduled_ride_rules.dart';
 
 class ReservationController extends ChangeNotifier {
   ReservationController({
@@ -13,14 +16,23 @@ class ReservationController extends ChangeNotifier {
     DateTime Function()? clock,
     AppEnv environment = AppEnv.current,
     ReservationDispatch? mockDispatch,
+    ScheduledRideRulesSource? rulesSource,
+    ScheduledRideRules rules = ScheduledRideRules.defaults,
   }) : _store = store ?? LocalReservationRepository(),
        _clock = clock ?? DateTime.now,
        _environment = environment,
-       _mockDispatch = mockDispatch;
+       _mockDispatch = mockDispatch,
+       _rulesSource = rulesSource,
+       _rules = rules;
 
   final ReservationRepository _store;
   final DateTime Function() _clock;
   final AppEnv _environment;
+
+  /// Admin-set rider rules for scheduled rides (free-cancel window, late
+  /// fee, when the driver shows). Defaults until [refreshRules] reads them.
+  final ScheduledRideRulesSource? _rulesSource;
+  ScheduledRideRules _rules;
 
   /// Simulated dispatch (Batch 10 Phase 109). Composed in `di.dart` only for
   /// mock-transport builds, and additionally ignored here unless the
@@ -50,6 +62,35 @@ class ReservationController extends ChangeNotifier {
   List<Reservation> get all => _store.cached;
 
   ReservationPolicy get policy => _store.policy;
+
+  ScheduledRideRules get rules => _rules;
+
+  /// Reads the current rules. When they cannot be read, the ones already
+  /// held stay in force.
+  Future<void> refreshRules() async {
+    final source = _rulesSource;
+    if (source == null) return;
+    try {
+      final next = await source.fetch();
+      if (next == null || next == _rules) return;
+      _rules = next;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      AppLog.error(
+        'reservation.rules.refresh_failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// What cancelling [ride] costs the rider right now.
+  ReservationCancelTerms cancelTermsFor(Reservation ride, {DateTime? now}) =>
+      _rules.cancelTermsFor(ride, now ?? _clock());
+
+  /// Whether the rider sees [ride]'s driver: from the moment a driver
+  /// accepts, or only once on the way when admin turned that off.
+  bool showsDriverOf(Reservation ride) => _rules.showsDriverOf(ride);
 
   List<Reservation> upcoming() =>
       _store.cached.where((item) => item.status.isUpcoming).toList();
@@ -116,10 +157,16 @@ class ReservationController extends ChangeNotifier {
     return updated;
   }
 
-  Future<Reservation> cancel(String reservationId, {String? reason}) {
+  /// Cancels for the rider. [fee] is the late-cancel fee the rider was
+  /// shown and agreed to ([cancelTermsFor]); null when it was free.
+  Future<Reservation> cancel(
+    String reservationId, {
+    String? reason,
+    Money? fee,
+  }) {
     final pending = _pendingCancelByReservationId[reservationId];
     if (pending != null) return pending;
-    final future = _cancelNow(reservationId, reason: reason);
+    final future = _cancelNow(reservationId, reason: reason, fee: fee);
     _pendingCancelByReservationId[reservationId] = future;
     future
         .whenComplete(() => _pendingCancelByReservationId.remove(reservationId))
@@ -127,10 +174,15 @@ class ReservationController extends ChangeNotifier {
     return future;
   }
 
-  Future<Reservation> _cancelNow(String reservationId, {String? reason}) async {
+  Future<Reservation> _cancelNow(
+    String reservationId, {
+    String? reason,
+    Money? fee,
+  }) async {
     final updated = await _store.cancelReservation(
       reservationId,
       reason: reason,
+      fee: fee,
     );
     notifyListeners();
     return updated;
@@ -242,7 +294,12 @@ class ReservationController extends ChangeNotifier {
           _driveMockTrip(dispatch, ride);
           continue;
         }
-        if (untilPickup <= dispatch.assignmentLead &&
+        final acceptAfter = dispatch.acceptAfterBooking;
+        final acceptsNow =
+            untilPickup <= dispatch.assignmentLead ||
+            (acceptAfter != null &&
+                !currentTime.isBefore(ride.createdAt.add(acceptAfter)));
+        if (acceptsNow &&
             ride.driver == null &&
             (ride.status == ReservationStatus.scheduled ||
                 ride.status == ReservationStatus.driverAssignmentPending) &&
@@ -252,6 +309,16 @@ class ReservationController extends ChangeNotifier {
           final driver = dispatch.driverFor(ride);
           if (driver != null) {
             ride = await assignMockDriver(ride.reservationId, driver: driver);
+            changed = true;
+          }
+        } else if (ride.status == ReservationStatus.driverAssigned &&
+            ride.driver != null &&
+            untilPickup > dispatch.assignmentLead) {
+          // Simulated driver change: the repository keeps the driver who
+          // handed the ride over, and the rider sees the new one.
+          final next = dispatch.handoverFor(ride, currentTime);
+          if (next != null) {
+            ride = await assignMockDriver(ride.reservationId, driver: next);
             changed = true;
           }
         }
