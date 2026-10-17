@@ -53,8 +53,11 @@ Writes send `Idempotency-Key`. Mock PIN is cached locally so web refresh works; 
 
 `RideCheckController` (application) watches the live trip with
 `RideCheckMonitor` (domain) against the admin's triggers in
-`RideCheckPolicy.triggers`: dropped far away (500 m), long stop (4 min),
-off the route (2 km or 50% longer) and possible crash. A hit opens
+`RideCheckPolicy.triggers`: finished far from drop-off (driver taps Finish
+more than admin's `finishFarFromDropoffKm`, default 3 km, from the drop-off;
+the card opens right after finish), long stop (more than admin's
+`longStopMinutes`, default 5 min), off the route (2 km or 50% longer) and
+possible crash. A hit opens
 `RideCheckLayer` (presentation): the dark-glass card at the top of the in-trip
 screen and the ride summary. It cannot be dismissed without an answer. Red
 rows and Call 112 alert the Movera safety team at once through
@@ -63,5 +66,9 @@ Answers are saved on the ride's safety event on this device first, so the
 trip details (`RideCheckTripEntry`) always have them. Call 112 opens the
 dialer (`tel:112`); Movera never calls. A Ride check recording uses
 `SafetyAudioService.start(deviceOnly: true)` and never reaches Movera.
+
+Demo builds (`allowsMockTransport`, e.g. the live web build): Safety ›
+RideCheck › Try it (demo) plays "Driver finished far from drop-off" and
+"Long stop" through the real monitor (`RideCheckController.playDemo`).
 
 Hidden QA: `window.moveraSafetySnapshot()` (read-only, every build) and `window.moveraSimulateRideCheck(type, detail?)` (debug or `MOVERA_QA=true` builds only; installed from Dart, not `index.html`; see `docs/QA_HOOKS.md`).

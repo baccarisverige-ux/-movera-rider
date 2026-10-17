@@ -36,10 +36,10 @@ final _t0 = DateTime.utc(2026, 10, 15, 14, 0);
 
 void main() {
   group('RC1 defaults and settings', () {
-    test('the app defaults are 500 m, 4 min, 2 km / 50% and crash on', () {
+    test('the app defaults are 3 km, 5 min, 2 km / 50% and crash on', () {
       const settings = RideCheckTriggerSettings();
-      expect(settings.droppedFarMeters, 500);
-      expect(settings.longStopMinutes, 4);
+      expect(settings.finishFarFromDropoffKm, 3);
+      expect(settings.longStopMinutes, 5);
       expect(settings.offRouteKm, 2);
       expect(settings.longerThanExpectedPercent, 50);
       for (final trigger in RideCheckTrigger.values) {
@@ -52,7 +52,7 @@ void main() {
       final policy = RideCheckPolicy.fromJson({
         'enabled': true,
         'triggers': {
-          'droppedFar': {'enabled': false, 'meters': 800},
+          'droppedFar': {'enabled': false, 'km': 4.5},
           'longStop': {'enabled': true, 'minutes': 6},
           'offRoute': {'enabled': true, 'km': 3.5, 'longerPercent': 70},
           'possibleCrash': {'enabled': false},
@@ -60,7 +60,7 @@ void main() {
       });
       final t = policy.triggers;
       expect(t.droppedFarEnabled, isFalse);
-      expect(t.droppedFarMeters, 800);
+      expect(t.finishFarFromDropoffKm, 4.5);
       expect(t.longStopMinutes, 6);
       expect(t.offRouteKm, 3.5);
       expect(t.longerThanExpectedPercent, 70);
@@ -74,12 +74,12 @@ void main() {
 
     test('bad admin numbers fall back to the app defaults', () {
       final t = RideCheckTriggerSettings.fromJson({
-        'droppedFar': {'meters': -1},
+        'droppedFar': {'km': -1},
         'longStop': {'minutes': 'four'},
         'offRoute': {'km': 0},
       });
-      expect(t.droppedFarMeters, 500);
-      expect(t.longStopMinutes, 4);
+      expect(t.finishFarFromDropoffKm, 3);
+      expect(t.longStopMinutes, 5);
       expect(t.offRouteKm, 2);
     });
 
@@ -126,28 +126,72 @@ void main() {
     });
   });
 
+  group('R8-6 trigger decision (admin X km / Y min)', () {
+    test('finished far: over X km fires, at or under X km does not', () {
+      const t = RideCheckTriggerSettings();
+      expect(t.finishedFarFromDropoff(3001), isTrue);
+      expect(t.finishedFarFromDropoff(3000), isFalse);
+      expect(t.finishedFarFromDropoff(2999), isFalse);
+      const five = RideCheckTriggerSettings(finishFarFromDropoffKm: 5);
+      expect(five.finishedFarFromDropoff(4000), isFalse);
+      expect(five.finishedFarFromDropoff(5200), isTrue);
+    });
+
+    test('long stop: over Y min fires, at or under Y min does not', () {
+      const t = RideCheckTriggerSettings();
+      expect(t.isLongStop(const Duration(minutes: 5, seconds: 1)), isTrue);
+      expect(t.isLongStop(const Duration(minutes: 5)), isFalse);
+      expect(t.isLongStop(const Duration(minutes: 4, seconds: 59)), isFalse);
+      const ten = RideCheckTriggerSettings(longStopMinutes: 10);
+      expect(ten.isLongStop(const Duration(minutes: 8)), isFalse);
+      expect(ten.isLongStop(const Duration(minutes: 11)), isTrue);
+    });
+
+    test('reads admin finishFarFromDropoffKm / longStopMinutes', () {
+      final t = RideCheckTriggerSettings.fromJson({
+        'finishFarFromDropoffKm': 5,
+        'longStopMinutes': 10,
+        'droppedFar': {'enabled': true, 'km': 2},
+        'longStop': {'enabled': true, 'minutes': 3},
+      });
+      expect(t.finishFarFromDropoffKm, 5);
+      expect(t.longStopMinutes, 10);
+      // An older server's metres still read.
+      final legacy = RideCheckTriggerSettings.fromJson({
+        'droppedFar': {'meters': 800},
+      });
+      expect(legacy.finishFarFromDropoffKm, 0.8);
+      // The mock admin config serves the defaults.
+      final mock = RideCheckTriggerSettings.fromJson(
+        SafetyMockApi.defaultRideCheckTriggers(),
+      );
+      expect(mock.finishFarFromDropoffKm, 3);
+      expect(mock.longStopMinutes, 5);
+    });
+  });
+
   group('RC1 dropped far away', () {
-    test('fires when the trip ends more than 500 m from the drop-off', () {
+    test('fires when the driver finishes more than 3 km from the drop-off', () {
       final monitor = _monitor();
-      expect(monitor.tripEnded(_north(_destination, 450)), isNull);
-      final hit = _monitor().tripEnded(_north(_destination, 1200));
+      expect(monitor.tripEnded(_north(_destination, 2900)), isNull);
+      final hit = _monitor().tripEnded(_north(_destination, 3600));
       expect(hit?.trigger, RideCheckTrigger.droppedFar);
-      expect(hit!.reason.distanceMeters, closeTo(1200, 15));
+      expect(hit!.reason.distanceMeters, closeTo(3600, 40));
       expect(hit.reason.destinationLabel, 'Solna centrum');
     });
 
     test('uses the admin distance and stays quiet when off', () {
-      final far = _north(_destination, 700);
+      final far = _north(_destination, 4000);
       expect(
         _monitor(
-          settings: const RideCheckTriggerSettings(droppedFarMeters: 800),
+          settings: const RideCheckTriggerSettings(finishFarFromDropoffKm: 5),
         ).tripEnded(far),
         isNull,
       );
       expect(
         _monitor(
           settings: const RideCheckTriggerSettings(droppedFarEnabled: false),
-        ).tripEnded(_north(_destination, 3000)),
+        ).tripEnded(_north(_destination, 8000)),
         isNull,
       );
     });
@@ -180,17 +224,20 @@ void main() {
       return hit;
     }
 
-    test('fires after 4 min without moving mid-trip', () {
+    test('fires after more than 5 min without moving mid-trip', () {
       final monitor = _monitor();
       expect(
-        feed(monitor, still(stopAt, const Duration(minutes: 3, seconds: 50))),
+        feed(monitor, still(stopAt, const Duration(minutes: 5))),
         isNull,
       );
       final hit = monitor.addSample(
-        RideCheckSample(point: stopAt, at: _t0.add(const Duration(minutes: 4))),
+        RideCheckSample(
+          point: stopAt,
+          at: _t0.add(const Duration(minutes: 5, seconds: 3)),
+        ),
       );
       expect(hit?.trigger, RideCheckTrigger.longStop);
-      expect(hit!.reason.stoppedMinutes, 4);
+      expect(hit!.reason.stoppedMinutes, 5);
       // Once per trip.
       expect(
         monitor.addSample(
@@ -631,7 +678,7 @@ void main() {
       () async {
         safetyMockForProcess().rideCheck['triggers'] = {
           ...SafetyMockApi.defaultRideCheckTriggers(),
-          'longStop': {'enabled': false, 'minutes': 4},
+          'longStop': {'enabled': false, 'minutes': 5},
         };
         await safety.load();
         expect(
@@ -654,7 +701,7 @@ void main() {
         rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r1'), _plan);
         final stopAt = _north(_pickup, 2000);
         void stand() {
-          for (var s = 0; s <= 250; s += 5) {
+          for (var s = 0; s <= 310; s += 5) {
             rideCheck.addSample(
               'r1',
               RideCheckSample(
@@ -670,7 +717,7 @@ void main() {
 
         RideCheckController.tripMonitoring = true;
         rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r2'), _plan);
-        for (var s = 0; s <= 250; s += 5) {
+        for (var s = 0; s <= 310; s += 5) {
           rideCheck.addSample(
             'r2',
             RideCheckSample(
@@ -681,7 +728,7 @@ void main() {
         }
         await pumpEventQueue();
         expect(rideCheck.session?.trigger, RideCheckTrigger.longStop);
-        expect(rideCheck.session?.reason.stoppedMinutes, 4);
+        expect(rideCheck.session?.reason.stoppedMinutes, 5);
       },
     );
 
@@ -697,7 +744,7 @@ void main() {
           _plan,
         );
         expect(
-          await rideCheck.tripEnded('r3', _north(_destination, 300)),
+          await rideCheck.tripEnded('r3', _north(_destination, 2500)),
           RideCheckOpenResult.noTrigger,
         );
         rideCheck.attachTrip(
@@ -708,7 +755,7 @@ void main() {
           _plan,
         );
         expect(
-          await rideCheck.tripEnded('r4', _north(_destination, 1200)),
+          await rideCheck.tripEnded('r4', _north(_destination, 3500)),
           RideCheckOpenResult.shown,
         );
         expect(rideCheck.session!.reason.destinationLabel, 'Solna centrum');
@@ -718,5 +765,36 @@ void main() {
         );
       },
     );
+
+    test('the demo plays both scenarios with admin numbers', () async {
+      expect(
+        await rideCheck.playDemo(
+          RideCheckTrigger.droppedFar,
+          rideId: 'demo-far',
+        ),
+        RideCheckOpenResult.shown,
+      );
+      final far = rideCheck.session!;
+      expect(far.trigger, RideCheckTrigger.droppedFar);
+      expect(far.reason.distanceMeters, greaterThan(3000));
+      expect(far.reason.destinationLabel, 'Solna centrum');
+      rideCheck.imOk();
+      await rideCheck.settle();
+
+      expect(
+        await rideCheck.playDemo(RideCheckTrigger.longStop, rideId: 'demo-stop'),
+        RideCheckOpenResult.shown,
+      );
+      expect(rideCheck.session!.trigger, RideCheckTrigger.longStop);
+      expect(rideCheck.session!.reason.stoppedMinutes, 5);
+      rideCheck.imOk();
+      await rideCheck.settle();
+
+      // Played again, it opens again.
+      expect(
+        await rideCheck.playDemo(RideCheckTrigger.longStop, rideId: 'demo-stop'),
+        RideCheckOpenResult.shown,
+      );
+    });
   });
 }

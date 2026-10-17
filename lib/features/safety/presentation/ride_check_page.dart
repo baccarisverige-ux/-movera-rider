@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:movera_rider/app/di.dart';
 import 'package:movera_rider/features/safety/application/safety_controller.dart';
+import 'package:movera_rider/features/safety/domain/ride_check_trigger.dart';
+import 'package:movera_rider/features/safety/presentation/ride_check_demo_page.dart';
 import 'package:movera_rider/features/safety/presentation/safety_marks.dart';
 import 'package:movera_rider/features/safety/presentation/safety_ui.dart';
 import 'package:movera_rider/shared/design_system/adaptive_switch_colors.dart';
+import 'package:movera_rider/shared/widgets/navigation_transition.dart';
 
 class RideCheckPage extends StatefulWidget {
   const RideCheckPage({super.key, required this.controller});
@@ -39,6 +43,10 @@ class _RideCheckPageState extends State<RideCheckPage> {
     final km = t.offRouteKm == t.offRouteKm.roundToDouble()
         ? t.offRouteKm.toStringAsFixed(0)
         : t.offRouteKm.toStringAsFixed(1);
+    final finishKm =
+        t.finishFarFromDropoffKm == t.finishFarFromDropoffKm.roundToDouble()
+        ? t.finishFarFromDropoffKm.toStringAsFixed(0)
+        : t.finishFarFromDropoffKm.toStringAsFixed(1);
     return SafetyScaffold(
       title: 'RideCheck',
       child: ListView(
@@ -97,16 +105,17 @@ class _RideCheckPageState extends State<RideCheckPage> {
                 ),
                 const SizedBox(height: 6),
                 _TriggerLine(
-                  title: 'Dropped far away',
+                  title: 'Finished far from drop-off',
                   body:
-                      'Your trip ends more than ${t.droppedFarMeters} m from '
-                      'your drop-off.',
+                      'Your driver finishes the trip more than $finishKm km '
+                      'from your drop-off.',
                   on: t.droppedFarEnabled,
                 ),
                 _TriggerLine(
                   title: 'Long stop',
                   body:
-                      'The car stops for ${t.longStopMinutes} min, not at a '
+                      'The car stops for more than ${t.longStopMinutes} min, '
+                      'not at a '
                       'planned stop or in traffic.',
                   on: t.longStopEnabled,
                 ),
@@ -152,7 +161,91 @@ class _RideCheckPageState extends State<RideCheckPage> {
               ],
             ),
           ),
+          if (_demo) ...[
+            const SizedBox(height: 18),
+            Container(
+              key: const ValueKey<String>('ride-check-demo'),
+              decoration: SafetyUi.cardDecoration(),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Try it (demo)',
+                    style: SafetyUi.text(15, weight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Plays a made-up trip and shows what you would see.',
+                    style: SafetyUi.text(12.5, color: SafetyUi.muted),
+                  ),
+                  const SizedBox(height: 6),
+                  _DemoLine(
+                    title: 'Driver finished far from drop-off',
+                    onTap: () => _playDemo(RideCheckTrigger.droppedFar),
+                  ),
+                  _DemoLine(
+                    title: 'Long stop',
+                    onTap: () => _playDemo(RideCheckTrigger.longStop),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  /// Demo builds only, like the wallet's demo top-up.
+  bool get _demo {
+    try {
+      return AppScope.instance.environment.allowsMockTransport;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _playDemo(RideCheckTrigger trigger) {
+    Navigator.push(
+      context,
+      RightToLeftTransition(RideCheckDemoPage(trigger: trigger)),
+    );
+  }
+}
+
+class _DemoLine extends StatelessWidget {
+  const _DemoLine({required this.title, required this.onTap});
+
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: SafetyUi.text(14, weight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Play',
+              style: SafetyUi.text(
+                13,
+                weight: FontWeight.w600,
+                color: SafetyUi.accent,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

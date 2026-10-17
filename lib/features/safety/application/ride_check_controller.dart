@@ -191,6 +191,9 @@ class RideCheckController extends ChangeNotifier {
   bool _disposed = false;
 
   RideCheckSession? get session => _session;
+
+  /// The rider's switch and admin's triggers, as last read.
+  RideCheckPolicy get policy => _service.policy();
   RideCheckTripContext? get trip => _trip;
   bool get recording => _audio.isRecording;
   DateTime? get recordingSince => _audio.active?.createdAt;
@@ -284,6 +287,64 @@ class RideCheckController extends ChangeNotifier {
     final hit = monitor.tripEnded(end);
     if (hit == null) return RideCheckOpenResult.noTrigger;
     return open(hit.trigger, reason: hit.reason, rideId: rideId);
+  }
+
+  // ---- Demo ---------------------------------------------------------------
+
+  /// Demo trip for [playDemo]: Stockholm C to Solna centrum.
+  static const demoPlan = RideCheckPlan(
+    pickup: GeoPoint(59.3303, 18.0586),
+    destination: GeoPoint(59.3600, 18.0000),
+    destinationLabel: 'Solna centrum',
+  );
+
+  /// Plays a made-up trip for [rideId] through the real monitor and admin's
+  /// numbers, so the card opens exactly as on a live trip: the driver taps
+  /// Finish more than `finishFarFromDropoffKm` from the drop-off
+  /// ([RideCheckTrigger.droppedFar]), or the car stands still mid-trip for
+  /// more than `longStopMinutes` ([RideCheckTrigger.longStop]). The live
+  /// trip, if any, is not touched.
+  Future<RideCheckOpenResult> playDemo(
+    RideCheckTrigger trigger, {
+    required String rideId,
+  }) async {
+    final policy = _service.policy();
+    final settings = policy.triggers;
+    final monitor = RideCheckMonitor(settings: settings, plan: demoPlan);
+    RideCheckDetection? hit;
+    switch (trigger) {
+      case RideCheckTrigger.droppedFar:
+        // Finish 600 m past admin's distance, due north of the drop-off.
+        final meters = settings.finishFarFromDropoffKm * 1000 + 600;
+        hit = monitor.tripEnded(
+          GeoPoint(
+            demoPlan.destination.latitude + meters / 111320,
+            demoPlan.destination.longitude,
+          ),
+        );
+      case RideCheckTrigger.longStop:
+        // Halfway along the trip, standing still one minute past admin's
+        // time.
+        const stop = GeoPoint(59.3450, 18.0300);
+        final start = _clock().toUtc().subtract(
+          Duration(minutes: settings.longStopMinutes + 1),
+        );
+        final seconds = (settings.longStopMinutes + 1) * 60;
+        for (var s = 0; s <= seconds && hit == null; s += 5) {
+          hit = monitor.addSample(
+            RideCheckSample(point: stop, at: start.add(Duration(seconds: s))),
+          );
+        }
+      case RideCheckTrigger.offRoute:
+      case RideCheckTrigger.possibleCrash:
+        return open(trigger, rideId: rideId, again: true);
+    }
+    if (hit == null) {
+      if (!policy.enabled) return RideCheckOpenResult.riderOff;
+      if (!settings.isOn(trigger)) return RideCheckOpenResult.triggerOff;
+      return RideCheckOpenResult.noTrigger;
+    }
+    return open(hit.trigger, reason: hit.reason, rideId: rideId, again: true);
   }
 
   // ---- Opening -------------------------------------------------------------
@@ -698,7 +759,8 @@ class RideCheckController extends ChangeNotifier {
     final settings = _service.policy().triggers;
     return switch (trigger) {
       RideCheckTrigger.droppedFar => RideCheckReason(
-        distanceMeters: given.distanceMeters ?? 1200,
+        distanceMeters:
+            given.distanceMeters ?? settings.finishFarFromDropoffKm * 1000 + 400,
         destinationLabel: given.destinationLabel,
       ),
       RideCheckTrigger.longStop => RideCheckReason(
