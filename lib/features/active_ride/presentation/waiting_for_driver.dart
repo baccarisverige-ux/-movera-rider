@@ -245,6 +245,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
         _rideCheckTrip(rideId.trim()),
         _rideCheckPlan(),
       );
+      _startRideCheckStillTimer(rideId.trim());
     } else {
       // No rideId means nothing will ever subscribe: no driver marker, no
       // status changes, and previously no error either — the screen just
@@ -874,6 +875,20 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
   // ---- Ride check (RC1): live positions against the admin's triggers. ----
 
   bool _rideCheckEnded = false;
+  Timer? _rideCheckStillTimer;
+
+  /// A driver app may stay quiet while the car stands still, so no new fix
+  /// comes in to measure the stop. While the trip is under way and the live
+  /// feed is up, check the long stop against the clock as well.
+  void _startRideCheckStillTimer(String rideId) {
+    _rideCheckStillTimer?.cancel();
+    if (!RideCheckController.tripMonitoring) return;
+    _rideCheckStillTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted || _tracking.connectionDegraded) return;
+      if (!DriverEta.isInTrip(_tracking.status)) return;
+      RideCheckController.shared.checkStill(rideId);
+    });
+  }
 
   /// "Solna centrum" from "Solna centrum, 171 45 Solna".
   static String _placeName(String address) {
@@ -1019,6 +1034,7 @@ class _WaitingForDriverState extends State<WaitingForDriver> {
     moveraNavigationEpoch.removeListener(_onNavigationChanged);
     _sheetController.removeListener(_syncSheetOverlay);
     _settleTimer?.cancel();
+    _rideCheckStillTimer?.cancel();
     _sheetController.dispose();
     _tracking.dispose();
     final rideId = _rideId?.trim();

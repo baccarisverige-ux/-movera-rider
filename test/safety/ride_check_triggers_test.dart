@@ -36,10 +36,10 @@ final _t0 = DateTime.utc(2026, 10, 15, 14, 0);
 
 void main() {
   group('RC1 defaults and settings', () {
-    test('the app defaults are 3 km, 5 min, 2 km / 50% and crash on', () {
+    test('the app defaults are 3 km, 2 min, 2 km / 50% and crash on', () {
       const settings = RideCheckTriggerSettings();
       expect(settings.finishFarFromDropoffKm, 3);
-      expect(settings.longStopMinutes, 5);
+      expect(settings.longStopMinutes, 2);
       expect(settings.offRouteKm, 2);
       expect(settings.longerThanExpectedPercent, 50);
       for (final trigger in RideCheckTrigger.values) {
@@ -79,7 +79,7 @@ void main() {
         'offRoute': {'km': 0},
       });
       expect(t.finishFarFromDropoffKm, 3);
-      expect(t.longStopMinutes, 5);
+      expect(t.longStopMinutes, 2);
       expect(t.offRouteKm, 2);
     });
 
@@ -139,9 +139,9 @@ void main() {
 
     test('long stop: over Y min fires, at or under Y min does not', () {
       const t = RideCheckTriggerSettings();
-      expect(t.isLongStop(const Duration(minutes: 5, seconds: 1)), isTrue);
-      expect(t.isLongStop(const Duration(minutes: 5)), isFalse);
-      expect(t.isLongStop(const Duration(minutes: 4, seconds: 59)), isFalse);
+      expect(t.isLongStop(const Duration(minutes: 2, seconds: 1)), isTrue);
+      expect(t.isLongStop(const Duration(minutes: 2)), isFalse);
+      expect(t.isLongStop(const Duration(minutes: 1, seconds: 59)), isFalse);
       const ten = RideCheckTriggerSettings(longStopMinutes: 10);
       expect(ten.isLongStop(const Duration(minutes: 8)), isFalse);
       expect(ten.isLongStop(const Duration(minutes: 11)), isTrue);
@@ -166,7 +166,7 @@ void main() {
         SafetyMockApi.defaultRideCheckTriggers(),
       );
       expect(mock.finishFarFromDropoffKm, 3);
-      expect(mock.longStopMinutes, 5);
+      expect(mock.longStopMinutes, 2);
     });
   });
 
@@ -224,20 +224,20 @@ void main() {
       return hit;
     }
 
-    test('fires after more than 5 min without moving mid-trip', () {
+    test('fires after more than 2 min without moving mid-trip', () {
       final monitor = _monitor();
       expect(
-        feed(monitor, still(stopAt, const Duration(minutes: 5))),
+        feed(monitor, still(stopAt, const Duration(minutes: 2))),
         isNull,
       );
       final hit = monitor.addSample(
         RideCheckSample(
           point: stopAt,
-          at: _t0.add(const Duration(minutes: 5, seconds: 3)),
+          at: _t0.add(const Duration(minutes: 2, seconds: 3)),
         ),
       );
       expect(hit?.trigger, RideCheckTrigger.longStop);
-      expect(hit!.reason.stoppedMinutes, 5);
+      expect(hit!.reason.stoppedMinutes, 2);
       // Once per trip.
       expect(
         monitor.addSample(
@@ -246,6 +246,34 @@ void main() {
             at: _t0.add(const Duration(minutes: 9)),
           ),
         ),
+        isNull,
+      );
+    });
+
+    test('fires on the clock when no new fix comes in while stopped', () {
+      final monitor = _monitor();
+      expect(monitor.checkStill(_t0), isNull);
+      expect(
+        monitor.addSample(RideCheckSample(point: stopAt, at: _t0)),
+        isNull,
+      );
+      expect(monitor.checkStill(_t0.add(const Duration(minutes: 2))), isNull);
+      final hit = monitor.checkStill(
+        _t0.add(const Duration(minutes: 2, seconds: 15)),
+      );
+      expect(hit?.trigger, RideCheckTrigger.longStop);
+      expect(hit!.reason.stoppedMinutes, 2);
+      // Once per trip.
+      expect(monitor.checkStill(_t0.add(const Duration(minutes: 5))), isNull);
+
+      // Not at a planned stop, not in traffic.
+      final atPickup = _monitor()
+        ..addSample(RideCheckSample(point: _pickup, at: _t0));
+      expect(atPickup.checkStill(_t0.add(const Duration(minutes: 5))), isNull);
+      final inTraffic = _monitor()
+        ..addSample(RideCheckSample(point: stopAt, at: _t0, inTraffic: true));
+      expect(
+        inTraffic.checkStill(_t0.add(const Duration(minutes: 5))),
         isNull,
       );
     });
@@ -701,7 +729,7 @@ void main() {
         rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r1'), _plan);
         final stopAt = _north(_pickup, 2000);
         void stand() {
-          for (var s = 0; s <= 310; s += 5) {
+          for (var s = 0; s <= 130; s += 5) {
             rideCheck.addSample(
               'r1',
               RideCheckSample(
@@ -717,7 +745,7 @@ void main() {
 
         RideCheckController.tripMonitoring = true;
         rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r2'), _plan);
-        for (var s = 0; s <= 310; s += 5) {
+        for (var s = 0; s <= 130; s += 5) {
           rideCheck.addSample(
             'r2',
             RideCheckSample(
@@ -728,7 +756,43 @@ void main() {
         }
         await pumpEventQueue();
         expect(rideCheck.session?.trigger, RideCheckTrigger.longStop);
-        expect(rideCheck.session?.reason.stoppedMinutes, 5);
+        expect(rideCheck.session?.reason.stoppedMinutes, 2);
+      },
+    );
+
+    test(
+      'a car last seen standing more than 2 min ago opens the card '
+      'without another fix',
+      () async {
+        RideCheckController.tripMonitoring = true;
+        final stopAt = _north(_pickup, 2000);
+        rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r5'), _plan);
+        rideCheck.addSample(
+          'r5',
+          RideCheckSample(
+            point: stopAt,
+            at: DateTime.now().subtract(const Duration(minutes: 1)),
+          ),
+        );
+        rideCheck.checkStill('r5');
+        await pumpEventQueue();
+        expect(rideCheck.session, isNull);
+
+        rideCheck.attachTrip(const RideCheckTripContext(rideId: 'r6'), _plan);
+        rideCheck.addSample(
+          'r6',
+          RideCheckSample(
+            point: stopAt,
+            at: DateTime.now().subtract(
+              const Duration(minutes: 2, seconds: 10),
+            ),
+          ),
+        );
+        rideCheck.checkStill('r6');
+        await pumpEventQueue();
+        expect(rideCheck.session?.trigger, RideCheckTrigger.longStop);
+        expect(rideCheck.session?.rideId, 'r6');
+        expect(rideCheck.session?.reason.stoppedMinutes, 2);
       },
     );
 
@@ -786,7 +850,7 @@ void main() {
         RideCheckOpenResult.shown,
       );
       expect(rideCheck.session!.trigger, RideCheckTrigger.longStop);
-      expect(rideCheck.session!.reason.stoppedMinutes, 5);
+      expect(rideCheck.session!.reason.stoppedMinutes, 2);
       rideCheck.imOk();
       await rideCheck.settle();
 

@@ -178,8 +178,26 @@ class RideCheckMonitor {
       _stillSince = sample.at;
       return null;
     }
+    return _stoppedFor(anchor, sample.at.difference(_stillSince!));
+  }
+
+  /// No new position has come in (a driver app that stays quiet while the
+  /// car stands still): at [now] the car is still where it was last seen,
+  /// so a stop longer than `longStopMinutes` opens Ride check even without
+  /// another fix.
+  RideCheckDetection? checkStill(DateTime now) {
+    final last = _previous;
+    final anchor = _stillAt;
+    final since = _stillSince;
+    if (last == null || anchor == null || since == null || last.inTraffic) {
+      return null;
+    }
+    if (!now.isAfter(last.at)) return null;
+    return _stoppedFor(anchor, now.difference(since));
+  }
+
+  RideCheckDetection? _stoppedFor(GeoPoint anchor, Duration still) {
     if (!_canFire(RideCheckTrigger.longStop)) return null;
-    final still = sample.at.difference(_stillSince!);
     if (!settings.isLongStop(still)) return null;
     final planned = _plan.plannedStops.any(
       (stop) => _meters(stop, anchor) <= plannedStopRadiusMeters,

@@ -120,7 +120,7 @@ class SafetyMockApi {
     // Admin's "Finished far from drop-off" (X km) and "Unexpected long
     // stop" (Y min).
     'finishFarFromDropoffKm': 3,
-    'longStopMinutes': 5,
+    'longStopMinutes': 2,
     'droppedFar': {'enabled': true, 'km': 3},
     'longStop': {'enabled': true, 'minutes': 5},
     'offRoute': {'enabled': true, 'km': 2, 'longerPercent': 50},

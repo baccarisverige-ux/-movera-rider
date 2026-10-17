@@ -63,7 +63,7 @@ class RideCheckTriggerSettings {
   static const double defaultFinishFarFromDropoffKm = 3;
 
   /// Admin's "Unexpected long stop" time (Y min) when it sends none.
-  static const int defaultLongStopMinutes = 5;
+  static const int defaultLongStopMinutes = 2;
 
   final bool droppedFarEnabled;
 
