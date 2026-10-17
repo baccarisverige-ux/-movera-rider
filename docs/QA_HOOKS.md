@@ -20,7 +20,7 @@ QA builds only (same gate). On the in-trip screen or the ride summary:
 
 ```js
 moveraSimulateRideCheck('longStop', {place: 'Odenplan'})   // or stoppedMinutes
-moveraSimulateRideCheck('droppedFar', {distanceMeters: 1200})
+moveraSimulateRideCheck('droppedFar', {distanceMeters: 3600})
 moveraSimulateRideCheck('offRoute', {distanceMeters: 2400}) // or {longerPercent: 60}
 moveraSimulateRideCheck('possibleCrash')
 JSON.parse(window.moveraRideCheckSnapshotJson)              // read-only state
@@ -30,3 +30,6 @@ The card opens at once; called on another screen, it waits for the next ride
 screen. A trigger that admin turned off, or a rider who switched Ride check
 off, opens nothing (same rules as live detection). Older names
 (`unexpectedStop`, `routeDeviation`) still work.
+
+Public demo builds have no hooks; there, Safety › RideCheck › Try it (demo)
+plays "Driver finished far from drop-off" and "Long stop".

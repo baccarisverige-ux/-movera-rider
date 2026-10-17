@@ -50,18 +50,29 @@ RideCheckTrigger? parseRideCheckTrigger(String? raw) {
 class RideCheckTriggerSettings {
   const RideCheckTriggerSettings({
     this.droppedFarEnabled = true,
-    this.droppedFarMeters = 500,
+    this.finishFarFromDropoffKm = defaultFinishFarFromDropoffKm,
     this.longStopEnabled = true,
-    this.longStopMinutes = 4,
+    this.longStopMinutes = defaultLongStopMinutes,
     this.offRouteEnabled = true,
     this.offRouteKm = 2,
     this.longerThanExpectedPercent = 50,
     this.possibleCrashEnabled = true,
   });
 
+  /// Admin's "Finished far from drop-off" distance (X km) when it sends none.
+  static const double defaultFinishFarFromDropoffKm = 3;
+
+  /// Admin's "Unexpected long stop" time (Y min) when it sends none.
+  static const int defaultLongStopMinutes = 5;
+
   final bool droppedFarEnabled;
-  final int droppedFarMeters;
+
+  /// The driver finishes the trip more than this far from the drop-off:
+  /// Ride check opens right after finish.
+  final double finishFarFromDropoffKm;
   final bool longStopEnabled;
+
+  /// The car stands still mid-trip for more than this: Ride check opens.
   final int longStopMinutes;
   final bool offRouteEnabled;
   final double offRouteKm;
@@ -75,9 +86,18 @@ class RideCheckTriggerSettings {
     RideCheckTrigger.possibleCrash => possibleCrashEnabled,
   };
 
+  /// The trip finished [metersFromDropoff] from the drop-off: is that more
+  /// than admin's distance? (On/off is checked separately.)
+  bool finishedFarFromDropoff(double metersFromDropoff) =>
+      metersFromDropoff > finishFarFromDropoffKm * 1000;
+
+  /// The car has stood still for [still]: is that more than admin's time?
+  bool isLongStop(Duration still) =>
+      still > Duration(minutes: longStopMinutes);
+
   RideCheckTriggerSettings copyWith({
     bool? droppedFarEnabled,
-    int? droppedFarMeters,
+    double? finishFarFromDropoffKm,
     bool? longStopEnabled,
     int? longStopMinutes,
     bool? offRouteEnabled,
@@ -87,7 +107,8 @@ class RideCheckTriggerSettings {
   }) {
     return RideCheckTriggerSettings(
       droppedFarEnabled: droppedFarEnabled ?? this.droppedFarEnabled,
-      droppedFarMeters: droppedFarMeters ?? this.droppedFarMeters,
+      finishFarFromDropoffKm:
+          finishFarFromDropoffKm ?? this.finishFarFromDropoffKm,
       longStopEnabled: longStopEnabled ?? this.longStopEnabled,
       longStopMinutes: longStopMinutes ?? this.longStopMinutes,
       offRouteEnabled: offRouteEnabled ?? this.offRouteEnabled,
@@ -99,7 +120,9 @@ class RideCheckTriggerSettings {
   }
 
   Map<String, dynamic> toJson() => {
-    'droppedFar': {'enabled': droppedFarEnabled, 'meters': droppedFarMeters},
+    'finishFarFromDropoffKm': finishFarFromDropoffKm,
+    'longStopMinutes': longStopMinutes,
+    'droppedFar': {'enabled': droppedFarEnabled, 'km': finishFarFromDropoffKm},
     'longStop': {'enabled': longStopEnabled, 'minutes': longStopMinutes},
     'offRoute': {
       'enabled': offRouteEnabled,
@@ -124,16 +147,31 @@ class RideCheckTriggerSettings {
       return value.round();
     }
 
+    double? positive(Object? value) =>
+        value is num && value.isFinite && value > 0 ? value.toDouble() : null;
+
     final dropped = part('droppedFar');
     final stop = part('longStop');
     final route = part('offRoute');
     final crash = part('possibleCrash');
     final km = route['km'];
+    // Admin's named settings first, then the per-trigger part; an older
+    // server's `meters` still reads.
+    final legacyMeters = positive(dropped['meters']);
+    final finishKm =
+        positive(raw['finishFarFromDropoffKm']) ??
+        positive(dropped['km']) ??
+        (legacyMeters == null ? null : legacyMeters / 1000) ??
+        defaults.finishFarFromDropoffKm;
+    final rawMinutes = raw['longStopMinutes'];
     return RideCheckTriggerSettings(
       droppedFarEnabled: on(dropped, defaults.droppedFarEnabled),
-      droppedFarMeters: whole(dropped['meters'], defaults.droppedFarMeters),
+      finishFarFromDropoffKm: finishKm,
       longStopEnabled: on(stop, defaults.longStopEnabled),
-      longStopMinutes: whole(stop['minutes'], defaults.longStopMinutes),
+      longStopMinutes: whole(
+        rawMinutes is num ? rawMinutes : stop['minutes'],
+        defaults.longStopMinutes,
+      ),
       offRouteEnabled: on(route, defaults.offRouteEnabled),
       offRouteKm: km is num && km.isFinite && km > 0
           ? km.toDouble()

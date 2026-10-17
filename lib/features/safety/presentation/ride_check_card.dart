@@ -62,7 +62,8 @@ String _reasonIcon(RideCheckTrigger trigger) => switch (trigger) {
       final place = reason.place;
       return (
         before: 'Your car has stopped for ',
-        bold: '${reason.stoppedMinutes ?? 4} min',
+        bold:
+            '${reason.stoppedMinutes ?? RideCheckTriggerSettings.defaultLongStopMinutes} min',
         after: place == null ? '' : ' · $place',
       );
     case RideCheckTrigger.offRoute:

@@ -196,10 +196,11 @@ void main() {
       const rideId = 'rc-dropped-far';
       final realtime = await pumpInTrip(tester, rideId);
 
-      // The car stops about 1.2 km from Solna centrum and the trip ends.
+      // The driver finishes about 3.6 km from Solna centrum (admin's
+      // default is 3 km).
       realtime.emit(
         RideStatus.tripCompleted,
-        latitude: _destination.latitude + 0.0108,
+        latitude: _destination.latitude + 0.0324,
         longitude: _destination.longitude,
       );
       await tester.pump();
@@ -210,7 +211,7 @@ void main() {
       expect(find.text('Is everything OK?'), findsOneWidget);
       expect(
         find.text(
-          'Your trip ended 1.2 km from Solna centrum',
+          'Your trip ended 3.6 km from Solna centrum',
           findRichText: true,
         ),
         findsOneWidget,

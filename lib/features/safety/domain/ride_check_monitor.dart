@@ -138,11 +138,12 @@ class RideCheckMonitor {
     return detection;
   }
 
-  /// The trip ended at [end]: far from the drop-off is a Ride check.
+  /// The driver finished the trip at [end]: more than admin's
+  /// `finishFarFromDropoffKm` from the drop-off is a Ride check.
   RideCheckDetection? tripEnded(GeoPoint end) {
     if (!_canFire(RideCheckTrigger.droppedFar)) return null;
     final meters = _meters(end, _plan.destination);
-    if (meters <= settings.droppedFarMeters) return null;
+    if (!settings.finishedFarFromDropoff(meters)) return null;
     return _fire(
       RideCheckTrigger.droppedFar,
       RideCheckReason(
@@ -179,7 +180,7 @@ class RideCheckMonitor {
     }
     if (!_canFire(RideCheckTrigger.longStop)) return null;
     final still = sample.at.difference(_stillSince!);
-    if (still < Duration(minutes: settings.longStopMinutes)) return null;
+    if (!settings.isLongStop(still)) return null;
     final planned = _plan.plannedStops.any(
       (stop) => _meters(stop, anchor) <= plannedStopRadiusMeters,
     );

@@ -117,8 +117,12 @@ class SafetyMockApi {
   /// Ride check triggers as admin sets them in Dispatch › Safety (RC6), with
   /// the app's defaults. The rider app reads them and cannot change them.
   static Map<String, dynamic> defaultRideCheckTriggers() => {
-    'droppedFar': {'enabled': true, 'meters': 500},
-    'longStop': {'enabled': true, 'minutes': 4},
+    // Admin's "Finished far from drop-off" (X km) and "Unexpected long
+    // stop" (Y min).
+    'finishFarFromDropoffKm': 3,
+    'longStopMinutes': 5,
+    'droppedFar': {'enabled': true, 'km': 3},
+    'longStop': {'enabled': true, 'minutes': 5},
     'offRoute': {'enabled': true, 'km': 2, 'longerPercent': 50},
     'possibleCrash': {'enabled': true},
   };
