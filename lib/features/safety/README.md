@@ -56,7 +56,7 @@ Writes send `Idempotency-Key`. Mock PIN is cached locally so web refresh works; 
 `RideCheckPolicy.triggers`: finished far from drop-off (driver taps Finish
 more than admin's `finishFarFromDropoffKm`, default 3 km, from the drop-off;
 the card opens right after finish), long stop (more than admin's
-`longStopMinutes`, default 5 min), off the route (2 km or 50% longer) and
+`longStopMinutes`, default 2 min), off the route (2 km or 50% longer) and
 possible crash. A hit opens
 `RideCheckLayer` (presentation): the dark-glass card at the top of the in-trip
 screen and the ride summary. It cannot be dismissed without an answer. Red

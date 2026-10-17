@@ -274,6 +274,22 @@ class RideCheckController extends ChangeNotifier {
     }
   }
 
+  /// No new position for a while: checks the long stop against the clock,
+  /// with the car still where it was last seen standing. The in-trip screen
+  /// calls this on a timer while the live feed is up.
+  void checkStill(String rideId) {
+    if (!tripMonitoring || _trip?.rideId != rideId) return;
+    final monitor = _monitor;
+    if (monitor == null) return;
+    final policy = _service.policy();
+    if (!policy.enabled) return;
+    monitor.settings = policy.triggers;
+    final hit = monitor.checkStill(_clock());
+    if (hit != null) {
+      unawaited(open(hit.trigger, reason: hit.reason, rideId: rideId));
+    }
+  }
+
   /// The trip ended at [end] (the car's last position).
   Future<RideCheckOpenResult> tripEnded(String rideId, GeoPoint end) async {
     if (!tripMonitoring) return RideCheckOpenResult.notMonitoring;

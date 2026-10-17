@@ -64,7 +64,8 @@ class _RideCheckDemoPageState extends State<RideCheckDemoPage> {
           'RideCheck opens right after the trip ends.',
     RideCheckTrigger.longStop =>
       'Mid-trip, the car stood still for more than ${t.longStopMinutes} min, '
-          'not at a planned stop or in traffic.',
+          'not at a planned stop or in traffic. '
+          'RideCheck opens right away, during the trip.',
     _ => 'RideCheck opens on the trip.',
   };
 
